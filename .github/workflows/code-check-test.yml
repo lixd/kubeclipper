@@ -29,6 +29,9 @@ jobs:
 
       - name: Check pr is properly formatted
         run: diff -u <(echo -n) <(gofmt -d ./pkg ./cmd ./tools ./test)
+        
+      - name: test11
+        run: echo ${{ github.head_ref }}
 
       - name: Checkfmt
         shell: bash
