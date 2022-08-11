@@ -60,7 +60,7 @@
 					"iam.kubeclipper.io"
 				],
 				"resources": [
-					"roles"
+					"roles111"
 				]
 			}
 		]
