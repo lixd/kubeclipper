@@ -25,5 +25,5 @@ pki
 *.code-workspace
 
 tools/kcctldocs-gen/generators/build/
-tools/kcctldocs-gen/generators/includes/
+tools/kcctldocs-gen/generators/includes/111
 tools/kcctldocs-gen/generators/manifest.json
