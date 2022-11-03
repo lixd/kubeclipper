@@ -3,7 +3,7 @@ name: test
 on:
   pull_request:
     branches:
-      - '*'
+      - 'master'
 
 jobs:
   build:
@@ -42,8 +42,8 @@ jobs:
           sudo systemctl stop kc-server
           sudo cp ./dist/kubeclipper-agent /usr/local/bin/
           sudo cp ./dist/kubeclipper-server /usr/local/bin/
-          sudo systemctl start kc-agent
           sudo systemctl start kc-server
+          sudo systemctl start kc-agent
       - name: login
         run: |
           sleep 20s
@@ -53,19 +53,19 @@ jobs:
           NODE=$(sudo kcctl get node -o yaml|grep ipv4DefaultIP:|sed 's/ipv4DefaultIP: //'|awk '{gsub(/^\s+|\s+$/, "");print}')
           echo $NODE
           sudo kcctl create cluster --master $NODE --name demo --untaint-master
-      - name: pass or fail
-        run: |
+      - name: pass or fail 
+        run: |     
           status=$(sudo kcctl get cluster -o yaml|grep "phase:" | awk -F" " '{print $2}')
           count=0
           while [[ $status ==  "Installing" ]] && [[ $count -lt 60 ]]
           do 
-          sleep 3s ;
+          sleep 5s ;
           status=$(sudo kcctl get cluster -o yaml|grep "phase:" | awk -F" " '{print $2}') ; 
           count=$[$count+1] ; 
           done
           case $status in
           Installing)
-          echo Installation time exceeds 3mins, installation status is $status
+          echo Installation time exceeds 5mins, installation status is $status
           exit 101
           ;;
           InstallFailed)
