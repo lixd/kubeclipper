@@ -3,8 +3,11 @@ name: build-kc-image
 on:
   push:
     branches:
-      - '*'
-#123
+      - 'master'
+      - 're*'
+    tags:
+      - 'v*'
+
 # This ensures that previous jobs for the branch are canceled when the branch is updated.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -56,13 +59,12 @@ jobs:
 
       - name: Run buildx
         run: |
-          tag=latest
-          if [[ "${{ steps.extract_branch.outputs.branch }}" =~ ^release-.* ]]; then
-            IFS="-" read -ra items <<< "$(git describe)"
-            if [[ ! ${#items[@]} -eq 0 ]]; then
-               tag=$(echo ${items[0]}|sed 's/release-/v/')
-            fi
+          if [[ "${{ steps.extract_branch.outputs.branch }}" == "master" ]];then 
+             tag=latest
+          elif [[ -n  "${{ steps.extract_tag.outputs.version }}" ]];then
+            tag="${{ steps.extract_tag.outputs.version }}"
           fi
+     
           echo extract_tag   ${{ steps.extract_tag.outputs.branch }}
           echo extract_branch  ${{ steps.extract_branch.outputs.branch }}
           echo current tag is ${tag}
