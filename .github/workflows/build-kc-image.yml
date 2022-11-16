@@ -31,7 +31,16 @@ jobs:
       - name: Get branch name
         id: extract_branch
         shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_BASE_REF})"
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_HEAD_REF})"
+
+      - name: Extract Tag
+        id: extract_tag
+        run:  echo ::set-output name=version::${GITHUB_REF/refs\/tags\//}
+
+      - name: Extract branch name2
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch2
 
       - name: Set up docker buildx
         id: buildx
@@ -58,7 +67,10 @@ jobs:
                tag=$(echo ${items[0]}|sed 's/release-/v/')
             fi
           fi
+          echo extract_branch    ${{ steps.extract_branch.outputs.branch }}
+          echo extract_tag   ${{ steps.extract_tag.outputs.branch }}
+          echo extract_branch2  ${{ steps.extract_branch2.outputs.branch }}
           echo current tag is ${tag}
-          #docker buildx build --platform linux/amd64,linux/arm64 --push --file ./Dockerfile -t lixd96/kc-server:${tag} .
+          #docker buildx build --platform linux/amd64,linux/arm64 --push --file ./Dockerfile -t kubeclipper/kc-server:${tag} .
 
 

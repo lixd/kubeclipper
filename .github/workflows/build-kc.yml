@@ -57,7 +57,7 @@ jobs:
           endpoint:  ${{ secrets.OSS_ENDPOINT }}
           access-key-id: ${{ secrets.OSS_ACCESS_KEY }}
           access-key-secret: ${{ secrets.OSS_ACCESS_SECRET }}
-          #sts-token: "sts_token"
+          #sts-token: "sts_token"111
       - name: Upload to oss
         run: |
           ossutil cp -rf dist/kc-linux-arm64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.branch }}/
