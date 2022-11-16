@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - '*'
-
+#123
 # This ensures that previous jobs for the branch are canceled when the branch is updated.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,19 +28,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get branch name
-        id: extract_branch
-        shell: bash
-        run: echo "##[set-output name=branch;]$(echo ${GITHUB_HEAD_REF})"
 
       - name: Extract Tag
         id: extract_tag
         run:  echo ::set-output name=version::${GITHUB_REF/refs\/tags\//}
 
-      - name: Extract branch name2
+      - name: Extract branch name
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
-        id: extract_branch2
+        id: extract_branch
 
       - name: Set up docker buildx
         id: buildx
@@ -67,9 +63,8 @@ jobs:
                tag=$(echo ${items[0]}|sed 's/release-/v/')
             fi
           fi
-          echo extract_branch    ${{ steps.extract_branch.outputs.branch }}
           echo extract_tag   ${{ steps.extract_tag.outputs.branch }}
-          echo extract_branch2  ${{ steps.extract_branch2.outputs.branch }}
+          echo extract_branch  ${{ steps.extract_branch.outputs.branch }}
           echo current tag is ${tag}
           #docker buildx build --platform linux/amd64,linux/arm64 --push --file ./Dockerfile -t kubeclipper/kc-server:${tag} .
 
