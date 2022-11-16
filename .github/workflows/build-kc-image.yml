@@ -59,13 +59,14 @@ jobs:
 
       - name: Run buildx
         run: |
+          tag=latest
           if [[ "${{ steps.extract_branch.outputs.branch }}" == "master" ]];then 
              tag=latest
-          elif [[ -n  "${{ steps.extract_tag.outputs.version }}" ]];then
+          elif [[ "${{ steps.extract_tag.outputs.version }}" == v* ]]; then
             tag="${{ steps.extract_tag.outputs.version }}"
           fi
      
-          echo extract_tag   ${{ steps.extract_tag.outputs.branch }}
+          echo extract_tag   ${{ steps.extract_tag.outputs.version }}
           echo extract_branch  ${{ steps.extract_branch.outputs.branch }}
           echo current tag is ${tag}
           #docker buildx build --platform linux/amd64,linux/arm64 --push --file ./Dockerfile -t kubeclipper/kc-server:${tag} .
