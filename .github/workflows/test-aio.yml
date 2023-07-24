@@ -1,10 +1,9 @@
 name: e2e-aio-test
 
 on:
-  pull_request:
+  push:
     branches:
-      - 'master'
-      - 'release*'
+      - '*'
 
 jobs:
   build:
@@ -29,21 +28,15 @@ jobs:
         shell: bash
         run: echo "##[set-output name=branch;]$(echo ${GITHUB_BASE_REF})"
       - name: Build
-        if: github.event_name == 'pull_request'
         run:
           KUBE_BUILD_PLATFORMS="linux/amd64" make build
       - name: deploy
         run: |
           current_branch=master
-          if [[ "${{ steps.extract_branch.outputs.branch }}" =~ ^release-.* ]]; then
-            IFS="-" read -ra items <<< "$(git describe)"
-            if [[ ! ${#items[@]} -eq 0 ]]; then
-              current_branch=${items[0]}
-            fi
-          fi
-          echo current version is ${current_branch}
           curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | sudo KC_VERSION=${current_branch} KC_REGION=cn bash -
           sudo kcctl deploy --pkg https://oss.kubeclipper.io/release/${current_branch}/kc-amd64.tar.gz
+          echo "run rm -rf /tmp/kc-amd64.tar.gz"
+          sudo rm -rf /tmp/kc-amd64.tar.gz
       - name: update kc assembly
         run: |
           sudo cp ./dist/kcctl /usr/local/bin/

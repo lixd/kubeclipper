@@ -17,6 +17,28 @@ deps:
 		CLIENT_GEN=$(shell which client-gen)
     endif
 
+.PHONY: aio
+aio:
+	@kcctl login -H http://localhost:80 -u admin -p Thinkbig1
+	@node=$$(kcctl get node -oyaml | grep ipv4DefaultIP | sed 's/ ipv4DefaultIP: //'); \
+	echo $$node; \
+	kcctl create cluster --name keda --master $$node --untaint-master; \
+	while true; \
+	do \
+		logDir="/var/log/kc-agent"; \
+		op=$$(ls $$logDir -t | grep -v total | head -n 1 | awk '{print $$1}'); \
+		echo -e "\n当前操作 ID："$$op; \
+		latestSteps=$$(ls "$$logDir/$$op" -t | grep -v total | head -n 1 | awk '{print $$1}'); \
+		echo -e "当前最新步骤："$$latestSteps"\n"; \
+		tail -n 20 "$$logDir/$$op/$$latestSteps"; \
+		echo -e "查看 calico：\n"; \
+		calico=$$(sudo kubectl get pods -n kube-system | grep calico |awk '{print $1}'); \
+		echo -e "calico pod："$$calico"\n"; \
+        sudo kubectl describe -n kube-system $$calico; \
+		sleep 3; \
+	done
+
+
 .PHONY: build build-server build-agent build-proxy build-cli openapi
 build: build-server build-agent build-proxy build-cli
 
