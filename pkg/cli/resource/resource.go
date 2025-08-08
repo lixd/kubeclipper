@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -136,7 +137,7 @@ func NewResourceOptions(streams options.IOStreams) *ResourceOptions {
 		IOStreams:    streams,
 		PrintFlags:   printer.NewPrintFlags(),
 		deployConfig: options.NewDeployOptions(),
-		Arch:         "amd64",
+		Arch:         getCurrentArch(),
 	}
 }
 
@@ -632,4 +633,13 @@ func (o *ResourceOptions) resourceList() []scheme.MetaResource {
 		}
 	}
 	return list
+}
+
+// getCurrentArch returns the current system architecture
+func getCurrentArch() string {
+	arch := runtime.GOARCH
+	if arch == "amd64" || arch == "arm64" {
+		return arch
+	}
+	return ""
 }
