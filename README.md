@@ -46,6 +46,14 @@ management, application store).see
 
 **🎯 Project Goal**：Manage Kubernetes in the most light and convenient way.
 
+## 🌟 CNCF Sandbox Project
+
+![logo](https://landscape.cncf.io/images/cncf-landscape-horizontal-color.svg)
+
+KubeClipper is a sandbox and  
+[landscape](https://landscape.cncf.io/?item=platform--certified-kubernetes-installer--kubeclipper)   
+project of Cloud Native Computing Foundation (CNCF).
+
 ## Features
 
 <details>
@@ -282,14 +290,6 @@ our [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for details.
 ## Star History
 
 ![Star History Chart](https://api.star-history.com/svg?repos=kubeclipper/kubeclipper&type=Date)
-
-## Landscapes
-
-<p align="center">
-<img src="https://landscape.cncf.io/images/cncf-landscape-horizontal-color.svg" width="300"/>
-<br/><br/>
-KubeClipper is a <a href="https://landscape.cncf.io/?group=certified-partners-and-providers&item=platform--certified-kubernetes-installer--kubeclipper">CNCF sandbox project.</a>
-</p>
 
 ---
 

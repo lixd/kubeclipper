@@ -43,6 +43,15 @@ KubeClipper 提供灵活的 Kubernetes 即服务（KaaS），允许用户在任�
 
 **🎯 项目目标**：以最轻松便捷的方式管理 Kubernetes。
 
+## 🌟 CNCF Sandbox Project
+
+![logo](https://landscape.cncf.io/images/cncf-landscape-horizontal-color.svg)
+
+
+KubeClipper is a sandbox and  
+[landscape](https://landscape.cncf.io/?item=platform--certified-kubernetes-installer--kubeclipper)   
+project of Cloud Native Computing Foundation (CNCF).
+
 ## Features
 
 <details>
@@ -254,14 +263,6 @@ kcctl get cluster -o yaml|grep status -A5
 ## Contributing
 
 请参考 [Community](https://github.com/kubeclipper/community) 的相关文档，加入我们
-
-## Landscapes
-
-<p align="center">
-<img src="https://landscape.cncf.io/images/cncf-landscape-horizontal-color.svg" width="300"/>
-<br/><br/>
-KubeClipper is a <a href="https://landscape.cncf.io/?group=certified-partners-and-providers&item=platform--certified-kubernetes-installer--kubeclipper">CNCF sandbox project.</a>
-</p>
 
 ---
 
