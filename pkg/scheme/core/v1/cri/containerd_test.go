@@ -682,6 +682,77 @@ func TestContainerdRunnable_renderTo_V2_BackwardCompat(t *testing.T) {
 	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "sandbox_image"}))
 }
 
+func TestMergeRegistryAuthIntoConfig_V3(t *testing.T) {
+	v3Config := `version = 3
+root = "/var/lib/containerd"
+
+[plugins]
+  [plugins."io.containerd.cri.v1.images"]
+    [plugins."io.containerd.cri.v1.images".pinned_images]
+      sandbox = "registry.k8s.io/pause:3.9"
+
+    [plugins."io.containerd.cri.v1.images".containerd]
+      snapshotter = "overlayfs"
+
+    [plugins."io.containerd.cri.v1.images".registry]
+      config_path = "/etc/containerd/certs.d"
+
+      [plugins."io.containerd.cri.v1.images".registry.configs]
+
+      [plugins."io.containerd.cri.v1.images".registry.mirrors]
+
+  [plugins."io.containerd.cri.v1.runtime"]
+    [plugins."io.containerd.cri.v1.runtime".containerd]
+      default_runtime_name = "nvidia"
+
+      [plugins."io.containerd.cri.v1.runtime".containerd.runtimes]
+
+        [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia]
+          runtime_type = "io.containerd.runc.v2"
+
+          [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.nvidia.options]
+            BinaryName = "/usr/bin/nvidia-container-runtime"
+            SystemdCgroup = true
+`
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+	require.NoError(t, os.WriteFile(configPath, []byte(v3Config), 0644))
+
+	runnable := &ContainerdRunnable{
+		Base: Base{
+			RegistryWithAuth: []v1.RegistrySpec{
+				{
+					Host: "registry.example.com",
+					RegistryAuth: &v1.RegistryAuth{
+						Username: "admin",
+						Password: "s3cret",
+					},
+				},
+			},
+		},
+	}
+
+	err := runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
+	require.NoError(t, err)
+
+	result, err := toml.LoadFile(configPath)
+	require.NoError(t, err)
+
+	// auth under cri.v1.images path
+	authPath := []string{"plugins", "io.containerd.cri.v1.images", "registry", "configs", "registry.example.com", "auth"}
+	authTree := result.GetPath(authPath)
+	require.NotNil(t, authTree, "auth should be written to cri.v1.images path for v3 config")
+	authToml, ok := authTree.(*toml.Tree)
+	require.True(t, ok)
+	assert.Equal(t, "admin", authToml.Get("username"))
+	assert.Equal(t, "s3cret", authToml.Get("password"))
+
+	// nvidia runtime preserved
+	binName := result.GetPath([]string{"plugins", "io.containerd.cri.v1.runtime", "containerd", "runtimes", "nvidia", "options", "BinaryName"})
+	assert.Equal(t, "/usr/bin/nvidia-container-runtime", binName)
+}
+
 func TestMergeRegistryAuthIntoConfig_DryRun(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.toml")

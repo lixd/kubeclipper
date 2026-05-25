@@ -300,6 +300,12 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		return nil
 	}
 
+	configVer := containerdConfigVersion(configPath)
+	pluginPrefix := "io.containerd.grpc.v1.cri"
+	if configVer >= 3 {
+		pluginPrefix = "io.containerd.cri.v1.images"
+	}
+
 	// Load existing config.toml
 	conf, err := toml.LoadFile(configPath)
 	if err != nil {
@@ -311,14 +317,14 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		return fmt.Errorf("failed to load containerd config: %w", err)
 	}
 
-	// Ensure plugins."io.containerd.grpc.v1.cri".registry.configs path exists
-	registryPath := []string{"plugins", "io.containerd.grpc.v1.cri", "registry"}
+	// Ensure plugins.<pluginPrefix>.registry.configs path exists
+	registryPath := []string{"plugins", pluginPrefix, "registry"}
 	if conf.GetPath(registryPath) == nil {
 		configsTree, treeErr := toml.TreeFromMap(map[string]interface{}{})
 		if treeErr != nil {
 			return fmt.Errorf("failed to create configs tree: %w", treeErr)
 		}
-		conf.SetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "registry", "configs"}, configsTree)
+		conf.SetPath([]string{"plugins", pluginPrefix, "registry", "configs"}, configsTree)
 	}
 
 	registryTree := conf.GetPath(registryPath)
@@ -353,7 +359,7 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 	// go-toml's Get treats dots in key names as path separators.
 	for _, host := range configsTree.Keys() {
 		if _, want := authHosts[host]; !want {
-			hostTree, ok := conf.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "registry", "configs", host}).(*toml.Tree)
+			hostTree, ok := conf.GetPath([]string{"plugins", pluginPrefix, "registry", "configs", host}).(*toml.Tree)
 			if !ok {
 				continue
 			}
@@ -381,7 +387,7 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		if treeErr != nil {
 			return fmt.Errorf("failed to create auth tree for %s: %w", reg.Host, treeErr)
 		}
-		conf.SetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "registry", "configs", reg.Host, "auth"}, authTree)
+		conf.SetPath([]string{"plugins", pluginPrefix, "registry", "configs", reg.Host, "auth"}, authTree)
 		logger.Infof("updated registry auth config for %s", reg.Host)
 	}
 
