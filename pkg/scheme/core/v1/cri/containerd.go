@@ -442,9 +442,13 @@ func (runnable *ContainerdRunnable) disableContainerdService(ctx context.Context
 	}
 }
 
-func (runnable *ContainerdRunnable) renderTo(w io.Writer) error {
+func (r *ContainerdRunnable) renderTo(w io.Writer) error {
 	at := tmplutil.New()
-	_, err := at.RenderTo(w, configTomlTemplate, runnable)
+	if r.isContainerdV2() {
+		_, err := at.RenderTo(w, configTomlV3Template, r)
+		return err
+	}
+	_, err := at.RenderTo(w, configTomlTemplate, r)
 	return err
 }
 
