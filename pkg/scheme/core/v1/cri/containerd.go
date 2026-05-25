@@ -242,6 +242,33 @@ func (runnable *ContainerdRunnable) matchPauseVersion(kubeVersion string) (strin
 	return k8sMatchPauseVersion[kubeVersion], registry
 }
 
+func (r *ContainerdRunnable) isContainerdV2() bool {
+	if r.Version == "" {
+		return false
+	}
+	parts := strings.SplitN(r.Version, ".", 2)
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return false
+	}
+	return major >= 2
+}
+
+func containerdConfigVersion(configPath string) int {
+	conf, err := toml.LoadFile(configPath)
+	if err != nil {
+		return 2
+	}
+	v := conf.Get("version")
+	if v == nil {
+		return 2
+	}
+	if n, ok := v.(int64); ok {
+		return int(n)
+	}
+	return 2
+}
+
 func (runnable *ContainerdRunnable) setupContainerdConfig(ctx context.Context, dryRun bool) error {
 	// local registry not filled and is in online mode, the default repo mirror proxy will be used
 	if !runnable.Offline && runnable.LocalRegistry == "" {

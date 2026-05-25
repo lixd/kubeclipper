@@ -520,6 +520,62 @@ func TestMergeRegistryAuthIntoConfig_RemoveStaleAuth(t *testing.T) {
 	assert.Equal(t, "nvidia", result.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "containerd", "default_runtime_name"}))
 }
 
+func TestIsContainerdV2(t *testing.T) {
+	tests := []struct {
+		name    string
+		version string
+		want    bool
+	}{
+		{"v1 minor", "1.7.29", false},
+		{"v2 minor", "2.0.0", true},
+		{"v2.2", "2.2.4", true},
+		{"v3", "3.0.0", true},
+		{"v0", "0.9.0", false},
+		{"empty", "", false},
+		{"no patch", "2.0", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &ContainerdRunnable{Base: Base{Version: tt.version}}
+			assert.Equal(t, tt.want, r.isContainerdV2())
+		})
+	}
+}
+
+func TestContainerdConfigVersion(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    int
+	}{
+		{
+			"v2 config",
+			`version = 2
+root = "/var/lib/containerd"`,
+			2,
+		},
+		{
+			"v3 config",
+			`version = 3
+root = "/var/lib/containerd"`,
+			3,
+		},
+		{
+			"no version field defaults to 2",
+			`root = "/var/lib/containerd"`,
+			2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			p := filepath.Join(dir, "config.toml")
+			require.NoError(t, os.WriteFile(p, []byte(tt.content), 0644))
+			assert.Equal(t, tt.want, containerdConfigVersion(p))
+		})
+	}
+}
+
 func TestMergeRegistryAuthIntoConfig_DryRun(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.toml")
