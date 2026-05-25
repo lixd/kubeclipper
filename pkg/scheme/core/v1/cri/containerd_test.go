@@ -576,6 +576,112 @@ root = "/var/lib/containerd"`,
 	}
 }
 
+func TestContainerdRunnable_renderTo_V3(t *testing.T) {
+	runnable := &ContainerdRunnable{
+		Base: Base{
+			Version:     "2.2.4",
+			Offline:     true,
+			DataRootDir: "/var/lib/containerd",
+			Registies: []v1.RegistrySpec{
+				{
+					Scheme: "http",
+					Host:   "127.0.0.1:5000",
+				},
+			},
+			RegistryWithAuth: []v1.RegistrySpec{
+				{
+					Host: "127.0.0.1:6000",
+					RegistryAuth: &v1.RegistryAuth{
+						Username: "myuser",
+						Password: "mypassword",
+					},
+				},
+			},
+		},
+		LocalRegistry:       "127.0.0.1:5000",
+		KubeVersion:         "1.29.0",
+		PauseVersion:        "3.9",
+		PauseRegistry:       "registry.k8s.io",
+		RegistryConfigDir:   "/etc/containerd/certs.d",
+		EnableSystemdCgroup: "true",
+	}
+
+	w := &bytes.Buffer{}
+	err := runnable.renderTo(w)
+	require.NoError(t, err)
+
+	result := w.String()
+	conf, err := toml.Load(result)
+	require.NoError(t, err)
+
+	// version = 3
+	assert.Equal(t, int64(3), conf.Get("version"))
+
+	// CRI plugin split: cri.v1.images exists
+	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.cri.v1.images"}), "cri.v1.images plugin should exist")
+	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.cri.v1.runtime"}), "cri.v1.runtime plugin should exist")
+	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri"}), "grpc.v1.cri plugin should exist")
+
+	// pinned_images.sandbox instead of sandbox_image
+	sandbox := conf.GetPath([]string{"plugins", "io.containerd.cri.v1.images", "pinned_images", "sandbox"})
+	assert.Equal(t, "127.0.0.1:5000/pause:3.9", sandbox)
+
+	// sandbox_image should NOT exist at old path
+	assert.Nil(t, conf.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "sandbox_image"}))
+
+	// registry under cri.v1.images
+	assert.Equal(t, "/etc/containerd/certs.d", conf.GetPath([]string{"plugins", "io.containerd.cri.v1.images", "registry", "config_path"}))
+
+	// auth under cri.v1.images
+	authTree := conf.GetPath([]string{"plugins", "io.containerd.cri.v1.images", "registry", "configs", "127.0.0.1:6000", "auth"})
+	require.NotNil(t, authTree, "auth should exist under cri.v1.images")
+	authToml, ok := authTree.(*toml.Tree)
+	require.True(t, ok)
+	assert.Equal(t, "myuser", authToml.Get("username"))
+	assert.Equal(t, "mypassword", authToml.Get("password"))
+
+	// SystemdCgroup under cri.v1.runtime
+	sysCgroup := conf.GetPath([]string{"plugins", "io.containerd.cri.v1.runtime", "containerd", "runtimes", "runc", "options", "SystemdCgroup"})
+	assert.Equal(t, true, sysCgroup)
+
+	// monitor renamed
+	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.monitor.task.v1.cgroups"}), "monitor.task.v1.cgroups should exist")
+	assert.Nil(t, conf.GetPath([]string{"plugins", "io.containerd.monitor.v1.cgroups"}), "old monitor path should not exist")
+
+	// deprecated fields removed
+	assert.Nil(t, conf.GetPath([]string{"plugins", "io.containerd.runtime.v1.linux"}), "runtime.v1.linux should be removed")
+	assert.Nil(t, conf.GetPath([]string{"plugins", "io.containerd.snapshotter.v1.aufs"}), "aufs snapshotter should be removed")
+}
+
+func TestContainerdRunnable_renderTo_V2_BackwardCompat(t *testing.T) {
+	runnable := &ContainerdRunnable{
+		Base: Base{
+			Version:     "1.7.29",
+			Offline:     true,
+			DataRootDir: "/var/lib/containerd",
+		},
+		PauseVersion:        "3.9",
+		PauseRegistry:       "registry.k8s.io",
+		RegistryConfigDir:   "/etc/containerd/certs.d",
+		EnableSystemdCgroup: "true",
+	}
+
+	w := &bytes.Buffer{}
+	err := runnable.renderTo(w)
+	require.NoError(t, err)
+
+	conf, err := toml.Load(w.String())
+	require.NoError(t, err)
+
+	// version = 2
+	assert.Equal(t, int64(2), conf.Get("version"))
+
+	// monolithic CRI plugin
+	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri"}))
+	// sandbox_image at old path
+	assert.NotNil(t, conf.GetPath([]string{"plugins", "io.containerd.grpc.v1.cri", "sandbox_image"}))
+}
+
 func TestMergeRegistryAuthIntoConfig_DryRun(t *testing.T) {
 	dir := t.TempDir()
 	configPath := filepath.Join(dir, "config.toml")
