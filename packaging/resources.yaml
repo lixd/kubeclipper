@@ -38,13 +38,6 @@ resources:
       chartVersion: v3.31.5
       helmRepo: https://docs.tigera.io/calico/charts
 addons:
-  csi-driver-nfs:
-    enabled: true
-    versions:
-      - v4.12.1
-    chartRepo: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
-    chartName: csi-driver-nfs
-    chartVersion: 4.12.1
   nvidia-dra-driver-gpu:
     enabled: false
     versions:

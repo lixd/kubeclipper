@@ -27,7 +27,6 @@ Usage:
   build-addon-package.sh --name <component> [flags]
 
 Components:
-  csi-driver-nfs
   kc-extension
   kubectl-terminal
   nvidia-dra-driver-gpu
@@ -87,12 +86,6 @@ validate_arch "$arch"
 
 default_component() {
   case "$name" in
-  csi-driver-nfs)
-    version="${version:-v4.12.1}"
-    chart_repo="${chart_repo:-https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts}"
-    chart_name="${chart_name:-csi-driver-nfs}"
-    chart_version="${chart_version:-${version#v}}"
-    ;;
   kc-extension)
     version="${version:-v1.0.0}"
     skip_chart=true

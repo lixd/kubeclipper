@@ -187,10 +187,7 @@ resources:
       versions:
         - v3.31.5
       chartVersion: v3.31.5
-addons:
-  csi-driver-nfs:
-    versions:
-      - v4.12.1
+addons: {}
 ```
 
 这份 manifest 后续应成为 GitHub Actions、开发者本地打包和 release 文档共同使用的输入。
@@ -451,7 +448,6 @@ GitHub Actions 中建议把 extension 放到独立 job，并默认 `workflow_dis
 
 | 包 | OCI kind/name | 当前脚本 | Chart 来源 | Image 来源 |
 | --- | --- | --- | --- | --- |
-| NFS CSI | `csi/csi-driver-nfs:v4.12.1` | `build-addon-package.sh --name csi-driver-nfs` | `kubernetes-csi/csi-driver-nfs` Helm chart repo | `registry.k8s.io/sig-storage/*` |
 | NVIDIA DRA | `app/nvidia-dra-driver-gpu:25.8.0` | `build-addon-package.sh --name nvidia-dra-driver-gpu` | NVIDIA Helm repo | `nvcr.io/nvidia/*` |
 | NVIDIA GPU Operator | `app/nvidia-gpu-operator:v25.10.0` | `build-addon-package.sh --name nvidia-gpu-operator` | NVIDIA Helm repo | `nvcr.io/nvidia/*`、`registry.k8s.io/nfd/*` |
 
@@ -472,7 +468,7 @@ GitHub Actions 中建议把 extension 放到独立 job，并默认 `workflow_dis
 | --- | --- | --- |
 | `github-release` | `https://github.com/containerd/containerd/releases/...` | containerd、runc、crictl、etcd、CNI plugins |
 | `official-url` | `https://dl.k8s.io/...`、`https://get.helm.sh/...` | Kubernetes、Helm、Docker static binary |
-| `helm-repo` | `helm pull tigera-operator --repo ...` | Calico、NFS CSI、NVIDIA charts |
+| `helm-repo` | `helm pull tigera-operator --repo ...` | Calico、NVIDIA charts |
 | `container-image` | `docker.io/calico/node:v3.31.5` | runtime images |
 | `source-build` | `https://www.netfilter.org/pub/...` | conntrack 这类无稳定官方静态二进制的小工具 |
 | `local-file` | `/path/to/chart.tgz` | 本地开发或私有构建，不用于官方 GitHub Actions 默认配置 |
@@ -560,7 +556,6 @@ scripts/open-packaging/publish-resource-artifacts.sh \
 
 ```text
 oci://ghcr.io/kubeclipper/kubeclipper/charts/tigera-operator:v3.31.5
-oci://ghcr.io/kubeclipper/kubeclipper/charts/csi-driver-nfs:v4.12.1
 ```
 
 ### 8.3 发布 runtime images
@@ -725,10 +720,9 @@ build/collect kc-console
 publish binary package images
 ```
 
-第三阶段：扩展 addon。
+第三阶段：按需扩展 addon。
 
 ```text
-csi-driver-nfs
 nvidia-gpu-operator
 nvidia-dra-driver-gpu
 ```

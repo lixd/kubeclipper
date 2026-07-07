@@ -151,7 +151,6 @@ static server 今天混在一起承担了四个不同职责：
 registry.local:5000/kubeclipper/packages/k8s/k8s:v1.36.0
 registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0
 registry.local:5000/kubeclipper/packages/cni/calico:v3.30.0
-registry.local:5000/kubeclipper/packages/csi/nfs:v4.10.0
 registry.local:5000/kubeclipper/packages/extension/kubectl-terminal:v1.0.0
 registry.local:5000/kubeclipper/packages/binary/kubeclipper-agent:v1.8.0
 registry.local:5000/kubeclipper/packages/binary/etcdctl:v3.5.15

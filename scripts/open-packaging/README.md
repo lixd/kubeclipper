@@ -138,10 +138,11 @@ scripts/open-packaging/resource-builders/build-calico-package.sh \
   --output /data/kc-resource
 
 scripts/open-packaging/resource-builders/build-addon-package.sh \
-  --name csi-driver-nfs \
-  --version v4.12.1 \
+  --name nvidia-gpu-operator \
+  --version v25.10.0 \
   --arch amd64 \
-  --output /data/kc-resource
+  --output /data/kc-resource \
+  --skip-images
 ```
 
 The output layout is the legacy resource layout consumed by the publisher.
@@ -155,8 +156,6 @@ everything into one large static-server package:
   containerd/2.2.4/amd64/configs.tar.gz
   calico/v3.31.5/amd64/charts.tgz
   calico/v3.31.5/amd64/images.txt
-  csi-driver-nfs/v4.12.1/amd64/charts.tgz
-  csi-driver-nfs/v4.12.1/amd64/images.txt
 ```
 
 Notes:
@@ -169,8 +168,9 @@ Notes:
 - `build-calico-package.sh` ships image lists for `v3.26.1`, `v3.29.6`, and
   `v3.31.5`. Use `--images-file` for other versions.
 - `build-addon-package.sh` covers image/chart style components:
-  `csi-driver-nfs`, `kc-extension`, `kubectl-terminal`,
-  `nvidia-dra-driver-gpu`, and `nvidia-gpu-operator`.
+  `kc-extension`, `kubectl-terminal`, `nvidia-dra-driver-gpu`, and
+  `nvidia-gpu-operator`. These are optional and are not part of the default
+  core cluster release manifest.
 - `build-k8s-extension-package.sh` builds the debug-tool extension package
   from public upstream downloads: Helm, nerdctl, CNI plugins, calicoctl, and
   the bundled debug image list.
@@ -198,7 +198,6 @@ Old script mapping:
 | `tarball-containerd.sh` | `build-containerd-package.sh` |
 | `tarball-calico.sh` | `build-calico-package.sh` |
 | `tarball-k8s-extension.sh` | `build-k8s-extension-package.sh` |
-| `tarball-nfs.sh` | `build-addon-package.sh --name csi-driver-nfs` |
 | `tarball-nvidia-dra-driver-gpu.sh` | `build-addon-package.sh --name nvidia-dra-driver-gpu` |
 | `tarball-nvidia-gpu-operator.sh` | `build-addon-package.sh --name nvidia-gpu-operator` |
 | `tarball-kc-extension.sh` | `build-addon-package.sh --name kc-extension` |

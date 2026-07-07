@@ -164,9 +164,6 @@ package_identity() {
   calico)
     echo "cni calico"
     ;;
-  csi-driver-nfs)
-    echo "csi $source_name"
-    ;;
   nvidia-dra-driver-gpu | nvidia-gpu-operator)
     echo "app $source_name"
     ;;

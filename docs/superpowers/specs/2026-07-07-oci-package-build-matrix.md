@@ -101,7 +101,6 @@ layer:    application/vnd.oci.image.layer.v1.tar+gzip
 | `k8s/k8s` | `v1.36.1` | `resource-builders/build-k8s-package.sh` | `dl.k8s.io`、etcd GitHub Release、Helm Release、Kubernetes release repo、netfilter source | `k8s/v1.36.1/amd64/configs.tar.gz` | package image |
 | `cri/containerd` | `2.2.4` | `resource-builders/build-containerd-package.sh` | containerd GitHub Release、runc GitHub Release、cri-tools GitHub Release | `containerd/2.2.4/amd64/configs.tar.gz` | package image |
 | `cni/calico` | `v3.31.5` | `resource-builders/build-calico-package.sh` | Tigera Helm repo、本仓库 image list、公开镜像仓库 | `calico/v3.31.5/amd64/charts.tgz`、`images.tar.gz`、`images.txt` | Helm OCI chart + runtime images |
-| `csi/csi-driver-nfs` | `v4.12.1` | `resource-builders/build-addon-package.sh --name csi-driver-nfs` | CSI NFS Helm repo、本仓库 image list、公开镜像仓库 | `csi-driver-nfs/v4.12.1/amd64/charts.tgz`、`images.tar.gz`、`images.txt` | Helm OCI chart + runtime images |
 
 ### 3.1 k8s 包内容
 
@@ -156,7 +155,7 @@ opt/kc/manifest/k8s/<version>/<arch>/config/manifest.json
 
 1. Bootstrap binaries：构建并发布 `kcctl`、`kubeclipper-server`、`kubeclipper-agent`、`etcd`、`etcdctl`、`etcdutl`、`caddy`。正式用户入口中 `kcctl` 可只放 GitHub Release，其他二进制放 package image。
 2. Core resources：构建并发布 `k8s/k8s`、`cri/containerd`。
-3. Network/addon resources：构建 Calico 和默认启用的 addon，例如 `csi-driver-nfs`。
+3. Network resources：构建 Calico。其他 addon 只在按需发布时单独开启。
 4. Runtime image mirror：根据 `images.lock` 把所有运行时镜像同步到 `image-registry`。
 
 本地一键构建时可以直接跑：
