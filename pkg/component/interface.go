@@ -111,6 +111,16 @@ type Interface interface {
 	GetImageRepoMirror() string
 }
 
+type OfflineArtifactRequest struct {
+	Kind    string
+	Name    string
+	Version string
+}
+
+type OfflineArtifactAware interface {
+	GetOfflineArtifactRequests() []OfflineArtifactRequest
+}
+
 // OfflinePackages key must format as version-osVendor-osArch
 // value is packages
 // eg for docker 19.03, docker-19.03-centos7-x86_64

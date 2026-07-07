@@ -30,26 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func LoadImage(name string, custom []byte, nodes []v1.StepNode) v1.Step {
-	return v1.Step{
-
-		ID:         strutil.GetUUID(),
-		Name:       "cniImageLoader",
-		Timeout:    metav1.Duration{Duration: 5 * time.Minute},
-		ErrIgnore:  false,
-		RetryTimes: 1,
-		Nodes:      nodes,
-		Action:     v1.ActionInstall,
-		Commands: []v1.Command{
-			{
-				Type:          v1.CommandCustom,
-				Identity:      fmt.Sprintf(component.RegisterStepKeyFormat, cniInfo+"-"+name, version, component.TypeStep),
-				CustomCommand: custom,
-			},
-		},
-	}
-}
-
 func RenderYaml(name string, custom []byte, nodes []v1.StepNode) v1.Step {
 	return v1.Step{
 		ID:         strutil.GetUUID(),
@@ -87,28 +67,8 @@ func ApplyYaml(yamlName string, nodes []v1.StepNode) v1.Step {
 	}
 }
 
-func RemoveImage(name string, custom []byte, nodes []v1.StepNode) v1.Step {
-	return v1.Step{
-		ID:         strutil.GetUUID(),
-		Name:       "removeCniImage",
-		Timeout:    metav1.Duration{Duration: 1 * time.Minute},
-		ErrIgnore:  false,
-		RetryTimes: 1,
-		Nodes:      nodes,
-		Action:     v1.ActionUninstall,
-		Commands: []v1.Command{
-			{
-				Type:          v1.CommandCustom,
-				Identity:      fmt.Sprintf(component.RegisterStepKeyFormat, cniInfo+"-"+name, version, component.TypeStep),
-				CustomCommand: custom,
-			},
-		},
-	}
-}
-
 func InstallCalicoRelease(chartPath string, yamlName string, calicoVersion string, nodes []v1.StepNode) v1.Step {
-	// For Calico v3.29.6 and later, tigera-operator must be installed in tigera-operator namespace
-	// For earlier versions, it can be installed in calico-system namespace
+	// For Calico v3.29.6 and later, tigera-operator must be installed in tigera-operator namespace.
 	namespace := "calico-system"
 	if IsHighCalicoVersion(calicoVersion) {
 		namespace = "tigera-operator"
@@ -145,16 +105,13 @@ func IsHighKubeVersion(kubeVersion string) bool {
 	return false
 }
 
-// IsHighCalicoVersion checks if the Calico version is v3.29.6 or later
-// For v3.29.6+, tigera-operator must be installed in tigera-operator namespace
+// IsHighCalicoVersion checks if the Calico version is v3.29.6 or later.
 func IsHighCalicoVersion(calicoVersion string) bool {
 	if calicoVersion == "" {
 		return false
 	}
-	// Remove 'v' prefix if present
 	calicoVersion = strings.TrimPrefix(calicoVersion, "v")
 
-	// Split version into parts: major.minor.patch
 	parts := strings.Split(calicoVersion, ".")
 	if len(parts) < 3 {
 		return false
@@ -168,7 +125,6 @@ func IsHighCalicoVersion(calicoVersion string) bool {
 		return false
 	}
 
-	// Check if version >= 3.29.6
 	if major > 3 {
 		return true
 	}
@@ -182,17 +138,13 @@ func IsHighCalicoVersion(calicoVersion string) bool {
 	return false
 }
 
-// UseCalicoOperator checks if the Calico version should use tigera-operator (Helm) for deployment
-// For Calico v3.26 and above, use Helm deployment with tigera-operator
-// For versions below v3.26, use direct YAML deployment
+// UseCalicoOperator checks if the Calico version should use tigera-operator for deployment.
 func UseCalicoOperator(calicoVersion string) bool {
 	if calicoVersion == "" {
 		return false
 	}
-	// Remove 'v' prefix if present
 	calicoVersion = strings.TrimPrefix(calicoVersion, "v")
 
-	// Split version into parts: major.minor.patch
 	parts := strings.Split(calicoVersion, ".")
 	if len(parts) < 2 {
 		return false
@@ -205,7 +157,6 @@ func UseCalicoOperator(calicoVersion string) bool {
 		return false
 	}
 
-	// Check if version >= 3.26
 	if major > 3 {
 		return true
 	}
@@ -217,7 +168,6 @@ func UseCalicoOperator(calicoVersion string) bool {
 }
 
 func ParseNodeAddressDetection(nodeAddressDetection string) NodeAddressDetection {
-	// nodeAddressDetection first-found|can-reach=DESTINATION|interface=INTERFACE-REGEX|skip-interface=INTERFACE-REGEX
 	detections := strings.Split(nodeAddressDetection, "=")
 	if len(detections) == 0 {
 		return NodeAddressDetection{

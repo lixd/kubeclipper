@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -62,6 +61,7 @@ func (runnable *DockerRunnable) InitStep(ctx context.Context, cluster *v1.Cluste
 	runnable.Version = cluster.ContainerRuntime.Version
 	runnable.Offline = metadata.Offline
 	runnable.DataRootDir = cluster.ContainerRuntime.DataRootDir
+	applyResolvedRuntime(ctx, &runnable.Base, criDocker)
 	runnable.InsecureRegistry = ToDockerInsecureRegistry(cluster.Status.Registries)
 
 	runtimeBytes, err := json.Marshal(runnable)
@@ -131,12 +131,13 @@ func (runnable *DockerRunnable) NewInstance() component.ObjectMeta {
 }
 
 func (runnable DockerRunnable) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, criDocker, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
+	var err error
+	if runnable.Transport.Type != "" {
+		if err := downloadAndUnpackResolvedRuntimeConfigs(ctx, runnable.Base, criDocker, opts.DryRun); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("install docker %s requires resolved artifact transport", runnable.Version)
 	}
 	// generate docker daemon config file
 	if err = runnable.setupDockerConfig(ctx, opts.DryRun); err != nil {
@@ -152,13 +153,10 @@ func (runnable DockerRunnable) Install(ctx context.Context, opts component.Optio
 
 func (runnable DockerRunnable) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	runnable.disableDockerService(ctx, opts.DryRun)
+	var err error
 
 	// remove related binary configuration files
-	instance, err := downloader.NewInstance(ctx, criDocker, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveConfigs(); err != nil {
+	if err := downloader.CleanupConfigs("cri", criDocker, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
 		logger.Error("remove docker configs compressed file failed", zap.Error(err))
 	}
 	// remove unix socket

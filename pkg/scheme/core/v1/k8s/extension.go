@@ -23,13 +23,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
-	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,10 +57,13 @@ const (
 
 // Extension is a step to install k8s extension,which include some useful tools
 type Extension struct {
-	Offline       bool   `json:"offline"`
-	Version       string `json:"version"`
-	CriType       string `json:"criType"`
-	LocalRegistry string `json:"localRegistry"`
+	Offline       bool                           `json:"offline"`
+	Version       string                         `json:"version"`
+	Arch          string                         `json:"arch,omitempty"`
+	CriType       string                         `json:"criType"`
+	LocalRegistry string                         `json:"localRegistry"`
+	Transport     deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents      []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
 
 func (stepper *Extension) NewInstance() component.ObjectMeta {
@@ -64,36 +71,53 @@ func (stepper *Extension) NewInstance() component.ObjectMeta {
 }
 
 func (stepper *Extension) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, k8sExtension, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
+	if stepper.Transport.Type != "" {
+		if err := stepper.installResolved(ctx, opts); err != nil {
+			return nil, err
+		}
+		logger.Debug("k8s extension resolved install successfully")
+		return nil, nil
+	}
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), k8sExtension, k8sExtension, stepper.Version); ok {
+		stepper.Arch = resolved.Arch
+		stepper.Transport = resolved.Transport
+		stepper.Contents = resolved.Contents
+		if err := stepper.installResolved(ctx, opts); err != nil {
+			return nil, err
+		}
+		logger.Debug("k8s extension resolved install successfully")
+		return nil, nil
+	}
+	return nil, fmt.Errorf("install k8s extension %s requires resolved artifact transport", stepper.Version)
+}
+
+func (stepper *Extension) installResolved(ctx context.Context, opts component.Options) error {
+	if stepper.Offline && strings.TrimSpace(stepper.LocalRegistry) == "" {
+		return fmt.Errorf("offline k8s extension install requires localRegistry; image tarball loading has been removed")
+	}
+	contents := packageConfigContents(stepper.Contents)
+	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
+		Kind:      k8sExtension,
+		Name:      k8sExtension,
+		Version:   stepper.Version,
+		Arch:      stepper.Arch,
+		Transport: stepper.Transport,
+		Contents:  contents,
+	}, opts.DryRun)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	// install configs.tar.gz
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
+	configs := result.Files[deliveryapis.ContentConfigs]
+	if configs == "" {
+		return fmt.Errorf("resolved k8s extension configs content is missing")
 	}
-	// local registry not filled and is in offline mode, download images.tar.gz file from tarballs
-	if stepper.Offline && stepper.LocalRegistry == "" {
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		if err = utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
-		logger.Info("image tarball decompress successfully")
-	}
-	logger.Debug("k8s packages offline install successfully")
-	return nil, nil
+	_, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("tar -zxvf %s -C /", configs))
+	return err
 }
 
 func (stepper *Extension) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	// remove related binary configuration files
-	instance, err := downloader.NewInstance(ctx, k8sExtension, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveAll(); err != nil {
+	if err := downloader.CleanupPackage(k8sExtension, k8sExtension, stepper.Version, archOrRuntime(stepper.Arch), opts.DryRun); err != nil {
 		logger.Error("remove k8s configs and images compressed files failed", zap.Error(err))
 	}
 	return nil, nil
@@ -108,6 +132,18 @@ func (stepper *Extension) InitStepper(c *v1.Cluster) *Extension {
 }
 
 func (stepper *Extension) InstallSteps(nodes []v1.StepNode) ([]v1.Step, error) {
+	return stepper.InstallStepsWithContext(context.TODO(), nodes)
+}
+
+func (stepper *Extension) InstallStepsWithContext(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error) {
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), k8sExtension, k8sExtension, stepper.Version); ok {
+		stepper.Arch = resolved.Arch
+		stepper.Transport = resolved.Transport
+		stepper.Contents = resolved.Contents
+	}
+	if stepper.Transport.Type == "" {
+		return nil, nil
+	}
 	bytes, err := json.Marshal(&stepper)
 	if err != nil {
 		return nil, err

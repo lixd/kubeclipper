@@ -20,10 +20,16 @@ package cni
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
@@ -194,5 +200,112 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 			}
 			t.Log(output)
 		})
+	}
+}
+
+func TestCalicoInstallStepsWithContextAppliesResolvedChart(t *testing.T) {
+	runnable := &CalicoRunnable{
+		BaseCni: BaseCni{
+			CNI: v1.CNI{
+				Version: "v3.31.5",
+				Offline: true,
+			},
+		},
+	}
+	plan := &deliveryapis.ResolvedArtifactPlan{Components: []deliveryapis.ResolvedComponent{
+		{
+			Kind:    "cni",
+			Name:    "calico",
+			Version: "v3.31.5",
+			Transport: deliveryapis.TransportRef{
+				Type:   deliveryapis.TransportOCI,
+				Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5",
+				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+			},
+			Contents: []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentCharts, File: "charts.tgz"}},
+		},
+	}}
+	ctx := component.WithResolvedArtifactPlan(context.Background(), plan)
+
+	steps, err := runnable.InstallStepsWithContext(ctx, []v1.StepNode{{ID: "master-1"}}, "v1.32.0")
+	if err != nil {
+		t.Fatalf("InstallStepsWithContext() error: %+v", err)
+	}
+
+	var chart *componentcommon.Chart
+	for _, step := range steps {
+		if step.Name != "calico-chartLoad" || len(step.Commands) == 0 {
+			continue
+		}
+		var decoded componentcommon.Chart
+		if err := json.Unmarshal(step.Commands[0].CustomCommand, &decoded); err != nil {
+			t.Fatalf("unmarshal chart custom command: %+v", err)
+		}
+		chart = &decoded
+		break
+	}
+	if chart == nil {
+		t.Fatalf("calico-chartLoad step not found in %+v", steps)
+	}
+	if chart.Transport.Ref != "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5" {
+		t.Fatalf("chart transport = %+v", chart.Transport)
+	}
+	if chart.Kind != "cni" {
+		t.Fatalf("chart kind = %q, want cni", chart.Kind)
+	}
+	if len(chart.Contents) != 1 || chart.Contents[0].Name != deliveryapis.ContentCharts {
+		t.Fatalf("chart contents = %+v", chart.Contents)
+	}
+	var installRelease *v1.Step
+	for i := range steps {
+		if steps[i].Name == "installCalicoRelease" {
+			installRelease = &steps[i]
+			break
+		}
+	}
+	if installRelease == nil || len(installRelease.Commands) == 0 {
+		t.Fatalf("installCalicoRelease step not found in %+v", steps)
+	}
+	gotCommand := strings.Join(installRelease.Commands[0].ShellCommand, " ")
+	wantChartPath := "/tmp/kc-downloader/packages/cni/calico/v3.31.5/linux-" + runtime.GOARCH + "/contents/charts.tgz"
+	if !strings.Contains(gotCommand, wantChartPath) {
+		t.Fatalf("installCalicoRelease command = %q", gotCommand)
+	}
+}
+
+func TestCalicoPrepareImagesSkipsTarballLoadWhenRegistryConfigured(t *testing.T) {
+	runnable := &CalicoRunnable{
+		BaseCni: BaseCni{
+			CNI: v1.CNI{
+				Type:          "calico",
+				Version:       "v3.24.5",
+				Offline:       true,
+				LocalRegistry: "registry.local:5000",
+			},
+		},
+	}
+
+	steps, err := runnable.PrepareImages(context.Background(), []v1.StepNode{{ID: "master-1"}})
+	if err != nil {
+		t.Fatalf("PrepareImages() error: %+v", err)
+	}
+	if len(steps) != 0 {
+		t.Fatalf("steps = %+v", steps)
+	}
+}
+
+func TestCalicoPrepareImagesRequiresLocalRegistry(t *testing.T) {
+	runnable := &CalicoRunnable{
+		BaseCni: BaseCni{
+			CNI: v1.CNI{
+				Type:          "calico",
+				Version:       "v3.24.5",
+				Offline:       true,
+				LocalRegistry: "",
+			},
+		},
+	}
+	if _, err := runnable.PrepareImages(context.Background(), []v1.StepNode{{ID: "master-1"}}); err == nil || !strings.Contains(err.Error(), "localRegistry") {
+		t.Fatalf("PrepareImages() error = %+v, want localRegistry error", err)
 	}
 }

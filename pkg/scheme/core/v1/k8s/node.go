@@ -129,7 +129,7 @@ func (stepper *GenNode) MakeInstallSteps(metadata *component.ExtraMetadata, patc
 				return err
 			}
 			cniStepper := cf.Create().InitStep(metadata, &stepper.Cluster.CNI, &stepper.Cluster.Networking)
-			steps, err = cniStepper.LoadImage(patchNodes)
+			steps, err = cniStepper.PrepareImages(context.TODO(), patchNodes)
 			if err != nil {
 				return err
 			}

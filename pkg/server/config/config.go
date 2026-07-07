@@ -28,8 +28,6 @@ import (
 	bs "github.com/kubeclipper/kubeclipper/pkg/simple/backupstore"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/cache"
 
-	"github.com/kubeclipper/kubeclipper/pkg/simple/staticserver"
-
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 
 	"github.com/kubeclipper/kubeclipper/pkg/simple/generic"
@@ -52,7 +50,6 @@ const (
 // Config defines everything needed for apiserver to deal with external services
 type Config struct {
 	GenericServerRunOptions *generic.ServerRunOptions          `json:"generic" yaml:"generic" mapstructure:"generic"`
-	StaticServerOptions     *staticserver.Options              `json:"staticServer" yaml:"staticServer" mapstructure:"staticServer"`
 	EtcdOptions             *etcd.Options                      `json:"etcd,omitempty" yaml:"etcd,omitempty" mapstructure:"etcd"`
 	CacheOptions            *cache.Options                     `json:"cache,omitempty" yaml:"cache,omitempty" mapstructure:"cache"`
 	MQOptions               *natsio.NatsOptions                `json:"mq,omitempty" yaml:"mq,omitempty"  mapstructure:"mq"`
@@ -64,7 +61,6 @@ type Config struct {
 func New() *Config {
 	return &Config{
 		GenericServerRunOptions: generic.NewServerRunOptions(),
-		StaticServerOptions:     staticserver.NewOptions(),
 		EtcdOptions:             etcd.NewEtcdOptions(),
 		CacheOptions:            cache.NewEtcdOptions(),
 		MQOptions:               natsio.NewOptions(),

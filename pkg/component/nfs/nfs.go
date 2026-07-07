@@ -165,18 +165,7 @@ func (n *NFSProvisioner) InitSteps(ctx context.Context) error {
 		n.ImageRepoMirror = metadata.LocalRegistry
 	}
 	if metadata.Offline && n.ImageRepoMirror == "" {
-		// TODO: arch is unnecessary, version can be configured
-		imager := &common.Imager{
-			PkgName: nfs,
-			Version: "v4.0.2",
-			CriName: metadata.CRI,
-			Offline: metadata.Offline,
-		}
-		steps, err := imager.InstallSteps(metadata.GetAllNodes())
-		if err != nil {
-			return err
-		}
-		n.installSteps = append(n.installSteps, steps...)
+		return fmt.Errorf("offline nfs-provisioner install requires imageRepoMirror or cluster localRegistry; image tarball loading has been removed")
 	}
 
 	bytes, err := json.Marshal(n)
@@ -462,4 +451,14 @@ func (n *NFSProvisioner) Render(ctx context.Context, opts component.Options) err
 // GetImageRepoMirror return ImageRepoMirror
 func (n *NFSProvisioner) GetImageRepoMirror() string {
 	return n.ImageRepoMirror
+}
+
+func (n *NFSProvisioner) GetOfflineArtifactRequests() []component.OfflineArtifactRequest {
+	return []component.OfflineArtifactRequest{
+		{
+			Kind:    "csi",
+			Name:    nfs,
+			Version: "v4.0.2",
+		},
+	}
 }

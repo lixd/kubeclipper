@@ -80,7 +80,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/server/request"
 	"github.com/kubeclipper/kubeclipper/pkg/service"
 	"github.com/kubeclipper/kubeclipper/pkg/service/delivery"
-	"github.com/kubeclipper/kubeclipper/pkg/service/staticresource"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/cache"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/hashutil"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/metrics"
@@ -274,7 +273,7 @@ func (s *APIServer) installAPIs(stopCh <-chan struct{}) error {
 	s.Services = append(s.Services, deliverySvc)
 
 	platformOperator := platform.NewPlatformOperator(s.storageFactory.PlatformSettings(), s.storageFactory.Events())
-	if err := configv1.AddToContainer(s.container, platformOperator, s.Config); err != nil {
+	if err := configv1.AddToContainer(s.container, platformOperator, coreOperator, s.Config); err != nil {
 		return err
 	}
 
@@ -326,17 +325,12 @@ func (s *APIServer) installAPIs(stopCh <-chan struct{}) error {
 	s.Services = append(s.Services, ctrl)
 
 	if err = corev1.AddToContainer(s.container, clusterOperator, opOperator, platformOperator,
-		leaseOperator, coreOperator, deliverySvc, tokenOperator, s.Config.GenericServerRunOptions, &s.terminationChan); err != nil {
+		leaseOperator, coreOperator, deliverySvc, tokenOperator, s.Config.GenericServerRunOptions, s.Config, &s.terminationChan); err != nil {
 		return err
 	}
 	if err = proxy.AddToContainer(s.container, clusterOperator); err != nil {
 		return err
 	}
-	staticResourceSvc, err := staticresource.NewService(s.Config.StaticServerOptions)
-	if err != nil {
-		return err
-	}
-	s.Services = append(s.Services, staticResourceSvc)
 	return nil
 }
 

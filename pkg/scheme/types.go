@@ -19,15 +19,10 @@
 package scheme
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
 
@@ -85,31 +80,6 @@ func (x MetaKcVersions) Len() int           { return len(x) }
 func (x MetaKcVersions) Less(i, j int) bool { return x[i].Version < x[j].Version }
 func (x MetaKcVersions) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 
-func (m *PackageMetadata) ReadMetadata(online bool, path string) error {
-	if online {
-		c := http.DefaultClient
-		resp, err := c.Get(fmt.Sprintf("%s/metadata.json", downloader.CloudStaticServer))
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if err = json.NewDecoder(resp.Body).Decode(m); err != nil {
-			return err
-		}
-	} else {
-		file := filepath.Join(path, "metadata.json")
-		metadata, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(metadata, m)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (m *PackageMetadata) AddonsSort() {
 	sort.SliceStable(m.Addons, func(i, j int) bool {
 		if m.Addons[i].Type < m.Addons[j].Type {
@@ -151,20 +121,6 @@ func (m *PackageMetadata) AddonsDelete(name, version, arch string) error {
 	}
 
 	return nil
-}
-
-func (m *PackageMetadata) WriteFile(path string, sort bool) error {
-	if sort {
-		m.AddonsSort()
-	}
-
-	metaBytes, err := json.MarshalIndent(&m, "", "  ")
-	if err != nil {
-		return err
-	}
-	file := filepath.Join(path, "metadata.json")
-
-	return os.WriteFile(file, metaBytes, 0755)
 }
 
 func (m PackageMetadata) AddonsExist(name, version, arch string) bool {

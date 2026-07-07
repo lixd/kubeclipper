@@ -37,7 +37,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/oplog"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/natsio"
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
 const (
@@ -56,7 +55,6 @@ type Config struct {
 	NodeIPDetect              string              `json:"nodeIPDetect,omitempty" yaml:"nodeIPDetect"`
 	RegisterNode              bool                `json:"registerNode,omitempty" yaml:"registerNode"`
 	NodeStatusUpdateFrequency time.Duration       `json:"nodeStatusUpdateFrequency,omitempty" yaml:"nodeStatusUpdateFrequency"`
-	DownloaderOptions         *downloader.Options `json:"downloader" yaml:"downloader" mapstructure:"downloader"`
 	LogOptions                *logger.Options     `json:"log,omitempty" yaml:"log,omitempty" mapstructure:"log"`
 	MQOptions                 *natsio.NatsOptions `json:"mq,omitempty" yaml:"mq,omitempty"  mapstructure:"mq"`
 	OpLogOptions              *oplog.Options      `json:"oplog,omitempty" yaml:"oplog,omitempty" mapstructure:"oplog"`
@@ -75,7 +73,6 @@ func New() *Config {
 		NodeStatusUpdateFrequency: 5 * time.Minute,
 		LogOptions:                logger.NewLogOptions(),
 		MQOptions:                 natsio.NewOptions(),
-		DownloaderOptions:         downloader.NewOptions(),
 		OpLogOptions:              oplog.NewOptions(),
 		ImageProxyOptions:         imageproxy.NewOptions(),
 	}

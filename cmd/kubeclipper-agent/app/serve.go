@@ -21,8 +21,6 @@ package app
 import (
 	"fmt"
 
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
-
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -83,7 +81,6 @@ func completionOptions(s *options.AgentOptions) (*options.AgentOptions, error) {
 		}
 	}
 	logger.ApplyZapLoggerWithOptions(s.Config.LogOptions)
-	downloader.SetOptions(s.Config.DownloaderOptions)
 	return s, nil
 }
 

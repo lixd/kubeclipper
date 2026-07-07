@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +69,7 @@ func (runnable *ContainerdRunnable) InitStep(ctx context.Context, cluster *v1.Cl
 	runnable.Version = cluster.ContainerRuntime.Version
 	runnable.Offline = metadata.Offline
 	runnable.DataRootDir = strutil.StringDefaultIfEmpty(containerdDefaultConfigDir, cluster.ContainerRuntime.DataRootDir)
+	applyResolvedRuntime(ctx, &runnable.Base, criContainerd)
 	runnable.LocalRegistry = metadata.LocalRegistry
 	runnable.Registies = registries
 	runnable.RegistryWithAuth = FilterRegistryWithAuth(runnable.Registies)
@@ -155,12 +155,13 @@ func (runnable *ContainerdRunnable) NewInstance() component.ObjectMeta {
 }
 
 func (runnable ContainerdRunnable) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, criContainerd, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
+	var err error
+	if runnable.Transport.Type != "" {
+		if err := downloadAndUnpackResolvedRuntimeConfigs(ctx, runnable.Base, criContainerd, opts.DryRun); err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, fmt.Errorf("install containerd %s requires resolved artifact transport", runnable.Version)
 	}
 	// When systemd is the init system of Linux,
 	// it generates and consumes a root cgroup and acts as a cgroup manager.
@@ -185,13 +186,10 @@ func (runnable ContainerdRunnable) Install(ctx context.Context, opts component.O
 
 func (runnable ContainerdRunnable) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	runnable.disableContainerdService(ctx, opts.DryRun)
+	var err error
 
 	// remove related binary configuration files
-	instance, err := downloader.NewInstance(ctx, criContainerd, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveConfigs(); err != nil {
+	if err := downloader.CleanupConfigs("cri", criContainerd, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
 		logger.Error("remove contanierd configs compressed file failed", zap.Error(err))
 	}
 	// remove containerd run dir

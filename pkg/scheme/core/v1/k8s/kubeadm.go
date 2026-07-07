@@ -40,7 +40,10 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/agent/config"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
@@ -105,11 +108,14 @@ var (
 )
 
 type Package struct {
-	Offline       bool   `json:"offline"`
-	Version       string `json:"version"`
-	CriType       string `json:"criType"`
-	LocalRegistry string `json:"localRegistry"`
-	KubeletDir    string `json:"kubeletDir"`
+	Offline       bool                           `json:"offline"`
+	Version       string                         `json:"version"`
+	Arch          string                         `json:"arch,omitempty"`
+	CriType       string                         `json:"criType"`
+	LocalRegistry string                         `json:"localRegistry"`
+	KubeletDir    string                         `json:"kubeletDir"`
+	Transport     deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents      []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
 
 type KubeadmConfig struct {
@@ -178,82 +184,114 @@ func (stepper *Package) NewInstance() component.ObjectMeta {
 }
 
 func (stepper *Package) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
+	if stepper.Transport.Type != "" {
+		return stepper.installResolved(ctx, opts)
+	}
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+		stepper.Arch = resolved.Arch
+		stepper.Transport = resolved.Transport
+		stepper.Contents = resolved.Contents
+		return stepper.installResolved(ctx, opts)
+	}
+	return nil, fmt.Errorf("install k8s %s requires resolved artifact transport", stepper.Version)
+}
+
+func (stepper *Package) installResolved(ctx context.Context, opts component.Options) ([]byte, error) {
+	if stepper.Offline && strings.TrimSpace(stepper.LocalRegistry) == "" {
+		return nil, fmt.Errorf("offline k8s install requires localRegistry; image tarball loading has been removed")
+	}
+	contents := packageConfigContents(stepper.Contents)
+	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
+		Kind:      K8s,
+		Name:      K8s,
+		Version:   stepper.Version,
+		Arch:      stepper.Arch,
+		Transport: stepper.Transport,
+		Contents:  contents,
+	}, opts.DryRun)
 	if err != nil {
 		return nil, err
 	}
-	// local registry not filled and is in offline mode, download images.tar.gz file from tarballs
-	if stepper.Offline && stepper.LocalRegistry == "" {
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
+	if err = os.MkdirAll(Kubelet10KubeadmDir, 0755); err != nil {
+		if !opts.DryRun {
 			return nil, err
 		}
-		if err = utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
-		logger.Info("image tarball decompress successfully")
 	}
-	// create kubelet config dir
-	err = os.MkdirAll(Kubelet10KubeadmDir, 0755)
-	if err != nil {
+	configs := result.Files[deliveryapis.ContentConfigs]
+	if configs == "" {
+		return nil, fmt.Errorf("resolved k8s configs content is missing")
+	}
+	if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("tar -zxvf %s -C /", configs)); err != nil {
 		return nil, err
 	}
-	// install configs.tar.gz
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
-	}
-	// enable kubelet
 	if err = stepper.enableKubeletService(ctx, opts.DryRun); err != nil {
 		return nil, err
 	}
-	logger.Debug("k8s packages offline install successfully")
+	logger.Debug("k8s packages resolved install successfully")
 	return nil, nil
+}
+
+func packageConfigContents(contents []deliveryapis.ArtifactContent) []deliveryapis.ArtifactContent {
+	filtered := make([]deliveryapis.ArtifactContent, 0, len(contents))
+	for _, content := range contents {
+		if content.Name == deliveryapis.ContentImages {
+			continue
+		}
+		filtered = append(filtered, content)
+	}
+	if len(filtered) == 0 {
+		return []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentConfigs, File: downloader.ConfigFilename}}
+	}
+	return filtered
 }
 
 func (stepper *Package) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	stepper.disableKubeletService(ctx, opts.DryRun)
 
 	// remove related binary configuration files
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveAll(); err != nil {
+	if err := downloader.CleanupPackage(K8s, K8s, stepper.Version, archOrRuntime(stepper.Arch), opts.DryRun); err != nil {
 		logger.Error("remove k8s configs and images compressed files failed", zap.Error(err))
 	}
 
-	if err = os.Remove(filepath.Join(KubeletDefaultDataDir, "config.yaml")); err != nil {
+	if err := os.Remove(filepath.Join(KubeletDefaultDataDir, "config.yaml")); err != nil {
 		logger.Errorf("remove config.yaml failed,err:%v", err.Error())
 	}
 
-	err = unmountKubeletDirectory(stepper.KubeletDir)
+	err := unmountKubeletDirectory(stepper.KubeletDir)
 	if err != nil {
 		logger.Warn("unmount kubelet dir failed", zap.Error(err))
 		return nil, err
 	}
-	if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "rm", "-rf", stepper.KubeletDir); err != nil {
+	if _, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "rm", "-rf", stepper.KubeletDir); err != nil {
 		logger.Warn("clean kubelet dir failed", zap.Error(err))
 	}
 	// reload systemd daemon
-	if err = systemctl.ReloadDeamon(ctx); err != nil {
+	if err := systemctl.ReloadDeamon(ctx); err != nil {
 		logger.Warn("failed to reload systemd daemon", zap.Error(err))
 	}
 
 	return nil, nil
 }
 
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return deliveryapis.DefaultPackageOS + "-" + arch
+	}
+	return deliveryapis.DefaultPackageOS + "-" + runtime.GOARCH
+}
+
 func (stepper *Package) enableKubeletService(ctx context.Context, dryRun bool) error {
+	if dryRun {
+		logger.Debugf("dry run enable and restart systemd unit %s", kubeletSystemdUnitName)
+		return nil
+	}
+
 	// chmod 711
 	files := []string{"kubelet-pre-start.sh", "kubelet", "kubeadm", "kubectl", "conntrack"}
 	for _, f := range files {
 		if err := os.Chmod(filepath.Join(KubeBinaryDir, f), 0711); err != nil {
 			return err
 		}
-	}
-
-	if dryRun {
-		logger.Debugf("dry run enable and restart systemd unit %s", kubeletSystemdUnitName)
-		return nil
 	}
 
 	if err := systemctl.ReloadDeamon(ctx); err != nil {

@@ -21,14 +21,14 @@ package cni
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
+	"strings"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
-	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
-	"github.com/kubeclipper/kubeclipper/pkg/logger"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
-	"go.uber.org/zap"
 )
 
 var cniFactories = make(map[string]CniFactory)
@@ -57,14 +57,17 @@ const (
 
 type BaseCni struct {
 	v1.CNI
-	DualStack   bool   `json:"dualStack"`
-	PodIPv4CIDR string `json:"podIPv4CIDR"`
-	PodIPv6CIDR string `json:"podIPv6CIDR"`
+	DualStack   bool                           `json:"dualStack"`
+	PodIPv4CIDR string                         `json:"podIPv4CIDR"`
+	PodIPv6CIDR string                         `json:"podIPv6CIDR"`
+	Arch        string                         `json:"arch,omitempty"`
+	Transport   deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents    []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
 
 type Stepper interface {
 	InitStep(metadata *component.ExtraMetadata, cni *v1.CNI, networking *v1.Networking) Stepper
-	LoadImage(nodes []v1.StepNode) ([]v1.Step, error)
+	PrepareImages(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error)
 	InstallSteps(nodes []v1.StepNode, kubeVersion string) ([]v1.Step, error)
 	UninstallSteps(nodes []v1.StepNode) ([]v1.Step, error)
 	CmdList(namespace string) map[string]string
@@ -75,35 +78,30 @@ func (runnable *BaseCni) NewInstance() component.ObjectMeta {
 }
 
 func (runnable *BaseCni) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, runnable.Type, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
+	if runnable.Offline && strings.TrimSpace(runnable.LocalRegistry) == "" {
+		return nil, fmt.Errorf("offline %s install requires localRegistry; image tarball loading has been removed", runnable.Type)
 	}
-
-	if runnable.Offline && runnable.LocalRegistry == "" {
-		dstFile, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		// load image package
-		if err = utils.LoadImage(ctx, opts.DryRun, dstFile, runnable.CriType); err != nil {
-			return nil, err
-		}
-		logger.Info("calico packages offline install successfully")
-	}
-
 	return nil, nil
 }
 
+func applyResolvedCNI(ctx context.Context, base *BaseCni, name string) {
+	resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cni", name, base.Version)
+	if ok {
+		base.Arch = resolved.Arch
+		base.Transport = resolved.Transport
+		base.Contents = resolved.Contents
+	}
+}
+
 func (runnable *BaseCni) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, runnable.Type, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveImages(); err != nil {
-		logger.Error("remove calico images compressed file failed", zap.Error(err))
-	}
 	return nil, nil
+}
+
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return deliveryapis.DefaultPackageOS + "-" + arch
+	}
+	return deliveryapis.DefaultPackageOS + "-" + runtime.GOARCH
 }
 
 // RecoveryCNICmd get recovery cni cmd

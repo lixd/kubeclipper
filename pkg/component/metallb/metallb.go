@@ -32,8 +32,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 
-	"github.com/kubeclipper/kubeclipper/pkg/component/common"
-
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
@@ -162,18 +160,7 @@ func (n *MetalLB) InitSteps(ctx context.Context) error {
 		n.ImageRepoMirror = metadata.LocalRegistry
 	}
 	if metadata.Offline && n.ImageRepoMirror == "" {
-		// TODO: arch is unnecessary, version can be configured
-		imager := &common.Imager{
-			PkgName: metallb,
-			Version: defaultVersion,
-			CriName: metadata.CRI,
-			Offline: metadata.Offline,
-		}
-		steps, err := imager.InstallSteps(metadata.GetAllNodes())
-		if err != nil {
-			return err
-		}
-		n.installSteps = append(n.installSteps, steps...)
+		return fmt.Errorf("offline metallb install requires imageRepoMirror or cluster localRegistry; image tarball loading has been removed")
 	}
 
 	master := utils.UnwrapNodeList(metadata.Masters[:1])
@@ -483,4 +470,18 @@ func (n *MetalLB) Render(ctx context.Context, opts component.Options) error {
 // GetImageRepoMirror return ImageRepoMirror
 func (n *MetalLB) GetImageRepoMirror() string {
 	return n.ImageRepoMirror
+}
+
+func (n *MetalLB) GetOfflineArtifactRequests() []component.OfflineArtifactRequest {
+	version := n.Version
+	if version == "" {
+		version = defaultVersion
+	}
+	return []component.OfflineArtifactRequest{
+		{
+			Kind:    "lb",
+			Name:    metallb,
+			Version: version,
+		},
+	}
 }

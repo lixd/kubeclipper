@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/common"
@@ -106,21 +107,19 @@ func (runnable *CalicoRunnable) InitStep(metadata *component.ExtraMetadata, cni 
 	return stepper
 }
 
-func (runnable *CalicoRunnable) LoadImage(nodes []v1.StepNode) ([]v1.Step, error) {
-	var steps []v1.Step
-	bytes, err := json.Marshal(runnable)
-	if err != nil {
-		return nil, err
+func (runnable *CalicoRunnable) PrepareImages(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error) {
+	applyResolvedCNI(ctx, &runnable.BaseCni, "calico")
+	if runnable.Offline && strings.TrimSpace(runnable.LocalRegistry) == "" {
+		return nil, fmt.Errorf("offline calico install requires localRegistry; image tarball loading has been removed")
 	}
-
-	if runnable.Offline && runnable.LocalRegistry == "" {
-		return []v1.Step{LoadImage("calico", bytes, nodes)}, nil
-	}
-
-	return steps, nil
+	return nil, nil
 }
 
 func (runnable *CalicoRunnable) InstallSteps(nodes []v1.StepNode, kubernetesVersion string) ([]v1.Step, error) {
+	return runnable.InstallStepsWithContext(context.TODO(), nodes, kubernetesVersion)
+}
+
+func (runnable *CalicoRunnable) InstallStepsWithContext(ctx context.Context, nodes []v1.StepNode, kubernetesVersion string) ([]v1.Step, error) {
 	var steps []v1.Step
 	bytes, err := json.Marshal(runnable)
 	if err != nil {
@@ -135,13 +134,20 @@ func (runnable *CalicoRunnable) InstallSteps(nodes []v1.StepNode, kubernetesVers
 			Version: runnable.Version,
 			Offline: runnable.Offline,
 		}
+		resolved, err := common.RequireResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cni", "calico", runnable.Version)
+		if err != nil {
+			return nil, err
+		}
+		if err := common.ApplyResolvedComponent(chart, resolved); err != nil {
+			return nil, err
+		}
 		cLoadSteps, err := chart.InstallStepsV2(nodes)
 		if err != nil {
 			return nil, err
 		}
 		steps = append(steps, cLoadSteps...)
 		steps = append(steps, RenderYaml("calico", bytes, nodes))
-		steps = append(steps, InstallCalicoRelease(downloader.ChartDir(chart.PkgName, runnable.Version), filepath.Join(manifestDir, "calico.yaml"), runnable.Version, nodes))
+		steps = append(steps, InstallCalicoRelease(downloader.ChartDir(chart.ArtifactKind(), chart.PkgName, runnable.Version, chart.ArtifactPlatform()), filepath.Join(manifestDir, "calico.yaml"), runnable.Version, nodes))
 	} else {
 		steps = append(steps, RenderYaml("calico", bytes, nodes))
 		steps = append(steps, ApplyYaml(filepath.Join(manifestDir, "calico.yaml"), nodes))
@@ -158,13 +164,6 @@ func (runnable *CalicoRunnable) Uninstall(ctx context.Context, opts component.Op
 }
 
 func (runnable *CalicoRunnable) UninstallSteps(nodes []v1.StepNode) (steps []v1.Step, err error) {
-	bytes, err := json.Marshal(runnable)
-	if err != nil {
-		return nil, err
-	}
-	if runnable.Offline && runnable.LocalRegistry == "" {
-		steps = append(steps, RemoveImage("calico", bytes, nodes))
-	}
 	return
 }
 

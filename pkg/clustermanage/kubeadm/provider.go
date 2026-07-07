@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -38,13 +39,18 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	agentconfig "github.com/kubeclipper/kubeclipper/pkg/agent/config"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/config"
+	cliutils "github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/clustermanage"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
+	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
@@ -71,6 +77,26 @@ type KubeNode struct {
 	ip   string
 	cri  string
 	arch string
+}
+
+type inMemoryInventoryStore struct {
+	inventory *deliveryapis.PackageInventory
+}
+
+var defaultRegistryPackageInventoryIndexer = deliveryindexer.NewRegistryPackageInventoryIndexer(nil)
+
+var registryPackageInventoryIndexer = func(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error) {
+	return defaultRegistryPackageInventoryIndexer.Index(ctx, registry)
+}
+
+func (s inMemoryInventoryStore) Get(ctx context.Context) (*deliveryapis.PackageInventory, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if s.inventory == nil {
+		return nil, os.ErrNotExist
+	}
+	return s.inventory, nil
 }
 
 // ClusterType get cluster type
@@ -378,7 +404,7 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 	log := logger.FromContext(ctx)
 	log.Debugf("beginning deploy kc agent to node agent:%s ip:%s", node.ID, ip)
 
-	// 1.download kc-agent binary from kc-server & get certs from configmap.
+	// 1. Resolve bootstrap binaries from PackageInventory and get certs from configmap.
 	deployConfig, err := r.getDeployConfig()
 	if err != nil {
 		return errors.WithMessage(err, "getDeployConfig")
@@ -406,24 +432,19 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 		logger.Warnf("update deploy-config agent failed: %v", err)
 		return nil
 	}
-	// download http://192.168.10.123:8081/kc/kubeclipper-agent
-	url := fmt.Sprintf("http://%s:%v/kc", deployConfig.ServerIPs[0], deployConfig.StaticServerPort)
-	cmdList := []string{
-		"systemctl stop kc-agent || true",
-		fmt.Sprintf("curl %s/kubeclipper-agent -o /usr/local/bin/kubeclipper-agent", url),
-		"chmod +x /usr/local/bin/kubeclipper-agent",
-		fmt.Sprintf("if [[ $(which etcdctl) != which* ]]; then curl %s/etcdctl -o /usr/local/bin/etcdctl; fi", url),
-		"chmod +x /usr/local/bin/etcdctl",
+	if err = r.stopAgentService(ip); err != nil {
+		return err
 	}
-
-	for _, cmd := range cmdList {
-		ret, err := sshutils.SSHCmdWithSudo(r.ssh(), ip, cmd)
-		if err != nil {
-			return errors.WithMessagef(err, "run cmd [%s] on node [%s]", cmd, ip)
-		}
-		if err = ret.Error(); err != nil {
-			return errors.WithMessage(err, ret.String())
-		}
+	nodeArch, err := r.detectNodeArch(ip)
+	if err != nil {
+		return err
+	}
+	delivered, err := r.deliverBootstrapBinaries(ctx, ip, nodeArch, deployConfig)
+	if err != nil {
+		return err
+	}
+	if !delivered {
+		return fmt.Errorf("bootstrap binaries are not published in package inventory for arch %q", nodeArch)
 	}
 
 	ca, cliCert, cliKey, err := r.gerCerts()
@@ -455,7 +476,7 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 	if err != nil {
 		return errors.WithMessage(err, "GetKcAgentConfigTemplateContent")
 	}
-	cmdList = []string{
+	cmdList := []string{
 		sshutils.WrapEcho(config.KcAgentService, "/usr/lib/systemd/system/kc-agent.service"),
 		"mkdir -pv /etc/kubeclipper-agent",
 		sshutils.WrapEcho(agentConfig, "/etc/kubeclipper-agent/kubeclipper-agent.yaml"),
@@ -474,6 +495,136 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 	log.Debugf("deploy kc agent to node agent:%s ip:%s successfully", node.ID, ip)
 
 	return nil
+}
+
+func (r *Kubeadm) stopAgentService(ip string) error {
+	ret, err := sshutils.SSHCmdWithSudo(r.ssh(), ip, "systemctl stop kc-agent || true")
+	if err != nil {
+		return errors.WithMessagef(err, "run cmd [%s] on node [%s]", "systemctl stop kc-agent || true", ip)
+	}
+	if err = ret.Error(); err != nil {
+		return errors.WithMessage(err, ret.String())
+	}
+	return nil
+}
+
+func (r *Kubeadm) detectNodeArch(ip string) (string, error) {
+	ret, err := sshutils.SSHCmdWithSudo(r.ssh(), ip, "uname -m")
+	if err != nil {
+		return "", errors.WithMessagef(err, "detect node arch on [%s]", ip)
+	}
+	if err = ret.Error(); err != nil {
+		return "", errors.WithMessage(err, ret.String())
+	}
+	arch := normalizeKernelArch(strings.TrimSpace(ret.Stdout))
+	if arch == "" {
+		return "", fmt.Errorf("detected empty node arch on %s", ip)
+	}
+	return arch, nil
+}
+
+func (r *Kubeadm) deliverBootstrapBinaries(ctx context.Context, ip, arch string, deployConfig *options.DeployConfig) (bool, error) {
+	kubernetesVersion, err := r.targetKubernetesVersion(ctx)
+	if err != nil {
+		return false, err
+	}
+	delivered, err := r.deliverBootstrapBinariesFromInventory(ctx, ip, arch, deployConfig.PackageRegistry, kubernetesVersion)
+	if err != nil {
+		return false, err
+	}
+	return delivered, nil
+}
+
+func (r *Kubeadm) deliverBootstrapBinariesFromInventory(ctx context.Context, ip, arch, registry, kubernetesVersion string) (bool, error) {
+	policyStore := r.deliveryPolicyStore()
+	agentComponent, err := resolveBootstrapBinaryComponent(ctx, registry, policyStore, arch, kubernetesVersion, "kubeclipper-agent")
+	if err != nil {
+		if isBootstrapBinaryNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	etcdctlComponent, err := resolveBootstrapBinaryComponent(ctx, registry, policyStore, arch, kubernetesVersion, "etcdctl")
+	if err != nil {
+		if isBootstrapBinaryNotFound(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	agentResult, err := deliveryfetcher.FetchComponent(ctx, arch, agentComponent, false)
+	if err != nil {
+		return false, err
+	}
+	agentBinary := agentResult.Files[deliveryapis.ContentBinary]
+	if agentBinary == "" {
+		return false, fmt.Errorf("bootstrap binary kubeclipper-agent payload is missing")
+	}
+	if err = sendBootstrapBinary(r.ssh(), ip, agentBinary, bootstrapBinaryInstallHook("kubeclipper-agent", false)); err != nil {
+		return false, errors.WithMessage(err, "send inventory kubeclipper-agent binary")
+	}
+
+	etcdctlResult, err := deliveryfetcher.FetchComponent(ctx, arch, etcdctlComponent, false)
+	if err != nil {
+		return false, err
+	}
+	etcdctlBinary := etcdctlResult.Files[deliveryapis.ContentBinary]
+	if etcdctlBinary == "" {
+		return false, fmt.Errorf("bootstrap binary etcdctl payload is missing")
+	}
+	if err = sendBootstrapBinary(r.ssh(), ip, etcdctlBinary, bootstrapBinaryInstallHook("etcdctl", true)); err != nil {
+		return false, errors.WithMessage(err, "send inventory etcdctl binary")
+	}
+	return true, nil
+}
+
+func resolveBootstrapBinaryComponent(ctx context.Context, registry string, policyStore deliveryapis.PolicyStore, arch, kubernetesVersion, name string) (deliveryapis.ResolvedComponent, error) {
+	store, err := resolvePackageInventoryStore(ctx, registry)
+	if err != nil {
+		return deliveryapis.ResolvedComponent{}, err
+	}
+	if store == nil {
+		return deliveryapis.ResolvedComponent{}, os.ErrNotExist
+	}
+	if policyStore == nil {
+		return deliveryapis.ResolvedComponent{}, fmt.Errorf("delivery policy store is nil")
+	}
+	return deliveryapis.ResolveBootstrapBinaryFromStores(ctx, store, policyStore, deliveryapis.BootstrapBinaryResolveRequest{
+		Arch:               arch,
+		KubernetesVersion:  kubernetesVersion,
+		KubeClipperVersion: version.Get().GitVersion,
+		Candidates: []deliveryapis.PackageCandidate{
+			{Kind: "binary", Name: name},
+		},
+	})
+}
+
+func isBootstrapBinaryNotFound(err error) bool {
+	return errors.Is(err, os.ErrNotExist)
+}
+
+func normalizeKernelArch(arch string) string {
+	switch arch {
+	case "x86_64":
+		return "amd64"
+	case "aarch64":
+		return "arm64"
+	default:
+		return arch
+	}
+}
+
+func sendBootstrapBinary(sshConfig *sshutils.SSH, ip, binaryPath, afterHook string) error {
+	return cliutils.SendPackageV2(sshConfig, binaryPath, []string{ip}, config.DefaultPkgPath, nil, &afterHook)
+}
+
+func bootstrapBinaryInstallHook(binary string, onlyIfMissing bool) string {
+	src := filepath.Join(config.DefaultPkgPath, binary)
+	dst := filepath.Join("/usr/local/bin", binary)
+	if onlyIfMissing {
+		return fmt.Sprintf("if command -v %s >/dev/null 2>&1; then rm -f %s; else install -m 0755 %s %s && rm -f %s; fi", binary, src, src, dst, src)
+	}
+	return fmt.Sprintf("install -m 0755 %s %s && rm -f %s", src, dst, src)
 }
 
 // drainAgent remote kc-agent for node,and delete node from kc-server
@@ -500,7 +651,7 @@ func (r *Kubeadm) drainAgent(nodeIP, agentID string, ssh *sshutils.SSH) error {
 		return errors.WithMessagef(err, "delete node %s failed", agentID)
 	}
 
-	// 1.download kc-agent binary from kc-server & get certs from configmap.
+	// 1. Resolve bootstrap binaries from PackageInventory and get certs from configmap.
 	deployConfig, err := r.getDeployConfig()
 	if err != nil {
 		return errors.WithMessage(err, "getDeployConfig")
@@ -806,41 +957,20 @@ func (r *Kubeadm) kubectlTerminal(ctx context.Context, node KubeNode, action v1.
 			return nil
 		}
 
-		deployConfig, err := r.getDeployConfig()
+		cluster, err := r.Operator.ClusterReader.GetCluster(ctx, r.Config.ClusterName)
 		if err != nil {
 			return err
 		}
-
-		exDir := "/tmp/.kc-extension"
-		exImage := fmt.Sprintf("%s/images.tar", exDir)
-
-		// TODO： since there is only one version of the kubectl terminal image at this stage,
-		// it is difficult to match multiple versions of the k8s cluster.
-		// for now, we are using kubectl v1.23.6 as the latest version
-		url := fmt.Sprintf("http://%s:%v/kc-extension/latest/%s", deployConfig.ServerIPs[0], deployConfig.StaticServerPort, node.arch)
-
-		loadImage := ""
-		switch node.cri {
-		case v1.CRIDocker:
-			// docker load -i xxx/images.tar
-			loadImage = fmt.Sprintf("docker load -i %s", exImage)
-		case v1.CRIContainerd:
-			loadImage = fmt.Sprintf("nerdctl -n k8s.io load -i %s", exImage)
-		default:
-			logger.Warnf("unsupported cri types: ", node.cri)
+		if cluster.LocalRegistry == "" {
+			return fmt.Errorf("kubectl terminal extension requires cluster localRegistry; image tarball loading has been removed")
 		}
 
-		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{})
+		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{ImageRegistryAddr: cluster.LocalRegistry})
 		if err != nil {
 			return err
 		}
 		yamlFile := filepath.Join(k8s.ManifestDir, "kc-kubectl.yaml")
-
 		cmdList = []string{
-			fmt.Sprintf("mkdir -p %s", exDir),
-			fmt.Sprintf("curl %s/images.tar.gz -o %s.gz", url, exImage),
-			fmt.Sprintf("gzip -df %s.gz", exImage),
-			loadImage,
 			fmt.Sprintf("mkdir -p %s", k8s.ManifestDir),
 			sshutils.WrapEcho(terminalData, yamlFile),
 			fmt.Sprintf("kubectl apply -f %s", yamlFile),
@@ -864,6 +994,74 @@ func (r *Kubeadm) kubectlTerminal(ctx context.Context, node KubeNode, action v1.
 	}
 
 	return nil
+}
+
+type configMapListerPolicyStore struct {
+	lister interface {
+		Get(name string) (*v1.ConfigMap, error)
+	}
+}
+
+func (s configMapListerPolicyStore) Get(ctx context.Context) (*deliveryapis.SupportPolicy, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if s.lister == nil {
+		return nil, fmt.Errorf("configmap lister is nil")
+	}
+	cm, err := s.lister.Get(deliveryapis.DeliveryPolicyConfigMapName)
+	if err != nil {
+		return nil, err
+	}
+	policyData, ok := cm.Data[deliveryapis.DeliveryPolicyConfigMapKey]
+	if !ok || policyData == "" {
+		return nil, fmt.Errorf("configmap %s does not contain %s", deliveryapis.DeliveryPolicyConfigMapName, deliveryapis.DeliveryPolicyConfigMapKey)
+	}
+	var policy deliveryapis.SupportPolicy
+	if err = deliveryapis.DecodeSupportPolicy([]byte(policyData), &policy); err != nil {
+		return nil, err
+	}
+	if err = policy.Validate(); err != nil {
+		return nil, err
+	}
+	return &policy, nil
+}
+
+func (s configMapListerPolicyStore) Update(ctx context.Context, mutator func(*deliveryapis.SupportPolicy) error) error {
+	return fmt.Errorf("configmap lister policy store is read-only")
+}
+
+func (r *Kubeadm) deliveryPolicyStore() deliveryapis.PolicyStore {
+	if r.Operator.ConfigmapLister == nil {
+		return nil
+	}
+	return configMapListerPolicyStore{lister: r.Operator.ConfigmapLister}
+}
+
+func (r *Kubeadm) targetKubernetesVersion(ctx context.Context) (string, error) {
+	if r.Operator.ClusterReader == nil {
+		return "", fmt.Errorf("cluster reader is nil")
+	}
+	cluster, err := r.Operator.ClusterReader.GetCluster(ctx, r.Config.ClusterName)
+	if err != nil {
+		return "", err
+	}
+	if cluster == nil || strings.TrimSpace(cluster.KubernetesVersion) == "" {
+		return "", fmt.Errorf("cluster %q kubernetes version is empty", r.Config.ClusterName)
+	}
+	return strings.TrimSpace(cluster.KubernetesVersion), nil
+}
+
+func resolvePackageInventoryStore(ctx context.Context, registry string) (deliveryapis.InventoryStore, error) {
+	registry = strings.TrimSpace(registry)
+	if registry != "" {
+		inventory, err := registryPackageInventoryIndexer(ctx, registry)
+		if err == nil {
+			return inMemoryInventoryStore{inventory: inventory}, nil
+		}
+		return nil, err
+	}
+	return nil, nil
 }
 
 const (

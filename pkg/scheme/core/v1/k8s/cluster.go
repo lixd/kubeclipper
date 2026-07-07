@@ -33,7 +33,10 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/agent/config"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/cni"
@@ -189,9 +192,10 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 		},
 		DownloadImage: false,
 	}
-	// master node only in this case will the image package be pulled
-	if extraMetadata.Offline && stepper.Kubeadm.LocalRegistry == "" && stepper.LocalRegistry == "" {
-		packageDownload.DownloadImage = true
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+		packageDownload.Arch = resolved.Arch
+		packageDownload.Transport = resolved.Transport
+		packageDownload.Contents = packageConfigContents(resolved.Contents)
 	}
 	// When the mirror repository used for the upgrade is valid and not equal to the one used for the cluster creation,
 	// the kubeadm configuration file is rendered with the new mirror repository.
@@ -369,39 +373,51 @@ func (stepper *UpgradePackage) Install(ctx context.Context, opts component.Optio
 	if err != nil {
 		return nil, err
 	}
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
+	if stepper.Transport.Type != "" {
+		return stepper.installResolved(ctx, opts)
+	}
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+		stepper.Arch = resolved.Arch
+		stepper.Transport = resolved.Transport
+		stepper.Contents = resolved.Contents
+		return stepper.installResolved(ctx, opts)
+	}
+	return nil, fmt.Errorf("install k8s upgrade package %s requires resolved artifact transport", stepper.Version)
+}
+
+func (stepper *UpgradePackage) installResolved(ctx context.Context, opts component.Options) ([]byte, error) {
+	if stepper.DownloadImage {
+		return nil, fmt.Errorf("k8s upgrade image tarball loading has been removed; pre-populate localRegistry instead")
+	}
+	contents := packageConfigContents(stepper.Contents)
+	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
+		Kind:      K8s,
+		Name:      K8s,
+		Version:   stepper.Version,
+		Arch:      stepper.Arch,
+		Transport: stepper.Transport,
+		Contents:  contents,
+	}, opts.DryRun)
 	if err != nil {
 		return nil, err
 	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
+	configs := result.Files[deliveryapis.ContentConfigs]
+	if configs == "" {
+		return nil, fmt.Errorf("resolved k8s configs content is missing")
 	}
-	if stepper.DownloadImage {
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		if err := utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
+	if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("tar -zxvf %s -C /", configs)); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
 
 func (stepper *UpgradePackage) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
 	// remove upgrade package
-	if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -rf %s", filepath.Join(downloader.BaseDstDir, K8s))); err != nil {
-		return nil, err
+	if opts.DryRun {
+		return nil, nil
 	}
-	// remove image file
-	if stepper.DownloadImage {
-		if err = instance.RemoveImages(); err != nil {
-			logger.Error("remove k8s upgrade images compressed file failed", zap.Error(err))
-		}
+	if err := os.RemoveAll(downloader.PackageDir(K8s, K8s, stepper.Version, archOrRuntime(stepper.Arch))); err != nil {
+		return nil, err
 	}
 	return nil, nil
 }
