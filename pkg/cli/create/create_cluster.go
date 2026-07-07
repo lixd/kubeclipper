@@ -59,10 +59,11 @@ const (
   Create cluster using command line`
 	createClusterExample = `
   # Create cluster offline. The default value of offline is true, so it can be omitted.
-  kcctl create cluster --name demo --master 192.168.10.123
+  # Runtime images must already exist in --local-registry.
+  kcctl create cluster --name demo --master 192.168.10.123 --local-registry 192.168.10.123:5000
 
   # Create cluster online
-  kcctl create cluster --name demo --master 192.168.10.123 --offline false --local-registry 192.168.10.123:5000
+  kcctl create cluster --name demo --master 192.168.10.123 --offline false
 
   # Create cluster with taint manage
   kcctl create cluster --name demo --master 192.168.10.123 --untaint-master
@@ -340,6 +341,9 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	}
 	if l.Name == "" {
 		return utils.UsageErrorf(cmd, "cluster name must be specified")
+	}
+	if l.Offline && strings.TrimSpace(l.LocalRegistry) == "" {
+		return utils.UsageErrorf(cmd, "offline cluster requires --local-registry; runtime image tarball loading has been removed")
 	}
 	k8sVersions := l.listK8s("")
 	if !sliceutil.HasString(k8sVersions, l.K8sVersion) {

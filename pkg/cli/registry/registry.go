@@ -19,17 +19,26 @@
 package registry
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/crane"
+	containerv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"k8s.io/apimachinery/pkg/util/wait"
+	componentversion "k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/registry/client"
@@ -52,6 +61,9 @@ import (
 )
 
 const (
+	defaultRegistryComponentRegistry = "docker.io/kubeclipper"
+	defaultRegistryComponentArch     = "amd64"
+
 	longDescription = `
   Docker registry operation.
 
@@ -59,13 +71,13 @@ const (
   Use docker engine API V2, visit the website(https://docs.docker.com/registry/spec/api/) for more information.`
 	registryExample = `
   # Deploy docker registry
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --pkg kc.tar.gz
-  # Deploy docker registry without image load
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --pkg kc.tar.gz --skip-image-load
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0
+  # Deploy docker registry from an offline image archive
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
   # Clean docker registry
   kcctl registry clean --pk-file key --node 10.0.0.111
   # Push docker image to registry
-  kcctl registry push --pk-file key --node 10.0.0.111 --pkg images.tar.gz
+  kcctl registry push --node 10.0.0.111 --image-archive images.tar.gz
   # List repositories in docker registry
   kcctl registry list
   # List repositories with explicit node
@@ -80,12 +92,16 @@ const (
   Deploy docker registry.`
 	deployExample = `
   # Deploy docker registry
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --pkg kc.tar.gz
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0
   # Deploy docker registry specify data directory
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --pkg kc.tar.gz  --data-root /var/lib/myregistry
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0 --data-root /var/lib/myregistry
   # Deploy docker registry specify port
   # If you used custom port,then must specify it in push、list、delete cmd.
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --pkg kc.tar.gz --registry-port 6666
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0 --registry-port 6666
+  # Deploy docker registry from an offline image archive
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
+  # Deploy docker registry from a local binary
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-binary registry-linux-amd64
 
   Please read 'kcctl registry deploy -h' get more registry deploy flags.`
 	cleanLongDescription = `
@@ -106,13 +122,13 @@ const (
   Push docker image by flags.`
 	pushExample = `
   # Push docker image to registry
-  # You can use [docker save  $images > images.tar] or [docker save  $images > images.tar && gzip -f images.tar]  to generate image pkg
+  # You can use [docker save  $images > images.tar] or [docker save  $images > images.tar && gzip -f images.tar]  to generate image archive
   # example: docker save k8s.gcr.io/pause:3.2 k8s.gcr.io/coredns/coredns:1.6.7 > images.tar
   # example: docker save k8s.gcr.io/pause:3.2 k8s.gcr.io/coredns/coredns:1.6.7 > images.tar && gzip -f images.tar
-  kcctl registry push --node 10.0.0.111 --pkg images.tar
-  kcctl registry push --node 10.0.0.111 --pkg images.tar.gz
+  kcctl registry push --node 10.0.0.111 --image-archive images.tar
+  kcctl registry push --node 10.0.0.111 --image-archive images.tar.gz
   # Push using saved config
-  kcctl registry push --pkg images.tar.gz
+  kcctl registry push --image-archive images.tar.gz
 
   Please read 'kcctl registry push -h' get more registry push flags.`
 	listLongDescription = `
@@ -143,24 +159,35 @@ type RegistryOptions struct {
 	SSHConfig  *sshutils.SSH
 
 	Node string
-	Pkg  string
+
+	ImageArchive         string
+	RegistryImage        string
+	RegistryImageArchive string
+	RegistryBinary       string
+	ComponentRegistry    string
+	Version              string
+	Arch                 string
 
 	DataRoot     string
 	RegistryPort int
 
-	Type          string
-	Name          string
-	Tag           string
-	Number        int
-	SkipImageLoad bool
-	TagSuffix     string
+	Type      string
+	Name      string
+	Tag       string
+	Number    int
+	TagSuffix string
 
 	// tracks which flags were explicitly set by the user
-	nodeChanged     bool
-	portChanged     bool
-	sshUserChanged  bool
-	pkFileChanged   bool
-	pkPasswdChanged bool
+	nodeChanged              bool
+	portChanged              bool
+	sshUserChanged           bool
+	pkFileChanged            bool
+	pkPasswdChanged          bool
+	registryImageChanged     bool
+	registryArchiveChanged   bool
+	registryBinaryChanged    bool
+	componentRegistryChanged bool
+	versionChanged           bool
 }
 
 var (
@@ -172,6 +199,7 @@ func NewRegistryOptions(streams options.IOStreams) *RegistryOptions {
 		IOStreams:    streams,
 		PrintFlags:   printer.NewPrintFlags(),
 		SSHConfig:    sshutils.NewSSH(),
+		Arch:         defaultRegistryComponentArch,
 		DataRoot:     "/var/lib/registry",
 		RegistryPort: 5000,
 		Type:         "repository",
@@ -200,7 +228,7 @@ func NewCmdRegistry(streams options.IOStreams) *cobra.Command {
 
 func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "deploy (--user | -u <user>) (--passwd <passwd>) (--pk-file <pk-file>) (--pk-passwd <pk-passwd>) (--node <node>) (--pkg <pkg>) (--data-root <data-root>)  (--registry-port <registry-port>) [flags]",
+		Use:                   "deploy (--user | -u <user>) (--passwd <passwd>) (--pk-file <pk-file>) (--pk-passwd <pk-passwd>) (--node <node>) [--registry-image <image> | --registry-image-archive <archive> | --registry-binary <binary> | --component-registry <registry>] (--data-root <data-root>)  (--registry-port <registry-port>) [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "registry deploy",
 		Long:                  deployLongDescription,
@@ -219,14 +247,16 @@ func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 
 	options.AddFlagsToSSH(o.SSHConfig, cmd.Flags())
 	cmd.Flags().StringVar(&o.Node, "node", o.Node, "node to deploy registry.")
-	cmd.Flags().StringVar(&o.Pkg, "pkg", o.Pkg, "registry service and images pkg.")
+	cmd.Flags().StringVar(&o.RegistryImage, "registry-image", o.RegistryImage, "full registry component image reference.")
+	cmd.Flags().StringVar(&o.RegistryImageArchive, "registry-image-archive", o.RegistryImageArchive, "local docker image archive containing the registry binary.")
+	cmd.Flags().StringVar(&o.RegistryBinary, "registry-binary", o.RegistryBinary, "local registry binary path.")
+	cmd.Flags().StringVar(&o.ComponentRegistry, "component-registry", o.ComponentRegistry, "component image registry prefix, for example docker.io/kubeclipper.")
+	cmd.Flags().StringVar(&o.Version, "version", o.Version, "registry component version. Defaults to kcctl GitVersion.")
+	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry component image architecture.")
 	cmd.Flags().StringVar(&o.DataRoot, "data-root", o.DataRoot, "set registry data root directory.")
 	cmd.Flags().IntVar(&o.RegistryPort, "registry-port", o.RegistryPort, "set registry port")
-	cmd.Flags().BoolVar(&o.SkipImageLoad, "skip-image-load", o.SkipImageLoad, "set to skip image load,if set true will skip image load when deploy registry")
-	cmd.Flags().StringVar(&o.TagSuffix, "tag-suffix", o.TagSuffix, "Append a suffix to the final image tag. For example, if the original image is library/busybox:1.36 and you set --tag-suffix=-amd64, the image will be pushed as library/busybox:1.36-amd64. Useful for creating architecture-specific tags in one shot.")
 
 	utils.CheckErr(cmd.MarkFlagRequired("node"))
-	utils.CheckErr(cmd.MarkFlagRequired("pkg"))
 	return cmd
 }
 
@@ -256,7 +286,7 @@ func NewCmdRegistryClean(o *RegistryOptions) *cobra.Command {
 
 func NewCmdRegistryPush(o *RegistryOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "push [--node <node>] (--pkg <pkg>) [--registry-port <registry-port>] [flags]",
+		Use:                   "push [--node <node>] (--image-archive <archive>) [--registry-port <registry-port>] [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "registry push image",
 		Long:                  pushLongDescription,
@@ -274,11 +304,11 @@ func NewCmdRegistryPush(o *RegistryOptions) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&o.Node, "node", o.Node, "registry node. If not specified, uses the current registry from config.")
-	cmd.Flags().StringVar(&o.Pkg, "pkg", o.Pkg, "docker images pkg,use `docker save $images > images.tar && gzip -f images.tar` to generate images.tar.gz")
+	cmd.Flags().StringVar(&o.ImageArchive, "image-archive", o.ImageArchive, "Path to a docker image archive (.tar or .tar.gz) generated by docker save.")
 	cmd.Flags().StringVar(&o.TagSuffix, "tag-suffix", o.TagSuffix, "Append a suffix to the final image tag. For example, if the original image is library/busybox:1.36 and you set --tag-suffix=-amd64, the image will be pushed as library/busybox:1.36-amd64. Useful for creating architecture-specific tags in one shot.")
 	cmd.Flags().IntVar(&o.RegistryPort, "registry-port", o.RegistryPort, "registry port.")
 
-	utils.CheckErr(cmd.MarkFlagRequired("pkg"))
+	utils.CheckErr(cmd.MarkFlagRequired("image-archive"))
 	return cmd
 }
 
@@ -362,6 +392,11 @@ func (o *RegistryOptions) trackChangedFlags(cmd *cobra.Command) {
 	o.sshUserChanged = cmd.Flags().Changed("user")
 	o.pkFileChanged = cmd.Flags().Changed("pk-file")
 	o.pkPasswdChanged = cmd.Flags().Changed("pk-passwd")
+	o.registryImageChanged = cmd.Flags().Changed("registry-image")
+	o.registryArchiveChanged = cmd.Flags().Changed("registry-image-archive")
+	o.registryBinaryChanged = cmd.Flags().Changed("registry-binary")
+	o.componentRegistryChanged = cmd.Flags().Changed("component-registry")
+	o.versionChanged = cmd.Flags().Changed("version")
 }
 
 // Complete loads registry config and fills in unset options from the matching registry entry.
@@ -405,8 +440,8 @@ func (o *RegistryOptions) ValidateArgsPush() error {
 	if o.Node == "" {
 		return fmt.Errorf("--node must be specified, or run 'kcctl registry deploy' first to save registry config")
 	}
-	if o.Pkg == "" {
-		return fmt.Errorf("--pkg must be specified")
+	if o.ImageArchive == "" {
+		return fmt.Errorf("--image-archive must be specified")
 	}
 	return nil
 }
@@ -415,11 +450,18 @@ func (o *RegistryOptions) ValidateArgsDeploy() error {
 	if o.SSHConfig.PkFile == "" && o.SSHConfig.Password == "" {
 		return fmt.Errorf("one of --pk-file or --passwd must be specified")
 	}
-	if o.Pkg == "" {
-		return fmt.Errorf("--pkg must be specified")
-	}
 	if o.Node == "" {
 		return fmt.Errorf("--node must be specified")
+	}
+	if o.Arch == "" {
+		return fmt.Errorf("--arch must be specified")
+	}
+	sources := o.explicitRegistryDeploySources()
+	if len(sources) > 1 {
+		return fmt.Errorf("registry deploy source flags are mutually exclusive: %s", strings.Join(sources, ", "))
+	}
+	if o.Version != "" && (o.RegistryImage != "" || o.RegistryImageArchive != "" || o.RegistryBinary != "") {
+		return fmt.Errorf("--version can only be used with --component-registry or the default component registry")
 	}
 	return nil
 }
@@ -505,22 +547,12 @@ func (o *RegistryOptions) GetKcRegistryConfigTemplateContent() (string, error) {
 }
 
 func (o *RegistryOptions) Install() error {
-	if err := o.processPackage(); err != nil {
-		return fmt.Errorf("process package error: %s", err.Error())
+	if err := o.installRegistryBinary(); err != nil {
+		return fmt.Errorf("install registry binary error: %s", err.Error())
 	}
 
 	if err := o.deployRegistry(); err != nil {
 		return fmt.Errorf("deploy registry error: %s", err.Error())
-	}
-
-	// load images
-	if err := o.loadImages(); err != nil {
-		return fmt.Errorf("load images error: %s", err.Error())
-	}
-
-	// remove tmp file
-	if err := o.removePkg(); err != nil {
-		return fmt.Errorf("remove pkg error: %s", err.Error())
 	}
 
 	// save registry config
@@ -542,7 +574,7 @@ func (o *RegistryOptions) saveRegistryConfigAfterDeploy() error {
 }
 
 func (o *RegistryOptions) printUsage() {
-	success := "deploy registry and push images successfully.\nthere is some tips to visit your repository: \n"
+	success := "deploy registry successfully.\nthere is some tips to visit your repository: \n"
 	usage1 := fmt.Sprintf("\t1. visit http://%s/v2/_catalog\n", o.registry())
 	usage2 := ""
 	if o.RegistryPort != 5000 {
@@ -658,23 +690,23 @@ func (o *RegistryOptions) stopRegistry() error {
 }
 
 func (o *RegistryOptions) Push() error {
-	logger.Info("process package")
-	err := utils.SendPackageLocal(o.Pkg, config.DefaultPkgPath, nil)
+	logger.Info("process image archive")
+	err := utils.SendPackageLocal(o.ImageArchive, config.DefaultPkgPath, nil)
 	if err != nil {
 		return err
 	}
-	fullPath := path.Join(config.DefaultPkgPath, path.Base(o.Pkg))
+	fullPath := path.Join(config.DefaultPkgPath, path.Base(o.ImageArchive))
 
 	if strings.HasSuffix(fullPath, ".tar.gz") {
-		logger.Info("unzip package")
+		logger.Info("unzip image archive")
 		if err = sshutils.Cmd("gzip", "-df", fullPath); err != nil {
 			return err
 		}
 		fullPath = strings.ReplaceAll(fullPath, ".tar.gz", ".tar")
 	} else if strings.HasSuffix(fullPath, ".tar") {
-		logger.Info(".tar file,skip unzip package")
+		logger.Info(".tar file, skip unzip image archive")
 	} else {
-		return fmt.Errorf("unknown package type: %s, only tar, .tar or .tar.gz are supported", fullPath)
+		return fmt.Errorf("unknown image archive type: %s, only .tar and .tar.gz are supported", fullPath)
 	}
 
 	logger.V(3).Infof("push %s to %s", fullPath, o.registry())
@@ -684,7 +716,7 @@ func (o *RegistryOptions) Push() error {
 	}
 	logger.Info("push image successful")
 
-	return o.removePushPkg()
+	return o.removePushImageArchive()
 }
 
 func (o *RegistryOptions) List() error {
@@ -751,68 +783,21 @@ func (o *RegistryOptions) listImages() error {
 	return o.PrintFlags.Print(image, o.IOStreams.Out)
 }
 
-func (o *RegistryOptions) processPackage() error {
-	hook := fmt.Sprintf("rm -rf %s/kc && tar -xvf %s -C %s", config.DefaultPkgPath,
-		filepath.Join(config.DefaultPkgPath, path.Base(o.Pkg)), config.DefaultPkgPath)
-	logger.V(3).Info("processPackage hook:", hook)
-	if err := utils.SendPackageLocal(o.Pkg, config.DefaultPkgPath, &hook); err != nil {
+func (o *RegistryOptions) installRegistryBinary() error {
+	binaryPath, cleanup, err := o.obtainRegistryBinary()
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
 		return err
 	}
 
-	logger.V(3).Info("send binary file")
-	file := fmt.Sprintf("%s/kc/bin/registry", config.DefaultPkgPath)
+	logger.V(3).Info("send registry binary file")
 	chmod := "chmod +x /usr/local/bin/registry"
-	err := utils.SendPackage(o.SSHConfig, file, []string{o.Node}, "/usr/local/bin", nil, &chmod)
-	if err != nil {
+	if err = utils.SendPackage(o.SSHConfig, binaryPath, []string{o.Node}, "/usr/local/bin", nil, &chmod); err != nil {
 		return err
 	}
-	logger.Info("process package successfully")
-	return nil
-}
-
-func (o *RegistryOptions) loadImages() error {
-	if o.SkipImageLoad {
-		logger.Info("skip image load")
-		return nil
-	}
-	// TODO: for historical reasons and version stability, kcctl temporarily skips the load of the kc-extension image when deploying a private repository
-	// e.g. find /tmp/kc/resource -name images*.tar.gz ｜ grep -v kc-extension  | awk '{print}'
-
-	findPkg := fmt.Sprintf("find %s/kc/resource -name images*.tar.gz | grep -v kc-extension | awk '{print}'", config.DefaultPkgPath)
-	logger.V(3).Info("loadImages hook :", findPkg)
-	ret, err := sshutils.RunCmdAsSSH(findPkg)
-	if err != nil {
-		return err
-	}
-	if err = ret.Error(); err != nil {
-		return err
-	}
-
-	logger.V(4).Info("find pkg out :", ret.Stdout)
-	pkgs := strings.Split(ret.Stdout, "\n")
-	logger.V(4).Info("pkg count:", len(pkgs))
-	logger.V(4).Info("pkg list:", pkgs)
-	for _, pkg := range pkgs {
-		if pkg == "" {
-			continue
-		}
-		unzip := fmt.Sprintf("gzip -df %s", pkg)
-		ret, err = sshutils.RunCmdAsSSH(unzip)
-		if err != nil {
-			return err
-		}
-		if err = ret.Error(); err != nil {
-			return err
-		}
-		tar := strings.ReplaceAll(pkg, ".tar.gz", ".tar")
-
-		logger.V(3).Infof("push %s to %s", tar, o.registry())
-		if err = client.Push(tar, o.registry(), o.TagSuffix); err != nil {
-			return err
-		}
-	}
-
-	logger.Info("image push successfully")
+	logger.Info("registry binary installed successfully")
 	return nil
 }
 
@@ -820,24 +805,235 @@ func (o *RegistryOptions) registry() string {
 	return fmt.Sprintf("%s:%v", o.Node, o.RegistryPort)
 }
 
-func (o *RegistryOptions) removePkg() error {
-	hook := fmt.Sprintf(`rm -rf %s/kc %s`, config.DefaultPkgPath, path.Join(config.DefaultPkgPath, o.Pkg))
-	ret, err := sshutils.RunCmdAsSSH(hook)
-	if err != nil {
-		return err
+func (o *RegistryOptions) explicitRegistryDeploySources() []string {
+	var sources []string
+	if o.RegistryBinary != "" {
+		sources = append(sources, "--registry-binary")
 	}
-	if err = ret.Error(); err != nil {
-		return err
+	if o.RegistryImageArchive != "" {
+		sources = append(sources, "--registry-image-archive")
 	}
-	logger.Info("remove pkg successfully")
-	return nil
+	if o.RegistryImage != "" {
+		sources = append(sources, "--registry-image")
+	}
+	if o.ComponentRegistry != "" {
+		sources = append(sources, "--component-registry")
+	}
+	return sources
 }
 
-func (o *RegistryOptions) removePushPkg() error {
+func (o *RegistryOptions) obtainRegistryBinary() (string, func(), error) {
+	if o.RegistryBinary != "" {
+		path, cleanup, err := normalizeRegistryBinary(o.RegistryBinary)
+		if err != nil {
+			return "", cleanup, err
+		}
+		logger.Infof("use local registry binary %s", o.RegistryBinary)
+		return path, cleanup, nil
+	}
+
+	if o.RegistryImageArchive != "" {
+		path, cleanup, err := o.obtainRegistryBinaryFromArchive(o.RegistryImageArchive)
+		if err != nil {
+			return "", cleanup, err
+		}
+		logger.Infof("extracted registry binary from archive %s", o.RegistryImageArchive)
+		return path, cleanup, nil
+	}
+
+	ref, err := o.resolveRegistryImage()
+	if err != nil {
+		return "", nil, err
+	}
+	path, cleanup, err := o.obtainRegistryBinaryFromImage(ref)
+	if err != nil {
+		return "", cleanup, err
+	}
+	logger.Infof("extracted registry binary from image %s", ref)
+	return path, cleanup, nil
+}
+
+func (o *RegistryOptions) resolveRegistryImage() (string, error) {
+	if o.RegistryImage != "" {
+		return o.RegistryImage, nil
+	}
+	registry := strings.TrimRight(o.ComponentRegistry, "/")
+	if registry == "" {
+		registry = defaultRegistryComponentRegistry
+	}
+	version := o.Version
+	if version == "" {
+		version = componentversion.Get().GitVersion
+	}
+	if version == "" {
+		return "", fmt.Errorf("--version must be specified because kcctl GitVersion is empty")
+	}
+	return fmt.Sprintf("%s/registry:%s", registry, version), nil
+}
+
+func (o *RegistryOptions) obtainRegistryBinaryFromImage(ref string) (string, func(), error) {
+	logger.Infof("pull registry image %s", ref)
+	img, err := crane.Pull(ref, crane.Insecure, crane.WithPlatform(&containerv1.Platform{
+		OS:           "linux",
+		Architecture: o.Arch,
+	}))
+	if err != nil {
+		return "", nil, err
+	}
+	return extractRegistryBinaryToTemp(img)
+}
+
+func (o *RegistryOptions) obtainRegistryBinaryFromArchive(archivePath string) (string, func(), error) {
+	img, err := tarball.Image(dockerArchiveOpener(archivePath), nil)
+	if err != nil {
+		return "", nil, err
+	}
+	return extractRegistryBinaryToTemp(img)
+}
+
+func normalizeRegistryBinary(src string) (string, func(), error) {
+	tmpDir, err := os.MkdirTemp("", "kc-registry-binary-")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(tmpDir)
+	}
+	dst := filepath.Join(tmpDir, "registry")
+	if err = copyFile(src, dst, 0755); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return dst, cleanup, nil
+}
+
+func extractRegistryBinaryToTemp(img containerv1.Image) (string, func(), error) {
+	tmpDir, err := os.MkdirTemp("", "kc-registry-image-")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() {
+		_ = os.RemoveAll(tmpDir)
+	}
+	dst := filepath.Join(tmpDir, "registry")
+	if err = extractRegistryBinary(img, dst); err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	return dst, cleanup, nil
+}
+
+func extractRegistryBinary(img containerv1.Image, dst string) error {
+	rc := mutate.Extract(img)
+	defer rc.Close()
+	tr := tar.NewReader(rc)
+	for {
+		header, err := tr.Next()
+		if errors.Is(err, io.EOF) {
+			return fmt.Errorf("registry binary not found in image; expected one of: %s", strings.Join(allowedRegistryBinaryPaths(), ", "))
+		}
+		if err != nil {
+			return err
+		}
+		if header.Typeflag != tar.TypeReg {
+			continue
+		}
+		if !isAllowedRegistryBinaryPath(header.Name) {
+			continue
+		}
+		mode := os.FileMode(header.Mode)
+		if mode == 0 {
+			mode = 0755
+		}
+		return writeReaderToFile(tr, dst, mode|0100)
+	}
+}
+
+func isAllowedRegistryBinaryPath(name string) bool {
+	cleaned := "/" + strings.TrimPrefix(filepath.ToSlash(filepath.Clean(name)), "/")
+	for _, allowed := range allowedRegistryBinaryPaths() {
+		if cleaned == allowed {
+			return true
+		}
+	}
+	return false
+}
+
+func allowedRegistryBinaryPaths() []string {
+	return []string{
+		"/registry",
+		"/usr/local/bin/registry",
+		"/usr/bin/registry",
+		"/bin/registry",
+		"/root/registry",
+	}
+}
+
+func dockerArchiveOpener(archivePath string) tarball.Opener {
+	return func() (io.ReadCloser, error) {
+		file, err := os.Open(archivePath)
+		if err != nil {
+			return nil, err
+		}
+		if !strings.HasSuffix(archivePath, ".gz") {
+			return file, nil
+		}
+		gzr, err := gzip.NewReader(file)
+		if err != nil {
+			file.Close()
+			return nil, err
+		}
+		return gzipReadCloser{Reader: gzr, closers: []io.Closer{gzr, file}}, nil
+	}
+}
+
+type gzipReadCloser struct {
+	io.Reader
+	closers []io.Closer
+}
+
+func (r gzipReadCloser) Close() error {
+	var closeErr error
+	for _, closer := range r.closers {
+		if err := closer.Close(); err != nil && closeErr == nil {
+			closeErr = err
+		}
+	}
+	return closeErr
+}
+
+func copyFile(src, dst string, mode os.FileMode) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	return writeReaderToFile(in, dst, mode)
+}
+
+func writeReaderToFile(src io.Reader, dst string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(out, src); err != nil {
+		out.Close()
+		return err
+	}
+	if err = out.Close(); err != nil {
+		return err
+	}
+	return os.Chmod(dst, mode)
+}
+
+func (o *RegistryOptions) removePushImageArchive() error {
 	hook := fmt.Sprintf(`rm -rf %s/kc %s %s`,
 		config.DefaultPkgPath,
-		path.Join(config.DefaultPkgPath, o.Pkg),
-		strings.Replace(path.Join(config.DefaultPkgPath, o.Pkg), ".tar.gz", ".tar", 1))
+		path.Join(config.DefaultPkgPath, o.ImageArchive),
+		strings.Replace(path.Join(config.DefaultPkgPath, o.ImageArchive), ".tar.gz", ".tar", 1))
 	ret, err := sshutils.RunCmdAsSSH(hook)
 	if err != nil {
 		return err
@@ -845,7 +1041,7 @@ func (o *RegistryOptions) removePushPkg() error {
 	if err = ret.Error(); err != nil {
 		return err
 	}
-	logger.Info("remove pkg successfully")
+	logger.Info("remove image archive successfully")
 	return nil
 }
 

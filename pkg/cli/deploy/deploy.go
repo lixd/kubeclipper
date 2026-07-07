@@ -33,17 +33,12 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
-
-	"k8s.io/component-base/version"
-
-	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -87,46 +82,44 @@ const (
   If you want to deploy kc-server and kc-agent on the same node, it is better to change etcd port configuration,
   in order to be able to deploy k8s on this node
 
-  Now only support offline install, so the --pkg parameter must be valid`
+  KubeClipper bootstrap assets are delivered from the OCI package registry configured
+  by --package-registry. The Registry must contain the required binary packages before
+  deploy starts.`
 	deployExample = `
   # Deploy All-In-One use local host, etcd port will be set automatically. (client-12379 | peer-12380 | metrics-12381)
-  kcctl deploy
+  kcctl deploy --package-registry registry.local:5000
 
   # Deploy AIO env and change etcd port
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381
+  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381 --package-registry registry.local:5000
 
   # Deploy HA env
-  kcctl deploy --server 192.168.234.3,192.168.234.4,192.168.234.5 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381
+  kcctl deploy --server 192.168.234.3,192.168.234.4,192.168.234.5 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381 --package-registry registry.local:5000
 
   # Deploy env use SSH key instead of password
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --pk-file ~/.ssh/id_rsa --pkg kc-minimal.tar.gz
-
-  # Deploy env use remove http/https resource server
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --pk-file ~/.ssh/id_rsa --pkg https://oss.kubeclipper.io/release/v1.4.0/kc-amd64.tar.gz
+  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 
   # Deploy env with many agent node in same region.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:192.168.10.123,192.168.10.124  --pk-file ~/.ssh/id_rsa --pkg https://oss.kubeclipper.io/release/v1.4.0/kc-amd64.tar.gz
+  kcctl deploy --server 192.168.234.3 --agent us-west-1:192.168.10.123,192.168.10.124  --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 
   # Deploy env with many agent node in different region.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1,1.1.1.2 --agent us-west-2:1.1.1.3 --pk-file ~/.ssh/id_rsa --pkg https://oss.kubeclipper.io/release/v1.4.0/kc-amd64.tar.gz
+  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1,1.1.1.2 --agent us-west-2:1.1.1.3 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 
   # Deploy env with many agent node which has orderly ip.
   # this will add 10 agent,1.1.1.1, 1.1.1.2, ... 1.1.1.10.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1-1.1.1.10 --pk-file ~/.ssh/id_rsa --pkg https://oss.kubeclipper.io/release/v1.4.0/kc-amd64.tar.gz
+  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1-1.1.1.10 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
   
   # Deploy env with many agent nodes and specify ip detect method for these nodes
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 --ip-detect=interface=eth0 --pk-file ~/.ssh/id_rsa --pkg https://oss.kubeclipper.io/release/v1.4.0/kc-amd64.tar.gz
+  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 --ip-detect=interface=eth0 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 
   # Deploy env with many agent nodes and specify node ip detect method for these nodes, used for routing between nodes in the kubernetes cluster
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 --node-ip-detect=interface=eth1 --pk-file ~/.ssh/id_rsa --pkg https://oss.kubeclipper.io/release/v1.4.0/kc-amd64.tar.gz
+  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 --node-ip-detect=interface=eth1 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 
   # Deploy from config.
   kcctl deploy --deploy-config deploy-config.yaml
   # Deploy and config fip to agent node.
-  kcctl deploy --server 172.20.149.198 --agent us-west-1:10.0.0.10 --agent us-west-2:20.0.0.11 --fip 10.0.0.10:172.20.149.199 --fip 20.0.0.11:172.20.149.200
+  kcctl deploy --server 172.20.149.198 --agent us-west-1:10.0.0.10 --agent us-west-2:20.0.0.11 --fip 10.0.0.10:172.20.149.199 --fip 20.0.0.11:172.20.149.200 --package-registry registry.local:5000
 
   Please read 'kcctl deploy -h' get more deploy flags`
-	defaultPkg = "https://oss.kubeclipper.io/release/%s/kc-%s.tar.gz"
 )
 
 type DeployOptions struct {
@@ -202,17 +195,6 @@ func (d *DeployOptions) Complete() error {
 	if err = d.deployConfig.Complete(); err != nil {
 		return err
 	}
-	if d.deployConfig.Pkg == "" {
-		v := os.Getenv("KC_VERSION")
-		var ok bool
-		if v == "" {
-			v, ok = strutil.ParseGitDescribeInfo(version.Get().GitVersion)
-			if !ok {
-				v = "v1.6.0"
-			}
-		}
-		d.deployConfig.Pkg = fmt.Sprintf(defaultPkg, v, runtime.GOARCH)
-	}
 
 	// if both the server and agent are empty, set the all-in-one environment
 	if d.deployConfig.ServerIPs == nil && d.agents == nil {
@@ -274,9 +256,6 @@ func (d *DeployOptions) ValidateArgs() error {
 	if d.deployConfig.NodeIPDetect != "" && !autodetection.CheckMethod(d.deployConfig.NodeIPDetect) {
 		return fmt.Errorf("invalid node ip detect method,suppot [first-found,interface=xxx,cidr=xxx] now")
 	}
-	if d.deployConfig.Pkg == "" {
-		return fmt.Errorf("--pkg must be specified")
-	}
 	if !d.aio && d.deployConfig.SSHConfig.PkFile == "" && d.deployConfig.SSHConfig.Password == "" {
 		return fmt.Errorf("one of --pk-file or --passwd must be specified")
 	}
@@ -288,6 +267,9 @@ func (d *DeployOptions) ValidateArgs() error {
 	}
 	if len(d.deployConfig.ServerIPs)%2 == 0 {
 		return fmt.Errorf("the number of servers must be odd")
+	}
+	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
+		return fmt.Errorf("--package-registry must be specified")
 	}
 	if d.deployConfig.MQ.External {
 		if len(d.deployConfig.MQ.IPs) == 0 {
@@ -540,7 +522,6 @@ func (d *DeployOptions) precheckPorts() bool {
 		{d.deployConfig.EtcdConfig.PeerPort, "kc-etcd-peer"},
 		{d.deployConfig.EtcdConfig.MetricsPort, "kc-etcd-metrics"},
 		{d.deployConfig.ServerPort, "kc-server"},
-		{d.deployConfig.StaticServerPort, "kc-server-static"},
 		{d.deployConfig.ConsolePort, "kc-console"},
 	}
 	if !d.deployConfig.MQ.External {
@@ -611,7 +592,9 @@ func (d *DeployOptions) RunDeploy() error {
 		return err
 	}
 	logger.Infof("------ Send packages ------")
-	d.sendPackage()
+	if err := d.sendPackage(); err != nil {
+		return err
+	}
 	logger.Infof("------ Install kc-etcd ------")
 	d.deployEtcd()
 	// TODO: add check etcd status instead of time.sleep
@@ -633,17 +616,14 @@ func (d *DeployOptions) RunDeploy() error {
 	return nil
 }
 
-func (d *DeployOptions) sendPackage() {
-	tar := fmt.Sprintf("rm -rf %s && tar -xvf %s -C %s", filepath.Join(config.DefaultPkgPath, "kc"),
-		filepath.Join(config.DefaultPkgPath, path.Base(d.deployConfig.Pkg)), config.DefaultPkgPath)
-	cp := sshutils.WrapSh(fmt.Sprintf("cp -rf %s /usr/local/bin/", filepath.Join(config.DefaultPkgPath, "kc/bin/*")))
-	mkdir := "mkdir -p /usr/lib/systemd/system"
-	// rm -rf /root/kc && tar -xvf /root/kc/pkg/kc.tar -C ~/kc/pkg && /bin/bash -c 'cp -rf /root/kc/pkg/kc/bin/* /usr/local/bin/' && mkdir -p /usr/lib/systemd/system
-	hook := sshutils.Combine([]string{tar, cp, mkdir})
-	err := utils.SendPackage(d.deployConfig.SSHConfig, d.deployConfig.Pkg, d.allNodes, config.DefaultPkgPath, nil, &hook)
-	if err != nil {
-		logger.Fatalf("sendPackage err:%s", err.Error())
-	}
+func (d *DeployOptions) sendPackage() error {
+	return InstallBootstrapAssetsFromRegistry(context.Background(), BootstrapInstallOptions{
+		Registry:  d.deployConfig.PackageRegistry,
+		Arch:      RuntimeArch(),
+		SSH:       d.deployConfig.SSHConfig,
+		Hosts:     d.allNodes,
+		NeedAgent: true,
+	})
 }
 
 func (d *DeployOptions) generateAndSendCerts() error {
@@ -872,13 +852,7 @@ func (d *DeployOptions) getKcConsoleTemplateContent() string {
 }
 
 func (d *DeployOptions) deployKcServer() {
-	cmdList := []string{
-		"mkdir -pv /etc/kubeclipper-server",
-		sshutils.WrapEcho(config.KcServerService, "/usr/lib/systemd/system/kc-server.service"),
-		fmt.Sprintf("mkdir -pv %s/kc", d.deployConfig.StaticServerPath),
-		sshutils.WrapSh(fmt.Sprintf("cp -rf %s/kc/resource/* %s/", config.DefaultPkgPath, d.deployConfig.StaticServerPath)),
-		sshutils.WrapSh(fmt.Sprintf("cp -rf %s/kc/bin/* %s/kc/", config.DefaultPkgPath, d.deployConfig.StaticServerPath)),
-	}
+	cmdList := d.buildKcServerInstallCommands()
 	for _, cmd := range cmdList {
 		err := sshutils.CmdBatchWithSudo(d.deployConfig.SSHConfig, d.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
 		if err != nil {
@@ -908,6 +882,14 @@ func (d *DeployOptions) deployKcServer() {
 		if err != nil {
 			logger.Fatalf("kc server status is not ready: %s", err.Error())
 		}
+	}
+}
+
+func (d *DeployOptions) buildKcServerInstallCommands() []string {
+	return []string{
+		fmt.Sprintf("mkdir -pv %s", options.DefaultKcServerConfigPath),
+		fmt.Sprintf("mkdir -pv %s/delivery", options.DefaultKcServerConfigPath),
+		sshutils.WrapEcho(config.KcServerService, "/usr/lib/systemd/system/kc-server.service"),
 	}
 }
 

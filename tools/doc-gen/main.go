@@ -99,9 +99,9 @@ func validateSpec(apiSpec []byte) error {
 func generateSwaggerJSON() []byte {
 
 	container := restful.NewContainer()
-	urlruntime.Must(corev1.AddToContainer(container, nil, nil, nil, nil, nil, nil, nil, nil, nil))
+	urlruntime.Must(corev1.AddToContainer(container, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil))
 	urlruntime.Must(iamv1.AddToContainer(container, nil, nil, nil))
-	urlruntime.Must(configv1.AddToContainer(container, nil, nil))
+	urlruntime.Must(configv1.AddToContainer(container, nil, nil, nil))
 	urlruntime.Must(oauth.AddToContainer(container, nil, nil, nil, nil, nil, nil, nil))
 	urlruntime.Must(proxy.AddToContainer(container, nil))
 	urlruntime.Must(auditingv1.AddToContainer(container, nil))

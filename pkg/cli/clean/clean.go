@@ -186,7 +186,6 @@ func (c *CleanOptions) cleanKcServer() {
 		"rm -rf /usr/lib/systemd/system/kc-etcd.service",
 		"rm -rf /etc/kubeclipper-server",
 		fmt.Sprintf("rm -rf %s", c.deployConfig.EtcdConfig.DataDir),
-		fmt.Sprintf("rm -rf %s", c.deployConfig.StaticServerPath),
 		"systemctl reset-failed kc-etcd || true",
 		"systemctl reset-failed kc-server || true",
 	}

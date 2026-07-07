@@ -202,13 +202,6 @@ audit:
   retentionPeriod: {{.RetentionPeriod}}
   maximumEntries: {{.MaximumEntries}}
   auditLevel: {{.AuditLevel}}
-staticServer:
-  bindAddress: {{.ServerAddress}}
-  insecurePort: {{.StaticServerPort}}
-  securePort: 0
-  tlsCertFile: ""
-  tlsPrivateKey: ""
-  path: {{.StaticServerPath}}
 log:
   logFile: ""
   logFileMaxSizeMB: 100
@@ -288,10 +281,6 @@ metadata:
 {{- end}}
 registerNode: true
 nodeStatusUpdateFrequency: 1m
-downloader:
-  address: {{.StaticServerAddress}}
-  tlsCertFile: ""
-  tlsPrivateKey: ""
 log:
   logFile: ""
   logFileMaxSizeMB: 100
