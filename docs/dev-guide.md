@@ -173,54 +173,37 @@ kcctl  kubeclipper-agent  kubeclipper-server
 
 ### 2.1 Deploy KC in Deployment Environment
 
-Deploy kcctl
+Deploy `kcctl` as the only bootstrap binary. The old release tarball flow is no
+longer the main path; server, agent, package artifacts, and runtime images are
+resolved from registries.
 
 ```console
-# curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=release-1.4 bash -
-[INFO]  The release-1.4 version will be installed
-[INFO]  KC_REGION is assigned cn, kc.env file will be created
-[INFO]  env: Creating environment file /etc/kc/kc.env}
-mkdir: created directory '/etc/kc'
-[INFO]  Downloading package https://oss.kubeclipper.io/kc/release-1.4/kc-linux-amd64.tar.gz
-kubeclipper-server
-kubeclipper-agent
-kcctl
-[INFO]  Installing kcctl to /usr/local/bin/kcctl
-
-  Kcctl has been installed successfully!
-    Run 'kcctl version' to view the version.
-    Run 'kcctl -h' for more help.
-
-        __ ______________________
-       / //_/ ____/ ____/_  __/ /
-      / ,< / /   / /     / / / /
-     / /| / /___/ /___  / / / /___
-    /_/ |_\____/\____/ /_/ /_____/
-    repository: github.com/kubeclipper
+# install -m 0755 kcctl-linux-amd64 /usr/local/bin/kcctl
+# kcctl version
 ```
 
 Deploy KC with AIO mode
 
 ```bash
-# Make sure you can ssh localhost without password
-# deploy MUST with passwd or pk-file FOR 'kcctl resource' cmd
+# Make sure you can ssh localhost without password for deploy/join operations.
 #
 # ssh-keygen -t rsa
 # cat /root/.ssh/id_rsa.pub >> authorized_keys
 
 # KC_VERSION=release-1.4 kcctl deploy
-KC_VERSION=release-1.4 kcctl deploy --server 10.0.4.12 --agent 10.0.4.12 --pk-file ~/.ssh/id_rsa
+KC_VERSION=release-1.4 kcctl deploy --server 10.0.4.12 --agent 10.0.4.12 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 # kcctl deploy --help
-# kcctl deploy --user root --passwd {local-host-user-pwd} --pkg kc-minimal.tar.gz
-# kcctl deploy --server $IPADDR_SERVER --agent $IPADDR_AGENT --passwd xxx # or --pk-file
+# kcctl deploy --user root --passwd {local-host-user-pwd} --package-registry registry.local:5000
+# kcctl deploy --server $IPADDR_SERVER --agent $IPADDR_AGENT --passwd xxx --package-registry registry.local:5000 # or --pk-file
 ```
 
-**DO NOT USE** `KC_VERSION=release-1.4 kcctl deploy` since it will not add `pkFile` & `privateKey`
-in `.kc/deploy-config.yaml`, which will cause `kcctl resource` cmd to fail with notification: "one
-of pkfile or password must be specify,please config it in ".
+`kcctl resource` now talks directly to the OCI package registry. It does not require deploy SSH
+credentials, but it does require `--registry`. `kcctl deploy` and `kcctl join` require
+`packageRegistry` so both KubeClipper bootstrap assets and Kubernetes offline packages are
+resolved from the same OCI source.
 
 ```console
-# KC_VERSION=release-1.4 kcctl deploy --server 10.0.4.12 --agent 10.0.4.12 --pk-file ~/.ssh/id_rsa
+# KC_VERSION=release-1.4 kcctl deploy --server 10.0.4.12 --agent 10.0.4.12 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
 2025-05-30T10:08:59+08:00	INFO	Using auto detected IPv4 address on interface eth0: 10.0.4.12/22
 [2025-05-30T10:08:59+08:00][INFO] node-ip-detect inherits from ip-detect: first-found
 [2025-05-30T10:08:59+08:00][INFO] run in aio mode.
@@ -242,8 +225,7 @@ of pkfile or password must be specify,please config it in ".
 [2025-05-30T10:08:59+08:00][INFO] ============>ipDetect PRECHECK ...
 [2025-05-30T10:08:59+08:00][INFO] ============>ipDetect PRECHECK OK!
 [2025-05-30T10:09:02+08:00][INFO] ------ Send packages ------
---2025-05-30 10:09:02--  https://oss.kubeclipper.io/release/release-1.4/kc-amd64.tar.gz
-2025-05-30 10:11:29 (6.44 MB/s) - ‘kc-amd64.tar.gz’ saved [982526790/982526790]
+[2025-05-30T10:09:02+08:00][INFO] refresh bootstrap assets from OCI registry registry.local:5000
 10.0.4.12: done!   
 [2025-05-30T10:11:44+08:00][INFO] ------ Install kc-etcd ------
 [2025-05-30T10:11:50+08:00][INFO] ------ Install kc-server ------
@@ -337,167 +319,266 @@ k8s/v1.23.17/amd64/images.tar.gz
 k8s/v1.23.17/amd64/configs.tar.gz
 ```
 
-Then, push k8s with kcctl
+Then, package k8s and push it to OCI Registry under `kubeclipper/packages/`.
 
 ```bash
 cd /tmp
 k8s_ver='v1.23.17'
 tar -zcvf k8s-${k8s_ver}-amd64.tar.gz k8s
-kcctl login --host http://127.0.0.1 --username admin --password Thinkbig1
-kcctl resource push --pkg k8s-${k8s_ver}-amd64.tar.gz --type k8s
 
-# kcctl resource push --pkg k8s-v1.23.17-amd64.tar.gz --type k8s
-# kcctl resource push --pkg k8s-v1.32.5-amd64.tar.gz --type k8s
+# Publish the offline package as an OCI artifact
+/path/to/kubeclipper/scripts/publish-oci-package.sh \
+  --package /tmp/k8s-${k8s_ver}-amd64.tar.gz \
+  --kind k8s \
+  --name k8s \
+  --version ${k8s_ver} \
+  --arch amd64 \
+  --registry registry.local:5000
 ```
 
-After that, you can check the k8s version with `kcctl resource list`
+The package must be published as an OCI artifact with this naming rule:
 
-```console
-# kcctl resource list
-+-----------+---------------+---------------+----------+-------+
-| 10.0.4.12 |     TYPE      |     NAME      | VERSION  | ARCH  |
-+-----------+---------------+---------------+----------+-------+
-| 1.        | cni           | calico        | v3.26.1  | amd64 |
-| 2.        | cri           | containerd    | 1.6.4    | amd64 |
-| 3.        | k8s           | k8s           | v1.23.17 | amd64 |
-| 4.        | k8s           | k8s           | v1.27.4  | amd64 |
-| 5.        | k8s           | k8s           | v1.32.5  | amd64 |
-| 6.        | k8s-extension | k8s-extension | v1       | amd64 |
-| 7.        | kc-extension  | kc-extension  | latest   | amd64 |
-+-----------+---------------+---------------+----------+-------+
+```text
+{registry}/kubeclipper/packages/{kind}/{name}:{version}
 ```
 
-Also check directory `/opt/kubeclipper-server/resource/`
+For example:
 
-```console
-# cat /opt/kubeclipper-server/resource/metadata.json | jq | grep minor_version
-          "minor_version": "v1.18",
-          "minor_version": "v1.19",
-          "minor_version": "v1.20",
-          "minor_version": "v1.21",
-          "minor_version": "v1.22",
-          "minor_version": "v1.23",
-          "minor_version": "v1.24",
-          "minor_version": "v1.25",
-          "minor_version": "v1.26",
-          "minor_version": "v1.27",
-          "minor_version": "v1.28",
-
-# ls /opt/kubeclipper-server/resource/k8s
-v1.23.17  v1.27.4  v1.32.5
+```text
+registry.local:5000/kubeclipper/packages/k8s/k8s:v1.23.17
 ```
 
-### 3.2 Add k8s info
+The publish script is a thin wrapper around the OCI package publisher in
+`tools/oci-publish`. It creates the package manifest, assembles the OCI artifact,
+and pushes it to the Registry in one step.
 
-1.23.17 K8S could be created from webpage, however CNI yaml validate error:
-
-![](img/kc-install-cluster-failure-v1.23.17-cni.png)
-
-Normal should be:
-
-![](img/kc-install-cluster-normal-calico.png)
-
-Modify metadata.json,change CNI version as below, also fail with 1.23.17, maybe hardcode logic.
-**TODO** check later.
-
-And as above, new k8s resources didn't add to metadata.json, may be a bug, we need to add it
-manually now. Without it, in webpage: <http://kc-console/cluster/create>，we could select containerd
-version with 1.29+ k8s version.
+The script first looks for `KC_OCI_PUBLISH_BIN`, then `./bin/oci-publish`, and finally
+falls back to `go run ./tools/oci-publish`. On hosts without Go, build and copy the
+Linux binary first:
 
 ```bash
-vi /opt/kubeclipper-server/resource/metadata.json
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ./bin/oci-publish ./tools/oci-publish
 ```
 
-Modify metadata.json:
+If you already have a set of legacy offline package tarballs or download URLs, you can
+migrate them in batch with a manifest file. In an internal migration, prefer copying the
+old packages from an existing KubeClipper server, for example
+`sh-dev-3:/opt/kubeclipper-server/resource`, instead of downloading them from public OSS.
 
-```diff
-@@ -414,14 +414,14 @@
-             {
-               "name": "calico",
-               "type": "cni",
--              "recommend_version": "v3.22.4",
-+              "recommend_version": "v3.26.1",
-               "min_version": "",
-               "max_version": ""
-             },
-             {
-               "name": "nfs",
-               "type": "csi",
--              "recommend_version": "v4.0.2",
-+              "recommend_version": "v4.1.0",
-               "min_version": "",
-               "max_version": ""
-             },
-@@ -771,6 +771,68 @@
-               "max_version": ""
-             }
-           ]
-+        },
-+        {
-+          "name": "k8s",
-+          "minor_version": "v1.32",
-+          "version_control": [
-+            {
-+              "name": "containerd",
-+              "type": "cri",
-+              "recommend_version": "1.6.4",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "calico",
-+              "type": "cni",
-+              "recommend_version": "v3.26.1",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "nfs",
-+              "type": "csi",
-+              "recommend_version": "v4.1.0",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "cinder",
-+              "type": "csi",
-+              "recommend_version": "v1.23",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "ceph",
-+              "type": "csi",
-+              "recommend_version": "v3.4.0",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "kubesphere",
-+              "type": "app",
-+              "recommend_version": "v3.2.1",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "metallb",
-+              "type": "lb",
-+              "recommend_version": "v0.13.7",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
-+              "name": "mig",
-+              "type": "gpu",
-+              "recommend_version": "v0.8.2",
-+              "min_version": "",
-+              "max_version": ""
-+            }
-+          ]
-         }
-       ],
-       "addon_manifests": [
+```yaml
+registry: registry.local:5000
+packages:
+  - source: https://example.local/packages/k8s-v1.23.17-amd64.tar.gz
+    kind: k8s
+    name: k8s
+    version: v1.23.17
+    arch: amd64
+  - source: /data/packages/containerd-2.1.0-amd64.tar.gz
+    kind: cri
+    name: containerd
+    version: 2.1.0
+    arch: amd64
+  - source: /data/packages/calico-v3.30.0-amd64.tar.gz
+    kind: cni
+    name: calico
+    version: v3.30.0
+    arch: amd64
 ```
+
+Then run:
+
+```bash
+/path/to/kubeclipper/scripts/migrate-legacy-packages-to-oci.sh \
+  --file ./legacy-packages.yaml
+```
+
+This script downloads remote tarballs when needed, reuses local tarballs directly, and
+publishes every package into `kubeclipper/packages/...` in the target Registry.
+It first looks for `KC_OCI_MIGRATE_BIN`, then `./bin/oci-migrate`, and finally falls
+back to `go run ./tools/oci-migrate`.
+
+After that, refresh and check the registry-derived inventory with `kcctl resource list`.
+
+```console
+# kcctl resource list --registry registry.local:5000 --refresh
++---------------------+------+-------+----------+-------+
+| registry.local:5000 | TYPE | NAME  | VERSION  | ARCH  |
++---------------------+------+-------+----------+-------+
+| 1.                  | k8s  | k8s   | v1.23.17 | amd64 |
++---------------------+------+-------+----------+-------+
+```
+
+Inspect a package or force-refresh the cached inventory with:
+
+```console
+# kcctl resource inspect --registry registry.local:5000 --name k8s --version v1.23.17 --arch amd64 -o yaml
+# kcctl resource refresh --registry registry.local:5000
+```
+
+Kubernetes and component version constraints are maintained by the delivery policy, not by
+the OCI package upload operation. Update the policy when a new Kubernetes version should be
+supported by KubeClipper.
+
+The current offline-package workflow is:
+
+1. Deploy an OCI Registry with `kcctl registry deploy` and publish offline packages under `kubeclipper/packages/...`.
+2. Push runtime image archives such as `k8s/.../images.tar.gz` and `calico/.../images.tar.gz`
+   into the same Registry with `kcctl registry push`.
+3. Maintain the support matrix with `kcctl delivery-policy`.
+4. Set `packageRegistry` for `kcctl deploy`/`kcctl join`.
+5. Use `kcctl resource list|inspect|refresh --registry <registry>` to inspect registry-derived inventory.
+6. Let install/join resolve packages from policy + inventory and fetch them by digest.
+
+When `--local-registry` is set for an offline Kubernetes cluster, KubeClipper assumes the
+Registry already contains the container images required by kubeadm and the selected CNI.
+Package OCI artifacts and runtime container images share a Registry, but they are prepared by
+separate steps.
+
+Command status after the OCI switch:
+
+| Command or field | Status | Meaning |
+| --- | --- | --- |
+| `scripts/publish-oci-package.sh` | New helper | Publish one legacy tarball as an OCI artifact. |
+| `scripts/migrate-legacy-packages-to-oci.sh` | New helper | Download/reuse legacy tarballs and publish them in batch. |
+| `tools/oci-publish` | New helper | Thin CLI over the existing OCI publisher. |
+| `tools/oci-migrate` | New helper | Manifest-driven batch migration CLI. |
+| `kcctl registry deploy --registry-image/--registry-image-archive/--registry-binary` | OCI bootstrap | Deploy the bootstrap Registry without the legacy release tarball. |
+| `kcctl resource list/inspect/refresh --registry` | Existing command, OCI-only semantics | Inspect Registry-derived inventory; no static-server SSH or `--transport` mode. |
+| `kcctl delivery-policy` | OCI delivery capability | Maintain the supported component/version matrix; it does not upload packages. |
+| `packageRegistry` | Deploy/join config | Registry source for offline package resolution and fetch. |
+| `staticServer` / `staticServerPath` | Removed from the main flow | Do not use it for OCI package delivery. |
+
+Pure OCI quick run:
+
+```bash
+export REGISTRY=registry.local:5000
+export PKG_DIR=/data/kubeclipper-packages
+export KC_SERVER=https://127.0.0.1:8080
+export K8S_VERSION=v1.23.17
+export CRI_VERSION=2.1.0
+export CNI_VERSION=v3.30.0
+export KUBECLIPPER_VERSION=v1.8.0
+
+# 1. Deploy a local Registry with KubeClipper's built-in registry command.
+kcctl registry deploy \
+  --node <registry-node-ip> \
+  --pk-file ~/.ssh/id_rsa \
+  --registry-image docker.io/kubeclipper/registry:${KUBECLIPPER_VERSION} \
+  --registry-port 5000
+
+# If the Registry is already running, this health check should return an empty JSON
+# object or HTTP 200-compatible /v2/ response.
+curl -f "http://${REGISTRY}/v2/"
+
+# 2. Prepare legacy offline package tarballs.
+mkdir -p "${PKG_DIR}"
+
+# Example: reuse legacy packages from an existing KubeClipper static-resource
+# directory. Do not fetch from oss.kubeclipper.io for this migration path.
+rsync -av sh-dev-3:/opt/kubeclipper-server/resource/k8s/${K8S_VERSION}/amd64/ \
+  "${PKG_DIR}/legacy-resource/k8s/${K8S_VERSION}/amd64/"
+rsync -av sh-dev-3:/opt/kubeclipper-server/resource/containerd/${CRI_VERSION}/amd64/ \
+  "${PKG_DIR}/legacy-resource/containerd/${CRI_VERSION}/amd64/"
+rsync -av sh-dev-3:/opt/kubeclipper-server/resource/calico/${CNI_VERSION}/amd64/ \
+  "${PKG_DIR}/legacy-resource/calico/${CNI_VERSION}/amd64/"
+
+tar -C "${PKG_DIR}/legacy-resource" -zcf "${PKG_DIR}/k8s-${K8S_VERSION}-amd64.tar.gz" k8s
+tar -C "${PKG_DIR}/legacy-resource" -zcf "${PKG_DIR}/containerd-${CRI_VERSION}-amd64.tar.gz" containerd
+tar -C "${PKG_DIR}/legacy-resource" -zcf "${PKG_DIR}/calico-${CNI_VERSION}-amd64.tar.gz" calico
+
+# The migration manifest still supports http/https sources when needed, but local
+# files copied from the old server are preferred for a deterministic migration.
+
+# 3. Push runtime images into the local Registry.
+# The Registry must contain images before `kcctl create cluster --offline --local-registry`.
+kcctl registry push \
+  --node <registry-node-ip> \
+  --registry-port 5000 \
+  --image-archive "${PKG_DIR}/legacy-resource/k8s/${K8S_VERSION}/amd64/images.tar.gz"
+
+kcctl registry push \
+  --node <registry-node-ip> \
+  --registry-port 5000 \
+  --image-archive "${PKG_DIR}/legacy-resource/calico/${CNI_VERSION}/amd64/images.tar.gz"
+
+# Some CRI packages also contain images.tar.gz. Push it only when present.
+if [ -f "${PKG_DIR}/legacy-resource/containerd/${CRI_VERSION}/amd64/images.tar.gz" ]; then
+  kcctl registry push \
+    --node <registry-node-ip> \
+    --registry-port 5000 \
+    --image-archive "${PKG_DIR}/legacy-resource/containerd/${CRI_VERSION}/amd64/images.tar.gz"
+fi
+
+# 4. Publish or migrate existing offline package tarballs into OCI.
+cat > legacy-packages.yaml <<EOF
+registry: ${REGISTRY}
+packages:
+  - source: ${PKG_DIR}/k8s-${K8S_VERSION}-amd64.tar.gz
+    kind: k8s
+    name: k8s
+    version: ${K8S_VERSION}
+    arch: amd64
+  - source: ${PKG_DIR}/containerd-${CRI_VERSION}-amd64.tar.gz
+    kind: cri
+    name: containerd
+    version: ${CRI_VERSION}
+    arch: amd64
+  - source: ${PKG_DIR}/calico-${CNI_VERSION}-amd64.tar.gz
+    kind: cni
+    name: calico
+    version: ${CNI_VERSION}
+    arch: amd64
+EOF
+
+./scripts/migrate-legacy-packages-to-oci.sh --file ./legacy-packages.yaml
+
+# 5. Confirm Registry-derived inventory.
+kcctl resource list --registry ${REGISTRY} --refresh
+kcctl resource inspect --registry ${REGISTRY} --name k8s --version ${K8S_VERSION} --arch amd64 -o yaml
+
+# 6. Prepare and apply the support matrix.
+kcctl login --host ${KC_SERVER} --username admin --password '<password>'
+kcctl delivery-policy template -o yaml > delivery-policy.yaml
+kcctl delivery-policy validate -f delivery-policy.yaml
+kcctl delivery-policy apply -f delivery-policy.yaml
+
+# 7. Deploy KubeClipper with the package Registry.
+kcctl deploy \
+  --server <server-ip> \
+  --agent <agent-ip> \
+  --pk-file ~/.ssh/id_rsa \
+  --package-registry ${REGISTRY}
+
+# 8. Optional: join more agent nodes with the same package Registry.
+kcctl join \
+  --agent <new-agent-ip> \
+  --pk-file ~/.ssh/id_rsa \
+  --package-registry ${REGISTRY}
+
+# 9. Create an offline Kubernetes cluster from policy + inventory.
+kcctl create cluster \
+  --name demo \
+  --master <master-node-id-or-ip> \
+  --offline=true \
+  --cri containerd \
+  --cri-version ${CRI_VERSION} \
+  --k8s-version ${K8S_VERSION} \
+  --cni calico \
+  --cni-version ${CNI_VERSION} \
+  --local-registry ${REGISTRY} \
+  --insecure-registry ${REGISTRY}
+
+# For a single-node control-plane-only test cluster, remove control-plane taints
+# if CoreDNS remains Pending because there is no worker node.
+kubectl taint node <node-name> node-role.kubernetes.io/control-plane:NoSchedule- || true
+kubectl taint node <node-name> node-role.kubernetes.io/master:NoSchedule- || true
+```
+
+`delivery-policy` is part of the OCI delivery flow. Registry inventory proves that package
+bytes exist; delivery policy proves that a Kubernetes/component version combination is
+supported. Both must match before an offline install can resolve a digest-pinned plan.
+Unlike the old static resource index, policy does not store package URLs, digests, or
+availability state.
 
 ### 3.3 Deploy k8s using kcctl, add pause tag
 
