@@ -1,0 +1,56 @@
+name: offline-resource-validate
+
+on:
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "scripts/open-packaging/**"
+      - ".github/workflows/offline-resource-validate.yml"
+      - "docs/superpowers/specs/*offline-package*"
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Bash syntax
+        run: |
+          find scripts/open-packaging -name "*.sh" -print0 | xargs -0 bash -n
+
+      - name: Install validation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Python YAML dependency
+        run: |
+          python3 - <<'PY'
+          import yaml
+          print("PyYAML available")
+          PY
+
+      - name: Help smoke tests
+        run: |
+          scripts/open-packaging/build-offline-resources.sh --help >/dev/null
+          scripts/open-packaging/generate-resource-metadata.sh --help >/dev/null
+          scripts/open-packaging/push-runtime-images.sh --help >/dev/null
+          scripts/open-packaging/bootstrap-builders/build-bootstrap-binaries.sh --help >/dev/null
+          scripts/open-packaging/resource-builders/build-k8s-package.sh --help >/dev/null
+          scripts/open-packaging/resource-builders/build-containerd-package.sh --help >/dev/null
+          scripts/open-packaging/resource-builders/build-calico-package.sh --help >/dev/null
+          scripts/open-packaging/resource-builders/build-addon-package.sh --help >/dev/null
+
+      - name: Manifest dry run
+        run: |
+          scripts/open-packaging/build-offline-resources.sh \
+            --manifest packaging/resources.yaml \
+            --output /tmp/kc-resource \
+            --arch amd64 \
+            --skip-images \
+            --dry-run
+
+      - name: Internal dependency scan
+        run: scripts/open-packaging/check-open-packaging-sources.sh

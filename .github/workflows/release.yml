@@ -49,13 +49,14 @@ jobs:
         run:
           KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build
 
-      - name: Compress
+      - name: Package kcctl-only artifacts
         run: |
           pushd dist
-          tar -zcvf kc-linux-arm64.tar.gz linux_arm64/
-          tar -zcvf kc-linux-amd64.tar.gz kubeclipper-server kubeclipper-agent kcctl
-          tar -zcvf kc-darwin-amd64.tar.gz darwin_amd64/
-          tar -zcvf kc-darwin-arm64.tar.gz darwin_arm64/
+          cp kcctl kcctl-linux-amd64
+          cp linux_arm64/kcctl kcctl-linux-arm64
+          cp darwin_amd64/kcctl kcctl-darwin-amd64
+          cp darwin_arm64/kcctl kcctl-darwin-arm64
+          sha256sum kcctl-* > kcctl-checksums.txt
           popd
       - name: Setup ossutil
         uses: manyuanrong/setup-ossutil@v3.0
@@ -66,19 +67,21 @@ jobs:
           #sts-token: "sts_token"
       - name: Upload to oss
         run: |
-          ossutil cp -rf dist/kc-linux-arm64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
-          ossutil cp -rf dist/kc-linux-amd64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
-          ossutil cp -rf dist/kc-darwin-amd64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
-          ossutil cp -rf dist/kc-darwin-arm64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
+          ossutil cp -rf dist/kcctl-linux-arm64 oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.branch }}/
+          ossutil cp -rf dist/kcctl-linux-amd64 oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.branch }}/
+          ossutil cp -rf dist/kcctl-darwin-amd64 oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.branch }}/
+          ossutil cp -rf dist/kcctl-darwin-arm64 oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.branch }}/
+          ossutil cp -rf dist/kcctl-checksums.txt oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.branch }}/
 
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
           files: |
-            dist/kc-linux-arm64.tar.gz
-            dist/kc-linux-amd64.tar.gz
-            dist/kc-darwin-amd64.tar.gz
-            dist/kc-darwin-arm64.tar.gz
+            dist/kcctl-linux-arm64
+            dist/kcctl-linux-amd64
+            dist/kcctl-darwin-amd64
+            dist/kcctl-darwin-arm64
+            dist/kcctl-checksums.txt
           # note you'll typically need to create a personal access token
           # with permissions to create releases in the other repo
           token: ${{ secrets.GH_TOKEN }}
