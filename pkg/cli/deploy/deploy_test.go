@@ -279,3 +279,29 @@ func TestDeployOptions_nodeRole(t *testing.T) {
 		})
 	}
 }
+
+func TestDeployOptionsValidateArgsRequiresPackageRegistry(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	d.deployConfig.SSHConfig.Password = "secret"
+
+	if err := d.ValidateArgs(); err == nil {
+		t.Fatalf("ValidateArgs() expected package registry error")
+	}
+
+	d.deployConfig.PackageRegistry = "registry.local:5000"
+	if err := d.ValidateArgs(); err != nil {
+		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
+	}
+}
+
+func TestDeployOptionsValidateArgsDoesNotRequirePackage(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	d.deployConfig.SSHConfig.Password = "secret"
+	d.deployConfig.PackageRegistry = "registry.local:5000"
+
+	if err := d.ValidateArgs(); err != nil {
+		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
+	}
+}
