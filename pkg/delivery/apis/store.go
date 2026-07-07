@@ -16,24 +16,20 @@
  *
  */
 
-package downloader
+package apis
 
-var (
-	CloudStaticServer = "https://oss.kubeclipper.io/packages"
+import "context"
+
+const (
+	DeliveryPolicyConfigMapName = "kubeclipper-delivery-policy"
+	DeliveryPolicyConfigMapKey  = "policy.json"
 )
 
-type Options struct {
-	Address       string `json:"address" yaml:"address"`
-	TLSCertFile   string `json:"tlsCertFile" yaml:"tlsCertFile"`
-	TLSPrivateKey string `json:"tlsPrivateKey" yaml:"tlsPrivateKey"`
+type InventoryStore interface {
+	Get(ctx context.Context) (*PackageInventory, error)
 }
 
-func NewOptions() *Options {
-	return &Options{}
-}
-
-type ManifestElement struct {
-	Name   string `json:"name"`
-	Digest string `json:"digest"`
-	Path   string `json:"path"`
+type PolicyStore interface {
+	Get(ctx context.Context) (*SupportPolicy, error)
+	Update(ctx context.Context, mutator func(*SupportPolicy) error) error
 }

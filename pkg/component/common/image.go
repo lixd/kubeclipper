@@ -30,6 +30,8 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
@@ -48,63 +50,70 @@ func init() {
 }
 
 type Imager struct {
-	PkgName string `json:"pkgName"`
-	Version string `json:"version"`
-	Offline bool   `json:"offline"`
-	CriName string `json:"criName"`
-	// Optional. If the value of the change field is not empty, the DownloadCustomImages and RemoveCustomImages operations will be performed
-	CustomImageList []string `json:"customConfig"`
+	Kind      string                         `json:"kind,omitempty"`
+	PkgName   string                         `json:"pkgName"`
+	Version   string                         `json:"version"`
+	Arch      string                         `json:"arch,omitempty"`
+	Offline   bool                           `json:"offline"`
+	CriName   string                         `json:"criName"`
+	Transport deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents  []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
 
 func (i *Imager) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, i.PkgName, i.Version, runtime.GOARCH, !i.Offline, opts.DryRun)
+	return nil, fmt.Errorf("install %s-%s image from tarball has been removed; pre-populate image registry instead", i.PkgName, i.Version)
+}
+
+func (i *Imager) downloadResolvedImage(ctx context.Context, opts component.Options) (string, error) {
+	contents := i.Contents
+	if len(contents) == 0 {
+		return "", fmt.Errorf("resolved image contents are required")
+	}
+	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
+		Kind:      i.ArtifactKind(),
+		Name:      i.PkgName,
+		Version:   i.Version,
+		Arch:      i.Arch,
+		Transport: i.Transport,
+		Contents:  contents,
+	}, opts.DryRun)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-
-	var dstFiles []string
-
-	if len(i.CustomImageList) > 0 {
-		dstFiles, err = instance.DownloadCustomImages(i.CustomImageList...)
-		if err != nil {
-			return nil, fmt.Errorf("download %s-%s custom image failed: %v", i.PkgName, i.Version, err)
-		}
-	} else {
-		dstFile, err := instance.DownloadImages()
-		if err != nil {
-			return nil, fmt.Errorf("download %s-%s image failed: %v", i.PkgName, i.Version, err)
-		}
-		dstFiles = []string{dstFile}
+	path := result.Files[deliveryapis.ContentImages]
+	if path == "" {
+		return "", fmt.Errorf("resolved image content is missing")
 	}
-
-	// load image package
-	for _, dstFile := range dstFiles {
-		if err := utils.LoadImage(ctx, opts.DryRun, dstFile, i.CriName); err != nil {
-			return nil, fmt.Errorf("load %s-%s image failed: %v", i.PkgName, i.Version, err)
-		}
-	}
-
-	logger.Infof("%s-%s image packages offline install successfully", i.PkgName, i.Version)
-	return nil, err
+	return path, nil
 }
 
 func (i *Imager) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, imageName, i.Version, runtime.GOARCH, !i.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(i.CustomImageList) > 0 {
-		if err = instance.RemoveCustomImages(i.CustomImageList...); err != nil {
-			logger.Errorf("remove %s-%s custom-images compressed file failed", i.PkgName, i.Version, zap.Error(err))
-		}
-	} else {
-		if err = instance.RemoveImages(); err != nil {
-			logger.Errorf("remove %s-%s images compressed file failed", i.PkgName, i.Version, zap.Error(err))
-		}
+	if err := downloader.CleanupImages(i.ArtifactKind(), i.PkgName, i.Version, i.ArtifactPlatform(), opts.DryRun); err != nil {
+		logger.Errorf("remove %s-%s images compressed file failed", i.PkgName, i.Version, zap.Error(err))
 	}
 
 	return nil, nil
+}
+
+func (i *Imager) ArtifactKind() string {
+	if i.Kind != "" {
+		return i.Kind
+	}
+	return imageName
+}
+
+func (i *Imager) ArtifactPlatform() string {
+	if i.Kind != "" {
+		return deliveryapis.DefaultPackageOS + "-" + archOrRuntime(i.Arch)
+	}
+	return archOrRuntime(i.Arch)
+}
+
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return arch
+	}
+	return runtime.GOARCH
 }
 
 func (i *Imager) NewInstance() component.ObjectMeta {
