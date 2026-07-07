@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strconv"
 
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 
 	iamv1 "github.com/kubeclipper/kubeclipper/pkg/scheme/iam/v1"
@@ -232,8 +233,9 @@ func (n *ComponentMetas) TablePrint() ([]string, [][]string) {
 }
 
 type ComponentMeta struct {
-	Rules  []map[string]interface{} `json:"rules"`
-	Addons []scheme.MetaResource    `json:"addons"`
+	Rules       []map[string]interface{}             `json:"rules"`
+	Addons      []scheme.MetaResource                `json:"addons"`
+	Unavailable []deliveryapis.ComponentAvailability `json:"unavailable,omitempty"`
 }
 
 type BackupList struct {

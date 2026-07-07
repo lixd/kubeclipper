@@ -21,11 +21,13 @@ package v1
 import (
 	"net/http"
 
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/errors"
+	"github.com/kubeclipper/kubeclipper/pkg/models/core"
 	"github.com/kubeclipper/kubeclipper/pkg/models/platform"
 
 	"github.com/kubeclipper/kubeclipper/pkg/query"
@@ -52,8 +54,8 @@ const (
 
 var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1"}
 
-func AddToContainer(c *restful.Container, platformOperator platform.Operator, config *serverconfig.Config) error {
-	h := newHandler(platformOperator, config)
+func AddToContainer(c *restful.Container, platformOperator platform.Operator, coreOperator core.Operator, config *serverconfig.Config) error {
+	h := newHandler(platformOperator, coreOperator, config)
 
 	webservice := runtime.NewWebService(GroupVersion)
 	webservice.Route(webservice.GET("/oauth").
@@ -96,12 +98,30 @@ func AddToContainer(c *restful.Container, platformOperator platform.Operator, co
 	webservice.Route(webservice.GET("/componentmeta").
 		To(h.ListOfflineResource).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
-		Doc("List offline resource metadata info.").
+		Doc("List OCI offline resource availability projected from policy and registry inventory.").
 		Param(webservice.QueryParameter("online", "online or offline resource").
 			Required(false).
 			DefaultValue("false")).
+		Param(webservice.QueryParameter("arch", "optional comma-separated target architectures, such as amd64 or amd64,arm64").
+			Required(false)).
+		Param(webservice.QueryParameter("refresh", "force refresh registry-derived package inventory before projection").
+			Required(false)).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), kc.ComponentMeta{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
+
+	webservice.Route(webservice.GET("/deliverypolicy").
+		Doc("Get support policy for OCI resource delivery.").
+		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
+		To(h.GetDeliveryPolicy).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), deliveryapis.SupportPolicy{}).
+		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), errors.HTTPError{}))
+	webservice.Route(webservice.PUT("/deliverypolicy").
+		Doc("Apply support policy for OCI resource delivery.").
+		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
+		To(h.UpdateDeliveryPolicy).
+		Reads(deliveryapis.SupportPolicy{}).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), deliveryapis.SupportPolicy{}).
+		Returns(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.HTTPError{}))
 
 	webservice.Route(webservice.GET("/template").
 		Doc("Information about platform template").

@@ -19,13 +19,19 @@
 package v1
 
 import (
+	"context"
+	"io"
 	"net/http"
+	"strings"
 
+	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/component-base/version"
 
-	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
-
+	deliverycore "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
+
+	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,41 +39,156 @@ import (
 
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 
-	"github.com/kubeclipper/kubeclipper/pkg/scheme"
-
 	serverconfig "github.com/kubeclipper/kubeclipper/pkg/server/config"
 
 	"github.com/emicklei/go-restful"
 
+	"github.com/kubeclipper/kubeclipper/pkg/models/core"
 	"github.com/kubeclipper/kubeclipper/pkg/models/platform"
 	"github.com/kubeclipper/kubeclipper/pkg/server/restplus"
 )
 
 type handler struct {
 	platformOperator platform.Operator
+	coreOperator     core.Operator
 	serverConfig     *serverconfig.Config
+	deliveryIndexer  deliverycore.RegistryPackageInventoryIndexer
 }
 
-func newHandler(operator platform.Operator, config *serverconfig.Config) *handler {
+func newHandler(operator platform.Operator, coreOperator core.Operator, config *serverconfig.Config) *handler {
 	return &handler{
 		platformOperator: operator,
+		coreOperator:     coreOperator,
 		serverConfig:     config,
+		deliveryIndexer:  nil,
 	}
 }
 
 func (h *handler) ListOfflineResource(request *restful.Request, response *restful.Response) {
-	online := query.GetBoolValueWithDefault(request, "online", false)
-	metas := scheme.PackageMetadata{}
-	if err := metas.ReadMetadata(online, h.serverConfig.StaticServerOptions.Path); err != nil {
+	result, err := h.listOfflineResourceFromRegistryInventory(request)
+	if err != nil {
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	result := kc.ComponentMeta{
-		Rules:  metas.GetK8sVersionControlRules(version.Get().GitVersion),
-		Addons: metas.Addons,
-	}
-
 	_ = response.WriteHeaderAndEntity(http.StatusOK, result)
+}
+
+func (h *handler) listOfflineResourceFromRegistryInventory(request *restful.Request) (*kc.ComponentMeta, error) {
+	source, err := deliverycore.ResolveDeliverySourceForConfig(request.Request.Context(), h.platformOperator, h.coreOperator, h.deliveryIndexer)
+	if err != nil {
+		return nil, err
+	}
+	if source.InventoryStore == nil || source.PolicyStore == nil {
+		return nil, &deliveryapis.ResolverError{Code: deliveryapis.ErrArtifactNotPublished, Message: "delivery source requires package inventory and support policy"}
+	}
+	inventory, err := loadInventory(request, source)
+	if err != nil {
+		return nil, err
+	}
+	policy, err := source.PolicyStore.Get(request.Request.Context())
+	if err != nil {
+		return nil, err
+	}
+	projection, err := deliveryapis.ProjectComponentMeta(inventory, policy, deliveryapis.ProjectOptions{
+		Archs:              archQuery(request.QueryParameter("arch")),
+		KubeClipperVersion: version.Get().GitVersion,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &kc.ComponentMeta{Rules: projection.Rules, Addons: projection.Addons, Unavailable: projection.Unavailable}, nil
+}
+
+func loadInventory(request *restful.Request, source deliverycore.DeliverySource) (*deliveryapis.PackageInventory, error) {
+	if source.InventoryStore == nil {
+		return nil, &deliveryapis.ResolverError{Code: deliveryapis.ErrArtifactNotPublished, Message: "delivery source requires package inventory"}
+	}
+	if request != nil && query.GetBoolValueWithDefault(request, "refresh", false) {
+		if refresher, ok := source.InventoryStore.(interface {
+			Refresh(ctx context.Context) (*deliveryapis.PackageInventory, error)
+		}); ok {
+			return refresher.Refresh(request.Request.Context())
+		}
+	}
+	return source.InventoryStore.Get(request.Request.Context())
+}
+
+func (h *handler) GetDeliveryPolicy(request *restful.Request, response *restful.Response) {
+	source, err := deliverycore.ResolveDeliverySourceForConfig(request.Request.Context(), h.platformOperator, h.coreOperator, h.deliveryIndexer)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if source.PolicyStore == nil {
+		restplus.HandleInternalError(response, request, &deliveryapis.ResolverError{Code: deliveryapis.ErrArtifactNotPublished, Message: "delivery source requires support policy"})
+		return
+	}
+	policy, err := source.PolicyStore.Get(request.Request.Context())
+	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	_ = response.WriteHeaderAndEntity(http.StatusOK, policy)
+}
+
+func (h *handler) UpdateDeliveryPolicy(request *restful.Request, response *restful.Response) {
+	source, err := deliverycore.ResolveDeliverySourceForConfig(request.Request.Context(), h.platformOperator, h.coreOperator, h.deliveryIndexer)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if source.PolicyStore == nil {
+		restplus.HandleInternalError(response, request, &deliveryapis.ResolverError{Code: deliveryapis.ErrArtifactNotPublished, Message: "delivery source requires support policy"})
+		return
+	}
+	data, err := io.ReadAll(request.Request.Body)
+	if err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	policy := &deliveryapis.SupportPolicy{}
+	if err = deliveryapis.DecodeSupportPolicy(data, policy); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	if policy.Metadata.Name == "" {
+		policy.Metadata.Name = "default"
+	}
+	if err = source.PolicyStore.Update(request.Request.Context(), func(current *deliveryapis.SupportPolicy) error {
+		*current = *policy
+		if current.Metadata.Name == "" {
+			current.Metadata.Name = "default"
+		}
+		return nil
+	}); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	updated, err := source.PolicyStore.Get(request.Request.Context())
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	_ = response.WriteHeaderAndEntity(http.StatusOK, updated)
+}
+
+func archQuery(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	archs := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			archs = append(archs, part)
+		}
+	}
+	return archs
 }
 
 // Deprecated: use core/v1/handler.DescribeTemplate instead

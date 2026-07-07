@@ -77,6 +77,7 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation"
+	serverconfig "github.com/kubeclipper/kubeclipper/pkg/server/config"
 	apirequest "github.com/kubeclipper/kubeclipper/pkg/server/request"
 	"github.com/kubeclipper/kubeclipper/pkg/server/restplus"
 	"github.com/kubeclipper/kubeclipper/pkg/service"
@@ -95,12 +96,14 @@ var (
 
 type handler struct {
 	genericConfig    *generic.ServerRunOptions
+	serverConfig     *serverconfig.Config
 	clusterOperator  cluster.Operator
 	leaseOperator    lease.Operator
 	opOperator       operation.Operator
 	platformOperator platform.Operator
 	coreOperator     core.Operator
 	delivery         service.IDelivery
+	deliveryIndexer  RegistryPackageInventoryIndexer
 	tokenOperator    auth.TokenManagementInterface
 	terminationChan  *chan struct{}
 }
@@ -117,11 +120,12 @@ var (
 	ErrNodesRegionDifferent = errors.New("nodes belongs to different region")
 )
 
-func newHandler(conf *generic.ServerRunOptions, clusterOperator cluster.Operator, op operation.Operator, leaseOperator lease.Operator,
+func newHandler(conf *generic.ServerRunOptions, serverConf *serverconfig.Config, clusterOperator cluster.Operator, op operation.Operator, leaseOperator lease.Operator,
 	platform platform.Operator, coreOperator core.Operator, delivery service.IDelivery,
 	tokenOperator auth.TokenManagementInterface, terminationChan *chan struct{}) *handler {
 	return &handler{
 		genericConfig:    conf,
+		serverConfig:     serverConf,
 		clusterOperator:  clusterOperator,
 		delivery:         delivery,
 		opOperator:       op,
@@ -129,6 +133,7 @@ func newHandler(conf *generic.ServerRunOptions, clusterOperator cluster.Operator
 		leaseOperator:    leaseOperator,
 		coreOperator:     coreOperator,
 		tokenOperator:    tokenOperator,
+		deliveryIndexer:  nil,
 		terminationChan:  terminationChan,
 	}
 }
@@ -438,6 +443,10 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	}
 
 	if err := h.createClusterCheck(request.Request.Context(), &c); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	if err := h.precheckRuntimeImages(request.Request.Context(), &c); err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
@@ -1016,6 +1025,7 @@ func (h *handler) getNodeInfo(ctx context.Context, nodes v1.WorkerNodeList, skip
 			ID:       n.Name,
 			IPv4:     n.Status.Ipv4DefaultIP,
 			NodeIPv4: n.Status.NodeIpv4DefaultIP,
+			Arch:     n.Status.NodeInfo.Arch,
 			Region:   n.Labels[common.LabelTopologyRegion],
 			Hostname: n.Labels[common.LabelHostname],
 			Role:     n.Labels[common.LabelNodeRole],
@@ -1949,7 +1959,13 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		return
 	}
 
-	if err := upgradeComp.InitSteps(component.WithExtraMetadata(context.TODO(), *extraMeta)); err != nil {
+	ctx := component.WithExtraMetadata(context.TODO(), *extraMeta)
+	ctx, err = h.withResolvedArtifactPlan(ctx, extraMeta, clu, v1.ActionUpgrade)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if err := upgradeComp.InitSteps(ctx); err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}

@@ -67,6 +67,7 @@ func (r *ClusterReconciler) convertNodes(ctx context.Context, nodes v1.WorkerNod
 			ID:       n.Name,
 			IPv4:     n.Status.Ipv4DefaultIP,
 			NodeIPv4: n.Status.NodeIpv4DefaultIP,
+			Arch:     n.Status.NodeInfo.Arch,
 			Region:   n.Labels[common.LabelTopologyRegion],
 			Hostname: n.Labels[common.LabelHostname],
 			Role:     n.Labels[common.LabelNodeRole],

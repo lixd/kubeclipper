@@ -28,6 +28,7 @@ import (
 
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/clusteroperation"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	iamv1 "github.com/kubeclipper/kubeclipper/pkg/scheme/iam/v1"
@@ -43,6 +44,7 @@ const (
 	usersPath            = "/api/iam.kubeclipper.io/v1/users"
 	rolesPath            = "/api/iam.kubeclipper.io/v1/roles"
 	platformPath         = "/api/config.kubeclipper.io/v1/template"
+	deliveryPolicyPath   = "/api/config.kubeclipper.io/v1/deliverypolicy"
 	publicKeyPath        = "/api/config.kubeclipper.io/v1/terminal.key"
 	versionPath          = "/version"
 	componentMetaPath    = "/api/config.kubeclipper.io/v1/componentmeta"
@@ -343,6 +345,28 @@ func (cli *Client) GetComponentMeta(ctx context.Context, query url.Values) (*Com
 	v := ComponentMeta{}
 	err = json.NewDecoder(serverResp.body).Decode(&v)
 	return &v, err
+}
+
+func (cli *Client) GetDeliveryPolicy(ctx context.Context) (*deliveryapis.SupportPolicy, error) {
+	serverResp, err := cli.get(ctx, deliveryPolicyPath, nil, nil)
+	defer ensureReaderClosed(serverResp)
+	if err != nil {
+		return nil, err
+	}
+	policy := &deliveryapis.SupportPolicy{}
+	err = json.NewDecoder(serverResp.body).Decode(policy)
+	return policy, err
+}
+
+func (cli *Client) UpdateDeliveryPolicy(ctx context.Context, policy *deliveryapis.SupportPolicy) (*deliveryapis.SupportPolicy, error) {
+	serverResp, err := cli.put(ctx, deliveryPolicyPath, nil, policy, nil)
+	defer ensureReaderClosed(serverResp)
+	if err != nil {
+		return nil, err
+	}
+	updated := &deliveryapis.SupportPolicy{}
+	err = json.NewDecoder(serverResp.body).Decode(updated)
+	return updated, err
 }
 
 func (cli *Client) InstallOrUninstallComponent(ctx context.Context, cluName string, component *corev1.PatchComponents) (*ClustersList, error) {

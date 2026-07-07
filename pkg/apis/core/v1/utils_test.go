@@ -29,9 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	"github.com/kubeclipper/kubeclipper/pkg/component/metallb"
 	nfsprovisioner "github.com/kubeclipper/kubeclipper/pkg/component/nfs"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	mock_cluster "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
+	mockplatform "github.com/kubeclipper/kubeclipper/pkg/models/platform/mock"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
@@ -239,7 +242,7 @@ func Test_parseOperationFromComponent(t *testing.T) {
 		cluster    *v1.Cluster
 		components []v1.Addon
 	}
-	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := newHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	nfs := nfsprovisioner.NFSProvisioner{
 		ManifestsDir:     "/tmp/.nfs",
 		Namespace:        "kube-system",
@@ -294,6 +297,168 @@ func Test_parseOperationFromComponent(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_parseOperationFromComponent_ResolvesAddonArtifacts(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	platformOperator := mockplatform.NewMockOperator(ctrl)
+	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{
+		Template: v1.DockerRegistry{
+			InsecureRegistry: []v1.InsecureRegistry{{Host: "registry.local:5000"}},
+		},
+	}, nil).AnyTimes()
+
+	h := &handler{
+		serverConfig:     nil,
+		platformOperator: platformOperator,
+		coreOperator:     newFakeDeliveryCoreOperator(t, addonResolverPolicy()),
+		deliveryIndexer:  fakeCatalogIndexer{catalog: addonResolverCatalog()},
+	}
+
+	meta := *extraMeta
+	meta.Offline = true
+	meta.CRI = v1.CRIDocker
+	meta.LocalRegistry = "registry.local:5000"
+	for i := range meta.Masters {
+		meta.Masters[i].Arch = "amd64"
+	}
+	for i := range meta.Workers {
+		meta.Workers[i].Arch = "amd64"
+	}
+	cluster := *c1
+	cluster.LocalRegistry = "registry.local:5000"
+
+	lb := metallb.MetalLB{
+		Mode:      "L2",
+		Addresses: []string{"192.168.20.20-192.168.20.30"},
+		Version:   "v0.13.7",
+	}
+	raw, err := json.Marshal(lb)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	op, err := h.parseOperationFromComponent(context.Background(), &meta, []v1.Addon{{
+		Name:    "metallb",
+		Version: "v1",
+		Config:  runtime.RawExtension{Raw: raw},
+	}}, &cluster, v1.ActionInstall)
+	if err != nil {
+		t.Fatalf("parseOperationFromComponent() error = %v", err)
+	}
+
+	var foundRender bool
+	for _, step := range op.Steps {
+		for _, cmd := range step.Commands {
+			if cmd.Type == v1.CommandCustom && cmd.Identity == "image/v1/AgentImager" {
+				t.Fatalf("addon install generated removed image tarball loader step: %+v", step)
+			}
+			if cmd.Type != v1.CommandTemplateRender || cmd.Template == nil || cmd.Template.Identity != "metallb/v1/metallb" {
+				continue
+			}
+			foundRender = true
+			var decoded metallb.MetalLB
+			if err = json.Unmarshal(cmd.Template.Data, &decoded); err != nil {
+				t.Fatalf("Unmarshal() error = %v", err)
+			}
+			if decoded.ImageRepoMirror != "registry.local:5000" {
+				t.Fatalf("image repo mirror = %q, want registry.local:5000", decoded.ImageRepoMirror)
+			}
+		}
+	}
+	if !foundRender {
+		t.Fatalf("addon render step not found")
+	}
+}
+
+func Test_parseOperationFromComponent_RejectsMixedArchAddonArtifacts(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	platformOperator := mockplatform.NewMockOperator(ctrl)
+	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{
+		Template: v1.DockerRegistry{
+			InsecureRegistry: []v1.InsecureRegistry{{Host: "registry.local:5000"}},
+		},
+	}, nil).AnyTimes()
+
+	h := &handler{
+		serverConfig:     nil,
+		platformOperator: platformOperator,
+		coreOperator:     newFakeDeliveryCoreOperator(t, addonResolverPolicy()),
+		deliveryIndexer:  fakeCatalogIndexer{catalog: addonResolverCatalog()},
+	}
+
+	meta := *extraMeta
+	meta.Offline = true
+	meta.CRI = v1.CRIDocker
+	meta.LocalRegistry = ""
+	meta.Masters = component.NodeList{{ID: "master-1", Arch: "amd64"}}
+	meta.Workers = component.NodeList{{ID: "worker-1", Arch: "arm64"}}
+	cluster := *c1
+	cluster.LocalRegistry = ""
+
+	lb := metallb.MetalLB{
+		Mode:      "L2",
+		Addresses: []string{"192.168.20.20-192.168.20.30"},
+		Version:   "v0.13.7",
+	}
+	raw, err := json.Marshal(lb)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+
+	_, err = h.parseOperationFromComponent(context.Background(), &meta, []v1.Addon{{
+		Name:    "metallb",
+		Version: "v1",
+		Config:  runtime.RawExtension{Raw: raw},
+	}}, &cluster, v1.ActionInstall)
+	if err == nil {
+		t.Fatalf("parseOperationFromComponent() expected mixed arch error")
+	}
+	if !strings.Contains(err.Error(), "single target architecture") {
+		t.Fatalf("parseOperationFromComponent() error = %v", err)
+	}
+}
+
+func addonResolverCatalog() *deliveryapis.PackageInventory {
+	catalog := deliveryapis.NewPackageInventory("registry")
+	catalog.Spec.Packages = []deliveryapis.PackageEntry{
+		{
+			Name:           "metallb",
+			Kind:           "lb",
+			Version:        "v0.13.7",
+			Arch:           "amd64",
+			ContentProfile: deliveryapis.ContentProfileAddon,
+			Transport: deliveryapis.TransportRef{
+				Type:   deliveryapis.TransportOCI,
+				Ref:    "registry.local:5000/kubeclipper/packages/lb/metallb:v0.13.7",
+				Digest: "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+			},
+			Contents: deliveryapis.ContentsForProfile(deliveryapis.ContentProfileAddon),
+		},
+	}
+	return catalog
+}
+
+func addonResolverPolicy() *deliveryapis.SupportPolicy {
+	policy := deliveryapis.NewSupportPolicy("default")
+	policy.Spec.Policies = []deliveryapis.KubernetesSupportPolicy{{
+		Name:  "k8s-v1.18",
+		Match: deliveryapis.PolicyMatch{KubernetesVersion: "v1.18.*"},
+		ComponentSlots: []deliveryapis.ComponentSlotRule{{
+			Slot:      "addon-metallb",
+			Selection: deliveryapis.SelectionOneOf,
+			Options: []deliveryapis.ComponentOption{{
+				Kind:            "lb",
+				Name:            "metallb",
+				AllowedVersions: []string{"v0.13.7"},
+			}},
+		}},
+	}}
+	return policy
 }
 
 func setUpClusterMock(clusterMockOperator *mock_cluster.MockOperator) {

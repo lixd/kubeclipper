@@ -46,6 +46,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/models/operation"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	serverconfig "github.com/kubeclipper/kubeclipper/pkg/server/config"
 	"github.com/kubeclipper/kubeclipper/pkg/service"
 )
 
@@ -1182,8 +1183,8 @@ func SetupWebService(h *handler) *restful.WebService {
 func AddToContainer(c *restful.Container, clusterOperator cluster.Operator,
 	op operation.Operator, platform platform.Operator, leaseOperator lease.Operator,
 	coreOperator core.Operator, delivery service.IDelivery, tokenOperator auth.TokenManagementInterface,
-	conf *generic.ServerRunOptions, terminationChan *chan struct{}) error {
-	h := newHandler(conf, clusterOperator, op, leaseOperator, platform, coreOperator, delivery, tokenOperator, terminationChan)
+	conf *generic.ServerRunOptions, serverConf *serverconfig.Config, terminationChan *chan struct{}) error {
+	h := newHandler(conf, serverConf, clusterOperator, op, leaseOperator, platform, coreOperator, delivery, tokenOperator, terminationChan)
 	webservice := SetupWebService(h)
 	c.Add(webservice)
 	return nil
