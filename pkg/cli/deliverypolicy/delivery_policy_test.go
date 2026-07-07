@@ -190,9 +190,11 @@ func TestRunTemplate(t *testing.T) {
 	if !strings.Contains(string(data), "containerd") || !strings.Contains(string(data), "calico") {
 		t.Fatalf("template yaml = %q", string(data))
 	}
-	assertTemplatePolicy(t, policy, "k8s-v1.36", "v1.36.*", "2.2.4", "v3.31.5")
-	assertTemplatePolicy(t, policy, "k8s-v1.35", "v1.35.*", "1.7.29", "v3.29.6")
-	assertTemplatePolicy(t, policy, "k8s-v1.34", "v1.34.*", "1.7.29", "v3.29.6")
+	assertTemplateSlot(t, policy, "cri", "cri", "containerd", "2.2.4")
+	assertTemplateSlot(t, policy, "cni", "cni", "calico", "v3.31.5")
+	assertTemplateSlot(t, policy, "bootstrap-kubeclipper-agent", "binary", "kubeclipper-agent", "v1.8.0")
+	assertTemplateSlot(t, policy, "bootstrap-etcdctl", "binary", "etcdctl", "v3.5.15")
+	assertTemplateSlot(t, policy, "extension", "extension", "kubectl-terminal", "v1.0.0")
 }
 
 func TestRunDiff(t *testing.T) {
@@ -252,36 +254,12 @@ func samplePolicy() *deliveryapis.SupportPolicy {
 	return policy
 }
 
-func assertTemplatePolicy(t *testing.T, policy *deliveryapis.SupportPolicy, policyName, kubernetesVersion, containerdVersion, calicoVersion string) {
-	t.Helper()
-	k8sPolicy := findTemplatePolicy(t, policy, policyName)
-	if k8sPolicy.Match.KubernetesVersion != kubernetesVersion {
-		t.Fatalf("policy %s kubernetesVersion = %s, want %s", policyName, k8sPolicy.Match.KubernetesVersion, kubernetesVersion)
-	}
-	assertTemplateSlot(t, k8sPolicy, "cri", "cri", "containerd", containerdVersion)
-	assertTemplateSlot(t, k8sPolicy, "cni", "cni", "calico", calicoVersion)
-	assertTemplateSlot(t, k8sPolicy, "k8s-extension", "k8s-extension", "k8s-extension", "v1")
-	assertTemplateSlot(t, k8sPolicy, "bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v2.0.0")
-	assertTemplateSlot(t, k8sPolicy, "bootstrap-etcd", "bootstrap", "etcd", "3.5.21")
-}
-
-func findTemplatePolicy(t *testing.T, policy *deliveryapis.SupportPolicy, policyName string) deliveryapis.KubernetesSupportPolicy {
+func assertTemplateSlot(t *testing.T, policy *deliveryapis.SupportPolicy, slotName, kind, name, version string) {
 	t.Helper()
 	if policy == nil || len(policy.Spec.Policies) == 0 {
 		t.Fatalf("policy has no rules")
 	}
-	for _, k8sPolicy := range policy.Spec.Policies {
-		if k8sPolicy.Name == policyName {
-			return k8sPolicy
-		}
-	}
-	t.Fatalf("policy template missing policy %s", policyName)
-	return deliveryapis.KubernetesSupportPolicy{}
-}
-
-func assertTemplateSlot(t *testing.T, policy deliveryapis.KubernetesSupportPolicy, slotName, kind, name, version string) {
-	t.Helper()
-	for _, slot := range policy.ComponentSlots {
+	for _, slot := range policy.Spec.Policies[0].ComponentSlots {
 		if slot.Slot != slotName {
 			continue
 		}

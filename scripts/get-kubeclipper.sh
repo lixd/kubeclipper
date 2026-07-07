@@ -14,7 +14,10 @@ set -e
 #
 # Environment variables:
 #   - KC_VERSION
-#     Version of kcctl to download from AliCloud OSS.
+#     Version of kcctl to download.
+#
+#   - KC_DOWNLOAD_URL
+#     Base URL for kcctl-only release artifacts.
 #
 #   - KC_BIN_DIR
 #     Directory to install kcctl binary, or use /usr/local/bin as the default.
@@ -43,9 +46,8 @@ fi
 
 OS_TYPE="linux"
 
-# default AliCloud OSS endpoint
-OSS_ENDPOINT="https://kubeclipper.oss-ap-southeast-1.aliyuncs.com"
-DOWNLOAD_URL="${OSS_ENDPOINT}/kc"
+# default kcctl-only release endpoint
+DOWNLOAD_URL="${KC_DOWNLOAD_URL:-https://release.kubeclipper.io/kc}"
 # default directory for storing binary files
 BIN_DIR="/usr/local/bin"
 
@@ -109,8 +111,6 @@ set_env() {
       mirror=${KC_IMAGE_REPO_MIRROR}
     fi
     create_env_file "$mirror"
-    # set download url
-    DOWNLOAD_URL="${OSS_ENDPOINT}/kc"
   fi
 
   if [ -n "${KC_BIN_DIR}" ]; then
@@ -140,15 +140,14 @@ install_pkg() {
   if [ $? -ne 0 ] || [ -z "$TMP_DIR" ]; then
     fatal 'Failed to create a temporary directory!'
   fi
-  REMOTE=${DOWNLOAD_URL}/${KC_VERSION}/kc-${OS_TYPE}-${ARCH}.tar.gz
-  TARGET=${TMP_DIR}"/kcctl.tar.gz"
+  REMOTE=${DOWNLOAD_URL}/${KC_VERSION}/kcctl-${OS_TYPE}-${ARCH}
+  TARGET=${TMP_DIR}"/kcctl"
   # download
   download "${TARGET}" "${REMOTE}"
-  # decompress the file to the specified directory
-  tar -zxvf "${TARGET}" -C "${TMP_DIR}" --strip-components "${STRIP}"
   info "Installing kcctl to ${BIN_DIR}/kcctl"
   # move binary file to BIN_DIR
-  $SUDO mv "${TMP_DIR}"/kcctl "${BIN_DIR}"/
+  chmod +x "${TARGET}"
+  $SUDO mv "${TARGET}" "${BIN_DIR}"/kcctl
   rm -rf "${TMP_DIR}"
 }
 
@@ -158,7 +157,7 @@ download() {
   info "Downloading package $2"
   case $DOWNLOADER in
   curl)
-    curl -fL -o "$1" "$2"
+    curl -o "$1" "$2"
     ;;
   wget)
     wget -O "$1" "$2"

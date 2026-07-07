@@ -22,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
-	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 )
 
 const (
@@ -98,21 +97,30 @@ agents:
 # kubeclipper agent node's default region.
 #defaultRegion: default
 
+# OCI registry host:port for KubeClipper offline packages.
+packageRegistry: ""
+
 # kubeclipper backend server port
 #serverPort: 8080
 # kubeclipper frontend server port.
 #consolePort: 80
-# kubeclipper static server port.
-#staticServerPort: 8081
-# static package directory.
-#staticServerPath: /opt/kubeclipper-server/resource
+#automatic generate jwt token.
+#jwtSecret: ""
 
-# temporary directory for deployment packages and extracted files.
-#tempDir: /tmp
-
-# deploy resource package,support url or file absolute path.
-#pkg: ` + constatns.KubeClipperReleaseBaseURL + `/v1.1.0/kc-amd64.tar.gz
-pkg: /tmp/kc-minimal.tar.gz
+# mq config,support internal or external mq.
+# use internal mq,kubeclipper will running mq with service,and automatic generate ips、user、secret and certs(if enable tls).
+# use external mq,you need specify ips、user、secret and certs(if enable tls).
+mq:
+  #external: false
+  #tls: true
+  ca: ""
+  clientCert: ""
+  clientKey: ""
+  ips: []
+  #port: 9889
+  #clusterPort: 9890
+  #user: admin
+  secret: ""
 
 # operation log config.
 opLog:

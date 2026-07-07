@@ -261,7 +261,59 @@ func (o *DeliveryPolicyOptions) RunDiff() error {
 }
 
 func defaultPolicyTemplate() *deliveryapis.SupportPolicy {
-	return deliveryapis.DefaultSupportPolicy()
+	policy := deliveryapis.NewSupportPolicy("default")
+	policy.Spec.Policies = []deliveryapis.KubernetesSupportPolicy{{
+		Name:  "k8s-v1.36",
+		Match: deliveryapis.PolicyMatch{KubernetesVersion: "v1.36.*"},
+		ComponentSlots: []deliveryapis.ComponentSlotRule{
+			{
+				Slot:      "cri",
+				Selection: deliveryapis.SelectionOneOf,
+				Required:  true,
+				Default:   deliveryapis.ComponentChoice{Name: "containerd", Version: "2.2.4"},
+				Options: []deliveryapis.ComponentOption{
+					{Kind: "cri", Name: "containerd", AllowedVersions: []string{"2.2.4"}},
+				},
+			},
+			{
+				Slot:      "cni",
+				Selection: deliveryapis.SelectionOneOf,
+				Required:  true,
+				Default:   deliveryapis.ComponentChoice{Name: "calico", Version: "v3.31.5"},
+				Options: []deliveryapis.ComponentOption{
+					{Kind: "cni", Name: "calico", AllowedVersions: []string{"v3.31.5"}},
+				},
+			},
+			{
+				Slot:      "bootstrap-kubeclipper-agent",
+				Selection: deliveryapis.SelectionOneOf,
+				Required:  true,
+				Default:   deliveryapis.ComponentChoice{Name: "kubeclipper-agent", Version: "v1.8.0"},
+				Options: []deliveryapis.ComponentOption{
+					{Kind: "binary", Name: "kubeclipper-agent", AllowedVersions: []string{"v1.8.0"}},
+				},
+			},
+			{
+				Slot:      "bootstrap-etcdctl",
+				Selection: deliveryapis.SelectionOneOf,
+				Required:  true,
+				Default:   deliveryapis.ComponentChoice{Name: "etcdctl", Version: "v3.5.15"},
+				Options: []deliveryapis.ComponentOption{
+					{Kind: "binary", Name: "etcdctl", AllowedVersions: []string{"v3.5.15"}},
+				},
+			},
+			{
+				Slot:      "extension",
+				Selection: deliveryapis.SelectionOneOf,
+				Required:  true,
+				Default:   deliveryapis.ComponentChoice{Name: "kubectl-terminal", Version: "v1.0.0"},
+				Options: []deliveryapis.ComponentOption{
+					{Kind: "extension", Name: "kubectl-terminal", AllowedVersions: []string{"v1.0.0"}},
+				},
+			},
+		},
+	}}
+	return policy
 }
 
 func loadPolicyFromFile(path string) (*deliveryapis.SupportPolicy, error) {
