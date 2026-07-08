@@ -29,9 +29,9 @@ func ContentProfileForKind(kind string) string {
 		return ContentProfileK8s
 	case "cri":
 		return ContentProfileRuntime
-	case "binary":
+	case "binary", "bootstrap":
 		return ContentProfileBinary
-	case "extension", "kc-extension", "k8s-extension":
+	case "extension", "k8s-extension":
 		return ContentProfileExtension
 	case "cni", "csi", "app":
 		return ContentProfileAddon

@@ -29,6 +29,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -63,7 +64,7 @@ type PublishResult struct {
 type OCIArtifactPublisher struct{}
 
 const (
-	packageRootDir      = "package"
+	packageRootDir      = "opt/kubeclipper/resource"
 	packageManifestFile = "kc-package-manifest.json"
 )
 
@@ -73,7 +74,7 @@ func NewOCIArtifactPublisher() *OCIArtifactPublisher {
 
 func (p *OCIArtifactPublisher) Publish(req PublishRequest) (*PublishResult, error) {
 	if req.PackagePath == "" && len(req.ExternalContents) == 0 {
-		return nil, fmt.Errorf("package path is required")
+		return nil, fmt.Errorf("package path or external content is required")
 	}
 	if req.Kind == "" || req.Name == "" || req.Version == "" || req.Arch == "" {
 		return nil, fmt.Errorf("kind, name, version and arch are required")
@@ -268,7 +269,7 @@ func writePackageRootFS(target, manifestPath string, payloads []payloadFile) err
 			return fmt.Errorf("payload %q file %q must be a base name", payload.name, payload.file)
 		}
 		mode := int64(0644)
-		if payload.name == deliveryapis.ContentBinary {
+		if isBinaryPayloadContent(payload.name) {
 			mode = 0755
 		}
 		if err = addFileToRootFSTar(tw, payload.path, path.Join(packageRootDir, payload.file), mode); err != nil {
@@ -415,6 +416,9 @@ func inspectPackageContents(root, name, version, arch, profile string) ([]payloa
 		if info.IsDir() {
 			return nil
 		}
+		if isMetadataFile(info.Name()) {
+			return nil
+		}
 		contentName, ok := contentNameFromFile(info.Name(), profile)
 		if !ok {
 			return nil
@@ -436,7 +440,7 @@ func inspectPackageContents(root, name, version, arch, profile string) ([]payloa
 			name:      contentName,
 			path:      path,
 			file:      info.Name(),
-			mediaType: deliveryapis.MediaTypeForContent(contentName),
+			mediaType: mediaTypeForPayloadContent(contentName, profile),
 			digest:    digest,
 		}
 		return nil
@@ -445,9 +449,18 @@ func inspectPackageContents(root, name, version, arch, profile string) ([]payloa
 		return nil, err
 	}
 	var payloads []payloadFile
-	for _, name := range expected {
-		if payload, ok := found[name]; ok {
+	if profile == deliveryapis.ContentProfileBinary {
+		for _, payload := range found {
 			payloads = append(payloads, payload)
+		}
+		sort.Slice(payloads, func(i, j int) bool {
+			return payloads[i].name < payloads[j].name
+		})
+	} else {
+		for _, name := range expected {
+			if payload, ok := found[name]; ok {
+				payloads = append(payloads, payload)
+			}
 		}
 	}
 	if len(payloads) == 0 {
@@ -496,7 +509,7 @@ func pathMatchesPackage(path, name, version, arch string) bool {
 }
 
 func validatePayloadFile(path, contentName string) error {
-	if contentName == deliveryapis.ContentBinary {
+	if isBinaryPayloadContent(contentName) {
 		info, err := os.Stat(path)
 		if err != nil {
 			return err
@@ -533,7 +546,7 @@ func validatePayloadFile(path, contentName string) error {
 
 func contentNameFromFile(file, profile string) (string, bool) {
 	if profile == deliveryapis.ContentProfileBinary {
-		return deliveryapis.ContentBinary, true
+		return file, true
 	}
 	switch file {
 	case deliveryapis.ContentFile(deliveryapis.ContentConfigs):
@@ -547,11 +560,31 @@ func contentNameFromFile(file, profile string) (string, bool) {
 	}
 }
 
+func isMetadataFile(file string) bool {
+	return file == ".DS_Store" || strings.HasPrefix(file, "._")
+}
+
 func payloadDigest(path, contentName string) (string, error) {
-	if contentName != deliveryapis.ContentBinary {
-		return gzipUncompressedDigest(path)
+	if isBinaryPayloadContent(contentName) {
+		return fileDigest(path)
 	}
-	return fileDigest(path)
+	return gzipUncompressedDigest(path)
+}
+
+func mediaTypeForPayloadContent(contentName, profile string) string {
+	if profile == deliveryapis.ContentProfileBinary || isBinaryPayloadContent(contentName) {
+		return deliveryapis.MediaTypeBinaryLayer
+	}
+	return deliveryapis.MediaTypeForContent(contentName)
+}
+
+func isBinaryPayloadContent(contentName string) bool {
+	switch contentName {
+	case deliveryapis.ContentConfigs, deliveryapis.ContentImages, deliveryapis.ContentCharts:
+		return false
+	default:
+		return true
+	}
 }
 
 func gzipUncompressedDigest(path string) (string, error) {

@@ -463,7 +463,8 @@ export KUBECLIPPER_VERSION=v1.8.0
 kcctl registry deploy \
   --node <registry-node-ip> \
   --pk-file ~/.ssh/id_rsa \
-  --registry-image docker.io/kubeclipper/registry:${KUBECLIPPER_VERSION} \
+  --package-registry ghcr.io/lixd/kubeclipper \
+  --version 3.1.1 \
   --registry-port 5000
 
 # If the Registry is already running, this health check should return an empty JSON

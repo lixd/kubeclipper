@@ -206,7 +206,7 @@ func TestBuildArtifactImageUsesStandardRootFSLayer(t *testing.T) {
 		}
 		files[header.Name] = true
 	}
-	if !files["package/kc-package-manifest.json"] || !files["package/configs.tar.gz"] {
+	if !files["opt/kubeclipper/resource/kc-package-manifest.json"] || !files["opt/kubeclipper/resource/configs.tar.gz"] {
 		t.Fatalf("rootfs files = %+v", files)
 	}
 }
@@ -264,7 +264,7 @@ func TestInspectPackageContentsRejectsInvalidArchivePayload(t *testing.T) {
 
 func TestInspectPackageContentsBinary(t *testing.T) {
 	root := t.TempDir()
-	base := filepath.Join(root, "kubeclipper-agent", "v1.7.0", "amd64")
+	base := filepath.Join(root, "kubeclipper", "v1.7.0", "amd64")
 	if err := os.MkdirAll(base, 0755); err != nil {
 		t.Fatalf("mkdir base: %+v", err)
 	}
@@ -272,14 +272,14 @@ func TestInspectPackageContentsBinary(t *testing.T) {
 		t.Fatalf("write binary: %+v", err)
 	}
 
-	payloads, err := inspectPackageContents(root, "kubeclipper-agent", "v1.7.0", "amd64", deliveryapis.ContentProfileBinary)
+	payloads, err := inspectPackageContents(root, "kubeclipper", "v1.7.0", "amd64", deliveryapis.ContentProfileBinary)
 	if err != nil {
 		t.Fatalf("inspectPackageContents() error: %+v", err)
 	}
 	if len(payloads) != 1 {
 		t.Fatalf("payload count = %d, want 1", len(payloads))
 	}
-	if payloads[0].name != deliveryapis.ContentBinary {
+	if payloads[0].name != "kubeclipper-agent" {
 		t.Fatalf("payload name = %q", payloads[0].name)
 	}
 	if payloads[0].file != "kubeclipper-agent" {
@@ -290,9 +290,9 @@ func TestInspectPackageContentsBinary(t *testing.T) {
 	}
 }
 
-func TestInspectPackageContentsBinaryRejectsMultipleFiles(t *testing.T) {
+func TestInspectPackageContentsBinaryAcceptsMultipleFiles(t *testing.T) {
 	root := t.TempDir()
-	base := filepath.Join(root, "kubeclipper-agent", "v1.7.0", "amd64")
+	base := filepath.Join(root, "kubeclipper", "v1.7.0", "amd64")
 	if err := os.MkdirAll(base, 0755); err != nil {
 		t.Fatalf("mkdir base: %+v", err)
 	}
@@ -302,9 +302,40 @@ func TestInspectPackageContentsBinaryRejectsMultipleFiles(t *testing.T) {
 		}
 	}
 
-	_, err := inspectPackageContents(root, "kubeclipper-agent", "v1.7.0", "amd64", deliveryapis.ContentProfileBinary)
-	if err == nil {
-		t.Fatalf("inspectPackageContents() expected duplicate payload error")
+	payloads, err := inspectPackageContents(root, "kubeclipper", "v1.7.0", "amd64", deliveryapis.ContentProfileBinary)
+	if err != nil {
+		t.Fatalf("inspectPackageContents() error: %+v", err)
+	}
+	if len(payloads) != 2 {
+		t.Fatalf("payload count = %d, want 2", len(payloads))
+	}
+}
+
+func TestInspectPackageContentsBinaryIgnoresMetadataFiles(t *testing.T) {
+	root := t.TempDir()
+	base := filepath.Join(root, "etcd", "3.5.21", "arm64")
+	if err := os.MkdirAll(base, 0755); err != nil {
+		t.Fatalf("mkdir base: %+v", err)
+	}
+	for file, data := range map[string]string{
+		"etcd":      "binary",
+		"._etcd":    "appledouble metadata",
+		".DS_Store": "finder metadata",
+	} {
+		if err := os.WriteFile(filepath.Join(base, file), []byte(data), 0755); err != nil {
+			t.Fatalf("write %s: %+v", file, err)
+		}
+	}
+
+	payloads, err := inspectPackageContents(root, "etcd", "3.5.21", "arm64", deliveryapis.ContentProfileBinary)
+	if err != nil {
+		t.Fatalf("inspectPackageContents() error: %+v", err)
+	}
+	if len(payloads) != 1 {
+		t.Fatalf("payload count = %d, want 1", len(payloads))
+	}
+	if payloads[0].name != "etcd" {
+		t.Fatalf("payload name = %q", payloads[0].name)
 	}
 }
 
@@ -338,7 +369,7 @@ func TestValidatePublishContents(t *testing.T) {
 
 func TestValidatePublishContentsBinary(t *testing.T) {
 	err := validatePublishContents(deliveryapis.ContentProfileBinary, []deliveryapis.ArtifactContent{
-		{Name: deliveryapis.ContentBinary, File: "kubeclipper-agent", MediaType: deliveryapis.MediaTypeBinaryLayer},
+		{Name: "kubeclipper-agent", File: "kubeclipper-agent", MediaType: deliveryapis.MediaTypeBinaryLayer},
 	})
 	if err != nil {
 		t.Fatalf("validatePublishContents() error: %+v", err)

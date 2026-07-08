@@ -41,17 +41,20 @@ func TestResolveBootstrapBinaryFromStores(t *testing.T) {
 			Spec: PackageInventorySpec{
 				Packages: []PackageEntry{
 					{
-						Kind:           "binary",
-						Name:           "kubeclipper-agent",
+						Kind:           "bootstrap",
+						Name:           "kubeclipper",
 						Version:        "v1.7.0",
 						Arch:           "amd64",
 						ContentProfile: ContentProfileBinary,
 						Transport: TransportRef{
 							Type:   TransportOCI,
-							Ref:    "registry.local/kubeclipper/packages/binary/kubeclipper-agent:v1.7.0",
+							Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
 							Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 						},
-						Contents: []ArtifactContent{{Name: ContentBinary, File: "kubeclipper-agent", MediaType: MediaTypeBinaryLayer}},
+						Contents: []ArtifactContent{
+							{Name: "kubeclipper-server", File: "kubeclipper-server", MediaType: MediaTypeBinaryLayer},
+							{Name: "kubeclipper-agent", File: "kubeclipper-agent", MediaType: MediaTypeBinaryLayer},
+						},
 					},
 				},
 			},
@@ -62,13 +65,14 @@ func TestResolveBootstrapBinaryFromStores(t *testing.T) {
 		Arch:              "amd64",
 		KubernetesVersion: "v1.36.0",
 		Candidates: []PackageCandidate{
-			{Kind: "binary", Name: "kubeclipper-agent"},
+			{Kind: "bootstrap", Name: "kubeclipper"},
 		},
+		Contents: []string{"kubeclipper-agent"},
 	})
 	if err != nil {
 		t.Fatalf("ResolveBootstrapBinaryFromStores() error: %v", err)
 	}
-	if component.Name != "kubeclipper-agent" {
+	if component.Name != "kubeclipper" || len(component.Contents) != 1 || component.Contents[0].Name != "kubeclipper-agent" {
 		t.Fatalf("component = %+v", component)
 	}
 }
@@ -82,8 +86,9 @@ func TestResolveBootstrapBinaryFromStoresNotFound(t *testing.T) {
 		Arch:              "amd64",
 		KubernetesVersion: "v1.36.0",
 		Candidates: []PackageCandidate{
-			{Kind: "binary", Name: "kubeclipper-agent"},
+			{Kind: "bootstrap", Name: "kubeclipper"},
 		},
+		Contents: []string{"kubeclipper-agent"},
 	})
 	if err == nil {
 		t.Fatalf("expected error")

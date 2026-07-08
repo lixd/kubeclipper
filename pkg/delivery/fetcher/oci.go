@@ -233,7 +233,7 @@ func readPackageManifestLayer(layer containerv1.Layer) (deliveryapis.PackageMani
 }
 
 func packageManifestPath() string {
-	return path.Join("package", "kc-package-manifest.json")
+	return path.Join("opt/kubeclipper/resource", "kc-package-manifest.json")
 }
 
 func validateFetchedManifest(manifest deliveryapis.PackageManifest, component deliveryapis.ResolvedComponent, osName, arch string) error {
@@ -314,7 +314,7 @@ func readPackageFile(layers []containerv1.Layer, file string) ([]byte, error) {
 	if file == "" {
 		return nil, fmt.Errorf("package content file is required")
 	}
-	target := path.Join("package", file)
+	target := path.Join("opt/kubeclipper/resource", file)
 	for _, layer := range layers {
 		reader, err := layer.Uncompressed()
 		if err != nil {
@@ -350,7 +350,7 @@ func readFileFromRootFS(reader io.Reader, target string) ([]byte, error) {
 }
 
 func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
-	if contentName == deliveryapis.ContentBinary {
+	if isPlainFileContent(contentName) {
 		sum := sha256.Sum256(data)
 		return "sha256:" + hex.EncodeToString(sum[:]), nil
 	}
@@ -364,6 +364,15 @@ func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
 		return "", err
 	}
 	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func isPlainFileContent(contentName string) bool {
+	switch contentName {
+	case deliveryapis.ContentConfigs, deliveryapis.ContentImages, deliveryapis.ContentCharts:
+		return false
+	default:
+		return true
+	}
 }
 
 type fetchedComponentManifest struct {

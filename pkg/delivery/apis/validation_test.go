@@ -368,14 +368,14 @@ func TestPackageInventoryValidateBinaryProfile(t *testing.T) {
 	catalog := NewPackageInventory("default")
 	catalog.Spec.Packages = []PackageEntry{
 		{
-			Kind:           "binary",
-			Name:           "kubeclipper-agent",
+			Kind:           "bootstrap",
+			Name:           "kubeclipper",
 			Version:        "v1.7.0",
 			Arch:           "amd64",
 			ContentProfile: ContentProfileBinary,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/binary/kubeclipper-agent:v1.7.0",
+				Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			},
 		},
@@ -386,7 +386,7 @@ func TestPackageInventoryValidateBinaryProfile(t *testing.T) {
 	}
 
 	catalog.Spec.Packages[0].Contents = []ArtifactContent{
-		{Name: ContentBinary, File: "kubeclipper-agent", MediaType: MediaTypeBinaryLayer},
+		{Name: "kubeclipper-agent", File: "kubeclipper-agent", MediaType: MediaTypeBinaryLayer},
 	}
 	if err := catalog.Validate(); err != nil {
 		t.Fatalf("Validate() error: %+v", err)

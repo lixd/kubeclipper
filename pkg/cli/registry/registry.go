@@ -38,7 +38,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"k8s.io/apimachinery/pkg/util/wait"
-	componentversion "k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/registry/client"
@@ -61,8 +60,10 @@ import (
 )
 
 const (
-	defaultRegistryComponentRegistry = "docker.io/kubeclipper"
-	defaultRegistryComponentArch     = "amd64"
+	defaultRegistryPackageRegistry = "ghcr.io/lixd/kubeclipper"
+	defaultRegistryVersion         = "3.1.1"
+	defaultRegistryComponentArch   = "amd64"
+	registryBinaryPathInImage      = "/opt/kubeclipper/resource/registry"
 
 	longDescription = `
   Docker registry operation.
@@ -70,8 +71,8 @@ const (
   Currently, you can deploy, clean, push, list and delete docker registry.
   Use docker engine API V2, visit the website(https://docs.docker.com/registry/spec/api/) for more information.`
 	registryExample = `
-  # Deploy docker registry
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0
+  # Deploy docker registry from a package registry
+  kcctl registry deploy --pk-file key --node 10.0.0.111
   # Deploy docker registry from an offline image archive
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
   # Clean docker registry
@@ -91,13 +92,13 @@ const (
 	deployLongDescription = `
   Deploy docker registry.`
 	deployExample = `
-  # Deploy docker registry
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0
+  # Deploy docker registry from a package registry
+  kcctl registry deploy --pk-file key --node 10.0.0.111
   # Deploy docker registry specify data directory
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0 --data-root /var/lib/myregistry
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --data-root /var/lib/myregistry
   # Deploy docker registry specify port
   # If you used custom port,then must specify it in push、list、delete cmd.
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image docker.io/kubeclipper/registry:v1.8.0 --registry-port 6666
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-port 6666
   # Deploy docker registry from an offline image archive
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
   # Deploy docker registry from a local binary
@@ -164,7 +165,7 @@ type RegistryOptions struct {
 	RegistryImage        string
 	RegistryImageArchive string
 	RegistryBinary       string
-	ComponentRegistry    string
+	PackageRegistry      string
 	Version              string
 	Arch                 string
 
@@ -178,16 +179,16 @@ type RegistryOptions struct {
 	TagSuffix string
 
 	// tracks which flags were explicitly set by the user
-	nodeChanged              bool
-	portChanged              bool
-	sshUserChanged           bool
-	pkFileChanged            bool
-	pkPasswdChanged          bool
-	registryImageChanged     bool
-	registryArchiveChanged   bool
-	registryBinaryChanged    bool
-	componentRegistryChanged bool
-	versionChanged           bool
+	nodeChanged            bool
+	portChanged            bool
+	sshUserChanged         bool
+	pkFileChanged          bool
+	pkPasswdChanged        bool
+	registryImageChanged   bool
+	registryArchiveChanged bool
+	registryBinaryChanged  bool
+	packageRegistryChanged bool
+	versionChanged         bool
 }
 
 var (
@@ -228,7 +229,7 @@ func NewCmdRegistry(streams options.IOStreams) *cobra.Command {
 
 func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "deploy (--user | -u <user>) (--passwd <passwd>) (--pk-file <pk-file>) (--pk-passwd <pk-passwd>) (--node <node>) [--registry-image <image> | --registry-image-archive <archive> | --registry-binary <binary> | --component-registry <registry>] (--data-root <data-root>)  (--registry-port <registry-port>) [flags]",
+		Use:                   "deploy (--user | -u <user>) (--passwd <passwd>) (--pk-file <pk-file>) (--pk-passwd <pk-passwd>) (--node <node>) [--registry-image <image> | --registry-image-archive <archive> | --registry-binary <binary> | --package-registry <registry>] (--data-root <data-root>)  (--registry-port <registry-port>) [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "registry deploy",
 		Long:                  deployLongDescription,
@@ -247,12 +248,12 @@ func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 
 	options.AddFlagsToSSH(o.SSHConfig, cmd.Flags())
 	cmd.Flags().StringVar(&o.Node, "node", o.Node, "node to deploy registry.")
-	cmd.Flags().StringVar(&o.RegistryImage, "registry-image", o.RegistryImage, "full registry component image reference.")
+	cmd.Flags().StringVar(&o.RegistryImage, "registry-image", o.RegistryImage, "full registry bootstrap package image reference.")
 	cmd.Flags().StringVar(&o.RegistryImageArchive, "registry-image-archive", o.RegistryImageArchive, "local docker image archive containing the registry binary.")
 	cmd.Flags().StringVar(&o.RegistryBinary, "registry-binary", o.RegistryBinary, "local registry binary path.")
-	cmd.Flags().StringVar(&o.ComponentRegistry, "component-registry", o.ComponentRegistry, "component image registry prefix, for example docker.io/kubeclipper.")
-	cmd.Flags().StringVar(&o.Version, "version", o.Version, "registry component version. Defaults to kcctl GitVersion.")
-	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry component image architecture.")
+	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", o.PackageRegistry, "OCI registry prefix containing kubeclipper/packages/bootstrap/registry. Default: ghcr.io/lixd/kubeclipper.")
+	cmd.Flags().StringVar(&o.Version, "version", o.Version, "registry bootstrap image version. Default: 3.1.1.")
+	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry bootstrap image architecture.")
 	cmd.Flags().StringVar(&o.DataRoot, "data-root", o.DataRoot, "set registry data root directory.")
 	cmd.Flags().IntVar(&o.RegistryPort, "registry-port", o.RegistryPort, "set registry port")
 
@@ -395,7 +396,7 @@ func (o *RegistryOptions) trackChangedFlags(cmd *cobra.Command) {
 	o.registryImageChanged = cmd.Flags().Changed("registry-image")
 	o.registryArchiveChanged = cmd.Flags().Changed("registry-image-archive")
 	o.registryBinaryChanged = cmd.Flags().Changed("registry-binary")
-	o.componentRegistryChanged = cmd.Flags().Changed("component-registry")
+	o.packageRegistryChanged = cmd.Flags().Changed("package-registry")
 	o.versionChanged = cmd.Flags().Changed("version")
 }
 
@@ -461,7 +462,7 @@ func (o *RegistryOptions) ValidateArgsDeploy() error {
 		return fmt.Errorf("registry deploy source flags are mutually exclusive: %s", strings.Join(sources, ", "))
 	}
 	if o.Version != "" && (o.RegistryImage != "" || o.RegistryImageArchive != "" || o.RegistryBinary != "") {
-		return fmt.Errorf("--version can only be used with --component-registry or the default component registry")
+		return fmt.Errorf("--version can only be used with --package-registry or the default package registry")
 	}
 	return nil
 }
@@ -816,8 +817,8 @@ func (o *RegistryOptions) explicitRegistryDeploySources() []string {
 	if o.RegistryImage != "" {
 		sources = append(sources, "--registry-image")
 	}
-	if o.ComponentRegistry != "" {
-		sources = append(sources, "--component-registry")
+	if o.PackageRegistry != "" {
+		sources = append(sources, "--package-registry")
 	}
 	return sources
 }
@@ -857,18 +858,15 @@ func (o *RegistryOptions) resolveRegistryImage() (string, error) {
 	if o.RegistryImage != "" {
 		return o.RegistryImage, nil
 	}
-	registry := strings.TrimRight(o.ComponentRegistry, "/")
+	registry := strings.TrimRight(o.PackageRegistry, "/")
 	if registry == "" {
-		registry = defaultRegistryComponentRegistry
+		registry = defaultRegistryPackageRegistry
 	}
 	version := o.Version
 	if version == "" {
-		version = componentversion.Get().GitVersion
+		version = defaultRegistryVersion
 	}
-	if version == "" {
-		return "", fmt.Errorf("--version must be specified because kcctl GitVersion is empty")
-	}
-	return fmt.Sprintf("%s/registry:%s", registry, version), nil
+	return fmt.Sprintf("%s/%s/bootstrap/registry:%s", registry, "kubeclipper/packages", version), nil
 }
 
 func (o *RegistryOptions) obtainRegistryBinaryFromImage(ref string) (string, func(), error) {
@@ -930,7 +928,7 @@ func extractRegistryBinary(img containerv1.Image, dst string) error {
 	for {
 		header, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			return fmt.Errorf("registry binary not found in image; expected one of: %s", strings.Join(allowedRegistryBinaryPaths(), ", "))
+			return fmt.Errorf("registry binary not found in image; expected %s", registryBinaryPathInImage)
 		}
 		if err != nil {
 			return err
@@ -938,7 +936,7 @@ func extractRegistryBinary(img containerv1.Image, dst string) error {
 		if header.Typeflag != tar.TypeReg {
 			continue
 		}
-		if !isAllowedRegistryBinaryPath(header.Name) {
+		if !isRegistryBinaryPath(header.Name) {
 			continue
 		}
 		mode := os.FileMode(header.Mode)
@@ -949,24 +947,9 @@ func extractRegistryBinary(img containerv1.Image, dst string) error {
 	}
 }
 
-func isAllowedRegistryBinaryPath(name string) bool {
+func isRegistryBinaryPath(name string) bool {
 	cleaned := "/" + strings.TrimPrefix(filepath.ToSlash(filepath.Clean(name)), "/")
-	for _, allowed := range allowedRegistryBinaryPaths() {
-		if cleaned == allowed {
-			return true
-		}
-	}
-	return false
-}
-
-func allowedRegistryBinaryPaths() []string {
-	return []string{
-		"/registry",
-		"/usr/local/bin/registry",
-		"/usr/bin/registry",
-		"/bin/registry",
-		"/root/registry",
-	}
+	return cleaned == registryBinaryPathInImage
 }
 
 func dockerArchiveOpener(archivePath string) tarball.Opener {

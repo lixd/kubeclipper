@@ -41,10 +41,13 @@ func TestNewCmdRegistryDeployDoesNotExposeLegacyPackageFlag(t *testing.T) {
 	if cmd.Flags().Lookup("pkg") != nil {
 		t.Fatalf("registry deploy should not expose package flag")
 	}
-	for _, name := range []string{"registry-image", "registry-image-archive", "registry-binary", "component-registry"} {
+	for _, name := range []string{"registry-image", "registry-image-archive", "registry-binary", "package-registry"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("registry deploy missing --%s flag", name)
 		}
+	}
+	if cmd.Flags().Lookup("component-registry") != nil {
+		t.Fatalf("registry deploy should not expose --component-registry")
 	}
 }
 
@@ -90,7 +93,7 @@ func TestValidateArgsDeployRejectsMultipleSources(t *testing.T) {
 	o := NewRegistryOptions(options.IOStreams{})
 	o.Node = "10.0.0.1"
 	o.SSHConfig.PkFile = "/tmp/id_rsa"
-	o.RegistryImage = "docker.io/kubeclipper/registry:v1.8.0"
+	o.RegistryImage = "ghcr.io/lixd/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1"
 	o.RegistryBinary = "./registry"
 
 	err := o.ValidateArgsDeploy()
@@ -104,22 +107,21 @@ func TestValidateArgsDeployRejectsMultipleSources(t *testing.T) {
 
 func TestResolveRegistryImage(t *testing.T) {
 	o := NewRegistryOptions(options.IOStreams{})
-	o.Version = "v1.8.0"
-
 	ref, err := o.resolveRegistryImage()
 	if err != nil {
 		t.Fatalf("resolveRegistryImage() error = %+v", err)
 	}
-	if ref != "docker.io/kubeclipper/registry:v1.8.0" {
+	if ref != "ghcr.io/lixd/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1" {
 		t.Fatalf("resolveRegistryImage() = %q", ref)
 	}
 
-	o.ComponentRegistry = "harbor.example.com/kubeclipper/"
+	o.PackageRegistry = "harbor.example.com/kubeclipper/"
+	o.Version = "v1.8.0"
 	ref, err = o.resolveRegistryImage()
 	if err != nil {
 		t.Fatalf("resolveRegistryImage() error = %+v", err)
 	}
-	if ref != "harbor.example.com/kubeclipper/registry:v1.8.0" {
+	if ref != "harbor.example.com/kubeclipper/kubeclipper/packages/bootstrap/registry:v1.8.0" {
 		t.Fatalf("resolveRegistryImage() = %q", ref)
 	}
 }
@@ -151,7 +153,7 @@ func TestNormalizeRegistryBinaryAlwaysNamesFileRegistry(t *testing.T) {
 }
 
 func TestExtractRegistryBinaryUsesAllowedPath(t *testing.T) {
-	img := testRegistryImage(t, "/usr/local/bin/registry", "registry-binary")
+	img := testRegistryImage(t, "/opt/kubeclipper/resource/registry", "registry-binary")
 	dst := filepath.Join(t.TempDir(), "registry")
 
 	if err := extractRegistryBinary(img, dst); err != nil {

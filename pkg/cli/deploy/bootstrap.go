@@ -35,28 +35,28 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
-const bootstrapKind = "binary"
+const bootstrapKind = "bootstrap"
 
 type bootstrapAsset struct {
+	PackageName    string
 	Name           string
 	RemotePath     string
 	ConsoleArchive bool
 }
 
 var deployBootstrapAssets = []bootstrapAsset{
-	{Name: "kcctl", RemotePath: "/usr/local/bin/kcctl"},
-	{Name: "caddy", RemotePath: "/usr/local/bin/caddy"},
-	{Name: "registry", RemotePath: "/usr/local/bin/registry"},
-	{Name: "kubeclipper-agent", RemotePath: "/usr/local/bin/kubeclipper-agent"},
-	{Name: "etcdutl", RemotePath: "/usr/local/bin/etcdutl"},
-	{Name: "etcd", RemotePath: "/usr/local/bin/etcd"},
-	{Name: "kubeclipper-server", RemotePath: "/usr/local/bin/kubeclipper-server"},
-	{Name: "etcdctl", RemotePath: "/usr/local/bin/etcdctl"},
-	{Name: "kc-console", ConsoleArchive: true},
+	{PackageName: "kubeclipper", Name: "kubeclipper-server", RemotePath: "/usr/local/bin/kubeclipper-server"},
+	{PackageName: "kubeclipper", Name: "kubeclipper-agent", RemotePath: "/usr/local/bin/kubeclipper-agent"},
+	{PackageName: "etcd", Name: "etcd", RemotePath: "/usr/local/bin/etcd"},
+	{PackageName: "etcd", Name: "etcdctl", RemotePath: "/usr/local/bin/etcdctl"},
+	{PackageName: "etcd", Name: "etcdutl", RemotePath: "/usr/local/bin/etcdutl"},
+	{PackageName: "console", Name: "caddy", RemotePath: "/usr/local/bin/caddy"},
+	{PackageName: "console", Name: "kc-console", ConsoleArchive: true},
+	{PackageName: "registry", Name: "registry", RemotePath: "/usr/local/bin/registry"},
 }
 
 var joinBootstrapAssets = []bootstrapAsset{
-	{Name: "kubeclipper-agent", RemotePath: "/usr/local/bin/kubeclipper-agent"},
+	{PackageName: "kubeclipper", Name: "kubeclipper-agent", RemotePath: "/usr/local/bin/kubeclipper-agent"},
 }
 
 type BootstrapInstallOptions struct {
@@ -104,12 +104,14 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	}
 	fetched := make(map[string]string, len(result.Components))
 	for _, component := range result.Components {
-		if path := component.Files[deliveryapis.ContentBinary]; path != "" {
-			fetched[component.Name] = path
+		for contentName, path := range component.Files {
+			if path != "" {
+				fetched[bootstrapAssetKey(component.Name, contentName)] = path
+			}
 		}
 	}
 	for _, asset := range assets {
-		localPath := fetched[asset.Name]
+		localPath := fetched[bootstrapAssetKey(asset.packageName(), asset.Name)]
 		if localPath == "" {
 			return fmt.Errorf("fetched bootstrap asset %q has no binary payload", asset.Name)
 		}
@@ -121,16 +123,29 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 }
 
 func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch string) ([]deliveryapis.ResolvedComponent, []string) {
-	components := make([]deliveryapis.ResolvedComponent, 0, len(assets))
-	missing := make([]string, 0)
+	assetsByPackage := make(map[string][]bootstrapAsset)
+	var packageNames []string
 	for _, asset := range assets {
-		pkg, ok := selectBootstrapPackage(inventory, asset.Name, arch)
+		packageName := asset.packageName()
+		if _, ok := assetsByPackage[packageName]; !ok {
+			packageNames = append(packageNames, packageName)
+		}
+		assetsByPackage[packageName] = append(assetsByPackage[packageName], asset)
+	}
+
+	components := make([]deliveryapis.ResolvedComponent, 0, len(assetsByPackage))
+	missing := make([]string, 0)
+	for _, packageName := range packageNames {
+		packageAssets := assetsByPackage[packageName]
+		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch)
 		if !ok {
-			missing = append(missing, fmt.Sprintf("%s/%s", bootstrapKind, asset.Name))
+			for _, asset := range packageAssets {
+				missing = append(missing, fmt.Sprintf("%s/%s:%s", bootstrapKind, packageName, asset.Name))
+			}
 			continue
 		}
 		components = append(components, deliveryapis.ResolvedComponent{
-			Slot:      "bootstrap-" + asset.Name,
+			Slot:      "bootstrap-" + packageName,
 			Kind:      pkg.Kind,
 			Name:      pkg.Name,
 			Version:   pkg.Version,
@@ -144,16 +159,16 @@ func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, a
 	return components, missing
 }
 
-func selectBootstrapPackage(inventory *deliveryapis.PackageInventory, name, arch string) (deliveryapis.PackageEntry, bool) {
+func selectBootstrapPackage(inventory *deliveryapis.PackageInventory, packageName string, assets []bootstrapAsset, arch string) (deliveryapis.PackageEntry, bool) {
 	if inventory == nil {
 		return deliveryapis.PackageEntry{}, false
 	}
 	var candidates []deliveryapis.PackageEntry
 	for _, pkg := range inventory.Spec.Packages {
-		if pkg.Kind != bootstrapKind || pkg.Name != name || pkg.Arch != arch {
+		if pkg.Kind != bootstrapKind || pkg.Name != packageName || pkg.Arch != arch {
 			continue
 		}
-		if !hasBinaryContent(pkg.Contents) {
+		if !hasBootstrapAssetContents(pkg.Contents, assets) {
 			continue
 		}
 		candidates = append(candidates, pkg)
@@ -170,13 +185,17 @@ func selectBootstrapPackage(inventory *deliveryapis.PackageInventory, name, arch
 	return candidates[0], true
 }
 
-func hasBinaryContent(contents []deliveryapis.ArtifactContent) bool {
+func hasBootstrapAssetContents(contents []deliveryapis.ArtifactContent, assets []bootstrapAsset) bool {
+	contentSet := make(map[string]struct{}, len(contents))
 	for _, content := range contents {
-		if content.Name == deliveryapis.ContentBinary {
-			return true
+		contentSet[content.Name] = struct{}{}
+	}
+	for _, asset := range assets {
+		if _, ok := contentSet[asset.Name]; !ok {
+			return false
 		}
 	}
-	return false
+	return true
 }
 
 func sendBootstrapAsset(sshConfig *sshutils.SSH, hosts []string, asset bootstrapAsset, localPath string) error {
@@ -197,4 +216,15 @@ func sendBootstrapAsset(sshConfig *sshutils.SSH, hosts []string, asset bootstrap
 		return fmt.Errorf("send bootstrap asset %s: %w", asset.Name, err)
 	}
 	return nil
+}
+
+func (a bootstrapAsset) packageName() string {
+	if strings.TrimSpace(a.PackageName) != "" {
+		return a.PackageName
+	}
+	return a.Name
+}
+
+func bootstrapAssetKey(packageName, contentName string) string {
+	return packageName + "/" + contentName
 }

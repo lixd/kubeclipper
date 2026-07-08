@@ -9,8 +9,6 @@ output_dir="$ROOT/.kc-bootstrap-bin"
 kc_version=""
 etcd_version="3.5.21"
 caddy_version="2.10.2"
-caddy_url=""
-registry_url=""
 registry_file=""
 skip_core=false
 skip_external=false
@@ -26,27 +24,24 @@ Flags:
   --kc-version <version>   KubeClipper version label for logs.
   --etcd-version <ver>     etcd version. Default: 3.5.21.
   --caddy-version <ver>    Caddy version. Default: 2.10.2.
-  --caddy-url <url>        Override Caddy release archive URL.
-  --registry-url <url>     Download a registry binary or archive from this URL.
   --registry-file <file>   Copy a local registry binary.
-  --skip-core              Do not build kcctl/server/agent from this source tree.
+  --skip-core              Do not build kubeclipper-server/kubeclipper-agent from this source tree.
   --skip-external          Do not download etcd/caddy/registry.
   -h, --help               Show this help.
 
 Output:
-  <output-dir>/kcctl
   <output-dir>/kubeclipper-server
   <output-dir>/kubeclipper-agent
   <output-dir>/etcd
   <output-dir>/etcdctl
   <output-dir>/etcdutl
   <output-dir>/caddy
-  <output-dir>/registry   when --registry-url or --registry-file is provided
+  <output-dir>/registry   when --registry-file is provided
 
 Notes:
   kcctl registry deploy should normally bootstrap the first Registry from a
   registry image such as registry:2. The registry binary artifact is optional
-  here and only built when an explicit public URL or local file is provided.
+  here and only built when a local file is provided.
 EOF
 }
 
@@ -98,8 +93,6 @@ while [[ $# -gt 0 ]]; do
   --kc-version) need_value "$@"; kc_version="$2"; shift 2 ;;
   --etcd-version) need_value "$@"; etcd_version="$2"; shift 2 ;;
   --caddy-version) need_value "$@"; caddy_version="$2"; shift 2 ;;
-  --caddy-url) need_value "$@"; caddy_url="$2"; shift 2 ;;
-  --registry-url) need_value "$@"; registry_url="$2"; shift 2 ;;
   --registry-file) need_value "$@"; registry_file="$2"; shift 2 ;;
   --skip-core) skip_core=true; shift ;;
   --skip-external) skip_external=true; shift ;;
@@ -121,7 +114,6 @@ if [[ "$skip_core" != true ]]; then
   echo "==> building KubeClipper core binaries ${kc_version:+($kc_version) }for linux/$arch"
   (
     cd "$ROOT"
-    GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kcctl" ./cmd/kcctl
     GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-server" ./cmd/kubeclipper-server
     GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-agent" ./cmd/kubeclipper-agent
   )
@@ -137,7 +129,7 @@ if [[ "$skip_external" != true ]]; then
   cp -f "$work/etcd-v$etcd_version-linux-$arch/etcdutl" "$output_dir/etcdutl"
 
   echo "==> downloading caddy $caddy_version for linux/$arch"
-  caddy_url="${caddy_url:-https://github.com/caddyserver/caddy/releases/download/v$caddy_version/caddy_${caddy_version}_linux_${arch}.tar.gz}"
+  caddy_url="https://github.com/caddyserver/caddy/releases/download/v$caddy_version/caddy_${caddy_version}_linux_${arch}.tar.gz"
   download "$caddy_url" "$work/caddy.tar.gz"
   mkdir -p "$work/caddy"
   tar -xzf "$work/caddy.tar.gz" -C "$work/caddy"
@@ -147,19 +139,6 @@ if [[ "$skip_external" != true ]]; then
     [[ -f "$registry_file" ]] || die "registry file not found: $registry_file"
     if [[ "$(cd "$(dirname "$registry_file")" && pwd -P)/$(basename "$registry_file")" != "$(cd "$output_dir" && pwd -P)/registry" ]]; then
       cp -f "$registry_file" "$output_dir/registry"
-    fi
-  elif [[ -n "$registry_url" ]]; then
-    echo "==> downloading registry binary"
-    download "$registry_url" "$work/registry.download"
-    if tar -tzf "$work/registry.download" >/dev/null 2>&1; then
-      mkdir -p "$work/registry"
-      tar -xzf "$work/registry.download" -C "$work/registry"
-      found="$(find "$work/registry" -type f -name registry -perm -111 | head -n 1)"
-      [[ -n "$found" ]] || found="$(find "$work/registry" -type f -name registry | head -n 1)"
-      [[ -n "$found" ]] || die "registry archive did not contain a registry binary"
-      cp -f "$found" "$output_dir/registry"
-    else
-      cp -f "$work/registry.download" "$output_dir/registry"
     fi
   else
     echo "==> skipping registry binary; use registry:2 image for first Registry bootstrap"

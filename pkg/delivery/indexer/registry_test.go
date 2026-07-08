@@ -461,11 +461,13 @@ func testPackageRootFSLayer(t *testing.T, manifest deliveryapis.PackageManifest,
 	}
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	if err = tw.WriteHeader(&tar.Header{Name: "package/", Typeflag: tar.TypeDir, Mode: 0755}); err != nil {
-		t.Fatalf("write package dir: %+v", err)
+	for _, dir := range []string{"opt/", "opt/kubeclipper/", "opt/kubeclipper/resource/"} {
+		if err = tw.WriteHeader(&tar.Header{Name: dir, Typeflag: tar.TypeDir, Mode: 0755}); err != nil {
+			t.Fatalf("write package dir: %+v", err)
+		}
 	}
 	if err = tw.WriteHeader(&tar.Header{
-		Name: "package/kc-package-manifest.json",
+		Name: "opt/kubeclipper/resource/kc-package-manifest.json",
 		Mode: 0644,
 		Size: int64(len(data)),
 	}); err != nil {
@@ -476,7 +478,7 @@ func testPackageRootFSLayer(t *testing.T, manifest deliveryapis.PackageManifest,
 	}
 	for file, payload := range payloads {
 		if err = tw.WriteHeader(&tar.Header{
-			Name: "package/" + file,
+			Name: "opt/kubeclipper/resource/" + file,
 			Mode: 0644,
 			Size: int64(len(payload)),
 		}); err != nil {
@@ -499,22 +501,19 @@ func testPackageRootFSLayer(t *testing.T, manifest deliveryapis.PackageManifest,
 func testGzipArchive(t *testing.T, content string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
-	gzw := gzip.NewWriter(&buf)
-	tw := tar.NewWriter(gzw)
-	if err := tw.WriteHeader(&tar.Header{
-		Name: "payload.txt",
-		Mode: 0644,
-		Size: int64(len(content)),
-	}); err != nil {
-		t.Fatalf("write payload header: %+v", err)
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+	data := []byte(content)
+	if err := tw.WriteHeader(&tar.Header{Name: "payload.txt", Mode: 0644, Size: int64(len(data))}); err != nil {
+		t.Fatalf("write gzip payload header: %+v", err)
 	}
-	if _, err := tw.Write([]byte(content)); err != nil {
-		t.Fatalf("write payload: %+v", err)
+	if _, err := tw.Write(data); err != nil {
+		t.Fatalf("write gzip payload: %+v", err)
 	}
 	if err := tw.Close(); err != nil {
-		t.Fatalf("close tar: %+v", err)
+		t.Fatalf("close gzip tar: %+v", err)
 	}
-	if err := gzw.Close(); err != nil {
+	if err := gw.Close(); err != nil {
 		t.Fatalf("close gzip: %+v", err)
 	}
 	return buf.Bytes()

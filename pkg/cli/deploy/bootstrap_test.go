@@ -31,14 +31,14 @@ func TestResolveBootstrapAssetComponentsReportsMissing(t *testing.T) {
 	}
 
 	components, missing := resolveBootstrapAssetComponents(inventory, []bootstrapAsset{
-		{Name: "kubeclipper-agent"},
-		{Name: "kubeclipper-server"},
+		{PackageName: "kubeclipper", Name: "kubeclipper-agent"},
+		{PackageName: "kubeclipper", Name: "kubeclipper-server"},
 	}, "amd64")
 
-	if len(components) != 1 || components[0].Name != "kubeclipper-agent" {
+	if len(components) != 0 {
 		t.Fatalf("components = %#v", components)
 	}
-	if len(missing) != 1 || missing[0] != "binary/kubeclipper-server" {
+	if len(missing) != 2 || missing[0] != "bootstrap/kubeclipper:kubeclipper-agent" || missing[1] != "bootstrap/kubeclipper:kubeclipper-server" {
 		t.Fatalf("missing = %#v", missing)
 	}
 }
@@ -50,7 +50,7 @@ func TestSelectBootstrapPackageUsesNewestVersion(t *testing.T) {
 		bootstrapPackage("kubeclipper-agent", "v1.2.0"),
 	}
 
-	pkg, ok := selectBootstrapPackage(inventory, "kubeclipper-agent", "amd64")
+	pkg, ok := selectBootstrapPackage(inventory, "kubeclipper", []bootstrapAsset{{PackageName: "kubeclipper", Name: "kubeclipper-agent"}}, "amd64")
 	if !ok {
 		t.Fatal("selectBootstrapPackage() ok = false")
 	}
@@ -62,18 +62,18 @@ func TestSelectBootstrapPackageUsesNewestVersion(t *testing.T) {
 func bootstrapPackage(name, version string) deliveryapis.PackageEntry {
 	return deliveryapis.PackageEntry{
 		Kind:           bootstrapKind,
-		Name:           name,
+		Name:           "kubeclipper",
 		Version:        version,
 		OS:             deliveryapis.DefaultPackageOS,
 		Arch:           "amd64",
 		ContentProfile: deliveryapis.ContentProfileBinary,
 		Transport: deliveryapis.TransportRef{
 			Type:   deliveryapis.TransportOCI,
-			Ref:    "registry.local:5000/kubeclipper/packages/binary/" + name + ":" + version,
+			Ref:    "registry.local:5000/kubeclipper/packages/bootstrap/kubeclipper:" + version,
 			Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 		},
 		Contents: []deliveryapis.ArtifactContent{{
-			Name:      deliveryapis.ContentBinary,
+			Name:      name,
 			File:      name,
 			MediaType: deliveryapis.MediaTypeBinaryLayer,
 		}},

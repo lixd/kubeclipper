@@ -24,18 +24,19 @@ func TestResolveBootstrapBinary(t *testing.T) {
 	catalog := NewPackageInventory("default")
 	catalog.Spec.Packages = []PackageEntry{
 		{
-			Kind:           "binary",
-			Name:           "kubeclipper-agent",
+			Kind:           "bootstrap",
+			Name:           "kubeclipper",
 			Version:        "v1.7.0",
 			Arch:           "amd64",
 			ContentProfile: ContentProfileBinary,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/binary/kubeclipper-agent:v1.7.0",
+				Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
-				{Name: ContentBinary, File: "kubeclipper-agent", MediaType: MediaTypeBinaryLayer},
+				{Name: "kubeclipper-server", File: "kubeclipper-server", MediaType: MediaTypeBinaryLayer},
+				{Name: "kubeclipper-agent", File: "kubeclipper-agent", MediaType: MediaTypeBinaryLayer},
 			},
 		},
 	}
@@ -44,19 +45,20 @@ func TestResolveBootstrapBinary(t *testing.T) {
 		Arch:              "amd64",
 		KubernetesVersion: "v1.36.0",
 		Candidates: []PackageCandidate{
-			{Kind: "binary", Name: "kubeclipper-agent"},
+			{Kind: "bootstrap", Name: "kubeclipper"},
 		},
+		Contents: []string{"kubeclipper-agent"},
 	})
 	if err != nil {
 		t.Fatalf("ResolveBootstrapBinary() error: %+v", err)
 	}
-	if component.Slot != "bootstrap-kubeclipper-agent" || component.Name != "kubeclipper-agent" {
+	if component.Slot != "bootstrap-kubeclipper" || component.Name != "kubeclipper" {
 		t.Fatalf("component = %+v", component)
 	}
 	if component.Arch != "amd64" {
 		t.Fatalf("component arch = %q, want amd64", component.Arch)
 	}
-	if len(component.Contents) != 1 || component.Contents[0].Name != ContentBinary {
+	if len(component.Contents) != 1 || component.Contents[0].Name != "kubeclipper-agent" {
 		t.Fatalf("component contents = %+v", component.Contents)
 	}
 }
@@ -74,13 +76,13 @@ func bootstrapPolicy() *SupportPolicy {
 		Name:  "k8s-v1.36",
 		Match: PolicyMatch{KubernetesVersion: "v1.36.*"},
 		ComponentSlots: []ComponentSlotRule{{
-			Slot:      "bootstrap-kubeclipper-agent",
+			Slot:      "bootstrap-kubeclipper",
 			Selection: SelectionOneOf,
 			Required:  true,
-			Default:   ComponentChoice{Name: "kubeclipper-agent", Version: "v1.7.0"},
+			Default:   ComponentChoice{Name: "kubeclipper", Version: "v1.7.0"},
 			Options: []ComponentOption{{
-				Kind:            "binary",
-				Name:            "kubeclipper-agent",
+				Kind:            "bootstrap",
+				Name:            "kubeclipper",
 				AllowedVersions: []string{"v1.7.0"},
 			}},
 		}},

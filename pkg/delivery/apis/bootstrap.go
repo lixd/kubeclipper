@@ -27,13 +27,14 @@ type BootstrapBinaryResolveRequest struct {
 	KubeClipperVersion string
 	Version            string
 	Candidates         []PackageCandidate
+	Contents           []string
 }
 
 func ResolveBootstrapBinary(inventory *PackageInventory, policy *SupportPolicy, req BootstrapBinaryResolveRequest) (ResolvedComponent, error) {
 	if len(req.Candidates) == 0 {
 		return ResolvedComponent{}, fmt.Errorf("bootstrap binary resolve candidates are required")
 	}
-	return resolvePolicyPackage(inventory, policy, policyPackageResolveRequest{
+	component, err := resolvePolicyPackage(inventory, policy, policyPackageResolveRequest{
 		SlotPrefix:         "bootstrap",
 		OS:                 req.OS,
 		Arch:               req.Arch,
@@ -42,4 +43,24 @@ func ResolveBootstrapBinary(inventory *PackageInventory, policy *SupportPolicy, 
 		Version:            req.Version,
 		Candidates:         req.Candidates,
 	})
+	if err != nil {
+		return ResolvedComponent{}, err
+	}
+	if len(req.Contents) == 0 {
+		return component, nil
+	}
+	contents := make([]ArtifactContent, 0, len(req.Contents))
+	contentSet := make(map[string]ArtifactContent, len(component.Contents))
+	for _, content := range component.Contents {
+		contentSet[content.Name] = content
+	}
+	for _, name := range req.Contents {
+		content, ok := contentSet[name]
+		if !ok {
+			return ResolvedComponent{}, fmt.Errorf("bootstrap package %s/%s:%s missing content %q", component.Kind, component.Name, component.Version, name)
+		}
+		contents = append(contents, content)
+	}
+	component.Contents = contents
+	return component, nil
 }

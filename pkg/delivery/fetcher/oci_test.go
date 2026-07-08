@@ -473,13 +473,13 @@ func packageRootFSLayer(t *testing.T, manifest deliveryapis.PackageManifest, pay
 	}
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	for _, dir := range []string{"package/"} {
+	for _, dir := range []string{"opt/", "opt/kubeclipper/", "opt/kubeclipper/resource/"} {
 		if err = tw.WriteHeader(&tar.Header{Name: dir, Typeflag: tar.TypeDir, Mode: 0755}); err != nil {
 			t.Fatalf("write dir: %+v", err)
 		}
 	}
 	if err = tw.WriteHeader(&tar.Header{
-		Name: "package/kc-package-manifest.json",
+		Name: "opt/kubeclipper/resource/kc-package-manifest.json",
 		Mode: 0644,
 		Size: int64(len(manifestData)),
 	}); err != nil {
@@ -493,7 +493,7 @@ func packageRootFSLayer(t *testing.T, manifest deliveryapis.PackageManifest, pay
 		file = manifest.Contents[0].File
 	}
 	if err = tw.WriteHeader(&tar.Header{
-		Name: "package/" + file,
+		Name: "opt/kubeclipper/resource/" + file,
 		Mode: 0644,
 		Size: int64(len(payload)),
 	}); err != nil {

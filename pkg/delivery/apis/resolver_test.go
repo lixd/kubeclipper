@@ -271,12 +271,12 @@ func resolverPolicy() *SupportPolicy {
 					},
 				},
 				{
-					Slot:      "bootstrap-kubeclipper-agent",
+					Slot:      "bootstrap-kubeclipper",
 					Selection: SelectionOneOf,
 					Required:  true,
-					Default:   ComponentChoice{Name: "kubeclipper-agent", Version: "v1.7.0"},
+					Default:   ComponentChoice{Name: "kubeclipper", Version: "v1.7.0"},
 					Options: []ComponentOption{
-						{Name: "kubeclipper-agent", Kind: "binary", AllowedVersions: []string{"v1.7.0"}},
+						{Name: "kubeclipper", Kind: "bootstrap", AllowedVersions: []string{"v1.7.0"}},
 					},
 				},
 				{
