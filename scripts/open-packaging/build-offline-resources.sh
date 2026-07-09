@@ -11,7 +11,6 @@ image_registry=""
 arch_override=""
 push=false
 dry_run=false
-skip_images=true
 include_disabled=false
 components=()
 
@@ -29,10 +28,6 @@ Flags:
   --arch <amd64|arm64|all>   Override manifest architectures.
   --component <name>         Build only this component. Can be repeated.
   --include-disabled         Also build manifest entries with enabled: false.
-  --build-image-archives     Also build docker/podman images.tar.gz archives.
-                             The default OCI flow only writes images.txt/images.lock
-                             and mirrors runtime images directly to Registry.
-  --skip-images              Compatibility no-op; image archives are skipped by default.
   --push                     Publish package images, Helm OCI charts, and runtime images after build.
   --dry-run                  Print commands and generate metadata without downloading or pushing.
   -h, --help                 Show this help.
@@ -45,8 +40,8 @@ Examples:
   scripts/open-packaging/build-offline-resources.sh \
     --manifest packaging/resources.yaml \
     --output /tmp/kc-resource \
-    --registry ghcr.io/kubeclipper \
-    --image-registry ghcr.io/kubeclipper \
+    --registry ghcr.io/lixd/kubeclipper \
+    --image-registry ghcr.io/lixd/kubeclipper \
     --push
 EOF
 }
@@ -73,8 +68,6 @@ while [[ $# -gt 0 ]]; do
   --arch) need_value "$@"; arch_override="$2"; shift 2 ;;
   --component) need_value "$@"; components+=("$2"); shift 2 ;;
   --include-disabled) include_disabled=true; shift ;;
-  --build-image-archives) skip_images=false; shift ;;
-  --skip-images) skip_images=true; shift ;;
   --push) push=true; shift ;;
   --dry-run) dry_run=true; shift ;;
   -h | --help) usage; exit 0 ;;
@@ -171,30 +164,30 @@ resources = doc.get("resources") or {}
 k8s = resources.get("k8s") or {}
 for version in versions(k8s):
     for arch in archs:
-        conntrack_cfg = k8s.get("conntrack") or {}
-        conntrack_url = str(conntrack_cfg.get("urlTemplate") or "").replace("${arch}", arch)
-        conntrack_file = str(conntrack_cfg.get("file") or "").replace("${arch}", arch)
-        conntrack_version = str(conntrack_cfg.get("version") or "1.4.9")
-        conntrack_method = str(conntrack_cfg.get("method") or "docker-source")
-
         args = [
-            "--etcd-version", k8s.get("etcdVersion"),
-            "--helm-version", k8s.get("helmVersion"),
             "--kubeadm-conf-version", k8s.get("kubeadmConfVersion"),
         ]
-        if conntrack_file:
-            args.extend(["--conntrack-file", conntrack_file])
-        if conntrack_url:
-            args.extend(["--conntrack-url", conntrack_url])
-        if not conntrack_file and not conntrack_url:
-            args.extend(["--conntrack-version", conntrack_version])
-            args.extend(["--conntrack-build-method", conntrack_method])
-        add_if_present(args, "--kubernetes-url", k8s.get("kubernetesUrlTemplate"), arch)
-        add_if_present(args, "--kubeadm-conf-url", k8s.get("kubeadmConfUrl"))
-        add_if_present(args, "--etcd-url", k8s.get("etcdUrlTemplate"), arch)
-        add_if_present(args, "--helm-url", k8s.get("helmUrlTemplate"), arch)
+        add_if_present(args, "--kubelet-service-file", k8s.get("kubeletServiceFile"))
+        add_if_present(args, "--kubelet-pre-start-file", k8s.get("kubeletPreStartFile"))
         add_if_present(args, "--image-list-file", k8s.get("imagesFile"))
         emit("resource", "k8s", version, arch, args)
+
+ext = resources.get("k8sExtension") or {}
+for version in versions(ext):
+    for arch in archs:
+        conntrack_cfg = ext.get("conntrack") or {}
+        conntrack_version = str(conntrack_cfg.get("version") or "1.4.9")
+
+        args = [
+            "--etcd-version", ext.get("etcdVersion"),
+            "--helm-version", ext.get("helmVersion"),
+            "--nerdctl-version", ext.get("nerdctlVersion"),
+            "--cni-plugins-version", ext.get("cniPluginsVersion"),
+            "--calico-version", ext.get("calicoVersion"),
+            "--conntrack-version", conntrack_version,
+        ]
+        add_if_present(args, "--images-file", ext.get("imagesFile"))
+        emit("resource", "k8s-extension", version, arch, args)
 
 cri = resources.get("cri") or {}
 containerd = cri.get("containerd") or {}
@@ -204,21 +197,24 @@ for version in versions(containerd):
             "--runc-version", containerd.get("runcVersion"),
             "--crictl-version", containerd.get("crictlVersion"),
         ]
-        add_if_present(args, "--containerd-url", containerd.get("containerdUrlTemplate"), arch)
-        add_if_present(args, "--service-url", containerd.get("serviceUrl"))
         emit("resource", "containerd", version, arch, args)
 
 calico = ((resources.get("cni") or {}).get("calico") or {})
 for version in versions(calico):
     for arch in archs:
-        args = [
-            "--chart-version", calico.get("chartVersion"),
-            "--helm-repo", calico.get("helmRepo"),
-        ]
+        args = []
+        add_if_present(args, "--chart-name", calico.get("chartName"))
+        add_if_present(args, "--chart-version", calico.get("chartVersion"))
         add_if_present(args, "--chart-file", calico.get("chartFile"))
-        add_if_present(args, "--chart-url", calico.get("chartUrl"))
         add_if_present(args, "--images-file", calico.get("imagesFile"))
         emit("resource", "calico", version, arch, args)
+
+kc_runtime = resources.get("kcRuntime") or {}
+for version in versions(kc_runtime):
+    for arch in archs:
+        args = []
+        add_if_present(args, "--images-file", kc_runtime.get("imagesFile"))
+        emit("resource", "kc-runtime", version, arch, args)
 
 for name, addon in (doc.get("addons") or {}).items():
     addon = addon or {}
@@ -227,16 +223,12 @@ for name, addon in (doc.get("addons") or {}).items():
     for version in versions(addon):
         for arch in archs:
             args = []
-            if addon.get("chartRepo"):
-                args.extend(["--chart-repo", addon.get("chartRepo")])
             if addon.get("chartName"):
                 args.extend(["--chart-name", addon.get("chartName")])
             if addon.get("chartVersion"):
                 args.extend(["--chart-version", addon.get("chartVersion")])
             add_if_present(args, "--chart-file", addon.get("chartFile"))
-            add_if_present(args, "--chart-url", addon.get("chartUrl"))
             add_if_present(args, "--images-file", addon.get("imagesFile"))
-            add_if_present(args, "--image-archive", addon.get("imageArchive"))
             emit("addon", str(name), version, arch, args)
 PY
 }
@@ -261,11 +253,17 @@ build_line() {
   resource/k8s)
     cmd=("$ROOT/scripts/open-packaging/resource-builders/build-k8s-package.sh" --version "$version" --arch "$arch" --output "$output" "$@")
     ;;
+  resource/k8s-extension)
+    cmd=("$ROOT/scripts/open-packaging/resource-builders/build-k8s-extension-package.sh" --version "$version" --arch "$arch" --output "$output" "$@")
+    ;;
   resource/containerd)
     cmd=("$ROOT/scripts/open-packaging/resource-builders/build-containerd-package.sh" --version "$version" --arch "$arch" --output "$output" "$@")
     ;;
   resource/calico)
     cmd=("$ROOT/scripts/open-packaging/resource-builders/build-calico-package.sh" --version "$version" --arch "$arch" --output "$output" "$@")
+    ;;
+  resource/kc-runtime)
+    cmd=("$ROOT/scripts/open-packaging/resource-builders/build-kc-runtime-package.sh" --version "$version" --arch "$arch" --output "$output" "$@")
     ;;
   addon/*)
     cmd=("$ROOT/scripts/open-packaging/resource-builders/build-addon-package.sh" --name "$name" --version "$version" --arch "$arch" --output "$output" "$@")
@@ -274,13 +272,6 @@ build_line() {
     die "unsupported manifest row: $type/$name"
     ;;
   esac
-  if [[ "$skip_images" == true ]]; then
-    case "$type/$name" in
-    resource/k8s | resource/calico | addon/*)
-      cmd+=(--skip-images)
-      ;;
-    esac
-  fi
   run_cmd "${cmd[@]}"
 }
 
@@ -290,29 +281,60 @@ matrix_file="$(mktemp -t kc-offline-matrix.XXXXXX)"
 trap 'rm -f "$matrix_file"' EXIT
 manifest_matrix > "$matrix_file"
 
-while IFS=$'\t' read -r type name version arch rest; do
-  [[ -n "${type:-}" ]] || continue
-  args=()
-  if [[ -n "${rest:-}" ]]; then
-    IFS=$'\t' read -r -a args <<<"$rest"
-  fi
-  build_line "$type" "$name" "$version" "$arch" "${args[@]}"
-done < "$matrix_file"
+publish_line() {
+  local type=$1 name=$2 version=$3 arch=$4
+  shift 4
 
-"$ROOT/scripts/open-packaging/generate-resource-metadata.sh" \
-  --resource-dir "$output" \
-  --image-registry "$image_registry"
+  component_filter "$name" || return 0
 
-if [[ "$push" == true && "$dry_run" == true ]]; then
-  echo "dry-run: skip publishing package images, Helm OCI charts, and runtime images"
-elif [[ "$push" == true ]]; then
-  publish_arch="${arch_override:-all}"
-  "$ROOT/scripts/open-packaging/publish-resource-artifacts.sh" \
+  local cmd=()
+  case "$type/$name" in
+  resource/k8s)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-k8s.sh" --registry-prefix "$registry" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  resource/containerd)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-containerd.sh" --registry-prefix "$registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  resource/k8s-extension)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-k8s-extension.sh" --registry-prefix "$registry" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  resource/calico)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-calico.sh" --registry-prefix "$registry" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  resource/kc-runtime)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-kc-runtime.sh" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  addon/*)
+    echo "skipping disabled or optional addon publish path: $name/$version/$arch"
+    return 0
+    ;;
+  *)
+    die "unsupported manifest row: $type/$name"
+    ;;
+  esac
+  run_cmd "${cmd[@]}"
+}
+
+if [[ "$push" == true ]]; then
+  while IFS=$'\t' read -r type name version arch rest; do
+    [[ -n "${type:-}" ]] || continue
+    args=()
+    if [[ -n "${rest:-}" ]]; then
+      IFS=$'\t' read -r -a args <<<"$rest"
+    fi
+    publish_line "$type" "$name" "$version" "$arch" "${args[@]}"
+  done < "$matrix_file"
+else
+  while IFS=$'\t' read -r type name version arch rest; do
+    [[ -n "${type:-}" ]] || continue
+    args=()
+    if [[ -n "${rest:-}" ]]; then
+      IFS=$'\t' read -r -a args <<<"$rest"
+    fi
+    build_line "$type" "$name" "$version" "$arch" "${args[@]}"
+  done < "$matrix_file"
+
+  "$ROOT/scripts/open-packaging/generate-resource-metadata.sh" \
     --resource-dir "$output" \
-    --registry "$registry" \
-    --arch "$publish_arch" \
-    --push-charts
-  "$ROOT/scripts/open-packaging/push-runtime-images.sh" \
-    --images-lock "$output/images.lock" \
     --image-registry "$image_registry"
 fi

@@ -345,6 +345,9 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	if l.Offline && strings.TrimSpace(l.LocalRegistry) == "" {
 		return utils.UsageErrorf(cmd, "offline cluster requires --local-registry; runtime image tarball loading has been removed")
 	}
+	if l.useDeliveryPolicyResolution() {
+		return l.validateCRIRegistries(cmd)
+	}
 	k8sVersions := l.listK8s("")
 	if !sliceutil.HasString(k8sVersions, l.K8sVersion) {
 		return utils.UsageErrorf(cmd, "unsupported k8s version,support %v now", k8sVersions)
@@ -358,11 +361,8 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 		return utils.UsageErrorf(cmd, "unsupported cni version,support %v now", cniVersions)
 	}
 
-	criRegistries := l.listCRIRegistry()
-	for _, registry := range l.CRIRegistries {
-		if !sliceutil.HasString(criRegistries, registry) {
-			return utils.UsageErrorf(cmd, "cri registry [%s] not found,has %v now,use [kcctl get registry] to show", registry, criRegistries)
-		}
+	if err := l.validateCRIRegistries(cmd); err != nil {
+		return err
 	}
 
 	nodes := make([]string, 0)
@@ -443,6 +443,20 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 		}
 	}
 
+	return nil
+}
+
+func (l *CreateClusterOptions) useDeliveryPolicyResolution() bool {
+	return l.Offline && strings.TrimSpace(l.LocalRegistry) != ""
+}
+
+func (l *CreateClusterOptions) validateCRIRegistries(cmd *cobra.Command) error {
+	criRegistries := l.listCRIRegistry()
+	for _, registry := range l.CRIRegistries {
+		if !sliceutil.HasString(criRegistries, registry) {
+			return utils.UsageErrorf(cmd, "cri registry [%s] not found,has %v now,use [kcctl get registry] to show", registry, criRegistries)
+		}
+	}
 	return nil
 }
 

@@ -58,7 +58,7 @@ Registry。下一步需要继续缩小 KubeClipper 自身发行物：
 
 ```text
 kcctl binary            -> bootstrap tool
-component images        -> KubeClipper self runtime
+bootstrap resource images -> KubeClipper self runtime resources
 package OCI artifacts   -> offline package files
 runtime images          -> kubeadm/CNI/addon container images
 ```
@@ -70,8 +70,8 @@ runtime images          -> kubeadm/CNI/addon container images
 
 合法来源必须是：
 
-1. 在线组件镜像，例如 `docker.io/kubeclipper/registry:<version>`。
-2. 用户指定的已有镜像仓库，例如 `harbor.example.com/kubeclipper/registry:<version>`。
+1. 在线 Registry bootstrap 镜像，例如 `docker.io/kubeclipper/registry:<version>`。
+2. 用户指定的 package registry 前缀，例如 `harbor.example.com/kubeclipper/registry:<version>`。
 3. 本地 image archive，例如 `registry-vX.Y.Z.tar.gz`。
 4. 本地 registry binary，例如 `/path/to/registry`。
 
@@ -81,9 +81,8 @@ runtime images          -> kubeadm/CNI/addon container images
 
 | 字段 | 负责内容 | 示例 |
 | --- | --- | --- |
-| `packageRegistry` | KubeClipper package OCI artifacts | `registry.local:5500/kubeclipper/packages/k8s/k8s:v1.36.1` |
+| `packageRegistry` | KubeClipper bootstrap/resource package images 与 package OCI artifacts | `registry.local:5500/kubeclipper/packages/k8s/k8s:v1.36.1` |
 | `imageRegistry` / `localRegistry` | Kubernetes/CNI/addon 运行镜像 | `registry.local:5500/kube-apiserver:v1.36.1` |
-| `componentRegistry` | KubeClipper 自身组件镜像 | `docker.io/kubeclipper/kubeclipper-server:v1.8.0` |
 
 短期可以复用现有 `--local-registry` 表达运行镜像仓库，但文档必须明确它不是
 `packageRegistry`。中长期建议引入 `--image-registry`，并保留 `--local-registry` 作为兼容
@@ -110,7 +109,7 @@ Kubernetes 安装步骤应该只消费以下已经存在的输入：
 | 术语 | 事实来源 | 说明 |
 | --- | --- | --- |
 | Bootstrap tool | GitHub release / 下载站 | `kcctl` 单二进制 |
-| Component image | DockerHub / GHCR / Harbor | KubeClipper 自身组件镜像 |
+| Bootstrap resource image | DockerHub / GHCR / Harbor / packageRegistry | KubeClipper 自身组件资源镜像 |
 | Package artifact | packageRegistry | k8s/cri/cni/binary/extension package |
 | Runtime image | imageRegistry | kubeadm、pause、etcd、coredns、Calico 等容器镜像 |
 | Delivery policy | KubeClipper API | 版本支持矩阵 |
@@ -125,24 +124,24 @@ Kubernetes 安装步骤应该只消费以下已经存在的输入：
                          +----------+-----------+
                                     |
           +-------------------------+--------------------------+
-          |                         |                          |
-          v                         v                          v
-+---------+----------+   +----------+-----------+   +----------+-----------+
-| componentRegistry  |   | packageRegistry      |   | imageRegistry        |
-| server/agent/etc   |   | kubeclipper/packages |   | kubeadm/CNI images   |
-+---------+----------+   +----------+-----------+   +----------+-----------+
-          |                         |                          |
-          v                         v                          v
-+---------+----------+   +----------+-----------+   +----------+-----------+
-| extract binaries   |   | fetch packages by    |   | kubelet/containerd   |
-| install systemd    |   | digest               |   | pull images          |
-+--------------------+   +----------------------+   +----------------------+
+          |                                                    |
+          v                                                    v
++---------+----------+                              +----------+-----------+
+| packageRegistry    |                              | imageRegistry        |
+| bootstrap/packages |                              | kubeadm/CNI images   |
++---------+----------+                              +----------+-----------+
+          |                                                    |
+          v                                                    v
++---------+----------+                              +----------+-----------+
+| fetch resources    |                              | kubelet/containerd   |
+| install systemd    |                              | pull images          |
++--------------------+                              +----------------------+
 ```
 
 部署 KubeClipper 自身：
 
 ```text
-kcctl -> pull/export component image -> extract binary -> copy to target -> write systemd -> start
+kcctl -> pull/export bootstrap resource image -> extract resource -> copy to target -> write systemd -> start
 ```
 
 安装 Kubernetes 集群：
@@ -152,7 +151,7 @@ SupportPolicy + PackageInventory -> resolved package plan -> fetch package files
 imageRegistry preflight -> kubeadm/CNI pull runtime images -> install
 ```
 
-## 5. 组件镜像规范
+## 5. Bootstrap Resource 镜像规范
 
 ### 5.1 命名
 
@@ -175,33 +174,39 @@ harbor.example.com/kubeclipper/registry:<kc-version>
 
 ### 5.2 镜像内容
 
-每个组件 image 至少包含：
+每个 bootstrap resource image 可以包含多个文件，但 `kcctl` 只从固定路径读取自己需要的资源。
+约定目录为：
 
 ```text
-/usr/local/bin/<component-binary>
-/etc/kubeclipper/component-manifest.json
+/opt/kubeclipper/resource/<resource-name>
+/opt/kubeclipper/resource/manifest.yaml
+/opt/kubeclipper/resource/SHA256SUMS
 ```
 
-`component-manifest.json` 示例：
+Registry bootstrap 镜像至少需要：
 
-```json
-{
-  "apiVersion": "delivery.kubeclipper.io/v1alpha1",
-  "kind": "ComponentImageManifest",
-  "component": "kubeclipper-server",
-  "version": "v1.8.0",
-  "binary": "/usr/local/bin/kubeclipper-server",
-  "os": "linux",
-  "arch": "amd64",
-  "sha256": "..."
-}
+```text
+/opt/kubeclipper/resource/registry
+```
+
+`manifest.yaml` 示例：
+
+```yaml
+apiVersion: delivery.kubeclipper.io/v1alpha1
+kind: BootstrapResourceManifest
+component: registry
+version: v1.8.0
+resource: /opt/kubeclipper/resource/registry
+os: linux
+arch: amd64
+sha256: "..."
 ```
 
 约束：
 
 1. `kcctl` 必须校验镜像 digest 或 manifest 中的 binary digest。
 2. 多架构通过 OCI manifest index 表达，不把 arch 放进 tag。
-3. 提取二进制时只允许白名单路径，防止恶意 layer 覆盖任意文件。
+3. 提取资源时只允许固定路径，防止恶意 layer 覆盖任意文件。
 
 ## 6. kcctl registry deploy 设计
 
@@ -219,17 +224,17 @@ kcctl registry deploy \
 默认解析：
 
 ```text
-registry component image = docker.io/kubeclipper/registry:<kcctl-version>
+registry bootstrap image = docker.io/kubeclipper/registry:<kcctl-version>
 ```
 
-指定组件镜像仓库：
+指定 package registry 前缀：
 
 ```bash
 kcctl registry deploy \
   --node 10.0.0.10 \
   --pk-file ~/.ssh/id_rsa \
   --registry-port 5500 \
-  --component-registry harbor.example.com/kubeclipper
+  --package-registry harbor.example.com/kubeclipper
 ```
 
 指定完整 registry image：
@@ -269,7 +274,7 @@ kcctl registry deploy \
 1. `--registry-binary`
 2. `--registry-image-archive`
 3. `--registry-image`
-4. `--component-registry + --version`
+4. `--package-registry + --version`
 5. 默认 `docker.io/kubeclipper/registry:<kcctl-version>`
 
 如果用户显式指定多个 source，命令应失败，避免悄悄选择。
@@ -309,7 +314,6 @@ kcctl deploy \
   --server 10.0.0.10 \
   --agent 10.0.0.10,10.0.0.11 \
   --pk-file ~/.ssh/id_rsa \
-  --component-registry docker.io/kubeclipper \
   --package-registry 10.0.0.10:5500 \
   --version v1.8.0
 ```
@@ -321,7 +325,6 @@ kcctl deploy \
   --server 10.0.0.10 \
   --agent 10.0.0.10,10.0.0.11 \
   --pk-file ~/.ssh/id_rsa \
-  --component-registry harbor.example.com/kubeclipper \
   --package-registry harbor.example.com \
   --version v1.8.0
 ```
@@ -332,16 +335,16 @@ artifact 或显式导入 runtime image archive，不能再作为 `kcctl deploy` 
 ### 7.2 部署流程
 
 ```text
-resolve component images
-  -> kubeclipper-server image
-  -> kubeclipper-agent image
-  -> console image or console bundle
-extract binaries
-copy binaries to nodes
+resolve bootstrap resource images from packageRegistry
+  -> kubeclipper-server resource
+  -> kubeclipper-agent resource
+  -> console resource
+extract resources
+copy resources to nodes
 render config
 write systemd units
 start server/agent
-write deploy-config packageRegistry/componentRegistry/imageRegistry
+write deploy-config packageRegistry/imageRegistry
 ```
 
 第一阶段仍保持 systemd 部署，不要求 server/agent 容器化运行。
@@ -482,7 +485,6 @@ chmod +x kcctl
 kcctl deploy \
   --server 10.0.0.10 \
   --agent 10.0.0.10 \
-  --component-registry docker.io/kubeclipper \
   --package-registry registry.kubeclipper.io \
   --image-registry docker.io/kubeclipper \
   --version v1.8.0
@@ -509,13 +511,12 @@ kcctl image sync \
 kcctl image sync \
   --from docker.io/kubeclipper \
   --to harbor.example.com/kubeclipper \
-  --components kubeclipper-server,kubeclipper-agent,registry,kc-console \
+  --images registry,kubeclipper-server,kubeclipper-agent,kc-console \
   --version v1.8.0
 
 kcctl deploy \
   --server 10.0.0.10 \
   --agent 10.0.0.10 \
-  --component-registry harbor.example.com/kubeclipper \
   --package-registry harbor.example.com \
   --image-registry harbor.example.com/kubeclipper \
   --version v1.8.0
@@ -527,7 +528,7 @@ kcctl deploy \
 
 ```bash
 kcctl image save --bom image-bom.yaml --output runtime-images.tar.gz
-kcctl image save --components kubeclipper-server,kubeclipper-agent,registry --version v1.8.0 --output component-images.tar.gz
+kcctl image save --images kubeclipper-server,kubeclipper-agent,registry --version v1.8.0 --output bootstrap-images.tar.gz
 ```
 
 在离线环境：
@@ -539,12 +540,11 @@ kcctl registry deploy \
   --registry-port 5500
 
 kcctl registry push --node 10.0.0.10 --registry-port 5500 --image-archive runtime-images.tar.gz
-kcctl registry push --node 10.0.0.10 --registry-port 5500 --image-archive component-images.tar.gz
+kcctl registry push --node 10.0.0.10 --registry-port 5500 --image-archive bootstrap-images.tar.gz
 
 kcctl deploy \
   --server 10.0.0.10 \
   --agent 10.0.0.10 \
-  --component-registry 10.0.0.10:5500/kubeclipper \
   --package-registry 10.0.0.10:5500 \
   --image-registry 10.0.0.10:5500 \
   --version v1.8.0
@@ -560,7 +560,7 @@ kcctl deploy \
 --registry-image string
 --registry-image-archive string
 --registry-binary string
---component-registry string
+--package-registry string
 --version string
 ```
 
@@ -589,7 +589,7 @@ kcctl deploy \
 新增：
 
 ```text
---component-registry string
+--package-registry string
 --image-registry string
 --version string
 ```
@@ -637,16 +637,16 @@ kcctl image verify
 `kcctl` 本机内置 go-containerregistry 读取 OCI image，提取二进制后通过 SSH 复制到目标
 节点。目标节点只需要 Linux + SSH + systemd。
 
-### 12.3 如果 component image 被篡改怎么办？
+### 12.3 如果 bootstrap resource image 被篡改怎么办？
 
 需要支持 digest pin：
 
 ```bash
-kcctl deploy --server-image docker.io/kubeclipper/kubeclipper-server@sha256:...
+kcctl deploy --package-registry docker.io/kubeclipper --version v1.8.0
 ```
 
-并校验 `component-manifest.json` 中 binary digest。默认 tag 只用于便捷，生产文档推荐
-digest。
+需要支持 digest pin 或 inventory 中的 digest 校验，并校验 `manifest.yaml` 中 resource
+digest。默认 tag 只用于便捷，生产文档推荐 digest。
 
 ### 12.4 如果 imageRegistry 里缺镜像怎么办？
 
@@ -660,10 +660,10 @@ digest。
 ```text
 kubeclipper/packages/...   package artifacts
 kube-apiserver:v1.36.1    runtime images
-kubeclipper/server:v1.8.0 component images
+kubeclipper/registry:v1.8.0 bootstrap resource images
 ```
 
-语义上仍是三个事实来源，不能因为地址相同而混成一个职责。
+语义上仍是两个事实来源，不能因为地址相同而混成一个职责。
 
 ### 12.6 如果用户使用 Harbor 同步镜像，tag 重写怎么办？
 
@@ -695,9 +695,9 @@ Image BOM 必须记录 `source` 与 `target`。安装模板只使用 `target`。
 
 ### Phase 2: deploy 移除 `--pkg`
 
-1. server/agent 发布为 component images。
-2. `kcctl deploy --component-registry --version` 提取 server/agent 二进制。
-3. `kcctl join` 同步支持 component image source。
+1. server/agent 发布为 bootstrap resource images。
+2. `kcctl deploy --package-registry --version` 提取 server/agent 二进制。
+3. `kcctl join` 同步支持 package registry source。
 4. `kcctl deploy` / `kcctl join` 不再接受 `--pkg`。
 
 ### Phase 3: image BOM 与 image 命令
@@ -719,7 +719,7 @@ Image BOM 必须记录 `source` 与 `target`。安装模板只使用 `target`。
 1. 用户只下载 `kcctl` 即可部署 KubeClipper control plane。
 2. `kcctl registry deploy` 不需要 `kc-amd64.tar.gz`。
 3. `kcctl deploy` 不需要 `kc-amd64.tar.gz`。
-4. server/agent/registry 二进制来自 component image，并经过 digest 校验。
+4. server/agent/registry 二进制来自 bootstrap resource image，并经过 digest 校验。
 5. Kubernetes 运行镜像由 imageRegistry 提供，安装阶段不 push 镜像。
 6. 缺失运行镜像时，preflight 在 operation 创建前给出明确错误。
 7. packageRegistry 仍只负责 package OCI artifacts。
@@ -728,7 +728,7 @@ Image BOM 必须记录 `source` 与 `target`。安装模板只使用 `target`。
 
 ## 15. 推荐结论
 
-推荐采用 **kcctl-only + component image as binary carrier + explicit imageRegistry** 的设计。
+推荐采用 **kcctl-only + bootstrap resource image as carrier + explicit imageRegistry** 的设计。
 
 这比继续维护大包更简单，也比安装阶段隐式 push 镜像更可靠：
 
@@ -736,5 +736,4 @@ Image BOM 必须记录 `source` 与 `target`。安装模板只使用 `target`。
 2. 组件版本可 digest 化。
 3. 镜像同步变成显式准备步骤。
 4. 在线、内网 Harbor、完全离线三种场景都能解释清楚。
-5. `packageRegistry`、`imageRegistry`、`componentRegistry` 边界清晰，不再复活 static
-   server 心智。
+5. `packageRegistry` 与 `imageRegistry` 边界清晰，不再复活 static server 心智。

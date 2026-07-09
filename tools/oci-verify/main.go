@@ -74,8 +74,8 @@ func run(ctx context.Context, registry string) error {
 		{kind: "k8s", name: "k8s", version: "v1.36.0", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz", "images.tar.gz"}},
 		{kind: "cri", name: "containerd", version: "2.1.0", profile: deliveryapis.ContentProfileRuntime, files: []string{"configs.tar.gz", "images.tar.gz"}},
 		{kind: "cni", name: "calico", version: "v3.30.0", profile: deliveryapis.ContentProfileAddon, files: []string{"images.tar.gz", "charts.tgz"}},
-		{kind: "binary", name: "kubeclipper-agent", version: "v1.8.0", profile: deliveryapis.ContentProfileBinary, files: []string{"kubeclipper-agent"}},
-		{kind: "binary", name: "etcdctl", version: "v3.5.15", profile: deliveryapis.ContentProfileBinary, files: []string{"etcdctl"}},
+		{kind: "bootstrap", name: "kubeclipper", version: "v1.8.0", profile: deliveryapis.ContentProfileBinary, files: []string{"kubeclipper-server", "kubeclipper-agent"}},
+		{kind: "bootstrap", name: "etcd", version: "v3.5.15", profile: deliveryapis.ContentProfileBinary, files: []string{"etcd", "etcdctl", "etcdutl"}},
 		{kind: "extension", name: "kubectl-terminal", version: "v1.0.0", profile: deliveryapis.ContentProfileExtension, files: []string{"images.tar.gz"}},
 	}
 
@@ -143,7 +143,8 @@ func run(ctx context.Context, registry string) error {
 	agent, err := deliveryapis.ResolveBootstrapBinary(inventory, policy, deliveryapis.BootstrapBinaryResolveRequest{
 		Arch:              "amd64",
 		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.PackageCandidate{{Kind: "binary", Name: "kubeclipper-agent"}},
+		Candidates:        []deliveryapis.PackageCandidate{{Kind: "bootstrap", Name: "kubeclipper"}},
+		Contents:          []string{"kubeclipper-agent"},
 	})
 	if err != nil {
 		return err
@@ -151,7 +152,8 @@ func run(ctx context.Context, registry string) error {
 	etcdctl, err := deliveryapis.ResolveBootstrapBinary(inventory, policy, deliveryapis.BootstrapBinaryResolveRequest{
 		Arch:              "amd64",
 		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.PackageCandidate{{Kind: "binary", Name: "etcdctl"}},
+		Candidates:        []deliveryapis.PackageCandidate{{Kind: "bootstrap", Name: "etcd"}},
+		Contents:          []string{"etcdctl"},
 	})
 	if err != nil {
 		return err
@@ -164,8 +166,8 @@ func run(ctx context.Context, registry string) error {
 	if err != nil {
 		return err
 	}
-	v.check(agent.Kind == "binary" && agent.Name == "kubeclipper-agent", "bootstrap agent resolves from binary package")
-	v.check(etcdctl.Kind == "binary" && etcdctl.Name == "etcdctl", "bootstrap etcdctl resolves from binary package")
+	v.check(agent.Kind == "bootstrap" && agent.Name == "kubeclipper" && len(agent.Contents) == 1 && agent.Contents[0].Name == "kubeclipper-agent", "bootstrap agent resolves from kubeclipper package")
+	v.check(etcdctl.Kind == "bootstrap" && etcdctl.Name == "etcd" && len(etcdctl.Contents) == 1 && etcdctl.Contents[0].Name == "etcdctl", "bootstrap etcdctl resolves from etcd package")
 	v.check(extension.Kind == "extension" && extension.Name == "kubectl-terminal", "kubectl terminal resolves from extension package")
 	_, err = deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
 		Arch:              "amd64",
@@ -226,24 +228,24 @@ func supportPolicy() *deliveryapis.SupportPolicy {
 				}},
 			},
 			{
-				Slot:      "bootstrap-kubeclipper-agent",
+				Slot:      "bootstrap-kubeclipper",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "kubeclipper-agent", Version: "v1.8.0"},
+				Default:   deliveryapis.ComponentChoice{Name: "kubeclipper", Version: "v1.8.0"},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "binary",
-					Name:            "kubeclipper-agent",
+					Kind:            "bootstrap",
+					Name:            "kubeclipper",
 					AllowedVersions: []string{"v1.8.0"},
 				}},
 			},
 			{
-				Slot:      "bootstrap-etcdctl",
+				Slot:      "bootstrap-etcd",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "etcdctl", Version: "v3.5.15"},
+				Default:   deliveryapis.ComponentChoice{Name: "etcd", Version: "v3.5.15"},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "binary",
-					Name:            "etcdctl",
+					Kind:            "bootstrap",
+					Name:            "etcd",
 					AllowedVersions: []string{"v3.5.15"},
 				}},
 			},

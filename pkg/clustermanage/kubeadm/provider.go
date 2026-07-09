@@ -537,14 +537,14 @@ func (r *Kubeadm) deliverBootstrapBinaries(ctx context.Context, ip, arch string,
 
 func (r *Kubeadm) deliverBootstrapBinariesFromInventory(ctx context.Context, ip, arch, registry, kubernetesVersion string) (bool, error) {
 	policyStore := r.deliveryPolicyStore()
-	agentComponent, err := resolveBootstrapBinaryComponent(ctx, registry, policyStore, arch, kubernetesVersion, "kubeclipper-agent")
+	agentComponent, err := resolveBootstrapBinaryComponent(ctx, registry, policyStore, arch, kubernetesVersion, "kubeclipper", "kubeclipper-agent")
 	if err != nil {
 		if isBootstrapBinaryNotFound(err) {
 			return false, nil
 		}
 		return false, err
 	}
-	etcdctlComponent, err := resolveBootstrapBinaryComponent(ctx, registry, policyStore, arch, kubernetesVersion, "etcdctl")
+	etcdctlComponent, err := resolveBootstrapBinaryComponent(ctx, registry, policyStore, arch, kubernetesVersion, "etcd", "etcdctl")
 	if err != nil {
 		if isBootstrapBinaryNotFound(err) {
 			return false, nil
@@ -556,7 +556,7 @@ func (r *Kubeadm) deliverBootstrapBinariesFromInventory(ctx context.Context, ip,
 	if err != nil {
 		return false, err
 	}
-	agentBinary := agentResult.Files[deliveryapis.ContentBinary]
+	agentBinary := agentResult.Files["kubeclipper-agent"]
 	if agentBinary == "" {
 		return false, fmt.Errorf("bootstrap binary kubeclipper-agent payload is missing")
 	}
@@ -568,7 +568,7 @@ func (r *Kubeadm) deliverBootstrapBinariesFromInventory(ctx context.Context, ip,
 	if err != nil {
 		return false, err
 	}
-	etcdctlBinary := etcdctlResult.Files[deliveryapis.ContentBinary]
+	etcdctlBinary := etcdctlResult.Files["etcdctl"]
 	if etcdctlBinary == "" {
 		return false, fmt.Errorf("bootstrap binary etcdctl payload is missing")
 	}
@@ -578,7 +578,7 @@ func (r *Kubeadm) deliverBootstrapBinariesFromInventory(ctx context.Context, ip,
 	return true, nil
 }
 
-func resolveBootstrapBinaryComponent(ctx context.Context, registry string, policyStore deliveryapis.PolicyStore, arch, kubernetesVersion, name string) (deliveryapis.ResolvedComponent, error) {
+func resolveBootstrapBinaryComponent(ctx context.Context, registry string, policyStore deliveryapis.PolicyStore, arch, kubernetesVersion, packageName, contentName string) (deliveryapis.ResolvedComponent, error) {
 	store, err := resolvePackageInventoryStore(ctx, registry)
 	if err != nil {
 		return deliveryapis.ResolvedComponent{}, err
@@ -594,8 +594,9 @@ func resolveBootstrapBinaryComponent(ctx context.Context, registry string, polic
 		KubernetesVersion:  kubernetesVersion,
 		KubeClipperVersion: version.Get().GitVersion,
 		Candidates: []deliveryapis.PackageCandidate{
-			{Kind: "binary", Name: name},
+			{Kind: "bootstrap", Name: packageName},
 		},
+		Contents: []string{contentName},
 	})
 }
 

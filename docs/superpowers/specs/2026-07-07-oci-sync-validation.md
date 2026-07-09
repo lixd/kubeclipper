@@ -43,7 +43,7 @@ target registry: 127.0.0.1:5502
 | 标准 OCI image | `kubeclipper/test-standard:v0` | 模拟 `kubeclipper-server`、`kubeclipper-agent` 这种二进制载体镜像。 |
 | Helm OCI chart | `kubeclipper/charts/testchart:0.1.0` | 模拟 Calico、CSI NFS chart。 |
 | 旧 KubeClipper custom package artifact | `kubeclipper/packages/k8s/k8s:v0.0.0` | 旧版 `oci-publish --profile k8s` 生成，模拟迁移前的 `k8s/k8s`、`cri/containerd`。 |
-| 新 KubeClipper package image | `kubeclipper/packages/k8s/k8s:v0.0.0` | 标准 OCI image，镜像内放 `/package/kc-package-manifest.json` 和 `/package/<file>`。 |
+| 新 KubeClipper package image | `kubeclipper/packages/k8s/k8s:v0.0.0` | 标准 OCI image，镜像内放 `/opt/kubeclipper/resource/kc-package-manifest.json` 和 `/opt/kubeclipper/resource/<file>`。 |
 
 ## 3. 实测结果
 
@@ -54,7 +54,7 @@ target registry: 127.0.0.1:5502
 | `crane copy` | 通过 | 通过 | 失败，Registry 返回 `MANIFEST_INVALID` | 通过，等同标准 image |
 | `skopeo copy` | 通过 | 通过 | 失败，`unsupported docker v2s2 media type: "application/vnd.kubeclipper.package.manifest.v1+json"` | 通过，等同标准 image |
 | `skopeo sync` | 通过 | 通过 | 失败，同样不支持 KubeClipper 自定义 package media type | 通过，等同标准 image |
-| 原生消费工具 | `docker pull/save/load` | `helm pull/push` | 只能由 KubeClipper delivery fetcher 消费 | `docker pull/save/load`、`skopeo copy/sync`；KC fetcher 从 `/package` 提取文件 |
+| 原生消费工具 | `docker pull/save/load` | `helm pull/push` | 只能由 KubeClipper delivery fetcher 消费 | `docker pull/save/load`、`skopeo copy/sync`；KC fetcher 从 `/opt/kubeclipper/resource` 提取文件 |
 
 ## 4. 关键错误
 
@@ -100,7 +100,7 @@ MANIFEST_INVALID: manifest invalid
 | `kc-console` | 标准 OCI image | 静态文件可以用 image 分发，也便于同步。 |
 | Kubernetes/Calico/addon runtime images | 标准 OCI image | 原本就是运行镜像。 |
 | Helm chart | Helm OCI chart 可保留 | 已验证 `skopeo copy/sync`、`crane copy`、`helm pull` 可用；但 `docker save/load` 依赖 Docker 版本能力，不建议作为唯一承诺。 |
-| `k8s/k8s`、`cri/containerd` 安装资源 | 标准 OCI package image | 镜像内保存 `/package/kc-package-manifest.json` 和 `/package/configs.tar.gz`，KC 安装时提取文件；同步/离线搬运按普通镜像处理。 |
+| `k8s/k8s`、`cri/containerd` 安装资源 | 标准 OCI package image | 镜像内保存 `/opt/kubeclipper/resource/kc-package-manifest.json` 和 `/opt/kubeclipper/resource/configs.tar.gz`，KC 安装时提取文件；同步/离线搬运按普通镜像处理。 |
 
 ## 6. 已采用的 KubeClipper package image 方案
 
@@ -113,12 +113,12 @@ manifest: application/vnd.oci.image.manifest.v1+json
 config:   application/vnd.oci.image.config.v1+json
 layer:    application/vnd.oci.image.layer.v1.tar+gzip
 
-/package/kc-package-manifest.json
-/package/configs.tar.gz
-/package/kubeclipper-agent
+/opt/kubeclipper/resource/kc-package-manifest.json
+/opt/kubeclipper/resource/configs.tar.gz
+/opt/kubeclipper/resource/kubeclipper-agent
 ```
 
-KC fetcher/indexer 不再按自定义 layer mediaType 查找内容，只从标准镜像 rootfs 的 `/package` 目录读取。
+KC fetcher/indexer 不再按自定义 layer mediaType 查找内容，只从标准镜像 rootfs 的 `/opt/kubeclipper/resource` 目录读取。
 
 ## 7. 当前推荐
 

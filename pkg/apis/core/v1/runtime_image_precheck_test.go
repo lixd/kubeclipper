@@ -41,6 +41,7 @@ func TestRequiredRuntimeImagesForKubernetesAndCalico(t *testing.T) {
 		"registry.local:5000/etcd:3.6.8-0",
 		"registry.local:5000/coredns:v1.14.2",
 		"registry.local:5000/pause:3.10.2",
+		"registry.local:5000/fanux/lvscare:v1.1.1",
 		"registry.local:5000/tigera/operator:v1.40.8",
 		"registry.local:5000/calico/node:v3.31.5",
 		"registry.local:5000/kubeclipper/kubectl:latest",

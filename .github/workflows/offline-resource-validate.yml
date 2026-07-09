@@ -37,6 +37,9 @@ jobs:
           scripts/open-packaging/build-offline-resources.sh --help >/dev/null
           scripts/open-packaging/generate-resource-metadata.sh --help >/dev/null
           scripts/open-packaging/push-runtime-images.sh --help >/dev/null
+          scripts/open-packaging/publish-resource-k8s.sh --help >/dev/null
+          scripts/open-packaging/publish-resource-containerd.sh --help >/dev/null
+          scripts/open-packaging/publish-resource-calico.sh --help >/dev/null
           scripts/open-packaging/bootstrap-builders/build-bootstrap-binaries.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-k8s-package.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-containerd-package.sh --help >/dev/null

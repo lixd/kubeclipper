@@ -116,48 +116,15 @@ func (i *RegistryPackageInventoryIndexer) index(ctx context.Context, registry st
 		if err = ctx.Err(); err != nil {
 			return nil, err
 		}
-		if _, _, ok := deliveryapis.ParsePackageRepository(repository); !ok {
-			continue
-		}
-		tags, err := i.Client.ListTags(ctx, registry, repository)
-		if err != nil {
-			return nil, err
-		}
-		for _, tag := range tags {
-			if err = ctx.Err(); err != nil {
+		if _, _, ok := deliveryapis.ParsePackageRepository(repository); ok {
+			if err = i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
 				return nil, err
 			}
-			ref := packageRef(registry, repository, tag)
-			artifacts, err := i.Client.Resolve(ctx, ref)
-			if err != nil {
-				logger.Warnf("skip invalid OCI package tag %s: resolve failed: %v", ref, err)
-				continue
-			}
-			for _, artifact := range artifacts {
-				manifest, err := ReadPackageManifest(artifact.Image)
-				if err != nil {
-					logger.Warnf("skip invalid OCI package image %s@%s: read package manifest failed: %v", ref, artifact.Digest, err)
-					continue
-				}
-				if err = validateArtifactPlatform(artifact.Platform, manifest.Platform); err != nil {
-					logger.Warnf("skip invalid OCI package image %s@%s: validate package platform failed: %v", ref, artifact.Digest, err)
-					continue
-				}
-				if err = validateManifestContentFiles(artifact.Image, manifest); err != nil {
-					logger.Warnf("skip invalid OCI package image %s@%s: validate package contents failed: %v", ref, artifact.Digest, err)
-					continue
-				}
-				entry, err := deliveryapis.DerivePackageEntryFromManifest(deliveryapis.PackageRef{
-					Registry:   registry,
-					Repository: repository,
-					Tag:        tag,
-					Digest:     artifact.Digest,
-				}, manifest)
-				if err != nil {
-					logger.Warnf("skip invalid OCI package image %s@%s: derive package entry failed: %v", ref, artifact.Digest, err)
-					continue
-				}
-				inventory.Spec.Packages = append(inventory.Spec.Packages, entry)
+			continue
+		}
+		if component, ok := deliveryapis.ResolveHelmChartComponent(repository); ok {
+			if err = i.indexHelmChartRepository(ctx, inventory, registry, repository, component); err != nil {
+				return nil, err
 			}
 		}
 	}
@@ -165,6 +132,83 @@ func (i *RegistryPackageInventoryIndexer) index(ctx context.Context, registry st
 		return nil, err
 	}
 	return inventory, nil
+}
+
+func (i *RegistryPackageInventoryIndexer) indexPackageRepository(ctx context.Context, inventory *deliveryapis.PackageInventory, registry, repository string) error {
+	tags, err := i.Client.ListTags(ctx, registry, repository)
+	if err != nil {
+		return err
+	}
+	for _, tag := range tags {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		ref := packageRef(registry, repository, tag)
+		artifacts, err := i.Client.Resolve(ctx, ref)
+		if err != nil {
+			logger.Warnf("skip invalid OCI package tag %s: resolve failed: %v", ref, err)
+			continue
+		}
+		for _, artifact := range artifacts {
+			manifest, err := ReadPackageManifest(artifact.Image)
+			if err != nil {
+				logger.Warnf("skip invalid OCI package image %s@%s: read package manifest failed: %v", ref, artifact.Digest, err)
+				continue
+			}
+			if err = validateArtifactPlatform(artifact.Platform, manifest.Platform); err != nil {
+				logger.Warnf("skip invalid OCI package image %s@%s: validate package platform failed: %v", ref, artifact.Digest, err)
+				continue
+			}
+			if err = validateManifestContentFiles(artifact.Image, manifest); err != nil {
+				logger.Warnf("skip invalid OCI package image %s@%s: validate package contents failed: %v", ref, artifact.Digest, err)
+				continue
+			}
+			entry, err := deliveryapis.DerivePackageEntryFromManifest(deliveryapis.PackageRef{
+				Registry:   registry,
+				Repository: repository,
+				Tag:        tag,
+				Digest:     artifact.Digest,
+			}, manifest)
+			if err != nil {
+				logger.Warnf("skip invalid OCI package image %s@%s: derive package entry failed: %v", ref, artifact.Digest, err)
+				continue
+			}
+			inventory.Spec.Packages = append(inventory.Spec.Packages, entry)
+		}
+	}
+	return nil
+}
+
+func (i *RegistryPackageInventoryIndexer) indexHelmChartRepository(ctx context.Context, inventory *deliveryapis.PackageInventory, registry, repository string, component deliveryapis.HelmChartComponent) error {
+	tags, err := i.Client.ListTags(ctx, registry, repository)
+	if err != nil {
+		return err
+	}
+	for _, tag := range tags {
+		if err = ctx.Err(); err != nil {
+			return err
+		}
+		ref := packageRef(registry, repository, tag)
+		artifacts, err := i.Client.Resolve(ctx, ref)
+		if err != nil {
+			logger.Warnf("skip invalid Helm OCI chart tag %s: resolve failed: %v", ref, err)
+			continue
+		}
+		for _, artifact := range artifacts {
+			entries, err := deliveryapis.DerivePackageEntriesFromHelmChart(deliveryapis.PackageRef{
+				Registry:   registry,
+				Repository: repository,
+				Tag:        tag,
+				Digest:     artifact.Digest,
+			}, component, []string{"amd64", "arm64"})
+			if err != nil {
+				logger.Warnf("skip invalid Helm OCI chart %s@%s: derive package entries failed: %v", ref, artifact.Digest, err)
+				continue
+			}
+			inventory.Spec.Packages = append(inventory.Spec.Packages, entries...)
+		}
+	}
+	return nil
 }
 
 type cachedInventory struct {

@@ -32,7 +32,7 @@ OCI 替换 static server 后，安装阶段已经不再依赖 `/opt/kubeclipper-
 4. 不再要求先生成一个完整 legacy resource tree；legacy layout 只作为中间产物或迁移兼容输入。
 5. `configs.tar.gz` 发布为 KubeClipper 标准 OCI package image。
 6. `charts.tgz` 发布为 Helm OCI chart，不再二次包进 KubeClipper package image。
-7. `images.tar.gz` 只作为镜像中转归档，最终推送成普通 runtime images。
+7. 不再生成或发布 `images.tar.gz`；runtime images 通过 `images.txt`/`images.lock` 直接同步成普通镜像。
 8. GitHub Actions 可以通过一个版本矩阵完整构建、校验、发布所有目标资源。
 9. 打包脚本作为 KubeClipper 开源仓库的一部分发布，外部贡献者可以在没有公司内部网络权限的情况下复现 release 构建。
 10. 旧 `caas-cd-node` 中 KubeClipper 相关打包逻辑迁入本仓库后，内部路径、内部域名、内部 tarball 节点和未公开脚本依赖必须全部删除。
@@ -147,7 +147,7 @@ KubeClipper package image 只保存非容器镜像、非 Helm chart 的文件内
 
 不进入 KubeClipper package image 的内容：
 
-1. `images.tar.gz`
+1. runtime image 归档或镜像本体
 2. `charts.tgz`
 3. Docker save 归档
 4. 整个 legacy resource tree
@@ -164,18 +164,19 @@ architectures:
   - amd64
   - arm64
 registries:
-  package: ghcr.io/kubeclipper
-  image: docker.io/kubeclipper
+  package: ghcr.io/lixd/kubeclipper
+  image: ghcr.io/lixd/kubeclipper
 resources:
   k8s:
     versions:
       - v1.36.1
+  k8sExtension:
+    versions:
+      - v1
     etcdVersion: 3.5.21
     helmVersion: 3.18.6
     conntrack:
-      source: build
       version: 1.4.9
-      method: docker-source
   cri:
     containerd:
       versions:
@@ -225,17 +226,17 @@ manifest: application/vnd.oci.image.manifest.v1+json
 config:   application/vnd.oci.image.config.v1+json
 layer:    application/vnd.oci.image.layer.v1.tar+gzip
 
-/package/kc-package-manifest.json
-/package/configs.tar.gz
-/package/kubeclipper-agent
+/opt/kubeclipper/resource/kc-package-manifest.json
+/opt/kubeclipper/resource/configs.tar.gz
+/opt/kubeclipper/resource/kubeclipper-agent
 ```
 
 这种方式的优点：
 
 1. 不依赖 Docker daemon 或 BuildKit，GitHub Actions、本地和受限构建环境都更容易跑。
-2. 不需要为 `k8s/k8s`、`cri/containerd`、`binary/kubeclipper-agent` 维护大量重复 Dockerfile。
+2. 不需要为 `k8s/k8s`、`cri/containerd`、`bootstrap/kubeclipper` 维护大量重复 Dockerfile。
 3. 产物仍然是标准 OCI image，可以用 `docker pull/save/load`、`skopeo copy/sync`、Harbor replication。
-4. `kcctl` 安装阶段可以稳定地从 `/package` 目录提取文件，不受基础镜像、入口点、rootfs 布局影响。
+4. `kcctl` 安装阶段可以稳定地从 `/opt/kubeclipper/resource` 目录提取文件，不受基础镜像、入口点、rootfs 布局影响。
 
 只有真正要以容器方式运行的组件才需要 Dockerfile，例如：
 
@@ -308,55 +309,53 @@ OCI image registry:
 
 | 包 | OCI kind/name | 内容 | 来源 |
 | --- | --- | --- | --- |
-| `kcctl` | `binary/kcctl` | `kcctl` 单二进制 | 当前仓库 `go build ./cmd/kcctl` |
-| `kubeclipper-server` | `binary/kubeclipper-server` | server 二进制 | 当前仓库 `go build ./cmd/kubeclipper-server` |
-| `kubeclipper-agent` | `binary/kubeclipper-agent` | agent 二进制 | 当前仓库 `go build ./cmd/kubeclipper-agent` |
-| `kc-console` | `binary/kc-console` | console 静态文件 tar | console 仓库 release artifact 或当前 workflow artifact |
-| `caddy` | `binary/caddy` | caddy 二进制 | Caddy GitHub Release 或自维护 mirrored release |
-| `registry` | `binary/registry` | distribution registry 二进制 | distribution GitHub Release 或 KubeClipper 自建 release asset |
-| `etcd` | `binary/etcd` | etcd 二进制 | etcd GitHub Release |
-| `etcdctl` | `binary/etcdctl` | etcdctl 二进制 | etcd GitHub Release |
-| `etcdutl` | `binary/etcdutl` | etcdutl 二进制 | etcd GitHub Release |
+| `kubeclipper` | `bootstrap/kubeclipper` | server、agent 二进制 | 当前仓库 `go build ./cmd/kubeclipper-server`、`./cmd/kubeclipper-agent` |
+| `etcd` | `bootstrap/etcd` | etcd、etcdctl、etcdutl 二进制 | etcd GitHub Release |
+| `console` | `bootstrap/console` | caddy 二进制、console 静态文件 tar | Caddy GitHub Release、同版本 `kubeclipper/console` GitHub Release |
+| `registry` | `bootstrap/registry` | distribution registry 二进制 | distribution GitHub Release，例如 `registry_3.1.1_linux_amd64.tar.gz` |
 
-Bootstrap binary package 按组件单独发布到 Registry，不提供默认聚合大包：
+Bootstrap package 合并为 4 个标准 OCI package image：
 
 ```text
-<registry>/kubeclipper/packages/binary/kcctl:<kc-version>
-<registry>/kubeclipper/packages/binary/kubeclipper-server:<kc-version>
-<registry>/kubeclipper/packages/binary/kubeclipper-agent:<kc-version>
-<registry>/kubeclipper/packages/binary/etcd:<etcd-version>
-<registry>/kubeclipper/packages/binary/etcdctl:<etcd-version>
-<registry>/kubeclipper/packages/binary/etcdutl:<etcd-version>
-<registry>/kubeclipper/packages/binary/caddy:<caddy-version>
-<registry>/kubeclipper/packages/binary/registry:<registry-version>
-<registry>/kubeclipper/packages/binary/kc-console:<kc-version>
+<registry>/kubeclipper/packages/bootstrap/kubeclipper:<kc-version>
+<registry>/kubeclipper/packages/bootstrap/etcd:<etcd-version>
+<registry>/kubeclipper/packages/bootstrap/console:<kc-version>
+<registry>/kubeclipper/packages/bootstrap/registry:<registry-version>
 ```
 
-不打聚合大包的原因：
+只合并到四类，不再做单二进制 package 的原因：
 
-1. `kcctl/server/agent`、`etcd`、`caddy`、`registry` 的生命周期不同。
-2. 任意单组件升级不应该导致整个 bootstrap 大包重发。
+1. `server/agent`、`etcd`、`caddy`、`registry` 的生命周期不同。
+2. 四个 package 已经足够减少镜像数量，同时不会把所有 bootstrap 内容重新绑成一个大包。
 3. `kcctl deploy` 可以通过 resolver 按需选择组件，Registry inventory 就是组件库存。
 4. 这避免把新的 OCI 流程重新退化成旧的大包耦合模型。
 
-`kcctl` 自身仍然作为用户下载入口发布到 GitHub Release；Registry 中的 `binary/kcctl`
-用于自举安装、版本校验或需要从 package registry 获取相同版本工具的场景。
+`kcctl` 自身只作为用户下载入口发布到 GitHub Release，不放入 package registry。
 
-`kcctl registry deploy` 是特例。部署第一个 Registry 时，本地 Registry 还不存在，所以不能默认从 package registry 拉取 `binary/registry`。它应优先支持：
+`kcctl registry deploy` 是特例。部署第一个本地 Registry 时，可以从公网或已有私有 package registry 拉取 `bootstrap/registry` package image，并从 `/opt/kubeclipper/resource/registry` 提取 registry 二进制；完全离线时再使用 image archive 或本地 binary。它应支持：
 
-1. 公开 registry component image。
-2. 用户已有私有镜像仓库中的 registry image。
+1. `--package-registry` 指向公开或已有私有 package registry。
+2. `--registry-image` 指向完整 `kubeclipper/packages/bootstrap/registry:<version>` package image。
 3. 本地 registry image archive。
 4. 本地 registry binary。
 
-当用户已经有可用 Registry 时，`binary/registry` 可以作为后续部署、复用或审计的 package image。
+当用户已经有可用 Registry 时，`bootstrap/registry` 可以作为后续部署、复用或审计的 package image。
 
-第一阶段可以继续用 [publish-bootstrap-artifacts.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/publish-bootstrap-artifacts.sh) 发布 bootstrap package image。
-
-后续建议拆成：
+当前使用四个独立脚本分别构建并发布 bootstrap package image。脚本参数使用
+`--registry-prefix` 指定发布目标前缀，默认值是 `ghcr.io/lixd/kubeclipper`。
+脚本产出是推送到 Registry 的标准 OCI image；本地 tar 只是内部临时中间产物，
+运行结束会自动清理。
 
 ```text
-scripts/open-packaging/bootstrap-builders/build-kcctl.sh
+scripts/open-packaging/publish-bootstrap-kubeclipper.sh
+scripts/open-packaging/publish-bootstrap-etcd.sh
+scripts/open-packaging/publish-bootstrap-console.sh
+scripts/open-packaging/publish-bootstrap-registry.sh
+```
+
+后续可以继续把 bootstrap builder 也拆成更细的独立构建脚本：
+
+```text
 scripts/open-packaging/bootstrap-builders/build-kubeclipper-server.sh
 scripts/open-packaging/bootstrap-builders/build-kubeclipper-agent.sh
 scripts/open-packaging/bootstrap-builders/build-etcd.sh
@@ -372,19 +371,18 @@ scripts/open-packaging/bootstrap-builders/build-kc-console.sh
 | 包名 | `k8s/k8s:<kubernetes-version>` |
 | 当前脚本 | [build-k8s-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-k8s-package.sh) |
 | package image 内容 | `configs.tar.gz` |
-| `configs.tar.gz` 内容 | `kubeadm`、`kubelet`、`kubectl`、`etcdctl`、`helm`、`conntrack`、`kubelet.service`、`10-kubeadm.conf`、`kubelet-pre-start.sh`、文件 manifest |
-| runtime images | kubeadm image list、`fanux/lvscare`、`kubeclipper/kubectl` |
-| upstream source | `dl.k8s.io`、`github.com/etcd-io/etcd`、`get.helm.sh`、`github.com/kubernetes/release`、镜像仓库 |
+| `configs.tar.gz` 内容 | `kubeadm`、`kubelet`、`kubectl`、`kubelet.service`、`10-kubeadm.conf`、`kubelet-pre-start.sh`、文件 manifest |
+| runtime images | kubeadm image list |
+| upstream source | `dl.k8s.io`、`github.com/kubernetes/release`、镜像仓库 |
 
 关键问题是 `conntrack`。它没有像 Kubernetes/etcd/Helm 那样稳定的官方静态二进制归档。
 
-推荐方案是保留独立 `conntrack` 构建脚本，但不把它作为独立 package image 发布：
+推荐方案是保留独立 `conntrack` 构建脚本，但不把它放进 k8s 原生包：
 
 1. `build-conntrack-binary.sh` 单独维护、单独测试，默认用 Docker 从 netfilter 官方源码构建目标架构的 `conntrack`。
-2. `build-k8s-package.sh` 在没有显式 `--conntrack-file` 或 `--conntrack-url` 时，直接调用 `build-conntrack-binary.sh`。
-3. 构建产物只落在 k8s 打包临时目录中，然后被拷入 `configs.tar.gz` 的 `usr/bin/conntrack`。
-4. `publish-resource-artifacts.sh` 不发布 `binary/conntrack`；最终 Registry 中只需要 `k8s/k8s:<version>` 这个 package image。
-5. 高级场景仍可在 manifest 中配置 `conntrack.file` 或 `conntrack.urlTemplate` 覆盖默认构建来源。
+2. `build-k8s-extension-package.sh` 每次直接调用 `build-conntrack-binary.sh`，不接收预构建二进制。
+3. 构建产物只落在 k8s-extension 打包临时目录中，然后被拷入 `configs.tar.gz` 的 `usr/bin/conntrack`。
+4. `publish-resource-k8s-extension.sh` 不发布 `binary/conntrack`；最终 Registry 中通过 `k8s-extension/k8s-extension:<version>` 分发。
 
 Kubernetes runtime images 不进入 package image。打包阶段可以生成 `images.lock` 并推送到 image registry。
 
@@ -409,17 +407,16 @@ Kubernetes runtime images 不进入 package image。打包阶段可以生成 `im
 
 | 项 | 说明 |
 | --- | --- |
-| 包名 | `cni/calico:<calico-version>` |
+| KC 组件名 | `cni/calico:<calico-version>` |
 | 当前脚本 | [build-calico-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-calico-package.sh) |
-| package image 内容 | manifest-only descriptor，引用 Helm OCI chart |
-| Helm chart | `kubeclipper/charts/tigera-operator:<chart-version>` |
+| 发布产物 | Helm OCI chart，不发布 `packages/cni/calico` 空包 |
+| Helm chart | `kubeclipper/charts/tigera-operator:<chart-version>`，Registry indexer 映射为 `cni/calico:<calico-version>` |
 | runtime images | `calico/*`、`quay.io/tigera/operator` |
 | upstream source | Tigera Helm repo、DockerHub、Quay |
 
-Calico 包不能再包含 `charts.tgz` 或 `images.tar.gz`。最终输出应为：
+Calico 不再包含 `charts.tgz` 或 `images.tar.gz` 的 package image。最终输出应为：
 
 ```text
-packageRegistry/kubeclipper/packages/cni/calico:v3.31.5
 packageRegistry/kubeclipper/charts/tigera-operator:v3.31.5
 imageRegistry/calico/node:v3.31.5
 imageRegistry/calico/cni:v3.31.5
@@ -432,9 +429,14 @@ imageRegistry/quay.io/tigera/operator:v1.40.8 或重命名后的镜像路径
 
 | 包 | 当前脚本 | 内容 | 来源 |
 | --- | --- | --- | --- |
-| `extension/k8s-extension:v1` | [build-k8s-extension-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-k8s-extension-package.sh) | `helm`、`nerdctl`、CNI plugins、`calicoctl`、debug image list | GitHub Release、get.helm.sh、镜像仓库 |
-| `extension/kc-extension:v1.0.0` | [build-addon-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-addon-package.sh) | legacy images only | 镜像仓库 |
-| `extension/kubectl-terminal:v1.0.0` | [build-addon-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-addon-package.sh) | terminal image | 镜像仓库 |
+| `kc-runtime` image list | [build-kc-runtime-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-kc-runtime-package.sh) | `fanux/lvscare:v1.1.1`、`kubeclipper/kubectl:latest` image list | 镜像仓库 |
+| `k8s-extension/k8s-extension:v1` | [build-k8s-extension-package.sh](/Users/lixueduan/17x/kc-release/kubeclipper/scripts/open-packaging/resource-builders/build-k8s-extension-package.sh) | `helm`、`etcdctl`、`conntrack`、`nerdctl`、CNI plugins、`calicoctl`、debug image list | GitHub Release、get.helm.sh、netfilter source、镜像仓库 |
+
+旧 `kc-extension` 包只包含 `fanux/lvscare:v1.1.1` 和
+`kubeclipper/kubectl:latest`。这两张镜像仍然是必需镜像：前者用于 VIP
+`kube-lvscare`，后者用于 Web 终端访问集群。新方案将它们拆成独立的
+`kc-runtime` image list；镜像本体仍作为标准 runtime image 同步到
+Registry，不再发布 `extension/kc-runtime` package，并由离线集群预检确认存在。
 
 GitHub Actions 中建议把 extension 放到独立 job，并默认 `workflow_dispatch` 手动触发。
 
@@ -444,7 +446,7 @@ GitHub Actions 中建议把 extension 放到独立 job，并默认 `workflow_dis
 
 1. chart 发布为 Helm OCI。
 2. images 推送为 runtime images。
-3. KubeClipper package image 只保存 manifest-only descriptor，或保存必要配置模板。
+3. 只有存在 KubeClipper 专用配置模板时才发布 package image；chart-only 组件直接通过 resolver/catalog 映射到 Helm OCI。
 
 | 包 | OCI kind/name | 当前脚本 | Chart 来源 | Image 来源 |
 | --- | --- | --- | --- | --- |
@@ -458,11 +460,11 @@ GitHub Actions 中建议把 extension 放到独立 job，并默认 `workflow_dis
 1. 组件官方 release asset。
 2. KubeClipper 自己维护的 chart mirror release。
 3. 当前仓库内可开源 chart。
-4. 用户在 build manifest 中显式配置 `chartUrl` 或 `chartFile`。
+4. 用户在 build manifest 中显式配置 `chartFile`。
 
 ## 6. 资源获取规范
 
-每个下载输入必须在 build manifest 中声明 source type。
+资源获取遵循一个原则：版本和架构作为输入，公开上游下载地址固定在对应组件脚本里。这样可以同时打多个版本，又避免在 build manifest 中维护 URL 模板。manifest 只保留版本矩阵、镜像清单、本地文件覆盖和发布 Registry。
 
 | source type | 例子 | 适用内容 |
 | --- | --- | --- |
@@ -473,7 +475,7 @@ GitHub Actions 中建议把 extension 放到独立 job，并默认 `workflow_dis
 | `source-build` | `https://www.netfilter.org/pub/...` | conntrack 这类无稳定官方静态二进制的小工具 |
 | `local-file` | `/path/to/chart.tgz` | 本地开发或私有构建，不用于官方 GitHub Actions 默认配置 |
 
-所有可下载文件建议支持 sha256 校验。第一阶段可以先记录 URL 和版本，第二阶段把 sha256 作为强制字段。
+所有可下载文件建议支持 sha256 校验。第一阶段可以先记录来源类型和版本，第二阶段把 sha256 作为强制字段。
 
 ## 7. 单包打包脚本设计
 
@@ -489,10 +491,10 @@ scripts/open-packaging/resource-builders/build-<package>.sh \
 
 统一行为：
 
-1. 所有下载源都可以通过参数覆盖。
-2. 所有脚本支持 `--skip-images`，用于只生成 package/charts。
-3. 所有包含 chart 的脚本支持 `--chart-file`、`--chart-url` 或 Helm repo 参数。
-4. 所有包含 images 的脚本支持 `--images-file`，image list 固化在仓库中并可 review。
+1. 官方下载地址固定在脚本中，普通使用只传版本和架构。
+2. 所有包含 chart 的脚本优先从固定公开 Helm repo 拉取，必要时支持 `--chart-file` 本地输入。
+3. 所有包含 images 的脚本支持 `--images-file`，image list 固化在仓库中并可 review。
+4. runtime images 只写入 `images.txt`/`images.lock`，通过 `push-runtime-images.sh` 同步到镜像仓库。
 5. 脚本输出可以是 legacy resource layout，但 publish 阶段必须拆分成 standard OCI package image、Helm OCI 和 runtime images。
 6. 脚本不能访问内部域名，不能内置 `oss.kubeclipper.io/packages/`，不能 `scp` 到 tarball 节点。
 
@@ -506,9 +508,8 @@ scripts/open-packaging/build-offline-resources.sh
 
 1. 读取 `packaging/resources.yaml`。
 2. 展开版本和架构矩阵。
-3. 调用对应单包 builder。
-4. 生成 `build-report.json`、`images.lock`、`charts.lock`。
-5. 可选调用 publish 脚本推送 package image、Helm OCI chart 和 runtime images。
+3. 不带 `--push` 时调用内部 builder 并生成 `build-report.json`、`images.lock`、`charts.lock`，用于本地调试。
+4. 带 `--push` 时调用一段式 publish 脚本；每个 publish 脚本自己获取资源、构建临时 payload、推送 package image/Helm OCI/runtime images。
 
 示例：
 
@@ -516,55 +517,61 @@ scripts/open-packaging/build-offline-resources.sh
 scripts/open-packaging/build-offline-resources.sh \
   --manifest packaging/resources.yaml \
   --output /tmp/kc-resource \
-  --registry ghcr.io/kubeclipper \
-  --image-registry docker.io/kubeclipper \
+  --registry ghcr.io/lixd/kubeclipper \
+  --image-registry ghcr.io/lixd/kubeclipper \
   --push
 ```
 
 ## 8. 发布设计
 
-发布分三步。
+发布入口按组件拆分，但每个入口都是一段式：获取资源、构建临时 payload、发布到 Registry。
 
 ### 8.1 发布 package image
 
 ```bash
-scripts/open-packaging/publish-resource-artifacts.sh \
-  --resource-dir /tmp/kc-resource \
-  --registry ghcr.io/kubeclipper \
-  --arch amd64
+scripts/open-packaging/publish-resource-k8s.sh \
+  --registry-prefix ghcr.io/lixd/kubeclipper \
+  --version v1.36.1
+
+scripts/open-packaging/publish-resource-k8s-extension.sh \
+  --registry-prefix ghcr.io/lixd/kubeclipper \
+  --version v1
+
+scripts/open-packaging/publish-resource-containerd.sh \
+  --registry-prefix ghcr.io/lixd/kubeclipper \
+  --version 2.2.4
+
+scripts/open-packaging/publish-resource-calico.sh \
+  --registry-prefix ghcr.io/lixd/kubeclipper \
+  --version v3.31.5
+
+scripts/open-packaging/publish-resource-kc-runtime.sh \
+  --image-registry-prefix ghcr.io/lixd/kubeclipper \
+  --version v1.8.0
 ```
 
 发布结果：
 
 ```text
-ghcr.io/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
-ghcr.io/kubeclipper/kubeclipper/packages/cri/containerd:2.2.4
-ghcr.io/kubeclipper/kubeclipper/packages/cni/calico:v3.31.5
+ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
+ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s-extension/k8s-extension:v1
+ghcr.io/lixd/kubeclipper/kubeclipper/packages/cri/containerd:2.2.4
+ghcr.io/lixd/kubeclipper/kubeclipper/charts/tigera-operator:v3.31.5
 ```
 
 ### 8.2 发布 Helm OCI chart
 
-```bash
-scripts/open-packaging/publish-resource-artifacts.sh \
-  --resource-dir /tmp/kc-resource \
-  --registry ghcr.io/kubeclipper \
-  --arch amd64 \
-  --push-charts
-```
+Calico 的 `charts.tgz` 由 `publish-resource-calico.sh` 同步发布为 Helm OCI chart。KubeClipper Registry indexer 通过内置 catalog 把 `kubeclipper/charts/tigera-operator:<version>` 投影为用户侧组件 `cni/calico:<version>`，不再发布 manifest-only package image。
 
 发布结果：
 
 ```text
-oci://ghcr.io/kubeclipper/kubeclipper/charts/tigera-operator:v3.31.5
+oci://ghcr.io/lixd/kubeclipper/kubeclipper/charts/tigera-operator:v3.31.5
 ```
 
 ### 8.3 发布 runtime images
 
-发布 runtime images 不应该依赖 KubeClipper package image。推荐后续引入更直接的 image mirror 脚本：
-
-```text
-scripts/open-packaging/push-runtime-images.sh
-```
+发布 runtime images 不依赖 KubeClipper package image，使用 `push-runtime-images.sh` 按组件从 `images.lock` 同步。
 
 职责：
 
@@ -574,16 +581,7 @@ scripts/open-packaging/push-runtime-images.sh
 4. push 多架构 manifest 或单架构 image。
 5. 输出 `image-publish-report.json`。
 
-在当前脚本过渡期，可以继续使用：
-
-```bash
-kcctl registry push \
-  --image-archive /tmp/kc-resource/calico/v3.31.5/amd64/images.tar.gz \
-  --node <registry-node> \
-  --registry-port <port>
-```
-
-但 GitHub Actions 主路径更适合使用 `crane`、`skopeo` 或 `docker buildx imagetools` 做镜像复制，避免先 `docker save` 再 `docker load/push`。
+GitHub Actions 主路径使用 `crane` 或 `skopeo` 做镜像复制，避免先 `docker save` 再 `docker load/push`。
 
 ## 9. GitHub Actions 设计
 
@@ -675,14 +673,14 @@ on:
 
 | 类型 | 状态 |
 | --- | --- |
-| `k8s` | 已有 builder；默认内部调用 `conntrack` builder 并打进 k8s package |
+| `k8s` | 已有 builder；只包含 Kubernetes 原生二进制、systemd 配置和 kubeadm runtime image list |
 | `containerd` | 已有 builder；适合 GitHub Actions |
 | `calico` | 已有 builder；已支持 chart/image 分离 |
 | `k8s-extension` | 已有 builder；建议从核心 release 中拆出去 |
 | CSI/addon | 已有统一 builder；部分 chart 来源需要显式配置 |
-| bootstrap binaries | 已有 publish 脚本；还需要拆出单包 builder |
-| third-party binaries | 已有 `conntrack` builder；作为 k8s 打包内部构建器使用，不单独发布 |
-| runtime image push | 当前可用 `kcctl registry push --image-archive`；GitHub Actions 主路径建议改为 image mirror |
+| bootstrap binaries | 已有四个独立 publish 脚本；后续可继续拆出更细的单包 builder |
+| third-party binaries | 已有 `conntrack` builder；作为 k8s-extension 打包内部构建器使用，不单独发布 |
+| runtime image push | 已有 `push-runtime-images.sh`；按 `images.lock` 和 component/version/arch 过滤同步 |
 | build manifest | 已有 `packaging/resources.yaml` |
 | GitHub Actions workflow | 已有 PR validation workflow |
 | sha256 lock/checksum | 未强制 |
@@ -691,7 +689,7 @@ on:
 
 1. P0：新增 `packaging/resources.yaml`，覆盖 `k8s/containerd/calico/bootstrap`。
 2. P0：实现 `build-offline-resources.sh`，从 manifest 调度现有 builder。
-3. P0：解决 `conntrack` 默认公开来源。已采用源码构建并打包进 k8s package。
+3. P0：解决 `conntrack` 默认公开来源。已采用源码构建并打包进 k8s-extension package。
 4. P0：实现 GitHub Actions PR validation。
 5. P1：实现 release build workflow，发布到 staging registry。
 6. P1：实现 `push-runtime-images.sh`，替代 `images.tar.gz` 推送主路径。
@@ -714,10 +712,10 @@ resources.yaml
 第二阶段：把 bootstrap 也纳入同一套 pipeline。
 
 ```text
-build kcctl/server/agent
+build server/agent
 download etcd/caddy/registry
 build/collect kc-console
-publish binary package images
+publish four bootstrap package images
 ```
 
 第三阶段：按需扩展 addon。
@@ -742,7 +740,7 @@ publish report
 而不是先落到：
 
 ```text
-resource/<name>/<version>/<arch>/{configs.tar.gz,charts.tgz,images.tar.gz}
+resource/<name>/<version>/<arch>/{configs.tar.gz,charts.tgz,images.txt}
 ```
 
 ## 12. 验收标准
@@ -767,6 +765,9 @@ resource/<name>/<version>/<arch>/{configs.tar.gz,charts.tgz,images.tar.gz}
 packaging/resources.yaml
 scripts/open-packaging/build-offline-resources.sh
 scripts/open-packaging/push-runtime-images.sh
+scripts/open-packaging/publish-resource-k8s.sh
+scripts/open-packaging/publish-resource-containerd.sh
+scripts/open-packaging/publish-resource-calico.sh
 scripts/open-packaging/bootstrap-builders/
 .github/workflows/offline-resource-validate.yaml
 .github/workflows/offline-resource-release.yaml
@@ -776,8 +777,7 @@ scripts/open-packaging/bootstrap-builders/
 
 ```text
 scripts/open-packaging/resource-builders/build-k8s-package.sh
-scripts/open-packaging/publish-resource-artifacts.sh
 scripts/open-packaging/README.md
 ```
 
-其中 `build-offline-resources.sh` 调用 `build-k8s-package.sh`，后者会在需要时内部调用 `build-conntrack-binary.sh`，并把生成的二进制打进 k8s package。
+其中 `build-offline-resources.sh` 会分别调度 `build-k8s-package.sh` 和 `build-k8s-extension-package.sh`；后者会在需要时内部调用 `build-conntrack-binary.sh`，并把生成的二进制打进 k8s-extension package。

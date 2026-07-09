@@ -65,18 +65,18 @@ func TestResolveBootstrapBinaryComponent(t *testing.T) {
 	catalog := deliveryapis.NewPackageInventory("default")
 	catalog.Spec.Packages = []deliveryapis.PackageEntry{
 		{
-			Kind:           "binary",
-			Name:           "kubeclipper-agent",
+			Kind:           "bootstrap",
+			Name:           "kubeclipper",
 			Version:        "v1.7.0",
 			Arch:           "amd64",
 			ContentProfile: deliveryapis.ContentProfileBinary,
 			Transport: deliveryapis.TransportRef{
 				Type:   deliveryapis.TransportOCI,
-				Ref:    "registry.local:5000/kubeclipper/packages/binary/kubeclipper-agent:v1.7.0",
+				Ref:    "registry.local:5000/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			},
 			Contents: []deliveryapis.ArtifactContent{
-				{Name: deliveryapis.ContentBinary, File: "kubeclipper-agent", MediaType: deliveryapis.MediaTypeBinaryLayer},
+				{Name: "kubeclipper-agent", File: "kubeclipper-agent", MediaType: deliveryapis.MediaTypeBinaryLayer},
 			},
 		},
 	}
@@ -88,14 +88,14 @@ func TestResolveBootstrapBinaryComponent(t *testing.T) {
 		registryPackageInventoryIndexer = oldIndexer
 	}()
 
-	component, err := resolveBootstrapBinaryComponent(context.Background(), "registry.local:5000", staticKubeadmPolicyStore{policy: kubeadmBootstrapPolicy()}, "amd64", "v1.36.0", "kubeclipper-agent")
+	component, err := resolveBootstrapBinaryComponent(context.Background(), "registry.local:5000", staticKubeadmPolicyStore{policy: kubeadmBootstrapPolicy()}, "amd64", "v1.36.0", "kubeclipper", "kubeclipper-agent")
 	if err != nil {
 		t.Fatalf("resolveBootstrapBinaryComponent() error = %v", err)
 	}
-	if component.Kind != "binary" || component.Name != "kubeclipper-agent" {
+	if component.Kind != "bootstrap" || component.Name != "kubeclipper" {
 		t.Fatalf("component = %+v", component)
 	}
-	if component.Contents[0].Name != deliveryapis.ContentBinary {
+	if component.Contents[0].Name != "kubeclipper-agent" {
 		t.Fatalf("content = %+v", component.Contents[0])
 	}
 }
@@ -110,7 +110,7 @@ func TestResolveBootstrapBinaryComponentNotFound(t *testing.T) {
 		registryPackageInventoryIndexer = oldIndexer
 	}()
 
-	_, err := resolveBootstrapBinaryComponent(context.Background(), "registry.local:5000", staticKubeadmPolicyStore{policy: kubeadmBootstrapPolicy()}, "amd64", "v1.36.0", "kubeclipper-agent")
+	_, err := resolveBootstrapBinaryComponent(context.Background(), "registry.local:5000", staticKubeadmPolicyStore{policy: kubeadmBootstrapPolicy()}, "amd64", "v1.36.0", "kubeclipper", "kubeclipper-agent")
 	if err == nil {
 		t.Fatalf("resolveBootstrapBinaryComponent() expected error")
 	}
@@ -128,7 +128,7 @@ func TestResolveBootstrapBinaryComponentReturnsRegistryErrorWithoutFileFallback(
 		registryPackageInventoryIndexer = oldIndexer
 	}()
 
-	_, err := resolveBootstrapBinaryComponent(context.Background(), "registry.local:5000", staticKubeadmPolicyStore{policy: kubeadmBootstrapPolicy()}, "amd64", "v1.36.0", "kubeclipper-agent")
+	_, err := resolveBootstrapBinaryComponent(context.Background(), "registry.local:5000", staticKubeadmPolicyStore{policy: kubeadmBootstrapPolicy()}, "amd64", "v1.36.0", "kubeclipper", "kubeclipper-agent")
 	if err == nil {
 		t.Fatalf("resolveBootstrapBinaryComponent() expected error")
 	}
@@ -143,13 +143,13 @@ func kubeadmBootstrapPolicy() *deliveryapis.SupportPolicy {
 		Name:  "k8s-v1.36",
 		Match: deliveryapis.PolicyMatch{KubernetesVersion: "v1.36.*"},
 		ComponentSlots: []deliveryapis.ComponentSlotRule{{
-			Slot:      "bootstrap-kubeclipper-agent",
+			Slot:      "bootstrap-kubeclipper",
 			Selection: deliveryapis.SelectionOneOf,
 			Required:  true,
-			Default:   deliveryapis.ComponentChoice{Name: "kubeclipper-agent", Version: "v1.7.0"},
+			Default:   deliveryapis.ComponentChoice{Name: "kubeclipper", Version: "v1.7.0"},
 			Options: []deliveryapis.ComponentOption{{
-				Kind:            "binary",
-				Name:            "kubeclipper-agent",
+				Kind:            "bootstrap",
+				Name:            "kubeclipper",
 				AllowedVersions: []string{"v1.7.0"},
 			}},
 		}},

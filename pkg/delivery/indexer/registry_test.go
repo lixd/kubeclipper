@@ -182,6 +182,56 @@ func TestRegistryPackageIndexerProjectsMultiArchArtifacts(t *testing.T) {
 	}
 }
 
+func TestRegistryPackageIndexerProjectsKnownHelmChartAsComponent(t *testing.T) {
+	client := &fakeRegistryClient{
+		repositories: []string{
+			"kubeclipper/charts/tigera-operator",
+		},
+		tags: map[string][]string{
+			"kubeclipper/charts/tigera-operator": {"v3.31.5"},
+		},
+		artifacts: map[string][]RegistryPackageArtifact{
+			"registry.local/kubeclipper/charts/tigera-operator:v3.31.5": {{
+				Digest: testDigest,
+				Image:  empty.Image,
+			}},
+		},
+	}
+	inventory, err := NewRegistryPackageInventoryIndexer(client).Index(context.Background(), "registry.local")
+	if err != nil {
+		t.Fatalf("Index() error: %+v", err)
+	}
+	if len(inventory.Spec.Packages) != 2 {
+		t.Fatalf("package count = %d, want 2", len(inventory.Spec.Packages))
+	}
+	byArch := map[string]deliveryapis.PackageEntry{}
+	for _, pkg := range inventory.Spec.Packages {
+		byArch[pkg.Arch] = pkg
+	}
+	for _, arch := range []string{"amd64", "arm64"} {
+		pkg, ok := byArch[arch]
+		if !ok {
+			t.Fatalf("missing projected calico chart package for arch %s", arch)
+		}
+		if pkg.Kind != "cni" || pkg.Name != "calico" || pkg.Version != "v3.31.5" {
+			t.Fatalf("package identity = %+v", pkg)
+		}
+		if pkg.Transport.Ref != "registry.local/kubeclipper/charts/tigera-operator:v3.31.5" {
+			t.Fatalf("transport ref = %q", pkg.Transport.Ref)
+		}
+		if len(pkg.Contents) != 1 {
+			t.Fatalf("content count = %d, want 1", len(pkg.Contents))
+		}
+		content := pkg.Contents[0]
+		if content.Name != deliveryapis.ContentCharts || content.Transport.Type != deliveryapis.TransportHelmOCI {
+			t.Fatalf("chart content = %+v", content)
+		}
+		if content.Transport.Ref != "registry.local/kubeclipper/charts/tigera-operator" {
+			t.Fatalf("chart transport ref = %q", content.Transport.Ref)
+		}
+	}
+}
+
 func TestRegistryPackageIndexerSkipsInvalidArtifact(t *testing.T) {
 	validImage := testPackageImage(t, deliveryapis.PackageManifest{
 		SchemaVersion:  1,

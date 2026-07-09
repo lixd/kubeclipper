@@ -97,6 +97,7 @@ func requiredRuntimeImages(cluster *corev1.Cluster) ([]string, error) {
 		registry + "/etcd:" + versions.Etcd,
 		registry + "/coredns:" + versions.CoreDNS,
 		registry + "/pause:" + versions.Pause,
+		registry + "/fanux/lvscare:v1.1.1",
 		registry + "/kubeclipper/kubectl:latest",
 	}
 	if _, onlyK8s := cluster.Annotations[common.AnnotationOnlyInstallKubernetesComp]; !onlyK8s && cluster.CNI.Type == "calico" {

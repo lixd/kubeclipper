@@ -55,7 +55,7 @@ kcctl deploy \
   --package-registry 10.0.0.10:5000
 ```
 
-新模式要求 `10.0.0.10:5000` 中已经存在 KubeClipper bootstrap 二进制 artifact，例如 `kcctl`、`kubeclipper-server`、`kubeclipper-agent`、`etcd`、`caddy`、`registry`、`kc-console` 等。
+新模式要求 `10.0.0.10:5000` 中已经存在 KubeClipper bootstrap 二进制 artifact，例如 `kubeclipper-server`、`kubeclipper-agent`、`etcd`、`caddy`、`registry`、`kc-console` 等。`kcctl` 由用户从 GitHub Release 下载，不放入 package registry。
 
 ### 2. 扩容 agent 节点
 
@@ -320,4 +320,3 @@ kcctl create cluster \
   --local-registry 10.0.0.10:5000 \
   --insecure-registry 10.0.0.10:5000
 ```
-

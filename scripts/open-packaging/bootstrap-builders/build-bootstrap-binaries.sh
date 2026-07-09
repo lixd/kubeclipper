@@ -54,6 +54,42 @@ need_value() {
   [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a value"
 }
 
+docker_network_args() {
+  if [[ -n "${KC_DOCKER_NETWORK:-}" ]]; then
+    printf '%s\n' "--network=${KC_DOCKER_NETWORK}"
+  fi
+}
+
+docker_proxy_args() {
+  if [[ "${KC_DOCKER_PROXY:-true}" == "false" ]]; then
+    return
+  fi
+  for name in HTTP_PROXY HTTPS_PROXY NO_PROXY http_proxy https_proxy no_proxy; do
+    if [[ -n "${!name:-}" ]]; then
+      printf '%s\n' "-e"
+      printf '%s\n' "$name=${!name}"
+    fi
+  done
+}
+
+docker_go_cache_args() {
+  local cache_root="${KC_GO_CACHE_DIR:-${TMPDIR:-/tmp}/kc-go-build-cache}"
+  mkdir -p "$cache_root/pkg/mod" "$cache_root/build"
+  printf '%s\n' "-v"
+  printf '%s\n' "$cache_root/pkg/mod:/go/pkg/mod"
+  printf '%s\n' "-v"
+  printf '%s\n' "$cache_root/build:/root/.cache/go-build"
+}
+
+docker_go_env_args() {
+  for name in GOPROXY GOSUMDB GOPRIVATE GONOSUMDB GONOPROXY; do
+    if [[ -n "${!name:-}" ]]; then
+      printf '%s\n' "-e"
+      printf '%s\n' "$name=${!name}"
+    fi
+  done
+}
+
 download() {
   local url=$1
   local dst=$2
@@ -112,11 +148,38 @@ trap 'rm -rf "$work"' EXIT
 
 if [[ "$skip_core" != true ]]; then
   echo "==> building KubeClipper core binaries ${kc_version:+($kc_version) }for linux/$arch"
-  (
-    cd "$ROOT"
-    GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-server" ./cmd/kubeclipper-server
-    GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-agent" ./cmd/kubeclipper-agent
-  )
+  if command -v go >/dev/null 2>&1; then
+    (
+      cd "$ROOT"
+      for attempt in 1 2 3; do
+        if GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-server" ./cmd/kubeclipper-server &&
+          GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-agent" ./cmd/kubeclipper-agent; then
+          exit 0
+        fi
+        echo "go build failed; retrying ($attempt/3)" >&2
+        sleep "$((attempt * 2))"
+      done
+      exit 1
+    )
+  else
+    engine="$(command -v docker || command -v podman || true)"
+    [[ -n "$engine" ]] || die "go is not installed and docker/podman is not available for containerized build"
+    image="${KC_GO_BUILDER_IMAGE:-golang:1.24.2}"
+    echo "==> go not found; building with $image"
+    "$engine" run --rm \
+      $(docker_network_args) \
+      $(docker_proxy_args) \
+      $(docker_go_cache_args) \
+      $(docker_go_env_args) \
+      -v "$ROOT:/workspace" \
+      -v "$output_dir:/out" \
+      -w /workspace \
+      -e GOOS=linux \
+      -e GOARCH="$arch" \
+      -e CGO_ENABLED=0 \
+      "$image" \
+      sh -c 'for attempt in 1 2 3; do go build -o /out/kubeclipper-server ./cmd/kubeclipper-server && go build -o /out/kubeclipper-agent ./cmd/kubeclipper-agent && exit 0; echo "go build failed; retrying ($attempt/3)" >&2; sleep $((attempt * 2)); done; exit 1'
+  fi
 fi
 
 if [[ "$skip_external" != true ]]; then

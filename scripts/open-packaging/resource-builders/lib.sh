@@ -93,63 +93,6 @@ copy_or_download() {
   download "$url" "$dst"
 }
 
-image_tool() {
-  local requested=$1
-  if [[ -n "$requested" ]]; then
-    need_cmd "$requested"
-    echo "$requested"
-    return
-  fi
-  if command -v podman >/dev/null 2>&1; then
-    echo "podman"
-    return
-  fi
-  if command -v docker >/dev/null 2>&1; then
-    echo "docker"
-    return
-  fi
-  die "podman or docker is required to build images.tar.gz"
-}
-
-pull_image_for_arch() {
-  local tool=$1
-  local image=$2
-  local target_arch=$3
-
-  case "$tool" in
-  podman)
-    podman pull --platform "linux/$target_arch" "$image"
-    ;;
-  docker)
-    docker pull --platform "linux/$target_arch" "$image"
-    ;;
-  *)
-    die "unsupported image tool: $tool"
-    ;;
-  esac
-}
-
-save_images() {
-  local tool=$1
-  local output=$2
-  shift 2
-
-  [[ $# -gt 0 ]] || die "no images to save"
-  mkdir -p "$(dirname "$output")"
-  case "$tool" in
-  podman)
-    podman save -m "$@" > "${output%.gz}"
-    ;;
-  docker)
-    docker save "$@" > "${output%.gz}"
-    ;;
-  *)
-    die "unsupported image tool: $tool"
-    ;;
-  esac
-  gzip -f "${output%.gz}"
-}
-
 run_with_optional_timeout() {
   local seconds=$1
   shift

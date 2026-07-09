@@ -23,7 +23,26 @@ import (
 	"strings"
 )
 
-const PackageRepositoryPrefix = "kubeclipper/packages"
+const (
+	PackageRepositoryPrefix = "kubeclipper/packages"
+	ChartRepositoryPrefix   = "kubeclipper/charts"
+)
+
+type HelmChartComponent struct {
+	ChartName string
+	Kind      string
+	Name      string
+	Profile   string
+}
+
+var helmChartComponents = []HelmChartComponent{
+	{
+		ChartName: "tigera-operator",
+		Kind:      "cni",
+		Name:      "calico",
+		Profile:   ContentProfileAddon,
+	},
+}
 
 type PackageManifestFile struct {
 	Name      string       `json:"name"`
@@ -67,6 +86,79 @@ func ParsePackageRepository(repository string) (kind, name string, ok bool) {
 		return "", "", false
 	}
 	return parts[0], parts[1], true
+}
+
+func ResolveHelmChartComponent(repository string) (HelmChartComponent, bool) {
+	repository = strings.Trim(repository, "/")
+	prefix := ChartRepositoryPrefix + "/"
+	if !strings.HasPrefix(repository, prefix) {
+		return HelmChartComponent{}, false
+	}
+	chartName := strings.TrimPrefix(repository, prefix)
+	if chartName == "" || strings.Contains(chartName, "/") {
+		return HelmChartComponent{}, false
+	}
+	for _, component := range helmChartComponents {
+		if component.ChartName == chartName {
+			return component, true
+		}
+	}
+	return HelmChartComponent{}, false
+}
+
+func DerivePackageEntriesFromHelmChart(ref PackageRef, component HelmChartComponent, archs []string) ([]PackageEntry, error) {
+	if ref.Registry == "" {
+		return nil, fmt.Errorf("registry is required")
+	}
+	if ref.Repository == "" {
+		return nil, fmt.Errorf("repository is required")
+	}
+	if ref.Tag == "" {
+		return nil, fmt.Errorf("tag is required")
+	}
+	if !digestRegexp.MatchString(ref.Digest) {
+		return nil, fmt.Errorf("digest must be sha256:<64 hex>")
+	}
+	if component.Kind == "" || component.Name == "" || component.ChartName == "" {
+		return nil, fmt.Errorf("helm chart component mapping is incomplete")
+	}
+	if len(archs) == 0 {
+		return nil, fmt.Errorf("archs are required")
+	}
+	refString := packageRef(ref.Registry, ref.Repository, ref.Tag)
+	entries := make([]PackageEntry, 0, len(archs))
+	for _, arch := range archs {
+		entry := PackageEntry{
+			Kind:           component.Kind,
+			Name:           component.Name,
+			Version:        ref.Tag,
+			OS:             DefaultPackageOS,
+			Arch:           arch,
+			ContentProfile: component.Profile,
+			Transport: TransportRef{
+				Type:   TransportOCI,
+				Ref:    refString,
+				Digest: ref.Digest,
+			},
+			Contents: []ArtifactContent{
+				{
+					Name:      ContentCharts,
+					File:      "charts.tgz",
+					MediaType: MediaTypeHelmChartLayer,
+					Transport: TransportRef{
+						Type:   TransportHelmOCI,
+						Ref:    repositoryRef(ref.Registry, ref.Repository),
+						Digest: ref.Digest,
+					},
+				},
+			},
+		}
+		if err := validatePackageEntry(entry); err != nil {
+			return nil, fmt.Errorf("derived helm chart package %s/%s:%s/%s/%s: %w", entry.Kind, entry.Name, entry.Version, entry.OS, entry.Arch, err)
+		}
+		entries = append(entries, entry)
+	}
+	return entries, nil
 }
 
 func DerivePackageEntryFromManifest(ref PackageRef, manifest PackageManifest) (PackageEntry, error) {
@@ -163,4 +255,8 @@ func contentsFromManifestFiles(files []PackageManifestFile) ([]ArtifactContent, 
 
 func packageRef(registry, repository, tag string) string {
 	return fmt.Sprintf("%s/%s:%s", strings.TrimRight(registry, "/"), strings.Trim(repository, "/"), tag)
+}
+
+func repositoryRef(registry, repository string) string {
+	return fmt.Sprintf("%s/%s", strings.TrimRight(registry, "/"), strings.Trim(repository, "/"))
 }

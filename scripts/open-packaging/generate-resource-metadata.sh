@@ -99,12 +99,10 @@ for path in sorted(p for p in glob.glob(os.path.join(root, "*", "*", "*")) if os
         "arch": arch,
         "hasConfigs": "configs.tar.gz" in files,
         "hasChart": "charts.tgz" in files,
-        "hasImagesArchive": "images.tar.gz" in files,
         "hasImagesList": "images.txt" in files,
         "hasBinary": any(os.path.isfile(os.path.join(path, name)) and name not in {
             "configs.tar.gz",
             "charts.tgz",
-            "images.tar.gz",
             "images.txt",
             "manifest.json",
         } for name in files),
