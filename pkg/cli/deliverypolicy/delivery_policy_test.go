@@ -194,7 +194,7 @@ func TestRunTemplate(t *testing.T) {
 	assertTemplateSlot(t, policy, "cni", "cni", "calico", "v3.31.5")
 	assertTemplateSlot(t, policy, "k8s-extension", "k8s-extension", "k8s-extension", "v1")
 	assertTemplateSlot(t, policy, "bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v1.8.0")
-	assertTemplateSlot(t, policy, "bootstrap-etcd", "bootstrap", "etcd", "v3.5.15")
+	assertTemplateSlot(t, policy, "bootstrap-etcd", "bootstrap", "etcd", "3.5.21")
 }
 
 func TestRunDiff(t *testing.T) {

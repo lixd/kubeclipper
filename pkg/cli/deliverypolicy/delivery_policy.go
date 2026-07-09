@@ -306,9 +306,9 @@ func defaultPolicyTemplate() *deliveryapis.SupportPolicy {
 				Slot:      "bootstrap-etcd",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "etcd", Version: "v3.5.15"},
+				Default:   deliveryapis.ComponentChoice{Name: "etcd", Version: "3.5.21"},
 				Options: []deliveryapis.ComponentOption{
-					{Kind: "bootstrap", Name: "etcd", AllowedVersions: []string{"v3.5.15"}},
+					{Kind: "bootstrap", Name: "etcd", AllowedVersions: []string{"3.5.21"}},
 				},
 			},
 		},
