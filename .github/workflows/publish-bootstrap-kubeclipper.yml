@@ -6,6 +6,7 @@ on:
       - main
       - master
       - "release-*"
+      - codex/oci-action-test
     tags:
       - "v*"
   workflow_dispatch:

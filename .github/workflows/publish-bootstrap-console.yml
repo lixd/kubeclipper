@@ -1,6 +1,9 @@
 name: publish-bootstrap-console
 
 on:
+  push:
+    branches:
+      - codex/oci-action-test
   workflow_dispatch:
     inputs:
       version:
@@ -24,11 +27,21 @@ permissions:
   packages: write
 
 jobs:
-  publish:
+  publish-manual:
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/_publish-oci-component.yml
     with:
       component: bootstrap-console
       version: ${{ inputs.version }}
       architecture: ${{ inputs.architecture }}
       registry_prefix: ${{ inputs.registry_prefix }}
+    secrets: inherit
+
+  publish-action-test:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: bootstrap-console
+      version: v1.6.0
+      architecture: all
     secrets: inherit

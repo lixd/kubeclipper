@@ -1,6 +1,9 @@
 name: publish-resource-calico
 
 on:
+  push:
+    branches:
+      - codex/oci-action-test
   workflow_dispatch:
     inputs:
       version:
@@ -24,11 +27,25 @@ permissions:
   packages: write
 
 jobs:
-  publish:
+  publish-manual:
+    if: github.event_name == 'workflow_dispatch'
     uses: ./.github/workflows/_publish-oci-component.yml
     with:
       component: resource-calico
       version: ${{ inputs.version }}
       architecture: ${{ inputs.architecture }}
       registry_prefix: ${{ inputs.registry_prefix }}
+    secrets: inherit
+
+  publish-action-test:
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        version: [v3.31.5, v3.29.6]
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: resource-calico
+      version: ${{ matrix.version }}
+      architecture: all
     secrets: inherit
