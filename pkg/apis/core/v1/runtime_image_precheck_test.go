@@ -52,6 +52,69 @@ func TestRequiredRuntimeImagesForKubernetesAndCalico(t *testing.T) {
 	}
 }
 
+func TestRequiredRuntimeImagesForSupportedKubernetesMinors(t *testing.T) {
+	tests := []struct {
+		name              string
+		kubernetesVersion string
+		cniVersion        string
+		etcd              string
+		coreDNS           string
+		pause             string
+		operator          string
+	}{
+		{
+			name:              "v1.36",
+			kubernetesVersion: "v1.36.1",
+			cniVersion:        "v3.31.5",
+			etcd:              "3.6.8-0",
+			coreDNS:           "v1.14.2",
+			pause:             "3.10.2",
+			operator:          "v1.40.8",
+		},
+		{
+			name:              "v1.35",
+			kubernetesVersion: "v1.35.0",
+			cniVersion:        "v3.29.6",
+			etcd:              "3.6.6-0",
+			coreDNS:           "v1.13.1",
+			pause:             "3.10.1",
+			operator:          "v1.36.14",
+		},
+		{
+			name:              "v1.34",
+			kubernetesVersion: "v1.34.2",
+			cniVersion:        "v3.29.6",
+			etcd:              "3.6.5-0",
+			coreDNS:           "v1.12.1",
+			pause:             "3.10.1",
+			operator:          "v1.36.14",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster := runtimeImagePrecheckCluster()
+			cluster.KubernetesVersion = tt.kubernetesVersion
+			cluster.CNI.Version = tt.cniVersion
+			images, err := requiredRuntimeImages(cluster)
+			if err != nil {
+				t.Fatalf("requiredRuntimeImages() error = %+v", err)
+			}
+			for _, want := range []string{
+				"registry.local:5000/kube-apiserver:" + tt.kubernetesVersion,
+				"registry.local:5000/etcd:" + tt.etcd,
+				"registry.local:5000/coredns:" + tt.coreDNS,
+				"registry.local:5000/pause:" + tt.pause,
+				"registry.local:5000/tigera/operator:" + tt.operator,
+				"registry.local:5000/calico/node:" + tt.cniVersion,
+			} {
+				if !containsString(images, want) {
+					t.Fatalf("required images missing %s in %v", want, images)
+				}
+			}
+		})
+	}
+}
+
 func TestPrecheckRuntimeImagesRequiresLocalRegistry(t *testing.T) {
 	cluster := runtimeImagePrecheckCluster()
 	cluster.LocalRegistry = ""

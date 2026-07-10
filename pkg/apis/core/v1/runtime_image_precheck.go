@@ -40,6 +40,8 @@ type runtimeImageVersions struct {
 
 var (
 	kubernetesRuntimeImageVersions = map[string]runtimeImageVersions{
+		"1.34": {Etcd: "3.6.5-0", CoreDNS: "v1.12.1", Pause: "3.10.1"},
+		"1.35": {Etcd: "3.6.6-0", CoreDNS: "v1.13.1", Pause: "3.10.1"},
 		"1.36": {Etcd: "3.6.8-0", CoreDNS: "v1.14.2", Pause: "3.10.2"},
 	}
 	calicoOperatorVersions = map[string]string{

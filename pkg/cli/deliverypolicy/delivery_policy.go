@@ -262,58 +262,38 @@ func (o *DeliveryPolicyOptions) RunDiff() error {
 
 func defaultPolicyTemplate() *deliveryapis.SupportPolicy {
 	policy := deliveryapis.NewSupportPolicy("default")
-	policy.Spec.Policies = []deliveryapis.KubernetesSupportPolicy{{
-		Name:  "k8s-v1.36",
-		Match: deliveryapis.PolicyMatch{KubernetesVersion: "v1.36.*"},
-		ComponentSlots: []deliveryapis.ComponentSlotRule{
-			{
-				Slot:      "cri",
-				Selection: deliveryapis.SelectionOneOf,
-				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "containerd", Version: "2.2.4"},
-				Options: []deliveryapis.ComponentOption{
-					{Kind: "cri", Name: "containerd", AllowedVersions: []string{"2.2.4"}},
-				},
-			},
-			{
-				Slot:      "cni",
-				Selection: deliveryapis.SelectionOneOf,
-				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "calico", Version: "v3.31.5"},
-				Options: []deliveryapis.ComponentOption{
-					{Kind: "cni", Name: "calico", AllowedVersions: []string{"v3.31.5"}},
-				},
-			},
-			{
-				Slot:      "k8s-extension",
-				Selection: deliveryapis.SelectionOneOf,
-				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "k8s-extension", Version: "v1"},
-				Options: []deliveryapis.ComponentOption{
-					{Kind: "k8s-extension", Name: "k8s-extension", AllowedVersions: []string{"v1"}},
-				},
-			},
-			{
-				Slot:      "bootstrap-kubeclipper",
-				Selection: deliveryapis.SelectionOneOf,
-				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "kubeclipper", Version: "v1.8.0"},
-				Options: []deliveryapis.ComponentOption{
-					{Kind: "bootstrap", Name: "kubeclipper", AllowedVersions: []string{"v1.8.0"}},
-				},
-			},
-			{
-				Slot:      "bootstrap-etcd",
-				Selection: deliveryapis.SelectionOneOf,
-				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "etcd", Version: "3.5.21"},
-				Options: []deliveryapis.ComponentOption{
-					{Kind: "bootstrap", Name: "etcd", AllowedVersions: []string{"3.5.21"}},
-				},
-			},
-		},
-	}}
+	policy.Spec.Policies = []deliveryapis.KubernetesSupportPolicy{
+		defaultKubernetesPolicy("k8s-v1.36", "v1.36.*", "2.2.4", "v3.31.5"),
+		defaultKubernetesPolicy("k8s-v1.35", "v1.35.*", "1.7.29", "v3.29.6"),
+		defaultKubernetesPolicy("k8s-v1.34", "v1.34.*", "1.7.29", "v3.29.6"),
+	}
 	return policy
+}
+
+func defaultKubernetesPolicy(name, kubernetesVersion, containerdVersion, calicoVersion string) deliveryapis.KubernetesSupportPolicy {
+	return deliveryapis.KubernetesSupportPolicy{
+		Name:  name,
+		Match: deliveryapis.PolicyMatch{KubernetesVersion: kubernetesVersion},
+		ComponentSlots: []deliveryapis.ComponentSlotRule{
+			defaultComponentSlot("cri", "cri", "containerd", containerdVersion),
+			defaultComponentSlot("cni", "cni", "calico", calicoVersion),
+			defaultComponentSlot("k8s-extension", "k8s-extension", "k8s-extension", "v1"),
+			defaultComponentSlot("bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v1.8.0"),
+			defaultComponentSlot("bootstrap-etcd", "bootstrap", "etcd", "3.5.21"),
+		},
+	}
+}
+
+func defaultComponentSlot(slot, kind, name, version string) deliveryapis.ComponentSlotRule {
+	return deliveryapis.ComponentSlotRule{
+		Slot:      slot,
+		Selection: deliveryapis.SelectionOneOf,
+		Required:  true,
+		Default:   deliveryapis.ComponentChoice{Name: name, Version: version},
+		Options: []deliveryapis.ComponentOption{
+			{Kind: kind, Name: name, AllowedVersions: []string{version}},
+		},
+	}
 }
 
 func loadPolicyFromFile(path string) (*deliveryapis.SupportPolicy, error) {
