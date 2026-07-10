@@ -63,7 +63,8 @@ const (
 	defaultRegistryPackageRegistry = "ghcr.io/lixd/kubeclipper"
 	defaultRegistryVersion         = "3.1.1"
 	defaultRegistryComponentArch   = "amd64"
-	registryBinaryPathInImage      = "/opt/kubeclipper/resource/registry"
+	packageRegistryBinaryPath      = "/opt/kubeclipper/resource/registry"
+	standardRegistryBinaryPath     = "/bin/registry"
 
 	longDescription = `
   Docker registry operation.
@@ -834,7 +835,7 @@ func (o *RegistryOptions) obtainRegistryBinary() (string, func(), error) {
 	}
 
 	if o.RegistryImageArchive != "" {
-		path, cleanup, err := o.obtainRegistryBinaryFromArchive(o.RegistryImageArchive)
+		path, cleanup, err := o.obtainRegistryBinaryFromArchive(o.RegistryImageArchive, standardRegistryBinaryPath)
 		if err != nil {
 			return "", cleanup, err
 		}
@@ -842,11 +843,20 @@ func (o *RegistryOptions) obtainRegistryBinary() (string, func(), error) {
 		return path, cleanup, nil
 	}
 
+	if o.RegistryImage != "" {
+		path, cleanup, err := o.obtainRegistryBinaryFromImage(o.RegistryImage, standardRegistryBinaryPath)
+		if err != nil {
+			return "", cleanup, err
+		}
+		logger.Infof("extracted registry binary from image %s", o.RegistryImage)
+		return path, cleanup, nil
+	}
+
 	ref, err := o.resolveRegistryImage()
 	if err != nil {
 		return "", nil, err
 	}
-	path, cleanup, err := o.obtainRegistryBinaryFromImage(ref)
+	path, cleanup, err := o.obtainRegistryBinaryFromImage(ref, packageRegistryBinaryPath)
 	if err != nil {
 		return "", cleanup, err
 	}
@@ -869,7 +879,7 @@ func (o *RegistryOptions) resolveRegistryImage() (string, error) {
 	return fmt.Sprintf("%s/%s/bootstrap/registry:%s", registry, "kubeclipper/packages", version), nil
 }
 
-func (o *RegistryOptions) obtainRegistryBinaryFromImage(ref string) (string, func(), error) {
+func (o *RegistryOptions) obtainRegistryBinaryFromImage(ref, binaryPath string) (string, func(), error) {
 	logger.Infof("pull registry image %s", ref)
 	img, err := crane.Pull(ref, crane.Insecure, crane.WithPlatform(&containerv1.Platform{
 		OS:           "linux",
@@ -878,15 +888,15 @@ func (o *RegistryOptions) obtainRegistryBinaryFromImage(ref string) (string, fun
 	if err != nil {
 		return "", nil, err
 	}
-	return extractRegistryBinaryToTemp(img)
+	return extractRegistryBinaryToTemp(img, binaryPath)
 }
 
-func (o *RegistryOptions) obtainRegistryBinaryFromArchive(archivePath string) (string, func(), error) {
+func (o *RegistryOptions) obtainRegistryBinaryFromArchive(archivePath, binaryPath string) (string, func(), error) {
 	img, err := tarball.Image(dockerArchiveOpener(archivePath), nil)
 	if err != nil {
 		return "", nil, err
 	}
-	return extractRegistryBinaryToTemp(img)
+	return extractRegistryBinaryToTemp(img, binaryPath)
 }
 
 func normalizeRegistryBinary(src string) (string, func(), error) {
@@ -905,7 +915,7 @@ func normalizeRegistryBinary(src string) (string, func(), error) {
 	return dst, cleanup, nil
 }
 
-func extractRegistryBinaryToTemp(img containerv1.Image) (string, func(), error) {
+func extractRegistryBinaryToTemp(img containerv1.Image, binaryPath string) (string, func(), error) {
 	tmpDir, err := os.MkdirTemp("", "kc-registry-image-")
 	if err != nil {
 		return "", nil, err
@@ -914,21 +924,21 @@ func extractRegistryBinaryToTemp(img containerv1.Image) (string, func(), error) 
 		_ = os.RemoveAll(tmpDir)
 	}
 	dst := filepath.Join(tmpDir, "registry")
-	if err = extractRegistryBinary(img, dst); err != nil {
+	if err = extractRegistryBinary(img, dst, binaryPath); err != nil {
 		cleanup()
 		return "", nil, err
 	}
 	return dst, cleanup, nil
 }
 
-func extractRegistryBinary(img containerv1.Image, dst string) error {
+func extractRegistryBinary(img containerv1.Image, dst, binaryPath string) error {
 	rc := mutate.Extract(img)
 	defer rc.Close()
 	tr := tar.NewReader(rc)
 	for {
 		header, err := tr.Next()
 		if errors.Is(err, io.EOF) {
-			return fmt.Errorf("registry binary not found in image; expected %s", registryBinaryPathInImage)
+			return fmt.Errorf("registry binary not found in image; expected %s", binaryPath)
 		}
 		if err != nil {
 			return err
@@ -936,7 +946,7 @@ func extractRegistryBinary(img containerv1.Image, dst string) error {
 		if header.Typeflag != tar.TypeReg {
 			continue
 		}
-		if !isRegistryBinaryPath(header.Name) {
+		if !isRegistryBinaryPath(header.Name, binaryPath) {
 			continue
 		}
 		mode := os.FileMode(header.Mode)
@@ -947,9 +957,9 @@ func extractRegistryBinary(img containerv1.Image, dst string) error {
 	}
 }
 
-func isRegistryBinaryPath(name string) bool {
+func isRegistryBinaryPath(name, expected string) bool {
 	cleaned := "/" + strings.TrimPrefix(filepath.ToSlash(filepath.Clean(name)), "/")
-	return cleaned == registryBinaryPathInImage
+	return cleaned == expected
 }
 
 func dockerArchiveOpener(archivePath string) tarball.Opener {

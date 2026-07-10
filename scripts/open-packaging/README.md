@@ -188,11 +188,11 @@ Notes:
   sources inside `build-k8s-extension-package.sh`, then packages that binary
   into the k8s-extension `configs.tar.gz`. There is no prebuilt-binary input;
   each k8s-extension package build compiles conntrack from source.
-- The conntrack source builder uses the official Debian package sources by
-  default. In slow or restricted networks, set `KC_APT_MIRROR` to a Debian
-  mirror URL. If the outer script needs a proxy but the Docker builder should
-  use direct network access, set `KC_DOCKER_PROXY=false`; `KC_DOCKER_NETWORK`
-  can be set to a Docker network such as `host`.
+- The conntrack source builder installs compiler dependencies from the host
+  package manager and builds natively when the target architecture matches the
+  builder. Docker is only a cross-architecture fallback. The standard proxy
+  variables work for the native build; `KC_APT_MIRROR`, `KC_DOCKER_PROXY`, and
+  `KC_DOCKER_NETWORK` apply to the Docker fallback.
 - `build-calico-package.sh` ships image lists for `v3.26.1`, `v3.29.6`, and
   `v3.31.5`. Use `--images-file` for other versions.
 - `build-addon-package.sh` covers optional image/chart style addons such as

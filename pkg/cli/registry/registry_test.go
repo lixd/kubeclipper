@@ -152,19 +152,23 @@ func TestNormalizeRegistryBinaryAlwaysNamesFileRegistry(t *testing.T) {
 	}
 }
 
-func TestExtractRegistryBinaryUsesAllowedPath(t *testing.T) {
-	img := testRegistryImage(t, "/opt/kubeclipper/resource/registry", "registry-binary")
-	dst := filepath.Join(t.TempDir(), "registry")
+func TestExtractRegistryBinaryUsesExpectedPath(t *testing.T) {
+	for _, binaryPath := range []string{packageRegistryBinaryPath, standardRegistryBinaryPath} {
+		t.Run(binaryPath, func(t *testing.T) {
+			img := testRegistryImage(t, binaryPath, "registry-binary")
+			dst := filepath.Join(t.TempDir(), "registry")
 
-	if err := extractRegistryBinary(img, dst); err != nil {
-		t.Fatalf("extractRegistryBinary() error = %+v", err)
-	}
-	data, err := os.ReadFile(dst)
-	if err != nil {
-		t.Fatalf("ReadFile() error = %+v", err)
-	}
-	if string(data) != "registry-binary" {
-		t.Fatalf("extracted binary = %q", string(data))
+			if err := extractRegistryBinary(img, dst, binaryPath); err != nil {
+				t.Fatalf("extractRegistryBinary() error = %+v", err)
+			}
+			data, err := os.ReadFile(dst)
+			if err != nil {
+				t.Fatalf("ReadFile() error = %+v", err)
+			}
+			if string(data) != "registry-binary" {
+				t.Fatalf("extracted binary = %q", string(data))
+			}
+		})
 	}
 }
 
@@ -172,7 +176,7 @@ func TestExtractRegistryBinaryRejectsUnexpectedPath(t *testing.T) {
 	img := testRegistryImage(t, "/tmp/registry", "registry-binary")
 	dst := filepath.Join(t.TempDir(), "registry")
 
-	err := extractRegistryBinary(img, dst)
+	err := extractRegistryBinary(img, dst, standardRegistryBinaryPath)
 	if err == nil {
 		t.Fatalf("extractRegistryBinary() expected error")
 	}

@@ -379,7 +379,7 @@ scripts/open-packaging/bootstrap-builders/build-kc-console.sh
 
 推荐方案是保留独立 `conntrack` 构建脚本，但不把它放进 k8s 原生包：
 
-1. `build-conntrack-binary.sh` 单独维护、单独测试，默认用 Docker 从 netfilter 官方源码构建目标架构的 `conntrack`。
+1. `build-conntrack-binary.sh` 单独维护、单独测试；目标架构与构建机一致时直接从 netfilter 官方源码构建 `conntrack`，跨架构时才使用 Docker fallback。
 2. `build-k8s-extension-package.sh` 每次直接调用 `build-conntrack-binary.sh`，不接收预构建二进制。
 3. 构建产物只落在 k8s-extension 打包临时目录中，然后被拷入 `configs.tar.gz` 的 `usr/bin/conntrack`。
 4. `publish-resource-k8s-extension.sh` 不发布 `binary/conntrack`；最终 Registry 中通过 `k8s-extension/k8s-extension:<version>` 分发。
