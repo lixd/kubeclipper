@@ -585,7 +585,8 @@ GitHub Actions 主路径使用 `crane` 或 `skopeo` 做镜像复制，避免先 
 
 ## 9. GitHub Actions 设计
 
-推荐拆成四类 workflow。
+发布 workflow 按组件拆分。组件之间不共享一次构建任务，只复用安装工具、
+GHCR 登录和结果校验逻辑。
 
 ### 9.1 PR validation
 
@@ -609,63 +610,27 @@ on:
 
 不拉取大镜像，不发布。
 
-### 9.2 Nightly build
+### 9.2 Component publish workflows
 
-触发：
+| Workflow | 触发方式 | 产物 |
+| --- | --- | --- |
+| `publish-bootstrap-kubeclipper.yml` | `main`、`master`、`release-*`、`v*` tag 或手动 | server/agent package image |
+| `publish-bootstrap-etcd.yml` | 手动 | etcd package image |
+| `publish-bootstrap-console.yml` | 手动 | Caddy/console package image |
+| `publish-bootstrap-registry.yml` | 手动 | Registry package image |
+| `publish-resource-k8s.yml` | 手动 | K8s package image + runtime images |
+| `publish-resource-containerd.yml` | 手动 | containerd package image |
+| `publish-resource-k8s-extension.yml` | 手动 | helper package image + runtime images |
+| `publish-resource-calico.yml` | 手动 | Helm OCI chart + runtime images |
+| `publish-resource-kc-runtime.yml` | 手动 | KubeClipper helper runtime images |
 
-```yaml
-on:
-  schedule:
-    - cron: "0 18 * * *"
-```
+`bootstrap/kubeclipper` 跟随代码提交自动构建。其 tag 规则为：Git tag 原样
+使用；`main`/`master` 使用 `latest`；其他允许自动构建的分支使用清理后的
+分支名，例如 `release-1.6`。其他组件只有在上游版本或打包内容发生变化时
+手动触发，不随 KubeClipper 每次提交重复构建。
 
-执行：
-
-1. 读取默认 `packaging/resources.yaml`。
-2. 构建核心包：`k8s`、`containerd`、`calico`。
-3. 拉取并校验 runtime images。
-4. 只推送到 staging registry。
-5. 跑 `oci-verify`。
-
-### 9.3 Release build
-
-触发：
-
-```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      release:
-        required: true
-      manifest:
-        default: packaging/resources.yaml
-```
-
-执行：
-
-1. 多架构矩阵构建。
-2. 发布 bootstrap binary package images。
-3. 发布 resource package images。
-4. 发布 Helm OCI charts。
-5. 发布 runtime images。
-6. 生成 release report。
-7. 可选创建 GitHub Release，附带 `resources.yaml`、`images.lock`、`checksums.txt`、`build-report.json`。
-
-### 9.4 Addon build
-
-触发：
-
-```yaml
-on:
-  workflow_dispatch:
-    inputs:
-      addon:
-        required: true
-      version:
-        required: true
-```
-
-用于构建 CSI、GPU、extension 等非核心资源，避免核心 release 被大量可选组件拖慢。
+内部 `_publish-oci-component.yml` 是复用实现，不是聚合发布入口。每个组件
+workflow 独立下载、构建、推送和验证自己的产物。
 
 ## 10. 当前脚本覆盖与缺口
 
@@ -682,7 +647,7 @@ on:
 | third-party binaries | 已有 `conntrack` builder；作为 k8s-extension 打包内部构建器使用，不单独发布 |
 | runtime image push | 已有 `push-runtime-images.sh`；按 `images.lock` 和 component/version/arch 过滤同步 |
 | build manifest | 已有 `packaging/resources.yaml` |
-| GitHub Actions workflow | 已有 PR validation workflow |
+| GitHub Actions workflow | 已有 PR validation 和九个独立组件发布 workflow |
 | sha256 lock/checksum | 未强制 |
 
 优先级建议：
@@ -691,7 +656,7 @@ on:
 2. P0：实现 `build-offline-resources.sh`，从 manifest 调度现有 builder。
 3. P0：解决 `conntrack` 默认公开来源。已采用源码构建并打包进 k8s-extension package。
 4. P0：实现 GitHub Actions PR validation。
-5. P1：实现 release build workflow，发布到 staging registry。
+5. P1：实现按组件独立发布到 GHCR 的 workflow。已完成。
 6. P1：实现 `push-runtime-images.sh`，替代 `images.tar.gz` 推送主路径。
 7. P1：为所有下载产物增加 sha256 lock。
 8. P2：完善 CSI/GPU/addon chart 来源和 release manifest。

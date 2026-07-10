@@ -281,6 +281,31 @@ func TestPackageInventoryValidateRejectsLatestVersion(t *testing.T) {
 	}
 }
 
+func TestPackageInventoryValidateAllowsLatestKubeClipperBootstrap(t *testing.T) {
+	catalog := NewPackageInventory("default")
+	catalog.Spec.Packages = []PackageEntry{
+		{
+			Name:           "kubeclipper",
+			Kind:           "bootstrap",
+			Version:        "latest",
+			Arch:           "amd64",
+			ContentProfile: ContentProfileBinary,
+			Transport: TransportRef{
+				Type:   TransportOCI,
+				Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:latest",
+				Digest: testDigest,
+			},
+			Contents: []ArtifactContent{
+				{Name: "kubeclipper-server", File: "kubeclipper-server", Digest: testDigest},
+				{Name: "kubeclipper-agent", File: "kubeclipper-agent", Digest: testDigest},
+			},
+		},
+	}
+	if err := catalog.Validate(); err != nil {
+		t.Fatalf("Validate() error = %+v", err)
+	}
+}
+
 func TestPackageInventoryValidateRejectsMismatchedPinnedRefDigest(t *testing.T) {
 	catalog := NewPackageInventory("default")
 	catalog.Spec.Packages = []PackageEntry{

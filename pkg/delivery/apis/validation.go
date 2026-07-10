@@ -84,7 +84,7 @@ func packageOS(os string) string {
 }
 
 func validatePackageEntry(pkg PackageEntry) error {
-	if err := validatePackageVersion(pkg.Version); err != nil {
+	if err := validatePackageVersion(pkg.Version); err != nil && !isMutableKubeClipperBootstrap(pkg) {
 		return err
 	}
 	if pkg.Transport.Type == "" {
@@ -106,6 +106,10 @@ func validatePackageEntry(pkg PackageEntry) error {
 		}
 	}
 	return validateContentProfile(pkg.ContentProfile, pkg.Contents)
+}
+
+func isMutableKubeClipperBootstrap(pkg PackageEntry) bool {
+	return pkg.Kind == "bootstrap" && pkg.Name == "kubeclipper" && strings.EqualFold(strings.TrimSpace(pkg.Version), "latest")
 }
 
 func validatePackageVersion(version string) error {

@@ -90,33 +90,41 @@ uses `crane` for Helm chart entries, and chart mirroring should use
 
 ## GitHub Actions Publishing
 
-`.github/workflows/publish-oci-resources.yml` is the release publisher for the
-same manifest-driven flow. It has no static-server or internal content-server
-dependency:
+Each publishable component has its own workflow. The workflows share only the
+internal setup/publish implementation in `_publish-oci-component.yml`; they do
+not run an aggregate release build:
 
-- Pushing a tag such as `v1.8.0` publishes the manifest only when its
-  `release` field is also `v1.8.0`. This prevents a KubeClipper tag from
-  accidentally publishing resource versions from another release manifest.
-- `workflow_dispatch` supports a different manifest, Registry prefix, and
-  architecture. Leave the Registry prefix empty to publish to
-  `ghcr.io/<repository-owner>/kubeclipper`, which lets forks test without
-  changing scripts or manifests.
-- The workflow logs into GHCR with `GITHUB_TOKEN`, builds `oci-publish` and
-  `helm-oci-publish`, fetches public upstream resources, publishes package
-  images/charts/runtime images, pins Registry digests, and verifies the final
-  release manifest.
-- `kcctl` remains a GitHub Release binary. The existing `release.yml` workflow
-  publishes it separately; this resource workflow intentionally does not put
-  `kcctl` into a bootstrap package image.
-- It uploads only release metadata (`release-manifest.yaml`, `images.lock`,
-  `charts.lock`, and the build manifest). The large temporary resource tree is
-  already represented by OCI artifacts in the Registry and is deliberately not
-  uploaded again as a GitHub Actions artifact.
+| Workflow | Trigger | Output |
+| --- | --- | --- |
+| `publish-bootstrap-kubeclipper.yml` | Push to `main`, `master`, `release-*`, a `v*` tag, or manual | KubeClipper server/agent package image |
+| `publish-bootstrap-etcd.yml` | Manual | etcd package image |
+| `publish-bootstrap-console.yml` | Manual | Caddy/console package image |
+| `publish-bootstrap-registry.yml` | Manual | Distribution Registry package image |
+| `publish-resource-k8s.yml` | Manual | Kubernetes package image and runtime images |
+| `publish-resource-containerd.yml` | Manual | containerd package image |
+| `publish-resource-k8s-extension.yml` | Manual | Kubernetes helper package image and runtime images |
+| `publish-resource-calico.yml` | Manual | Tigera operator Helm OCI chart and Calico runtime images |
+| `publish-resource-kc-runtime.yml` | Manual | KubeClipper helper runtime images |
 
-The workflow needs `packages: write`. For an organization, make the resulting
-GHCR packages public or grant pull access before using the Registry as an
-installation source. The default manifest currently targets `amd64`; select
-`arm64` or `all` manually after validating the relevant upstream versions.
+The automatic KubeClipper workflow derives its package tag from the Git ref:
+
+```text
+Git tag v1.8.0       -> v1.8.0
+main or master       -> latest
+release-1.8          -> release-1.8
+```
+
+Other branch names are converted to valid OCI tags by replacing unsupported
+characters such as `/` with `-`. `latest` is accepted only for the
+`bootstrap/kubeclipper` package; release policy and cluster resource packages
+still require explicit versions. All component workflows publish directly to
+GHCR with `GITHUB_TOKEN` and verify the resulting package, chart, and runtime
+image references. Leave `registry_prefix` empty to use
+`ghcr.io/<repository-owner>/kubeclipper`.
+
+`kcctl` remains a GitHub Release binary and is not included in a bootstrap
+package image. For an organization, make the resulting GHCR packages public or
+grant pull access before using the Registry as an installation source.
 
 Package images are built by `tools/oci-publish` through go-containerregistry.
 They do not need a Dockerfile. The generated image is still a normal OCI image:

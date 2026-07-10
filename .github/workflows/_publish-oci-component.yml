@@ -1,0 +1,223 @@
+name: publish-oci-component
+
+on:
+  workflow_call:
+    inputs:
+      component:
+        required: true
+        type: string
+      version:
+        required: false
+        default: ""
+        type: string
+      architecture:
+        required: false
+        default: amd64
+        type: string
+      registry_prefix:
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-${{ inputs.component }}-${{ inputs.version }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set up crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Set up QEMU for cross-architecture builds
+        if: inputs.component == 'resource-k8s-extension' && (inputs.architecture == 'arm64' || inputs.architecture == 'all')
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - name: Resolve component settings
+        id: settings
+        env:
+          INPUT_COMPONENT: ${{ inputs.component }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_ARCHITECTURE: ${{ inputs.architecture }}
+          INPUT_REGISTRY_PREFIX: ${{ inputs.registry_prefix }}
+        run: |
+          set -euo pipefail
+          component="$INPUT_COMPONENT"
+          version="$INPUT_VERSION"
+          architecture="${INPUT_ARCHITECTURE:-amd64}"
+          registry_prefix="${INPUT_REGISTRY_PREFIX:-ghcr.io/${{ github.repository_owner }}/kubeclipper}"
+          registry_prefix="$(printf '%s' "$registry_prefix" | tr '[:upper:]' '[:lower:]')"
+
+          case "$component" in
+            bootstrap-kubeclipper|bootstrap-etcd|bootstrap-console|bootstrap-registry|resource-k8s|resource-containerd|resource-k8s-extension|resource-calico|resource-kc-runtime) ;;
+            *) echo "unsupported component: $component" >&2; exit 1 ;;
+          esac
+          case "$architecture" in
+            amd64) architectures="amd64" ;;
+            arm64) architectures="arm64" ;;
+            all) architectures="amd64 arm64" ;;
+            *) echo "unsupported architecture: $architecture" >&2; exit 1 ;;
+          esac
+          if [[ -z "$version" ]]; then
+            if [[ "$component" != "bootstrap-kubeclipper" ]]; then
+              echo "version is required for $component" >&2
+              exit 1
+            fi
+            if [[ "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+              version="$GITHUB_REF_NAME"
+            elif [[ "$GITHUB_REF_NAME" == "main" || "$GITHUB_REF_NAME" == "master" ]]; then
+              version="latest"
+            else
+              version="$(printf '%s' "$GITHUB_REF_NAME" | sed -E 's#[^A-Za-z0-9_.-]+#-#g; s#^[.-]+##' | cut -c1-128)"
+            fi
+          fi
+          [[ -n "$version" ]] || { echo "resolved version is empty" >&2; exit 1; }
+          if [[ "${version,,}" == "latest" && "$component" != "bootstrap-kubeclipper" ]]; then
+            echo "latest is supported only for bootstrap-kubeclipper" >&2
+            exit 1
+          fi
+          [[ "${registry_prefix%%/*}" == "ghcr.io" ]] || {
+            echo "GitHub Actions publishing currently supports ghcr.io prefixes only" >&2
+            exit 1
+          }
+
+          echo "component=$component" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "architectures=$architectures" >> "$GITHUB_OUTPUT"
+          echo "registry_prefix=${registry_prefix%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build OCI publishing tools
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          go build -o bin/oci-publish ./tools/oci-publish
+          go build -o bin/helm-oci-publish ./tools/helm-oci-publish
+
+      - name: Build and publish component
+        env:
+          COMPONENT: ${{ steps.settings.outputs.component }}
+          VERSION: ${{ steps.settings.outputs.version }}
+          ARCHITECTURES: ${{ steps.settings.outputs.architectures }}
+          REGISTRY_PREFIX: ${{ steps.settings.outputs.registry_prefix }}
+          KC_DOWNLOAD_RETRIES: "5"
+          KC_DOWNLOAD_MAX_TIME: "1800"
+          KC_RESOURCE_DIR: ${{ runner.temp }}/kc-resource
+        run: |
+          set -euo pipefail
+          mkdir -p "$KC_RESOURCE_DIR"
+          for arch in $ARCHITECTURES; do
+            case "$COMPONENT" in
+              bootstrap-kubeclipper)
+                scripts/open-packaging/publish-bootstrap-kubeclipper.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              bootstrap-etcd)
+                scripts/open-packaging/publish-bootstrap-etcd.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              bootstrap-console)
+                scripts/open-packaging/publish-bootstrap-console.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              bootstrap-registry)
+                scripts/open-packaging/publish-bootstrap-registry.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-k8s)
+                scripts/open-packaging/publish-resource-k8s.sh --registry-prefix "$REGISTRY_PREFIX" --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-containerd)
+                scripts/open-packaging/publish-resource-containerd.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-k8s-extension)
+                scripts/open-packaging/publish-resource-k8s-extension.sh --registry-prefix "$REGISTRY_PREFIX" --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-calico)
+                scripts/open-packaging/publish-resource-calico.sh --registry-prefix "$REGISTRY_PREFIX" --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-kc-runtime)
+                scripts/open-packaging/publish-resource-kc-runtime.sh --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+            esac
+          done
+
+      - name: Verify published component
+        env:
+          COMPONENT: ${{ steps.settings.outputs.component }}
+          VERSION: ${{ steps.settings.outputs.version }}
+          ARCHITECTURES: ${{ steps.settings.outputs.architectures }}
+          REGISTRY_PREFIX: ${{ steps.settings.outputs.registry_prefix }}
+          KC_RESOURCE_DIR: ${{ runner.temp }}/kc-resource
+        run: |
+          set -euo pipefail
+          ref=""
+          case "$COMPONENT" in
+            bootstrap-kubeclipper) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/kubeclipper:$VERSION" ;;
+            bootstrap-etcd) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/etcd:$VERSION" ;;
+            bootstrap-console) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/console:$VERSION" ;;
+            bootstrap-registry) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/registry:$VERSION" ;;
+            resource-k8s) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s/k8s:$VERSION" ;;
+            resource-containerd) ref="$REGISTRY_PREFIX/kubeclipper/packages/cri/containerd:$VERSION" ;;
+            resource-k8s-extension) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s-extension/k8s-extension:$VERSION" ;;
+            resource-calico) ref="$REGISTRY_PREFIX/kubeclipper/charts/tigera-operator:${VERSION#v}" ;;
+          esac
+          if [[ -n "$ref" ]]; then
+            if [[ "$COMPONENT" == "resource-calico" ]]; then
+              crane digest "$ref"
+            else
+              for arch in $ARCHITECTURES; do
+                crane digest --platform "linux/$arch" "$ref"
+              done
+            fi
+          fi
+          if [[ -f "$KC_RESOURCE_DIR/images.lock" ]]; then
+            while IFS=$'\t' read -r _resource _version arch _source target; do
+              [[ "$arch" == "arch" || -z "$target" ]] && continue
+              case " $ARCHITECTURES " in
+                *" $arch "*) crane digest --platform "linux/$arch" "$target" ;;
+              esac
+            done < "$KC_RESOURCE_DIR/images.lock"
+          fi
+
+      - name: Publish summary
+        env:
+          COMPONENT: ${{ steps.settings.outputs.component }}
+          VERSION: ${{ steps.settings.outputs.version }}
+          ARCHITECTURES: ${{ steps.settings.outputs.architectures }}
+          REGISTRY_PREFIX: ${{ steps.settings.outputs.registry_prefix }}
+        run: |
+          {
+            echo "### OCI component published"
+            echo
+            echo "- Component: \`$COMPONENT\`"
+            echo "- Version/tag: \`$VERSION\`"
+            echo "- Architectures: \`$ARCHITECTURES\`"
+            echo "- Registry prefix: \`$REGISTRY_PREFIX\`"
+          } >> "$GITHUB_STEP_SUMMARY"

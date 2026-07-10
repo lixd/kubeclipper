@@ -157,12 +157,11 @@ Registry，不再发布 `extension/kc-runtime` package image。
 
 ## 6. 构建顺序建议
 
-推荐 GitHub Actions 拆成四段：
-
-1. Bootstrap resources：`kcctl` 只发布到 GitHub Release；构建并发布 `bootstrap/kubeclipper`、`bootstrap/etcd`、`bootstrap/console`、`bootstrap/registry` 四个 package image。
-2. Core resources：构建并发布 `k8s/k8s`、`k8s-extension/k8s-extension`、`cri/containerd`。
-3. Network resources：构建 Calico。其他 addon 只在按需发布时单独开启。
-4. Runtime image mirror：根据 `images.lock` 把所有运行时镜像同步到 `image-registry`。
+GitHub Actions 按组件提供九个独立发布入口。`bootstrap/kubeclipper` 跟随
+`main`、`master`、`release-*` 和 Git tag 自动构建；其他 bootstrap、K8s、
+containerd、k8s-extension、Calico 和 kc-runtime 组件按版本手动构建。
+runtime image 同步属于对应组件 Action 的一部分，不再单独运行一个全量
+release workflow。
 
 本地一键构建时可以直接跑：
 
@@ -181,6 +180,6 @@ scripts/open-packaging/build-offline-resources.sh \
 | 缺口 | 说明 | 建议 |
 | --- | --- | --- |
 | sha256 lock | 当前下载源没有统一 checksum lock。 | 后续增加 `checksums.lock`，CI 校验下载产物。 |
-| arm64 验证 | 脚本支持 `arm64/all`，但当前 manifest 只默认 `amd64`。 | 先跑通 amd64，再在 GitHub Actions matrix 开启 arm64。 |
+| arm64 验证 | `bootstrap/kubeclipper` Action 自动构建 amd64/arm64；其他组件可手动选择 `arm64/all`。 | 新增上游版本时分别确认其 arm64 下载和 runtime image 可用性。 |
 | 可选 addon chart 来源 | 新增可选 addon 前必须确认公开来源、许可证和稳定 chart 来源。 | 不满足开源条件的组件不进入 manifest 或脚本入口。 |
 | registry binary source | `bootstrap/registry` 使用 `distribution/distribution` GitHub Release，例如 `registry_3.1.1_linux_amd64.tar.gz`。 | 脚本内置官方下载地址，只传版本和架构。 |
