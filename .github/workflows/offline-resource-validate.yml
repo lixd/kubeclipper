@@ -6,6 +6,7 @@ on:
       - "packaging/**"
       - "scripts/open-packaging/**"
       - ".github/workflows/offline-resource-validate.yml"
+      - ".github/workflows/publish-oci-resources.yml"
       - "docs/superpowers/specs/*offline-package*"
   workflow_dispatch:
 
@@ -30,6 +31,16 @@ jobs:
           python3 - <<'PY'
           import yaml
           print("PyYAML available")
+          PY
+
+      - name: Workflow YAML syntax
+        run: |
+          python3 - <<'PY'
+          import yaml
+
+          with open('.github/workflows/publish-oci-resources.yml', encoding='utf-8') as stream:
+              yaml.safe_load(stream)
+          print('publish OCI workflow YAML is valid')
           PY
 
       - name: Help smoke tests

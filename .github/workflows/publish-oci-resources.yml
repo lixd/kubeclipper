@@ -1,0 +1,184 @@
+name: publish-oci-resources
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      manifest:
+        description: Build manifest path.
+        required: false
+        default: packaging/resources.yaml
+        type: string
+      registry_prefix:
+        description: OCI package and runtime image prefix. Defaults to ghcr.io/<repository-owner>/kubeclipper.
+        required: false
+        type: string
+      architecture:
+        description: Target architecture. "manifest" uses architectures from the build manifest.
+        required: false
+        default: manifest
+        type: choice
+        options:
+          - manifest
+          - amd64
+          - arm64
+          - all
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: oci-resource-publish-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish OCI resources
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Set up crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Resolve release settings
+        id: settings
+        env:
+          INPUT_MANIFEST: ${{ inputs.manifest }}
+          INPUT_REGISTRY_PREFIX: ${{ inputs.registry_prefix }}
+          INPUT_ARCHITECTURE: ${{ inputs.architecture }}
+        run: |
+          set -euo pipefail
+          manifest="${INPUT_MANIFEST:-packaging/resources.yaml}"
+          registry_prefix="${INPUT_REGISTRY_PREFIX:-ghcr.io/${{ github.repository_owner }}/kubeclipper}"
+          architecture="${INPUT_ARCHITECTURE:-manifest}"
+
+          test -f "$manifest"
+          case "$architecture" in
+            manifest|amd64|arm64|all) ;;
+            *) echo "unsupported architecture: $architecture" >&2; exit 1 ;;
+          esac
+
+          release="$(python3 - "$manifest" <<'PY'
+          import sys
+          import yaml
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              print((yaml.safe_load(stream) or {}).get("release", ""))
+          PY
+          )"
+          test -n "$release"
+          if [[ "${GITHUB_REF_TYPE:-}" == "tag" && "${GITHUB_REF_NAME:-}" != "$release" ]]; then
+            echo "tag $GITHUB_REF_NAME must match manifest release $release" >&2
+            exit 1
+          fi
+
+          echo "manifest=$manifest" >> "$GITHUB_OUTPUT"
+          echo "registry_prefix=${registry_prefix%/}" >> "$GITHUB_OUTPUT"
+          echo "architecture=$architecture" >> "$GITHUB_OUTPUT"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build OCI publishing tools
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          go build -o bin/oci-publish ./tools/oci-publish
+          go build -o bin/helm-oci-publish ./tools/helm-oci-publish
+
+      - name: Build and publish release resources
+        env:
+          KC_DOWNLOAD_RETRIES: "5"
+          KC_DOWNLOAD_MAX_TIME: "1800"
+        run: |
+          set -euo pipefail
+          args=(
+            --manifest "${{ steps.settings.outputs.manifest }}"
+            --output "$RUNNER_TEMP/kc-resource"
+            --registry "${{ steps.settings.outputs.registry_prefix }}"
+            --image-registry "${{ steps.settings.outputs.registry_prefix }}"
+            --include-bootstrap
+            --push
+          )
+          if [[ "${{ steps.settings.outputs.architecture }}" != "manifest" ]]; then
+            args+=(--arch "${{ steps.settings.outputs.architecture }}")
+          fi
+          scripts/open-packaging/build-offline-resources.sh "${args[@]}"
+
+      - name: Pin and verify release manifest
+        run: |
+          set -euo pipefail
+          resource_dir="$RUNNER_TEMP/kc-resource"
+          args=(
+            --build-manifest "${{ steps.settings.outputs.manifest }}"
+            --resource-dir "$resource_dir"
+            --package-registry "${{ steps.settings.outputs.registry_prefix }}"
+            --image-registry "${{ steps.settings.outputs.registry_prefix }}"
+            --include-bootstrap
+            --resolve-digests
+          )
+          if [[ "${{ steps.settings.outputs.architecture }}" != "manifest" ]]; then
+            args+=(--arch "${{ steps.settings.outputs.architecture }}")
+          fi
+          scripts/open-packaging/generate-release-manifest.sh "${args[@]}"
+          case "${{ steps.settings.outputs.architecture }}" in
+            manifest)
+              mapfile -t arches < <(python3 - "${{ steps.settings.outputs.manifest }}" <<'PY'
+          import sys
+          import yaml
+
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              for arch in (yaml.safe_load(stream) or {}).get("architectures") or []:
+                  print(arch)
+          PY
+              )
+              ;;
+            all) arches=(amd64 arm64) ;;
+            *) arches=("${{ steps.settings.outputs.architecture }}") ;;
+          esac
+          for arch in "${arches[@]}"; do
+            scripts/open-packaging/verify-release-manifest.sh \
+              --manifest "$resource_dir/release-manifest.yaml" \
+              --registry "${{ steps.settings.outputs.registry_prefix }}" \
+              --arch "$arch"
+          done
+
+      - name: Collect release metadata
+        run: |
+          set -euo pipefail
+          mkdir -p release-metadata
+          cp "$RUNNER_TEMP/kc-resource/release-manifest.yaml" release-metadata/
+          cp "$RUNNER_TEMP/kc-resource/images.lock" release-metadata/
+          cp "$RUNNER_TEMP/kc-resource/charts.lock" release-metadata/
+          cp "${{ steps.settings.outputs.manifest }}" release-metadata/resources.yaml
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: oci-release-metadata-${{ steps.settings.outputs.release }}-${{ steps.settings.outputs.architecture }}
+          path: release-metadata/
+          if-no-files-found: error

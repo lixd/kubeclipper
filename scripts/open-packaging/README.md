@@ -88,6 +88,36 @@ media types are not supported by every skopeo version; the verification script
 uses `crane` for Helm chart entries, and chart mirroring should use
 `crane`, `oras`, or Helm-compatible tooling.
 
+## GitHub Actions Publishing
+
+`.github/workflows/publish-oci-resources.yml` is the release publisher for the
+same manifest-driven flow. It has no static-server or internal content-server
+dependency:
+
+- Pushing a tag such as `v1.8.0` publishes the manifest only when its
+  `release` field is also `v1.8.0`. This prevents a KubeClipper tag from
+  accidentally publishing resource versions from another release manifest.
+- `workflow_dispatch` supports a different manifest, Registry prefix, and
+  architecture. Leave the Registry prefix empty to publish to
+  `ghcr.io/<repository-owner>/kubeclipper`, which lets forks test without
+  changing scripts or manifests.
+- The workflow logs into GHCR with `GITHUB_TOKEN`, builds `oci-publish` and
+  `helm-oci-publish`, fetches public upstream resources, publishes package
+  images/charts/runtime images, pins Registry digests, and verifies the final
+  release manifest.
+- `kcctl` remains a GitHub Release binary. The existing `release.yml` workflow
+  publishes it separately; this resource workflow intentionally does not put
+  `kcctl` into a bootstrap package image.
+- It uploads only release metadata (`release-manifest.yaml`, `images.lock`,
+  `charts.lock`, and the build manifest). The large temporary resource tree is
+  already represented by OCI artifacts in the Registry and is deliberately not
+  uploaded again as a GitHub Actions artifact.
+
+The workflow needs `packages: write`. For an organization, make the resulting
+GHCR packages public or grant pull access before using the Registry as an
+installation source. The default manifest currently targets `amd64`; select
+`arm64` or `all` manually after validating the relevant upstream versions.
+
 Package images are built by `tools/oci-publish` through go-containerregistry.
 They do not need a Dockerfile. The generated image is still a normal OCI image:
 

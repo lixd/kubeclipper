@@ -31,8 +31,9 @@ Notes:
   registry.k8s.io/pause:3.10 -> registry.local:5000/pause:3.10
   docker.io/calico/node:v3.31.5 -> registry.local:5000/calico/node:v3.31.5
   registry.k8s.io/coredns/coredns:v1.14.2 -> registry.local:5000/coredns:v1.14.2
-  Multi-architecture source images are copied for the architecture recorded in
-  images.lock instead of copying the whole image index.
+  Standard OCI images are copied as-is. When an upstream image is a
+  multi-architecture index, the target retains that index instead of replacing
+  an already-published architecture with the next selected architecture.
 EOF
 }
 
@@ -117,6 +118,9 @@ target_image() {
   echo "$image_registry/$path"
 }
 
+seen_targets="$(mktemp -t kc-runtime-images.XXXXXX)"
+trap 'rm -f "$seen_targets"' EXIT
+
 {
   read -r _header
   while IFS=$'\t' read -r _resource _version arch source target; do
@@ -126,12 +130,20 @@ target_image() {
     component_filter "$arch" "${arches[@]}" || continue
     target="$(target_image "$source")"
     [[ -n "${arch:-}" ]] || die "missing architecture for image: $source"
+
+    # An image list can contain the same source for multiple selected
+    # architectures. Copying the native OCI index once preserves all of them.
+    if grep -Fqx -- "$target" "$seen_targets"; then
+      continue
+    fi
+    printf '%s\n' "$target" >> "$seen_targets"
+
     case "$copy_tool" in
     crane)
-      cmd=(crane copy --platform "linux/$arch" "$source" "$target")
+      cmd=(crane copy "$source" "$target")
       ;;
     skopeo)
-      cmd=(skopeo --override-os linux --override-arch "$arch" copy --multi-arch system "docker://$source" "docker://$target")
+      cmd=(skopeo copy --multi-arch all "docker://$source" "docker://$target")
       ;;
     *)
       die "unsupported tool: $copy_tool"
@@ -142,10 +154,14 @@ target_image() {
       printf ' %q' "${cmd[@]}"
       printf '\n'
     else
-      if command -v crane >/dev/null 2>&1 && crane digest "$target" >/dev/null 2>&1; then
-        echo "==> target image already exists, skip: $target"
-        published=$((published + 1))
-        continue
+      if command -v crane >/dev/null 2>&1; then
+        source_digest="$(crane digest "$source" 2>/dev/null || true)"
+        target_digest="$(crane digest "$target" 2>/dev/null || true)"
+        if [[ -n "$source_digest" && "$source_digest" == "$target_digest" ]]; then
+          echo "==> target image already matches source, skip: $target"
+          published=$((published + 1))
+          continue
+        fi
       fi
       echo "==> ${cmd[*]}"
       ok=false
