@@ -25,6 +25,7 @@ scripts/open-packaging/build-offline-resources.sh \
   --manifest packaging/resources.yaml \
   --registry 10.0.0.10:5000 \
   --image-registry 10.0.0.10:5000 \
+  --include-bootstrap \
   --push
 ```
 
@@ -32,6 +33,8 @@ It reads `packaging/resources.yaml`, expands the version/architecture matrix,
 and calls the per-component publishers. Each publisher fetches upstream
 resources, builds a temporary package payload, pushes OCI package images or Helm
 charts, mirrors runtime images, and cleans up local temporary files.
+`--include-bootstrap` additionally publishes kubeclipper, etcd, console, and
+registry package images and includes them in the generated release manifest.
 
 For local debugging without pushing, omit `--push`:
 
@@ -48,8 +51,42 @@ Publishing is split by content type:
   `/opt/kubeclipper/resource/`.
 - `charts.tgz` becomes a native Helm OCI chart under `kubeclipper/charts/...`.
 - `images.lock` is copied with `crane` or `skopeo` by
-  `push-runtime-images.sh`; the install path expects runtime images to already
-  exist in the image Registry.
+  `push-runtime-images.sh`. It is release-side metadata and is never consumed
+  by KubeClipper server during cluster creation.
+- `release-manifest.yaml` aggregates package images, Helm charts, and runtime
+  images into one synchronization/verification input.
+
+Generate or regenerate the release manifest from an existing resource build:
+
+```bash
+scripts/open-packaging/generate-release-manifest.sh \
+  --build-manifest packaging/resources.yaml \
+  --resource-dir /data/kc-resource
+```
+
+After all artifacts are published, release CI can pin their Registry digests:
+
+```bash
+scripts/open-packaging/generate-release-manifest.sh \
+  --build-manifest packaging/resources.yaml \
+  --resource-dir /data/kc-resource \
+  --resolve-digests
+```
+
+Verification is optional and does not block `kcctl create cluster`:
+
+```bash
+scripts/open-packaging/verify-release-manifest.sh \
+  --manifest /data/kc-resource/release-manifest.yaml \
+  --registry 10.0.0.10:5000 \
+  --arch amd64 \
+  --insecure
+```
+
+`skopeo` can verify and mirror the standard package/runtime images. Helm OCI
+media types are not supported by every skopeo version; the verification script
+uses `crane` for Helm chart entries, and chart mirroring should use
+`crane`, `oras`, or Helm-compatible tooling.
 
 Package images are built by `tools/oci-publish` through go-containerregistry.
 They do not need a Dockerfile. The generated image is still a normal OCI image:
@@ -169,9 +206,12 @@ Notes:
   private static servers.
 - The manifest-driven entry point writes `images.txt` and `images.lock`, then
   `push-runtime-images.sh` mirrors the listed runtime images directly into the
-  target Registry with `crane` or `skopeo`.
+  target Registry with `crane` or `skopeo`. It also writes
+  `release-manifest.yaml` for Registry mirroring, offline bundle construction,
+  and optional delivery verification.
 - Standard runtime images are never embedded into KubeClipper package images.
-  Installation never loads `images.tar.gz` locally.
+  Installation never loads `images.tar.gz` locally and does not perform a
+  server-side runtime image precheck; actual node image pulls are authoritative.
 - The chart archives are build artifacts for `helm push`; installation pulls
   charts from Helm OCI instead of downloading `charts.tgz` from a KubeClipper
   package layer.

@@ -54,8 +54,14 @@ done
 [[ "$version" == v* ]] || version="v$version"
 
 image_registry_prefix="${image_registry_prefix:-$registry_prefix}"
-resource_dir="$(mktemp -d -t kc-resource-k8s.XXXXXX)"
-resource_dir_cleanup="$resource_dir"
+resource_dir="${KC_RESOURCE_DIR:-}"
+if [[ -z "$resource_dir" ]]; then
+  resource_dir="$(mktemp -d -t kc-resource-k8s.XXXXXX)"
+  resource_dir_cleanup="$resource_dir"
+else
+  mkdir -p "$resource_dir"
+  resource_dir_cleanup=""
+fi
 registry="$registry_prefix"
 image_registry="$image_registry_prefix"
 dry_run=false

@@ -4,7 +4,7 @@
 
 本次改造的目标是用 OCI Registry 替换 KubeClipper 原来的 static server / 离线大包交付方式。
 
-改造后，KubeClipper 不再依赖 `kc-amd64.tar.gz` 这类大包作为部署、扩容、安装集群的主入口。用户需要先准备 Registry，并把 KubeClipper bootstrap 二进制、Kubernetes/CRI/CNI package artifact、运行镜像放到 Registry 中。安装阶段只从 Registry 拉取和消费这些内容，不再隐式解压大包、不再本地 load `images.tar.gz`。
+改造后，KubeClipper 不再依赖 `kc-amd64.tar.gz` 这类大包作为部署、扩容、安装集群的主入口。用户需要先准备 Registry，并把 KubeClipper bootstrap package image、Kubernetes/CRI package image、Helm OCI Chart 和运行镜像放到 Registry 中。安装阶段只从 Registry 拉取和消费这些内容，不再隐式解压大包、不再本地 load `images.tar.gz`。
 
 ## 影响范围
 
@@ -12,8 +12,8 @@
 | --- | --- | --- |
 | `kcctl deploy` | 移除 `--pkg` 主路径 | 通过 `--package-registry` 从 OCI Registry 获取 bootstrap 二进制和离线 package。 |
 | `kcctl join` | 移除 `--pkg` 主路径 | 新 agent 节点从 `--package-registry` 获取所需 bootstrap 二进制。 |
-| `kcctl registry deploy` | 不再依赖 KubeClipper 大包 | Registry 作为基础设施组件单独部署，后续 package artifact 和 runtime image 都推到 Registry。 |
-| `kcctl registry push` | 语义调整 | 不再 push KubeClipper package，改为 `--image-archive`，用于导入 `docker save` 生成的镜像归档。 |
+| `kcctl registry deploy` | 不再依赖 KubeClipper 大包 | Registry 作为基础设施组件单独部署，后续 package image、Helm OCI Chart 和 runtime image 都推到 Registry。 |
+| `kcctl registry push` | 不再承担 package 发布 | 仅作为通用容器镜像归档导入工具；KubeClipper release 主路径使用标准 Registry 同步工具和 `release-manifest.yaml`。 |
 | `kcctl resource list/inspect/refresh` | 数据源变更 | 从 OCI Registry inventory 读取 package 信息，不再依赖 static server 目录索引。 |
 | `kcctl create cluster` | 离线安装更严格 | 离线模式必须指定 `--local-registry`，并要求运行镜像已经在 Registry 中。 |
 | Kubernetes/CNI/addon 安装 | 移除 image tarball fallback | 不再执行 `docker load` / `nerdctl load`，镜像必须由 kubelet/container runtime 从 Registry 拉取。 |
@@ -55,7 +55,7 @@ kcctl deploy \
   --package-registry 10.0.0.10:5000
 ```
 
-新模式要求 `10.0.0.10:5000` 中已经存在 KubeClipper bootstrap 二进制 artifact，例如 `kubeclipper-server`、`kubeclipper-agent`、`etcd`、`caddy`、`registry`、`kc-console` 等。`kcctl` 由用户从 GitHub Release 下载，不放入 package registry。
+新模式要求 `10.0.0.10:5000` 中已经存在四个 bootstrap package image：`bootstrap/kubeclipper`、`bootstrap/etcd`、`bootstrap/console` 和 `bootstrap/registry`。镜像内资源统一位于 `/opt/kubeclipper/resource`。`kcctl` 由用户从 GitHub Release 下载，不放入 package Registry。
 
 ### 2. 扩容 agent 节点
 
@@ -93,26 +93,20 @@ kcctl join \
 
 static server 暴露这个目录，安装时通过目录结构查找资源。
 
-之后：
+之后直接从公开上游构建并发布：
 
 ```bash
-scripts/publish-oci-package.sh \
-  --package /data/packages/k8s-v1.36.1-amd64.tar.gz \
-  --kind k8s \
-  --name k8s \
-  --version v1.36.1 \
+scripts/open-packaging/build-offline-resources.sh \
+  --manifest packaging/resources.yaml \
+  --output /data/kubeclipper-resources \
+  --registry 10.0.0.10:5000 \
+  --image-registry 10.0.0.10:5000 \
   --arch amd64 \
-  --registry 10.0.0.10:5000
+  --include-bootstrap \
+  --push
 ```
 
-或者批量迁移：
-
-```bash
-scripts/migrate-legacy-packages-to-oci.sh \
-  --file legacy-packages.yaml
-```
-
-旧 static resource 目录仍然可以作为迁移输入，但最终会被发布成 OCI artifact，安装阶段不再直接读取 static server 文件目录。
+Kubernetes、containerd 和 k8s-extension 的二进制/config 资源封装为标准 OCI image；Calico 使用原生 Helm OCI Chart；运行镜像保持为标准容器镜像。打包流程不依赖公司内部 static server。
 
 ### 4. 准备运行镜像
 
@@ -124,15 +118,12 @@ scripts/migrate-legacy-packages-to-oci.sh \
 images.tar.gz -> docker load / nerdctl load -> 节点本地镜像
 ```
 
-之后：
-
-用户需要提前把运行镜像推送到 Registry：
+之后由各组件构建脚本生成 `images.txt`，再汇总为发布侧 `images.lock`。发布脚本使用 `crane` 或 `skopeo` 将这些标准镜像同步到目标 Registry：
 
 ```bash
-kcctl registry push \
-  --node 10.0.0.10 \
-  --registry-port 5000 \
-  --image-archive runtime-images.tar.gz
+scripts/open-packaging/push-runtime-images.sh \
+  --images-lock /data/kubeclipper-resources/images.lock \
+  --image-registry 10.0.0.10:5000
 ```
 
 然后安装集群时显式指定本地镜像仓库：
@@ -151,7 +142,7 @@ kcctl create cluster \
   --insecure-registry 10.0.0.10:5000
 ```
 
-安装前会检查 `localRegistry` 中是否存在 kubeadm、etcd、pause、coredns、Calico 等运行镜像。缺失时会在创建 operation 前失败，并提示先同步或推送镜像。
+KubeClipper server 不维护运行镜像清单，也不在创建 operation 前执行 Registry `HEAD` 预检。kubeadm、containerd 和 kubelet 在目标节点上执行真实拉取；镜像缺失时，安装 operation 或 Pod 状态会报告拉取失败。
 
 ### 5. 查看可用资源
 
@@ -170,7 +161,7 @@ kcctl resource list --registry 10.0.0.10:5000 --refresh
 kcctl resource inspect --registry 10.0.0.10:5000 --name k8s --version v1.36.1 --arch amd64 -o yaml
 ```
 
-资源信息来自 Registry 中的 OCI artifact inventory。
+资源信息来自 Registry 中的 package image 和 Helm OCI inventory。
 
 ### 6. 发布和安装 kcctl
 
@@ -210,8 +201,8 @@ server、agent、registry 等组件不再要求用户下载到本地大包中，
 
 ```text
 准备 Registry
-  -> 发布 KubeClipper bootstrap binary artifacts
-  -> 发布 Kubernetes/CRI/CNI package OCI artifacts
+  -> 发布 KubeClipper bootstrap package images
+  -> 发布 Kubernetes/CRI package images 和 CNI Helm OCI Charts
   -> 推送 runtime images 到同一个或另一个 Registry
   -> kcctl deploy --package-registry
   -> kcctl create cluster --local-registry
@@ -221,14 +212,14 @@ server、agent、registry 等组件不再要求用户下载到本地大包中，
 
 | Registry 内容 | 作用 | 典型命令 |
 | --- | --- | --- |
-| bootstrap binary artifacts | 部署 KubeClipper server/agent 等二进制 | `kcctl deploy --package-registry` |
-| package OCI artifacts | 安装 Kubernetes/CRI/CNI 配置和 chart | `kcctl create cluster` |
+| bootstrap package images | 部署 KubeClipper server/agent 等二进制 | `kcctl deploy --package-registry` |
+| package images / Helm OCI Charts | 安装 Kubernetes/CRI/CNI 配置和 Chart | `kcctl create cluster` |
 | runtime container images | kubelet/container runtime 拉取镜像 | `kcctl create cluster --local-registry` |
 
 `packageRegistry` 和 `localRegistry` 可以是同一个地址，但职责不同：
 
 ```text
-10.0.0.10:5000/kubeclipper/packages/...  -> package artifacts
+10.0.0.10:5000/kubeclipper/packages/...  -> package images
 10.0.0.10:5000/kube-apiserver:v1.36.1   -> runtime images
 10.0.0.10:5000/calico/node:v3.31.5      -> runtime images
 ```
@@ -251,13 +242,13 @@ server、agent、registry 等组件不再要求用户下载到本地大包中，
 新模式拆成：
 
 1. `kcctl` 负责 bootstrap。
-2. OCI package artifact 负责离线 package。
+2. 标准 OCI package image 和 Helm OCI Chart 负责离线 package。
 3. Registry runtime image 负责镜像拉取。
 4. delivery policy 负责版本支持矩阵。
 
 ### 3. 安装行为更可预测
 
-安装阶段不再偷偷修改 Registry，也不再在节点本地 load 镜像。所有运行镜像必须提前存在于 Registry，缺失时 precheck 直接失败，避免 kubeadm/Calico 执行到一半才出现 `image not found` 或 `ImagePullBackOff`。
+安装阶段不再偷偷修改 Registry，也不再在节点本地 load 镜像。所有运行镜像必须提前存在于 Registry，但 KubeClipper server 不再维护第二份镜像清单或执行近似的 Registry `HEAD` 预检。kubeadm、containerd 和 kubelet 在目标节点上的真实拉取结果是权威校验，缺失镜像会在安装操作日志或工作负载状态中明确失败。
 
 ### 4. 更适合企业内网和 Harbor
 
@@ -265,7 +256,7 @@ server、agent、registry 等组件不再要求用户下载到本地大包中，
 
 ### 5. 版本和内容可以 digest 化
 
-OCI artifact 天然支持 digest。package inventory、delivery policy、runtime image precheck 可以逐步做到更严格的版本和内容校验，比旧目录文件更容易追踪和审计。
+OCI 对象天然支持 digest。package inventory 和 delivery policy 负责安装计划解析；发布侧的 `release-manifest.yaml` 可以固定 package、Chart 和 runtime image digest，用于发布审计、Harbor 同步及离线导入验收。
 
 ### 6. CI/CD 和发布链路更清楚
 
@@ -273,7 +264,7 @@ OCI artifact 天然支持 digest。package inventory、delivery policy、runtime
 
 1. `kcctl` release。
 2. component binary artifacts。
-3. Kubernetes/CRI/CNI package artifacts。
+3. Kubernetes/CRI package images 和 CNI Helm OCI Charts。
 4. runtime images。
 
 不需要每次都重新压缩和分发一个混合所有内容的大包。
@@ -281,10 +272,10 @@ OCI artifact 天然支持 digest。package inventory、delivery policy、runtime
 ## 注意事项和剩余工作
 
 1. `kcctl upgrade` 的旧包升级路径已经移除，但 OCI-native upgrade 还没有实现，需要后续单独设计。
-2. runtime image precheck 当前只覆盖已配置的 Kubernetes/Calico 版本，后续建议引入正式 Image BOM。
-3. Registry 必须提前准备好 package artifact 和 runtime images，否则部署或创建集群会失败。
+2. 运行镜像 BOM 位于发布侧的 `images.lock` 和 `release-manifest.yaml`，不写入 delivery policy，也不由 server API 消费。
+3. Registry 必须提前准备好 package images、Helm OCI Charts 和 runtime images，否则部署或创建集群会失败。
 4. 旧 static resource 包可以作为迁移输入，但不再是安装阶段的直接依赖。
-5. 如果 `packageRegistry` 和 `localRegistry` 使用同一个地址，需要通过 repository namespace 区分 package artifact 和 runtime image。
+5. 如果 `packageRegistry` 和 `localRegistry` 使用同一个地址，需要通过 repository namespace 区分 package image、Chart 和 runtime image。
 
 ## 推荐用户路径
 
@@ -294,11 +285,22 @@ OCI artifact 天然支持 digest。package inventory、delivery policy、runtime
 # 1. 部署或准备 Registry
 kcctl registry deploy --node 10.0.0.10 --registry-port 5000
 
-# 2. 发布旧 package 为 OCI artifact
-scripts/migrate-legacy-packages-to-oci.sh --file legacy-packages.yaml
+# 2. 从公开源构建并发布 bootstrap、集群 package、Chart 和 runtime images
+scripts/open-packaging/build-offline-resources.sh \
+  --manifest packaging/resources.yaml \
+  --output /data/kubeclipper-resources \
+  --registry 10.0.0.10:5000 \
+  --image-registry 10.0.0.10:5000 \
+  --arch amd64 \
+  --include-bootstrap \
+  --push
 
-# 3. 推送 runtime images
-kcctl registry push --node 10.0.0.10 --registry-port 5000 --image-archive runtime-images.tar.gz
+# 3. 可选：按 release manifest 验收目标 Registry
+scripts/open-packaging/verify-release-manifest.sh \
+  --manifest /data/kubeclipper-resources/release-manifest.yaml \
+  --registry 10.0.0.10:5000 \
+  --arch amd64 \
+  --insecure
 
 # 4. 部署 KubeClipper
 kcctl deploy \

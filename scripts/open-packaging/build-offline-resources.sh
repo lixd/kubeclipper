@@ -12,6 +12,7 @@ arch_override=""
 push=false
 dry_run=false
 include_disabled=false
+include_bootstrap=false
 components=()
 
 usage() {
@@ -28,6 +29,7 @@ Flags:
   --arch <amd64|arm64|all>   Override manifest architectures.
   --component <name>         Build only this component. Can be repeated.
   --include-disabled         Also build manifest entries with enabled: false.
+  --include-bootstrap        Build and publish the four bootstrap package images with --push.
   --push                     Publish package images, Helm OCI charts, and runtime images after build.
   --dry-run                  Print commands and generate metadata without downloading or pushing.
   -h, --help                 Show this help.
@@ -68,6 +70,7 @@ while [[ $# -gt 0 ]]; do
   --arch) need_value "$@"; arch_override="$2"; shift 2 ;;
   --component) need_value "$@"; components+=("$2"); shift 2 ;;
   --include-disabled) include_disabled=true; shift ;;
+  --include-bootstrap) include_bootstrap=true; shift ;;
   --push) push=true; shift ;;
   --dry-run) dry_run=true; shift ;;
   -h | --help) usage; exit 0 ;;
@@ -233,6 +236,36 @@ for name, addon in (doc.get("addons") or {}).items():
 PY
 }
 
+bootstrap_matrix() {
+  python3 - "$manifest" "$arch_override" <<'PY'
+import sys
+try:
+    import yaml
+except ImportError:
+    raise SystemExit("PyYAML is required; install python3-yaml or pyyaml")
+
+manifest, arch_override = sys.argv[1:]
+with open(manifest, "r", encoding="utf-8") as stream:
+    document = yaml.safe_load(stream) or {}
+bootstrap = document.get("bootstrap") or {}
+versions = {
+    "kubeclipper": bootstrap.get("kubeclipperVersion"),
+    "etcd": bootstrap.get("etcdVersion"),
+    "console": bootstrap.get("consoleVersion"),
+    "registry": bootstrap.get("registryVersion"),
+}
+if arch_override:
+    architectures = ["amd64", "arm64"] if arch_override == "all" else [arch_override]
+else:
+    architectures = [str(value) for value in document.get("architectures") or []]
+for name, version in versions.items():
+    if not version:
+        raise SystemExit(f"bootstrap version is required for {name}")
+    for architecture in architectures:
+        print(f"{name}\t{version}\t{architecture}")
+PY
+}
+
 run_cmd() {
   if [[ "$dry_run" == true ]]; then
     echo "dry-run: $(shell_join "$@")"
@@ -315,7 +348,20 @@ publish_line() {
   run_cmd "${cmd[@]}"
 }
 
+publish_bootstrap_line() {
+  local name=$1 version=$2 arch=$3
+  local script="$ROOT/scripts/open-packaging/publish-bootstrap-$name.sh"
+  [[ -x "$script" ]] || die "bootstrap publisher not found: $script"
+  run_cmd "$script" --registry-prefix "$registry" --version "$version" --arch "$arch"
+}
+
 if [[ "$push" == true ]]; then
+  if [[ "$include_bootstrap" == true ]]; then
+    while IFS=$'\t' read -r name version arch; do
+      publish_bootstrap_line "$name" "$version" "$arch"
+    done < <(bootstrap_matrix)
+  fi
+  export KC_RESOURCE_DIR="$output"
   while IFS=$'\t' read -r type name version arch rest; do
     [[ -n "${type:-}" ]] || continue
     args=()
@@ -324,6 +370,7 @@ if [[ "$push" == true ]]; then
     fi
     publish_line "$type" "$name" "$version" "$arch" "${args[@]}"
   done < "$matrix_file"
+  unset KC_RESOURCE_DIR
 else
   while IFS=$'\t' read -r type name version arch rest; do
     [[ -n "${type:-}" ]] || continue
@@ -333,8 +380,24 @@ else
     fi
     build_line "$type" "$name" "$version" "$arch" "${args[@]}"
   done < "$matrix_file"
+fi
 
+# Publishers use images.lock only for release preparation and mirroring. The
+# KubeClipper server never reads this file during cluster creation.
+if [[ "$dry_run" == false ]]; then
   "$ROOT/scripts/open-packaging/generate-resource-metadata.sh" \
     --resource-dir "$output" \
     --image-registry "$image_registry"
+  release_args=(
+    "$ROOT/scripts/open-packaging/generate-release-manifest.sh"
+    --build-manifest "$manifest" \
+    --resource-dir "$output" \
+    --package-registry "$registry" \
+    --image-registry "$image_registry"
+  )
+  [[ "$include_bootstrap" == false ]] || release_args+=(--include-bootstrap)
+  [[ -z "$arch_override" ]] || release_args+=(--arch "$arch_override")
+  "${release_args[@]}"
+else
+  echo "dry-run: release metadata generation skipped because no resources were built"
 fi

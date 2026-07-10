@@ -36,7 +36,9 @@ jobs:
         run: |
           scripts/open-packaging/build-offline-resources.sh --help >/dev/null
           scripts/open-packaging/generate-resource-metadata.sh --help >/dev/null
+          scripts/open-packaging/generate-release-manifest.sh --help >/dev/null
           scripts/open-packaging/push-runtime-images.sh --help >/dev/null
+          scripts/open-packaging/verify-release-manifest.sh --help >/dev/null
           scripts/open-packaging/publish-resource-k8s.sh --help >/dev/null
           scripts/open-packaging/publish-resource-containerd.sh --help >/dev/null
           scripts/open-packaging/publish-resource-calico.sh --help >/dev/null
@@ -52,8 +54,33 @@ jobs:
             --manifest packaging/resources.yaml \
             --output /tmp/kc-resource \
             --arch amd64 \
-            --skip-images \
             --dry-run
+
+      - name: Release manifest smoke test
+        run: |
+          mkdir -p /tmp/kc-release-manifest/k8s/v1.36.1/amd64
+          mkdir -p /tmp/kc-release-manifest/calico/v3.31.5/amd64
+          touch /tmp/kc-release-manifest/k8s/v1.36.1/amd64/configs.tar.gz
+          touch /tmp/kc-release-manifest/calico/v3.31.5/amd64/charts.tgz
+          printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > /tmp/kc-release-manifest/images.lock
+          printf 'k8s\tv1.36.1\tamd64\tregistry.k8s.io/pause:3.10\tghcr.io/lixd/kubeclipper/pause:3.10\n' >> /tmp/kc-release-manifest/images.lock
+          printf 'calico\tv3.31.5\tamd64\tdocker.io/calico/node:v3.31.5\tghcr.io/lixd/kubeclipper/calico/node:v3.31.5\n' >> /tmp/kc-release-manifest/images.lock
+          scripts/open-packaging/generate-release-manifest.sh \
+            --build-manifest packaging/resources.yaml \
+            --resource-dir /tmp/kc-release-manifest \
+            --include-bootstrap \
+            --arch amd64
+          python3 - <<'PY'
+          import yaml
+
+          with open('/tmp/kc-release-manifest/release-manifest.yaml', encoding='utf-8') as stream:
+              manifest = yaml.safe_load(stream)
+          artifacts = manifest['artifacts']
+          assert manifest['kind'] == 'ReleaseManifest'
+          assert len([item for item in artifacts if item['type'] == 'package-image']) == 5
+          assert len([item for item in artifacts if item['type'] == 'helm-chart']) == 1
+          assert len([item for item in artifacts if item['type'] == 'runtime-image']) == 2
+          PY
 
       - name: Internal dependency scan
         run: scripts/open-packaging/check-open-packaging-sources.sh

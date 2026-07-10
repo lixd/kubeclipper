@@ -292,156 +292,56 @@ q
 
 OR, debug with VSCode, see `.vscode/launch.json`.
 
-## 3. Tarball k8s
+## 3. Build OCI Offline Resources
 
-### 3.1 Tarball
-
-Take v1.32.2 as example:
-
-```bash
-# wget caas-cd-node/blob/kc/k8s/tarball-kubernetes.sh
-# bash tarball-kubernetes.sh -a amd64 -v 1.32.5 -o /tmp -s https://github.com/duicikeyihangaolou/kubeclipper-packages/raw/refs/heads/master/packages
-bash tarball-kubernetes.sh -a amd64 -v 1.23.17 -o /tmp -s https://github.com/duicikeyihangaolou/kubeclipper-packages/raw/refs/heads/master/packages
-
-cd /tmp
-```
-
-After `tarball-kubernetes.sh`, you will get a k8s folder like this, **Always keep one version per
-time**
-
-```console
-# find k8s
-k8s
-k8s/v1.23.17
-k8s/v1.23.17/amd64
-k8s/v1.23.17/amd64/manifest.json
-k8s/v1.23.17/amd64/images.tar.gz
-k8s/v1.23.17/amd64/configs.tar.gz
-```
-
-Then, package k8s and push it to OCI Registry under `kubeclipper/packages/`.
+The open packaging flow builds every resource from public upstream sources. It does not
+consume the old static server directory or company-internal download services.
 
 ```bash
-cd /tmp
-k8s_ver='v1.23.17'
-tar -zcvf k8s-${k8s_ver}-amd64.tar.gz k8s
-
-# Publish the offline package as an OCI artifact
-/path/to/kubeclipper/scripts/publish-oci-package.sh \
-  --package /tmp/k8s-${k8s_ver}-amd64.tar.gz \
-  --kind k8s \
-  --name k8s \
-  --version ${k8s_ver} \
+scripts/open-packaging/build-offline-resources.sh \
+  --manifest packaging/resources.yaml \
+  --output /data/kubeclipper-resources \
+  --registry registry.local:5000 \
+  --image-registry registry.local:5000 \
   --arch amd64 \
-  --registry registry.local:5000
+  --include-bootstrap \
+  --push
 ```
 
-The package must be published as an OCI artifact with this naming rule:
-
-```text
-{registry}/kubeclipper/packages/{kind}/{name}:{version}
-```
-
-For example:
-
-```text
-registry.local:5000/kubeclipper/packages/k8s/k8s:v1.23.17
-```
-
-The publish script is a thin wrapper around the OCI package publisher in
-`tools/oci-publish`. It creates the package manifest, assembles the OCI artifact,
-and pushes it to the Registry in one step.
-
-The script first looks for `KC_OCI_PUBLISH_BIN`, then `./bin/oci-publish`, and finally
-falls back to `go run ./tools/oci-publish`. On hosts without Go, build and copy the
-Linux binary first:
-
-```bash
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ./bin/oci-publish ./tools/oci-publish
-```
-
-If you already have a set of legacy offline package tarballs or download URLs, you can
-migrate them in batch with a manifest file. In an internal migration, prefer copying the
-old packages from an existing KubeClipper server, for example
-`sh-dev-3:/opt/kubeclipper-server/resource`, instead of downloading them from public OSS.
-
-```yaml
-registry: registry.local:5000
-packages:
-  - source: https://example.local/packages/k8s-v1.23.17-amd64.tar.gz
-    kind: k8s
-    name: k8s
-    version: v1.23.17
-    arch: amd64
-  - source: /data/packages/containerd-2.1.0-amd64.tar.gz
-    kind: cri
-    name: containerd
-    version: 2.1.0
-    arch: amd64
-  - source: /data/packages/calico-v3.30.0-amd64.tar.gz
-    kind: cni
-    name: calico
-    version: v3.30.0
-    arch: amd64
-```
-
-Then run:
-
-```bash
-/path/to/kubeclipper/scripts/migrate-legacy-packages-to-oci.sh \
-  --file ./legacy-packages.yaml
-```
-
-This script downloads remote tarballs when needed, reuses local tarballs directly, and
-publishes every package into `kubeclipper/packages/...` in the target Registry.
-It first looks for `KC_OCI_MIGRATE_BIN`, then `./bin/oci-migrate`, and finally falls
-back to `go run ./tools/oci-migrate`.
-
-After that, refresh and check the registry-derived inventory with `kcctl resource list`.
-
-```console
-# kcctl resource list --registry registry.local:5000 --refresh
-+---------------------+------+-------+----------+-------+
-| registry.local:5000 | TYPE | NAME  | VERSION  | ARCH  |
-+---------------------+------+-------+----------+-------+
-| 1.                  | k8s  | k8s   | v1.23.17 | amd64 |
-+---------------------+------+-------+----------+-------+
-```
-
-Inspect a package or force-refresh the cached inventory with:
-
-```console
-# kcctl resource inspect --registry registry.local:5000 --name k8s --version v1.23.17 --arch amd64 -o yaml
-# kcctl resource refresh --registry registry.local:5000
-```
-
-Kubernetes and component version constraints are maintained by the delivery policy, not by
-the OCI package upload operation. Update the policy when a new Kubernetes version should be
-supported by KubeClipper.
+The output directory contains build-side metadata such as `images.lock`,
+`charts.lock`, `build-report.json`, and `release-manifest.yaml`. Package payloads are
+published as standard OCI images, charts are published as Helm OCI, and runtime images
+remain standard container images. KubeClipper server does not consume the lock files.
 
 The current offline-package workflow is:
 
-1. Deploy an OCI Registry with `kcctl registry deploy` and publish offline packages under `kubeclipper/packages/...`.
-2. Push runtime image archives such as `k8s/.../images.tar.gz` and `calico/.../images.tar.gz`
-   into the same Registry with `kcctl registry push`.
-3. Maintain the support matrix with `kcctl delivery-policy`.
-4. Set `packageRegistry` for `kcctl deploy`/`kcctl join`.
-5. Use `kcctl resource list|inspect|refresh --registry <registry>` to inspect registry-derived inventory.
-6. Let install/join resolve packages from policy + inventory and fetch them by digest.
+1. Build and publish standard package OCI images, Helm OCI charts, and runtime images with `scripts/open-packaging/build-offline-resources.sh`.
+2. Use the generated `release-manifest.yaml` to mirror the release to a local Registry or Harbor.
+3. Optionally verify exact release references with `scripts/open-packaging/verify-release-manifest.sh`.
+4. Maintain the supported component matrix with `kcctl delivery-policy`.
+5. Set `packageRegistry` for `kcctl deploy`/`kcctl join`.
+6. Use `kcctl resource list|inspect|refresh --registry <registry>` to inspect Registry-derived package/chart inventory.
+7. Let install/join resolve packages from policy + inventory and fetch them by digest.
 
 When `--local-registry` is set for an offline Kubernetes cluster, KubeClipper assumes the
 Registry already contains the container images required by kubeadm and the selected CNI.
 Package OCI artifacts and runtime container images share a Registry, but they are prepared by
 separate steps.
 
+Runtime image lists are release-side metadata only. The build scripts generate `images.lock`
+and aggregate it into `release-manifest.yaml` for publishing, mirroring, offline bundle
+creation, and optional verification. KubeClipper server does not store this list and does not
+perform Registry `HEAD` checks before cluster creation. Kubeadm, containerd, and kubelet
+validate runtime images by actually pulling them on cluster nodes.
+
 Command status after the OCI switch:
 
 | Command or field | Status | Meaning |
 | --- | --- | --- |
-| `scripts/publish-oci-package.sh` | New helper | Publish one legacy tarball as an OCI artifact. |
-| `scripts/migrate-legacy-packages-to-oci.sh` | New helper | Download/reuse legacy tarballs and publish them in batch. |
-| `tools/oci-publish` | New helper | Thin CLI over the existing OCI publisher. |
-| `tools/oci-migrate` | New helper | Manifest-driven batch migration CLI. |
+| `scripts/open-packaging/build-offline-resources.sh` | Release entry point | Build from public sources and publish package images, Helm OCI charts, and runtime images. |
+| `scripts/open-packaging/generate-release-manifest.sh` | Release helper | Generate the synchronization and offline delivery manifest. |
+| `scripts/open-packaging/verify-release-manifest.sh` | Optional verification | Verify exact package, chart, and runtime image references in a target Registry. |
+| `tools/oci-publish` | Package image publisher | Assemble and push standard OCI package images. |
 | `kcctl registry deploy --registry-image/--registry-image-archive/--registry-binary` | OCI bootstrap | Deploy the bootstrap Registry without the legacy release tarball. |
 | `kcctl resource list/inspect/refresh --registry` | Existing command, OCI-only semantics | Inspect Registry-derived inventory; no static-server SSH or `--transport` mode. |
 | `kcctl delivery-policy` | OCI delivery capability | Maintain the supported component/version matrix; it does not upload packages. |
@@ -452,11 +352,11 @@ Pure OCI quick run:
 
 ```bash
 export REGISTRY=registry.local:5000
-export PKG_DIR=/data/kubeclipper-packages
+export RESOURCE_DIR=/data/kubeclipper-resources
 export KC_SERVER=https://127.0.0.1:8080
-export K8S_VERSION=v1.23.17
-export CRI_VERSION=2.1.0
-export CNI_VERSION=v3.30.0
+export K8S_VERSION=v1.36.1
+export CRI_VERSION=2.2.4
+export CNI_VERSION=v3.31.5
 export KUBECLIPPER_VERSION=v1.8.0
 
 # 1. Deploy a local Registry with KubeClipper's built-in registry command.
@@ -471,92 +371,51 @@ kcctl registry deploy \
 # object or HTTP 200-compatible /v2/ response.
 curl -f "http://${REGISTRY}/v2/"
 
-# 2. Prepare legacy offline package tarballs.
-mkdir -p "${PKG_DIR}"
+# 2. Build from public sources and publish package images, Helm charts, and
+# standard runtime images directly to the local Registry.
+scripts/open-packaging/build-offline-resources.sh \
+  --manifest packaging/resources.yaml \
+  --output "${RESOURCE_DIR}" \
+  --registry "${REGISTRY}" \
+  --image-registry "${REGISTRY}" \
+  --arch amd64 \
+  --include-bootstrap \
+  --push
 
-# Example: reuse legacy packages from an existing KubeClipper static-resource
-# directory. Do not fetch from oss.kubeclipper.io for this migration path.
-rsync -av sh-dev-3:/opt/kubeclipper-server/resource/k8s/${K8S_VERSION}/amd64/ \
-  "${PKG_DIR}/legacy-resource/k8s/${K8S_VERSION}/amd64/"
-rsync -av sh-dev-3:/opt/kubeclipper-server/resource/containerd/${CRI_VERSION}/amd64/ \
-  "${PKG_DIR}/legacy-resource/containerd/${CRI_VERSION}/amd64/"
-rsync -av sh-dev-3:/opt/kubeclipper-server/resource/calico/${CNI_VERSION}/amd64/ \
-  "${PKG_DIR}/legacy-resource/calico/${CNI_VERSION}/amd64/"
+# 3. The release manifest is for mirroring/offline delivery validation only.
+# It is not uploaded to the KubeClipper control plane.
+scripts/open-packaging/verify-release-manifest.sh \
+  --manifest "${RESOURCE_DIR}/release-manifest.yaml" \
+  --registry "${REGISTRY}" \
+  --arch amd64 \
+  --insecure
 
-tar -C "${PKG_DIR}/legacy-resource" -zcf "${PKG_DIR}/k8s-${K8S_VERSION}-amd64.tar.gz" k8s
-tar -C "${PKG_DIR}/legacy-resource" -zcf "${PKG_DIR}/containerd-${CRI_VERSION}-amd64.tar.gz" containerd
-tar -C "${PKG_DIR}/legacy-resource" -zcf "${PKG_DIR}/calico-${CNI_VERSION}-amd64.tar.gz" calico
-
-# The migration manifest still supports http/https sources when needed, but local
-# files copied from the old server are preferred for a deterministic migration.
-
-# 3. Push runtime images into the local Registry.
-# The Registry must contain images before `kcctl create cluster --offline --local-registry`.
-kcctl registry push \
-  --node <registry-node-ip> \
-  --registry-port 5000 \
-  --image-archive "${PKG_DIR}/legacy-resource/k8s/${K8S_VERSION}/amd64/images.tar.gz"
-
-kcctl registry push \
-  --node <registry-node-ip> \
-  --registry-port 5000 \
-  --image-archive "${PKG_DIR}/legacy-resource/calico/${CNI_VERSION}/amd64/images.tar.gz"
-
-# Some CRI packages also contain images.tar.gz. Push it only when present.
-if [ -f "${PKG_DIR}/legacy-resource/containerd/${CRI_VERSION}/amd64/images.tar.gz" ]; then
-  kcctl registry push \
-    --node <registry-node-ip> \
-    --registry-port 5000 \
-    --image-archive "${PKG_DIR}/legacy-resource/containerd/${CRI_VERSION}/amd64/images.tar.gz"
-fi
-
-# 4. Publish or migrate existing offline package tarballs into OCI.
-cat > legacy-packages.yaml <<EOF
-registry: ${REGISTRY}
-packages:
-  - source: ${PKG_DIR}/k8s-${K8S_VERSION}-amd64.tar.gz
-    kind: k8s
-    name: k8s
-    version: ${K8S_VERSION}
-    arch: amd64
-  - source: ${PKG_DIR}/containerd-${CRI_VERSION}-amd64.tar.gz
-    kind: cri
-    name: containerd
-    version: ${CRI_VERSION}
-    arch: amd64
-  - source: ${PKG_DIR}/calico-${CNI_VERSION}-amd64.tar.gz
-    kind: cni
-    name: calico
-    version: ${CNI_VERSION}
-    arch: amd64
-EOF
-
-./scripts/migrate-legacy-packages-to-oci.sh --file ./legacy-packages.yaml
-
-# 5. Confirm Registry-derived inventory.
+# 4. Confirm Registry-derived package/chart inventory.
 kcctl resource list --registry ${REGISTRY} --refresh
 kcctl resource inspect --registry ${REGISTRY} --name k8s --version ${K8S_VERSION} --arch amd64 -o yaml
 
-# 6. Prepare and apply the support matrix.
-kcctl login --host ${KC_SERVER} --username admin --password '<password>'
-kcctl delivery-policy template -o yaml > delivery-policy.yaml
-kcctl delivery-policy validate -f delivery-policy.yaml
-kcctl delivery-policy apply -f delivery-policy.yaml
-
-# 7. Deploy KubeClipper with the package Registry.
+# 5. Deploy KubeClipper with the package Registry. This creates the default
+# delivery policy in the control plane on first deployment.
 kcctl deploy \
   --server <server-ip> \
   --agent <agent-ip> \
   --pk-file ~/.ssh/id_rsa \
   --package-registry ${REGISTRY}
 
-# 8. Optional: join more agent nodes with the same package Registry.
+# 6. Optional: inspect or replace the default support matrix after deployment.
+kcctl login --host ${KC_SERVER} --username admin --password '<password>'
+kcctl delivery-policy get -o yaml
+kcctl delivery-policy template -o yaml > delivery-policy.yaml
+kcctl delivery-policy validate -f delivery-policy.yaml
+kcctl delivery-policy apply -f delivery-policy.yaml
+
+# 7. Optional: join more agent nodes with the same package Registry.
 kcctl join \
   --agent <new-agent-ip> \
   --pk-file ~/.ssh/id_rsa \
   --package-registry ${REGISTRY}
 
-# 9. Create an offline Kubernetes cluster from policy + inventory.
+# 8. Create an offline Kubernetes cluster from policy + inventory.
 kcctl create cluster \
   --name demo \
   --master <master-node-id-or-ip> \
@@ -580,6 +439,11 @@ bytes exist; delivery policy proves that a Kubernetes/component version combinat
 supported. Both must match before an offline install can resolve a digest-pinned plan.
 Unlike the old static resource index, policy does not store package URLs, digests, or
 availability state.
+
+`delivery-policy` contains only component compatibility rules. It deliberately does not
+contain runtime image names. Adding a Kubernetes or Calico version requires publishing its
+package/chart and runtime images, regenerating the release manifest, and updating the policy
+when the new combination should be supported; it does not require editing server code.
 
 ### 3.3 Deploy k8s using kcctl, add pause tag
 

@@ -43,8 +43,14 @@ done
 
 [[ "$arch" == "amd64" || "$arch" == "arm64" ]] || die "--arch must be amd64 or arm64"
 
-resource_dir="$(mktemp -d -t kc-resource-containerd.XXXXXX)"
-resource_dir_cleanup="$resource_dir"
+resource_dir="${KC_RESOURCE_DIR:-}"
+if [[ -z "$resource_dir" ]]; then
+  resource_dir="$(mktemp -d -t kc-resource-containerd.XXXXXX)"
+  resource_dir_cleanup="$resource_dir"
+else
+  mkdir -p "$resource_dir"
+  resource_dir_cleanup=""
+fi
 registry="$registry_prefix"
 dry_run=false
 

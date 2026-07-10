@@ -446,10 +446,6 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
-	if err := h.precheckRuntimeImages(request.Request.Context(), &c); err != nil {
-		restplus.HandleBadRequest(response, request, err)
-		return
-	}
 	// TODO: This logic has been implemented in the clusterController
 	c.Status.Registries, err = h.getClusterCRIRegistries(request.Request.Context(), &c)
 	if err != nil {

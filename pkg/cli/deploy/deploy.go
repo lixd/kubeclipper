@@ -25,6 +25,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -47,6 +48,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/user"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
@@ -1084,6 +1086,9 @@ func (d *DeployOptions) uploadConfig() {
 		logger.Fatal(err)
 	}
 	uploadDeployConfig(c, d.deployConfig)
+	if err = ensureDefaultDeliveryPolicy(c); err != nil {
+		logger.Fatal(err)
+	}
 	uploadCerts(c)
 	if err = cfg.Dump(); err != nil {
 		logger.Fatal(err)
@@ -1135,6 +1140,36 @@ func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
 		},
 	}
 	createOrUpdateConfigMap(client, dc)
+}
+
+// ensureDefaultDeliveryPolicy initializes a new control plane without
+// overwriting an administrator-maintained policy on a later deploy run.
+func ensureDefaultDeliveryPolicy(client *kc.Client) error {
+	existing, err := client.DescribeConfigMap(context.TODO(), deliveryapis.DeliveryPolicyConfigMapName)
+	if err == nil && len(existing.Items) > 0 {
+		return nil
+	}
+	cm, err := defaultDeliveryPolicyConfigMap()
+	if err != nil {
+		return err
+	}
+	if _, err = client.CreateConfigMap(context.TODO(), cm); err != nil {
+		return fmt.Errorf("create default delivery policy: %w", err)
+	}
+	return nil
+}
+
+func defaultDeliveryPolicyConfigMap() (*v1.ConfigMap, error) {
+	policy, err := json.MarshalIndent(deliveryapis.DefaultSupportPolicy(), "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal default delivery policy: %w", err)
+	}
+	cm := &v1.ConfigMap{
+		TypeMeta:   metav1.TypeMeta{Kind: v1.KindConfigMap, APIVersion: v1.SchemeGroupVersion.String()},
+		ObjectMeta: metav1.ObjectMeta{Name: deliveryapis.DeliveryPolicyConfigMapName},
+		Data:       map[string]string{deliveryapis.DeliveryPolicyConfigMapKey: string(policy)},
+	}
+	return cm, nil
 }
 
 func uploadCerts(client *kc.Client) {

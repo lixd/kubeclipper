@@ -40,8 +40,15 @@ done
 [[ "$arch" == "amd64" || "$arch" == "arm64" ]] || die "--arch must be amd64 or arm64"
 [[ "$version" == v* ]] || version="v$version"
 
-resource_dir="$(mktemp -d -t kc-resource-kc-runtime.XXXXXX)"
-trap 'rm -rf "$resource_dir"' EXIT
+resource_dir="${KC_RESOURCE_DIR:-}"
+if [[ -z "$resource_dir" ]]; then
+  resource_dir="$(mktemp -d -t kc-resource-kc-runtime.XXXXXX)"
+  resource_dir_cleanup="$resource_dir"
+else
+  mkdir -p "$resource_dir"
+  resource_dir_cleanup=""
+fi
+trap 'rm -rf "${resource_dir_cleanup:-}"' EXIT
 
 builder_args=(--version "$version" --arch "$arch" --output "$resource_dir")
 [[ -z "$images_file" ]] || builder_args+=(--images-file "$images_file")

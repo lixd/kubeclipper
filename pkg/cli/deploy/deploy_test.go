@@ -19,12 +19,31 @@
 package deploy
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 )
+
+func TestDefaultDeliveryPolicyConfigMap(t *testing.T) {
+	cm, err := defaultDeliveryPolicyConfigMap()
+	if err != nil {
+		t.Fatalf("defaultDeliveryPolicyConfigMap() error: %v", err)
+	}
+	if cm.Name != deliveryapis.DeliveryPolicyConfigMapName {
+		t.Fatalf("configmap name = %q", cm.Name)
+	}
+	var policy deliveryapis.SupportPolicy
+	if err = json.Unmarshal([]byte(cm.Data[deliveryapis.DeliveryPolicyConfigMapKey]), &policy); err != nil {
+		t.Fatalf("unmarshal policy: %v", err)
+	}
+	if err = policy.Validate(); err != nil {
+		t.Fatalf("default policy validation: %v", err)
+	}
+}
 
 func TestDeployOptions_getEtcdTemplateContent(t *testing.T) {
 	d := NewDeployOptions(options.IOStreams{})
