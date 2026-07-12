@@ -186,7 +186,7 @@ jobs:
             resource-k8s) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s/k8s:$VERSION" ;;
             resource-containerd) ref="$REGISTRY_PREFIX/kubeclipper/packages/cri/containerd:$VERSION" ;;
             resource-k8s-extension) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s-extension/k8s-extension:$VERSION" ;;
-            resource-calico) ref="$REGISTRY_PREFIX/kubeclipper/charts/tigera-operator:${VERSION#v}" ;;
+            resource-calico) ref="$REGISTRY_PREFIX/kubeclipper/charts/tigera-operator:$VERSION" ;;
           esac
           if [[ -n "$ref" ]]; then
             if [[ "$COMPONENT" == "resource-calico" ]]; then
