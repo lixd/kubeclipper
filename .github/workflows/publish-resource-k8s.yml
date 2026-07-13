@@ -1,9 +1,6 @@
 name: publish-resource-k8s
 
 on:
-  push:
-    branches:
-      - codex/oci-action-test
   workflow_dispatch:
     inputs:
       version:
@@ -27,25 +24,11 @@ permissions:
   packages: write
 
 jobs:
-  publish-manual:
-    if: github.event_name == 'workflow_dispatch'
+  publish:
     uses: ./.github/workflows/_publish-oci-component.yml
     with:
       component: resource-k8s
       version: ${{ inputs.version }}
       architecture: ${{ inputs.architecture }}
       registry_prefix: ${{ inputs.registry_prefix }}
-    secrets: inherit
-
-  publish-action-test:
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [v1.36.1, v1.35.0, v1.34.2]
-    uses: ./.github/workflows/_publish-oci-component.yml
-    with:
-      component: resource-k8s
-      version: ${{ matrix.version }}
-      architecture: all
     secrets: inherit

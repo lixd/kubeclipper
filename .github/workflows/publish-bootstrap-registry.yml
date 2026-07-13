@@ -1,9 +1,6 @@
 name: publish-bootstrap-registry
 
 on:
-  push:
-    branches:
-      - codex/oci-action-test
   workflow_dispatch:
     inputs:
       version:
@@ -27,21 +24,11 @@ permissions:
   packages: write
 
 jobs:
-  publish-manual:
-    if: github.event_name == 'workflow_dispatch'
+  publish:
     uses: ./.github/workflows/_publish-oci-component.yml
     with:
       component: bootstrap-registry
       version: ${{ inputs.version }}
       architecture: ${{ inputs.architecture }}
       registry_prefix: ${{ inputs.registry_prefix }}
-    secrets: inherit
-
-  publish-action-test:
-    if: github.event_name == 'push'
-    uses: ./.github/workflows/_publish-oci-component.yml
-    with:
-      component: bootstrap-registry
-      version: 3.1.1
-      architecture: all
     secrets: inherit

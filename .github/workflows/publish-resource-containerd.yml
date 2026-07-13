@@ -1,9 +1,6 @@
 name: publish-resource-containerd
 
 on:
-  push:
-    branches:
-      - codex/oci-action-test
   workflow_dispatch:
     inputs:
       version:
@@ -27,25 +24,11 @@ permissions:
   packages: write
 
 jobs:
-  publish-manual:
-    if: github.event_name == 'workflow_dispatch'
+  publish:
     uses: ./.github/workflows/_publish-oci-component.yml
     with:
       component: resource-containerd
       version: ${{ inputs.version }}
       architecture: ${{ inputs.architecture }}
       registry_prefix: ${{ inputs.registry_prefix }}
-    secrets: inherit
-
-  publish-action-test:
-    if: github.event_name == 'push'
-    strategy:
-      fail-fast: false
-      matrix:
-        version: [2.2.4, 1.7.29]
-    uses: ./.github/workflows/_publish-oci-component.yml
-    with:
-      component: resource-containerd
-      version: ${{ matrix.version }}
-      architecture: all
     secrets: inherit
