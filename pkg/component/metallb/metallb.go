@@ -471,17 +471,3 @@ func (n *MetalLB) Render(ctx context.Context, opts component.Options) error {
 func (n *MetalLB) GetImageRepoMirror() string {
 	return n.ImageRepoMirror
 }
-
-func (n *MetalLB) GetOfflineArtifactRequests() []component.OfflineArtifactRequest {
-	version := n.Version
-	if version == "" {
-		version = defaultVersion
-	}
-	return []component.OfflineArtifactRequest{
-		{
-			Kind:    "lb",
-			Name:    metallb,
-			Version: version,
-		},
-	}
-}

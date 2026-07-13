@@ -467,6 +467,17 @@ contain runtime image names. Adding a Kubernetes or Calico version requires publ
 package/chart and runtime images, regenerating the release manifest, and updating the policy
 when the new combination should be supported; it does not require editing server code.
 
+Shell completion for `kcctl create cluster --k8s-version`, `--cri-version`, and
+`--cni-version` is generated from the ComponentMeta projection. This projection
+is the intersection of Registry-derived package inventory and `delivery-policy`,
+so completion only offers versions that are both published and supported. It no
+longer switches between separate online/offline metadata sources.
+
+Kubernetes and containerd binaries are always resolved as OCI packages. Setting
+`--offline=false` only allows runtime images to use their upstream registries;
+it does not restore HTTP/static-server package downloads. The open OCI release
+currently supports containerd as the cluster runtime.
+
 ### 3.3 Deploy k8s using kcctl, add pause tag
 
 **TODO** A bug, will check later.

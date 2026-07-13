@@ -373,7 +373,7 @@ func Test_parseOperationFromComponent_ResolvesAddonArtifacts(t *testing.T) {
 	}
 }
 
-func Test_parseOperationFromComponent_RejectsMixedArchAddonArtifacts(t *testing.T) {
+func Test_parseOperationFromComponent_DoesNotResolveEmbeddedAddonAsPackage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -393,12 +393,12 @@ func Test_parseOperationFromComponent_RejectsMixedArchAddonArtifacts(t *testing.
 
 	meta := *extraMeta
 	meta.Offline = true
-	meta.CRI = v1.CRIDocker
-	meta.LocalRegistry = ""
+	meta.CRI = v1.CRIContainerd
+	meta.LocalRegistry = "registry.local:5000"
 	meta.Masters = component.NodeList{{ID: "master-1", Arch: "amd64"}}
 	meta.Workers = component.NodeList{{ID: "worker-1", Arch: "arm64"}}
 	cluster := *c1
-	cluster.LocalRegistry = ""
+	cluster.LocalRegistry = meta.LocalRegistry
 
 	lb := metallb.MetalLB{
 		Mode:      "L2",
@@ -415,10 +415,7 @@ func Test_parseOperationFromComponent_RejectsMixedArchAddonArtifacts(t *testing.
 		Version: "v1",
 		Config:  runtime.RawExtension{Raw: raw},
 	}}, &cluster, v1.ActionInstall)
-	if err == nil {
-		t.Fatalf("parseOperationFromComponent() expected mixed arch error")
-	}
-	if !strings.Contains(err.Error(), "single target architecture") {
+	if err != nil {
 		t.Fatalf("parseOperationFromComponent() error = %v", err)
 	}
 }

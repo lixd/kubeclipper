@@ -76,6 +76,34 @@ func TestWithResolvedArtifactPlan(t *testing.T) {
 	}
 }
 
+func TestWithResolvedArtifactPlanForOnlineCluster(t *testing.T) {
+	h := &handler{
+		serverConfig:    &serverconfig.Config{},
+		coreOperator:    newFakeDeliveryCoreOperator(t, deliveryPolicy()),
+		deliveryIndexer: fakeCatalogIndexer{catalog: registryResolverCatalog()},
+	}
+	extra := &component.ExtraMetadata{
+		Offline: false,
+		Masters: component.NodeList{{ID: "master-1", Arch: "amd64"}},
+		CRI:     "containerd",
+		CNI:     "calico",
+	}
+	cluster := &v1.Cluster{
+		KubernetesVersion: "v1.36.0",
+		LocalRegistry:     "registry.local:5000",
+		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+	}
+
+	ctx, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionInstall)
+	if err != nil {
+		t.Fatalf("withResolvedArtifactPlan() error: %+v", err)
+	}
+	if _, ok := component.GetResolvedArtifactPlan(ctx).(*deliveryapis.ResolvedArtifactPlan); !ok {
+		t.Fatal("online cluster install must still resolve OCI package artifacts")
+	}
+}
+
 func TestWithResolvedArtifactPlanRequiresDeliverySource(t *testing.T) {
 	h := &handler{serverConfig: &serverconfig.Config{}}
 	extra := &component.ExtraMetadata{Offline: true, Masters: component.NodeList{{ID: "master-1", Arch: "amd64"}}}

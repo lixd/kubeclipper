@@ -397,16 +397,6 @@ func (n *NFS) GetImageRepoMirror() string {
 	return n.ImageRepoMirror
 }
 
-func (n *NFS) GetOfflineArtifactRequests() []component.OfflineArtifactRequest {
-	return []component.OfflineArtifactRequest{
-		{
-			Kind:    "csi",
-			Name:    nfs,
-			Version: "v4.1.0",
-		},
-	}
-}
-
 func initI18nForComponentMeta() error {
 	return component.AddI18nMessages(component.I18nMessages{
 		{

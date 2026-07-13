@@ -311,6 +311,10 @@ Default inputs:
 - `publish-bootstrap-registry.sh` downloads `registry` from
   `distribution/distribution` GitHub release.
 
+`kcctl registry deploy` detects the target node architecture over SSH when
+`--arch` is omitted, then selects the matching platform from the bootstrap
+Registry image. `--arch` remains available as an explicit override.
+
 The published image refs follow the KubeClipper package layout:
 
 ```text

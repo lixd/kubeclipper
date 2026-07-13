@@ -83,6 +83,7 @@ func TestValidateArgsDeployAcceptsDefaultRegistryImage(t *testing.T) {
 	o := NewRegistryOptions(options.IOStreams{})
 	o.Node = "10.0.0.1"
 	o.SSHConfig.PkFile = "/tmp/id_rsa"
+	o.Arch = "amd64"
 
 	if err := o.ValidateArgsDeploy(); err != nil {
 		t.Fatalf("ValidateArgsDeploy() error = %+v", err)
@@ -93,6 +94,7 @@ func TestValidateArgsDeployRejectsMultipleSources(t *testing.T) {
 	o := NewRegistryOptions(options.IOStreams{})
 	o.Node = "10.0.0.1"
 	o.SSHConfig.PkFile = "/tmp/id_rsa"
+	o.Arch = "amd64"
 	o.RegistryImage = "ghcr.io/lixd/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1"
 	o.RegistryBinary = "./registry"
 
@@ -182,6 +184,27 @@ func TestExtractRegistryBinaryRejectsUnexpectedPath(t *testing.T) {
 	}
 	if !errors.Is(err, io.EOF) && !contains(err.Error(), "registry binary not found") {
 		t.Fatalf("extractRegistryBinary() error = %+v", err)
+	}
+}
+
+func TestNormalizeRegistryArchitecture(t *testing.T) {
+	tests := map[string]string{
+		"x86_64\n":  "amd64",
+		"amd64":     "amd64",
+		"aarch64\n": "arm64",
+		"arm64":     "arm64",
+	}
+	for machine, want := range tests {
+		got, err := normalizeRegistryArchitecture(machine)
+		if err != nil {
+			t.Fatalf("normalizeRegistryArchitecture(%q): %v", machine, err)
+		}
+		if got != want {
+			t.Fatalf("normalizeRegistryArchitecture(%q) = %q, want %q", machine, got, want)
+		}
+	}
+	if _, err := normalizeRegistryArchitecture("riscv64"); err == nil {
+		t.Fatal("unsupported architecture must return an error")
 	}
 }
 

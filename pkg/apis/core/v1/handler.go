@@ -1188,6 +1188,9 @@ func (h *handler) doOperation(ctx context.Context, op *v1.Operation, opts *servi
 }
 
 func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
+	if c.ContainerRuntime.Type != v1.CRIContainerd {
+		return fmt.Errorf("unsupported container runtime %q: OCI delivery currently supports containerd only", c.ContainerRuntime.Type)
+	}
 	if c.Networking.IPFamily == v1.IPFamilyDualStack {
 		if len(c.Networking.Pods.CIDRBlocks) < 2 {
 			return fmt.Errorf("the cluster is enabled in dual-stack mode, requiring both ipv4 and ipv6")

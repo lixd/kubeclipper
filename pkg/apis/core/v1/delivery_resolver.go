@@ -30,12 +30,12 @@ import (
 )
 
 func (h *handler) withResolvedArtifactPlan(ctx context.Context, extra *component.ExtraMetadata, cluster *v1.Cluster, action v1.StepAction) (context.Context, error) {
-	if (action != v1.ActionInstall && action != v1.ActionUpgrade) || extra == nil || cluster == nil || !extra.Offline {
+	if (action != v1.ActionInstall && action != v1.ActionUpgrade) || extra == nil || cluster == nil {
 		return ctx, nil
 	}
 	arch, ok := singleTargetArch(extra)
 	if !ok {
-		return nil, fmt.Errorf("offline delivery requires a single target architecture")
+		return nil, fmt.Errorf("OCI delivery requires a single target architecture")
 	}
 	source, err := resolveDeliverySource(ctx, h.platformOperator, h.coreOperator, cluster, h.deliveryIndexer)
 	if err != nil {

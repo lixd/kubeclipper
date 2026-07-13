@@ -62,7 +62,6 @@ import (
 const (
 	defaultRegistryPackageRegistry = "ghcr.io/lixd/kubeclipper"
 	defaultRegistryVersion         = "3.1.1"
-	defaultRegistryComponentArch   = "amd64"
 	packageRegistryBinaryPath      = "/opt/kubeclipper/resource/registry"
 	standardRegistryBinaryPath     = "/bin/registry"
 
@@ -201,7 +200,6 @@ func NewRegistryOptions(streams options.IOStreams) *RegistryOptions {
 		IOStreams:    streams,
 		PrintFlags:   printer.NewPrintFlags(),
 		SSHConfig:    sshutils.NewSSH(),
-		Arch:         defaultRegistryComponentArch,
 		DataRoot:     "/var/lib/registry",
 		RegistryPort: 5000,
 		Type:         "repository",
@@ -254,7 +252,7 @@ func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 	cmd.Flags().StringVar(&o.RegistryBinary, "registry-binary", o.RegistryBinary, "local registry binary path.")
 	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", o.PackageRegistry, "OCI registry prefix containing kubeclipper/packages/bootstrap/registry. Default: ghcr.io/lixd/kubeclipper.")
 	cmd.Flags().StringVar(&o.Version, "version", o.Version, "registry bootstrap image version. Default: 3.1.1.")
-	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry bootstrap image architecture.")
+	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry bootstrap image architecture. Default: detected from the target node.")
 	cmd.Flags().StringVar(&o.DataRoot, "data-root", o.DataRoot, "set registry data root directory.")
 	cmd.Flags().IntVar(&o.RegistryPort, "registry-port", o.RegistryPort, "set registry port")
 
@@ -403,7 +401,7 @@ func (o *RegistryOptions) trackChangedFlags(cmd *cobra.Command) {
 
 // Complete loads registry config and fills in unset options from the matching registry entry.
 // When --node is specified, it looks up that node's entry; otherwise uses the current entry.
-func (o *RegistryOptions) Complete(_ *cobra.Command) error {
+func (o *RegistryOptions) Complete(cmd *cobra.Command) error {
 	cfg, err := LoadRegistryConfig()
 	if err != nil {
 		return fmt.Errorf("load registry config: %w", err)
@@ -417,7 +415,28 @@ func (o *RegistryOptions) Complete(_ *cobra.Command) error {
 	if entry != nil {
 		applyEntryToOptions(o, entry, o.nodeChanged, o.portChanged, o.sshUserChanged, o.pkFileChanged, o.pkPasswdChanged)
 	}
+	if cmd.Name() == "deploy" && o.Arch == "" && o.Node != "" && (o.SSHConfig.PkFile != "" || o.SSHConfig.Password != "") {
+		result, err := sshutils.SSHCmd(o.SSHConfig, o.Node, "uname -m")
+		if err != nil {
+			return fmt.Errorf("detect registry node architecture: %w", err)
+		}
+		o.Arch, err = normalizeRegistryArchitecture(result.Stdout)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func normalizeRegistryArchitecture(machine string) (string, error) {
+	switch strings.TrimSpace(machine) {
+	case "x86_64", "amd64":
+		return "amd64", nil
+	case "aarch64", "arm64":
+		return "arm64", nil
+	default:
+		return "", fmt.Errorf("unsupported registry node architecture %q", strings.TrimSpace(machine))
+	}
 }
 
 func (o *RegistryOptions) healthPreCheck() bool {

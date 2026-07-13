@@ -62,7 +62,8 @@ const (
   # Runtime images must already exist in --local-registry.
   kcctl create cluster --name demo --master 192.168.10.123 --local-registry 192.168.10.123:5000
 
-  # Create cluster online
+  # Create a cluster whose runtime images are pulled from upstream registries.
+  # Kubernetes and containerd packages are still resolved from the OCI package Registry.
   kcctl create cluster --name demo --master 192.168.10.123 --offline false
 
   # Create cluster with taint manage
@@ -176,7 +177,7 @@ type CreateClusterOptions struct {
 }
 
 var (
-	allowedCRI = sets.NewString("containerd", "docker")
+	allowedCRI = sets.NewString("containerd")
 	allowedCNI = sets.NewString("calico")
 )
 
@@ -204,7 +205,7 @@ func NewCreateClusterOptions(streams options.IOStreams) *CreateClusterOptions {
 func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	o := NewCreateClusterOptions(streams)
 	cmd := &cobra.Command{
-		Use:                   "cluster (--name) <name> (-m|--master) <id or ip> [(--offline <false> | <true>)] [(--cri <docker> | <containerd>)] [(--cni <calico> | <others> )] [flags]",
+		Use:                   "cluster (--name) <name> (-m|--master) <id or ip> [(--offline <false> | <true>)] [--cri containerd] [--cni calico] [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "create kubeclipper cluster resource",
 		Long:                  clusterLongDescription,
@@ -225,7 +226,7 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.LocalRegistry, "local-registry", o.LocalRegistry, "use local registry address to pull image for create cluster")
 	cmd.Flags().StringSliceVar(&o.InsecureRegistries, "insecure-registry", o.InsecureRegistries, "use remote registry address to pull image")
 	cmd.Flags().StringSliceVar(&o.CRIRegistries, "cri-registry", o.CRIRegistries, "specify internal cri registry name to add registry config to containerd,run command [kcctl get registry] to show internal cri registry")
-	cmd.Flags().StringVar(&o.CRI, "cri", o.CRI, "k8s cri type, docker or containerd")
+	cmd.Flags().StringVar(&o.CRI, "cri", o.CRI, "k8s cri type. OCI delivery currently supports containerd")
 	cmd.Flags().StringVar(&o.CRIVersion, "cri-version", o.CRIVersion, "k8s cri version")
 	cmd.Flags().StringVar(&o.K8sVersion, "k8s-version", o.K8sVersion, "k8s version")
 	cmd.Flags().StringVar(&o.CNI, "cni", o.CNI, "k8s cni type, calico or others")
@@ -693,13 +694,7 @@ func (l *CreateClusterOptions) listCRIRegistry() []string {
 }
 
 func (l *CreateClusterOptions) componentVersions(component, toComplete string) []string {
-	var metas *kc.ComponentMeta
-	var err error
-	if l.Offline {
-		metas, err = l.Client.GetComponentMeta(context.TODO(), map[string][]string{"online": {"false"}})
-	} else {
-		metas, err = l.Client.GetComponentMeta(context.TODO(), map[string][]string{"online": {"true"}})
-	}
+	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
 	if err != nil {
 		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
 		return nil

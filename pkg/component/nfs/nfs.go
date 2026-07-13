@@ -452,13 +452,3 @@ func (n *NFSProvisioner) Render(ctx context.Context, opts component.Options) err
 func (n *NFSProvisioner) GetImageRepoMirror() string {
 	return n.ImageRepoMirror
 }
-
-func (n *NFSProvisioner) GetOfflineArtifactRequests() []component.OfflineArtifactRequest {
-	return []component.OfflineArtifactRequest{
-		{
-			Kind:    "csi",
-			Name:    nfs,
-			Version: "v4.0.2",
-		},
-	}
-}

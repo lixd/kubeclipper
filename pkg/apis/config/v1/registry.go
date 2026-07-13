@@ -99,9 +99,6 @@ func AddToContainer(c *restful.Container, platformOperator platform.Operator, co
 		To(h.ListOfflineResource).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
 		Doc("List OCI offline resource availability projected from policy and registry inventory.").
-		Param(webservice.QueryParameter("online", "online or offline resource").
-			Required(false).
-			DefaultValue("false")).
 		Param(webservice.QueryParameter("arch", "optional comma-separated target architectures, such as amd64 or amd64,arm64").
 			Required(false)).
 		Param(webservice.QueryParameter("refresh", "force refresh registry-derived package inventory before projection").
