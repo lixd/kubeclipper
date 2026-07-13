@@ -29,6 +29,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
@@ -71,12 +74,11 @@ func run(ctx context.Context, registry string) error {
 	_ = os.RemoveAll(downloader.BaseDstDir)
 
 	fixtures := []packageFixture{
-		{kind: "k8s", name: "k8s", version: "v1.36.0", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz", "images.tar.gz"}},
-		{kind: "cri", name: "containerd", version: "2.1.0", profile: deliveryapis.ContentProfileRuntime, files: []string{"configs.tar.gz", "images.tar.gz"}},
-		{kind: "cni", name: "calico", version: "v3.30.0", profile: deliveryapis.ContentProfileAddon, files: []string{"images.tar.gz", "charts.tgz"}},
+		{kind: "k8s", name: "k8s", version: "v1.36.0", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz"}},
+		{kind: "cri", name: "containerd", version: "2.1.0", profile: deliveryapis.ContentProfileRuntime, files: []string{"configs.tar.gz"}},
 		{kind: "bootstrap", name: "kubeclipper", version: "v1.8.0", profile: deliveryapis.ContentProfileBinary, files: []string{"kubeclipper-server", "kubeclipper-agent"}},
 		{kind: "bootstrap", name: "etcd", version: "v3.5.15", profile: deliveryapis.ContentProfileBinary, files: []string{"etcd", "etcdctl", "etcdutl"}},
-		{kind: "extension", name: "kubectl-terminal", version: "v1.0.0", profile: deliveryapis.ContentProfileExtension, files: []string{"images.tar.gz"}},
+		{kind: "k8s-extension", name: "k8s-extension", version: "v1", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz"}},
 	}
 
 	publisher := deliverypublisher.NewOCIArtifactPublisher()
@@ -100,13 +102,41 @@ func run(ctx context.Context, registry string) error {
 		v.check(result.Transport.Type == deliveryapis.TransportOCI, "publish %s/%s uses OCI transport", fixture.kind, fixture.name)
 		v.check(strings.HasPrefix(result.Transport.Digest, "sha256:"), "publish %s/%s records manifest digest", fixture.kind, fixture.name)
 	}
+	chartPath, err := writeHelmChart(workdir, "tigera-operator", "v3.30.0")
+	if err != nil {
+		return err
+	}
+	chart, err := deliverypublisher.PublishHelmChart(deliverypublisher.HelmChartPublishRequest{
+		ChartPath:        chartPath,
+		Registry:         registry,
+		RepositoryPrefix: deliveryapis.ChartRepositoryPrefix,
+		Name:             "tigera-operator",
+	})
+	if err != nil {
+		return fmt.Errorf("publish calico helm chart: %w", err)
+	}
+	v.check(strings.HasPrefix(chart.Digest, "sha256:"), "publish calico as Helm OCI chart")
+
+	runtimeRef := registry + "/kubeclipper/verify/pause:v1"
+	if err = crane.Push(empty.Image, runtimeRef, crane.Insecure); err != nil {
+		return fmt.Errorf("publish runtime image: %w", err)
+	}
+	runtimeImage, err := crane.Pull(runtimeRef, crane.Insecure)
+	if err != nil {
+		return fmt.Errorf("pull runtime image: %w", err)
+	}
+	runtimeDigest, err := runtimeImage.Digest()
+	if err != nil {
+		return err
+	}
+	v.check(strings.HasPrefix(runtimeDigest.String(), "sha256:"), "standard runtime image round-trips through Registry")
 
 	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexer(nil).Refresh(ctx, registry)
 	if err != nil {
 		return err
 	}
 	v.check(inventory.Spec.Registry == registry, "inventory records source registry")
-	v.check(len(inventory.Spec.Packages) >= len(fixtures), "inventory contains all published packages")
+	v.check(len(inventory.Spec.Packages) >= len(fixtures)+2, "inventory contains package images and both Calico chart platforms")
 	for _, fixture := range fixtures {
 		pkg, ok := findPackage(inventory, fixture.kind, fixture.name, fixture.version)
 		v.check(ok, "inventory has %s/%s:%s", fixture.kind, fixture.name, fixture.version)
@@ -115,6 +145,15 @@ func run(ctx context.Context, registry string) error {
 			v.check(pkg.Transport.Type == deliveryapis.TransportOCI, "inventory %s/%s transport is OCI", fixture.kind, fixture.name)
 			v.check(strings.HasPrefix(pkg.Transport.Digest, "sha256:"), "inventory %s/%s has digest", fixture.kind, fixture.name)
 		}
+	}
+	_, runtimeIndexed := findPackage(inventory, "verify", "pause", "v1")
+	v.check(!runtimeIndexed, "inventory ignores standard runtime images")
+	calico, ok := findPackage(inventory, "cni", "calico", "v3.30.0")
+	v.check(ok, "inventory maps tigera-operator chart to cni/calico")
+	if ok {
+		v.check(len(calico.Contents) == 1 && calico.Contents[0].Transport.Type == deliveryapis.TransportHelmOCI, "calico resolves charts through Helm OCI transport")
+		chartImage, pullErr := crane.Pull(calico.Transport.Ref+"@"+calico.Transport.Digest, crane.Insecure)
+		v.check(pullErr == nil && chartImage != nil, "calico Helm OCI chart is pullable by digest")
 	}
 
 	policy := supportPolicy()
@@ -126,7 +165,7 @@ func run(ctx context.Context, registry string) error {
 	if err != nil {
 		return err
 	}
-	v.check(len(plan.Components) == 3, "cluster install plan contains k8s/cri/cni only")
+	v.check(len(plan.Components) == 4, "cluster install plan contains k8s/cri/cni/k8s-extension")
 	for _, component := range plan.Components {
 		v.check(component.Transport.Type == deliveryapis.TransportOCI, "plan %s/%s transport is OCI", component.Kind, component.Name)
 		v.check(strings.HasPrefix(component.Transport.Digest, "sha256:"), "plan %s/%s is digest pinned", component.Kind, component.Name)
@@ -158,32 +197,24 @@ func run(ctx context.Context, registry string) error {
 	if err != nil {
 		return err
 	}
-	extension, err := deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
-		Arch:              "amd64",
-		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.ExtensionCandidate{{Kind: "extension", Name: "kubectl-terminal"}},
-	})
-	if err != nil {
-		return err
-	}
 	v.check(agent.Kind == "bootstrap" && agent.Name == "kubeclipper" && len(agent.Contents) == 1 && agent.Contents[0].Name == "kubeclipper-agent", "bootstrap agent resolves from kubeclipper package")
 	v.check(etcdctl.Kind == "bootstrap" && etcdctl.Name == "etcd" && len(etcdctl.Contents) == 1 && etcdctl.Contents[0].Name == "etcdctl", "bootstrap etcdctl resolves from etcd package")
-	v.check(extension.Kind == "extension" && extension.Name == "kubectl-terminal", "kubectl terminal resolves from extension package")
-	_, err = deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
-		Arch:              "amd64",
-		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.ExtensionCandidate{{Kind: "extension", Name: "inventory-only-extension"}},
-	})
-	v.check(errors.As(err, &resolverErr) && resolverErr.Code == deliveryapis.ErrUnsupportedComponentChoice, "extension inventory-only candidate is rejected by policy")
+	v.check(hasResolvedComponent(plan, "k8s-extension", "k8s-extension", "v1"), "k8s helpers resolve from delivery policy")
 
 	fullPlan := *plan
-	fullPlan.Components = append(append([]deliveryapis.ResolvedComponent{}, plan.Components...), agent, etcdctl, extension)
+	fullPlan.Components = nil
+	for _, component := range plan.Components {
+		if component.Kind != "cni" {
+			fullPlan.Components = append(fullPlan.Components, component)
+		}
+	}
+	fullPlan.Components = append(fullPlan.Components, agent, etcdctl)
 	fetcher := deliveryfetcher.NewOCIArtifactFetcher(false)
 	fetchResult, err := fetcher.Fetch(ctx, &fullPlan)
 	if err != nil {
 		return err
 	}
-	v.check(len(fetchResult.Components) == 6, "fetcher materializes all resolved components")
+	v.check(len(fetchResult.Components) == 5, "fetcher materializes package-image components")
 	for _, component := range fetchResult.Components {
 		v.check(component.Transport.Type == deliveryapis.TransportOCI, "fetched %s/%s transport remains OCI", component.Kind, component.Name)
 		v.check(fileExists(component.ManifestPath), "fetched %s/%s manifest exists", component.Kind, component.Name)
@@ -250,14 +281,14 @@ func supportPolicy() *deliveryapis.SupportPolicy {
 				}},
 			},
 			{
-				Slot:      "extension",
+				Slot:      "k8s-extension",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "kubectl-terminal", Version: "v1.0.0"},
+				Default:   deliveryapis.ComponentChoice{Name: "k8s-extension", Version: "v1"},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "extension",
-					Name:            "kubectl-terminal",
-					AllowedVersions: []string{"v1.0.0"},
+					Kind:            "k8s-extension",
+					Name:            "k8s-extension",
+					AllowedVersions: []string{"v1"},
 				}},
 			},
 		},
@@ -286,6 +317,22 @@ func writePackageArchive(workdir string, fixture packageFixture) (string, error)
 	}
 	archive := filepath.Join(root, fixture.name+".tar.gz")
 	return archive, writeTarGz(archive, root)
+}
+
+func writeHelmChart(workdir, name, version string) (string, error) {
+	root := filepath.Join(workdir, "charts", name)
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return "", err
+	}
+	chartYAML := fmt.Sprintf("apiVersion: v2\nname: %s\nversion: %s\ntype: application\n", name, version)
+	if err := os.WriteFile(filepath.Join(root, "Chart.yaml"), []byte(chartYAML), 0644); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(filepath.Join(root, "values.yaml"), []byte("installation: {}\n"), 0644); err != nil {
+		return "", err
+	}
+	archive := filepath.Join(workdir, name+"-"+version+".tgz")
+	return archive, writeTarGz(archive, filepath.Dir(root))
 }
 
 func writePayloadTarGz(path string, fixture packageFixture, file string, mode os.FileMode) error {
@@ -350,6 +397,15 @@ func findPackage(inventory *deliveryapis.PackageInventory, kind, name, version s
 		}
 	}
 	return deliveryapis.PackageEntry{}, false
+}
+
+func hasResolvedComponent(plan *deliveryapis.ResolvedArtifactPlan, kind, name, version string) bool {
+	for _, component := range plan.Components {
+		if component.Kind == kind && component.Name == name && component.Version == version {
+			return true
+		}
+	}
+	return false
 }
 
 func fileExists(path string) bool {

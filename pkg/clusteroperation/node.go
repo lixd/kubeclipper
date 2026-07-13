@@ -26,6 +26,8 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/clustermanage/kubeadm"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -46,10 +48,11 @@ var (
 type NodesPatchOperation string
 
 type PatchNodes struct {
-	Operation    NodesPatchOperation   `json:"operation"`
-	Nodes        corev1.WorkerNodeList `json:"nodes"`
-	ConvertNodes []component.Node      `json:"convertNodes"`
-	Role         common.NodeRole       `json:"role"`
+	Operation    NodesPatchOperation                `json:"operation"`
+	Nodes        corev1.WorkerNodeList              `json:"nodes"`
+	ConvertNodes []component.Node                   `json:"convertNodes"`
+	Role         common.NodeRole                    `json:"role"`
+	ResolvedPlan *deliveryapis.ResolvedArtifactPlan `json:"resolvedPlan,omitempty"`
 }
 
 var _ Interface = (*NodeOperation)(nil)
@@ -162,6 +165,9 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 	}
 	// pass extra metadata in context
 	ctx := component.WithExtraMetadata(context.TODO(), extra)
+	if p.ResolvedPlan != nil {
+		ctx = component.WithResolvedArtifactPlan(ctx, p.ResolvedPlan)
+	}
 	// nodes to be added or removed
 	var stepNodes []corev1.StepNode
 	workerIPs := extra.GetWorkerNodeIP()
@@ -191,14 +197,14 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 
 		// k8s-extension
 		ext := k8s.Extension{}
-		steps, err = ext.InitStepper(cluster).InstallSteps(stepNodes)
+		steps, err = ext.InitStepper(cluster).InstallStepsWithContext(ctx, stepNodes)
 		if err != nil {
 			return nil, err
 		}
 		op.Steps = append(op.Steps, steps...)
 
 		// kubernetes
-		steps, err = p.getPackageSteps(cluster, action, stepNodes)
+		steps, err = p.getPackageSteps(ctx, cluster, action, stepNodes)
 		if err != nil {
 			return nil, err
 		}
@@ -224,7 +230,7 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 		op.Steps = append(op.Steps, gen.GetSteps(action)...)
 
 		// kubernetes
-		steps, err := p.getPackageSteps(cluster, action, stepNodes)
+		steps, err := p.getPackageSteps(ctx, cluster, action, stepNodes)
 		if err != nil {
 			return nil, err
 		}
@@ -251,9 +257,14 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 	return op, nil
 }
 
-func (p *PatchNodes) getPackageSteps(cluster *corev1.Cluster, action corev1.StepAction, pNodes []corev1.StepNode) ([]corev1.Step, error) {
+func (p *PatchNodes) getPackageSteps(ctx context.Context, cluster *corev1.Cluster, action corev1.StepAction, pNodes []corev1.StepNode) ([]corev1.Step, error) {
 	pack := &k8s.Package{}
 	pack = pack.InitStepper(cluster)
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "k8s", k8s.K8s, cluster.KubernetesVersion); ok {
+		pack.Arch = resolved.Arch
+		pack.Transport = resolved.Transport
+		pack.Contents = resolved.Contents
+	}
 
 	switch action {
 	case corev1.ActionInstall:

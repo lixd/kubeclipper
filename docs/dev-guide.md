@@ -341,6 +341,8 @@ Command status after the OCI switch:
 | `scripts/open-packaging/build-offline-resources.sh` | Release entry point | Build from public sources and publish package images, Helm OCI charts, and runtime images. |
 | `scripts/open-packaging/generate-release-manifest.sh` | Release helper | Generate the synchronization and offline delivery manifest. |
 | `scripts/open-packaging/verify-release-manifest.sh` | Optional verification | Verify exact package, chart, and runtime image references in a target Registry. |
+| `scripts/open-packaging/export-offline-registry-bundle.sh` | Air-gap export | Export one architecture as checksummed, digest-preserving Registry seed data. |
+| `scripts/open-packaging/import-offline-registry-bundle.sh` | Air-gap import | Import a bundle into any OCI Registry or Harbor without requiring Docker/containerd. |
 | `tools/oci-publish` | Package image publisher | Assemble and push standard OCI package images. |
 | `kcctl registry deploy --registry-image/--registry-image-archive/--registry-binary` | OCI bootstrap | Deploy the bootstrap Registry without the legacy release tarball. |
 | `kcctl resource list/inspect/refresh --registry` | Existing command, OCI-only semantics | Inspect Registry-derived inventory; no static-server SSH or `--transport` mode. |
@@ -390,6 +392,19 @@ scripts/open-packaging/verify-release-manifest.sh \
   --arch amd64 \
   --insecure
 
+# For a physically disconnected environment, run this while the source
+# Registry is reachable, carry the resulting tar.gz across the air gap, then
+# import it after kcctl registry deploy or into an existing Harbor instance.
+scripts/open-packaging/export-offline-registry-bundle.sh \
+  --manifest "${RESOURCE_DIR}/release-manifest.yaml" \
+  --arch amd64 \
+  --output kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+
+scripts/open-packaging/import-offline-registry-bundle.sh \
+  --bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz \
+  --registry "${REGISTRY}" \
+  --insecure-destination
+
 # 4. Confirm Registry-derived package/chart inventory.
 kcctl resource list --registry ${REGISTRY} --refresh
 kcctl resource inspect --registry ${REGISTRY} --name k8s --version ${K8S_VERSION} --arch amd64 -o yaml
@@ -433,6 +448,13 @@ kcctl create cluster \
 kubectl taint node <node-name> node-role.kubernetes.io/control-plane:NoSchedule- || true
 kubectl taint node <node-name> node-role.kubernetes.io/master:NoSchedule- || true
 ```
+
+Worker-node additions use the same OCI resolver as cluster creation. Before an
+`AddNodes` operation is queued, KubeClipper resolves containerd, k8s-extension,
+and Kubernetes package images for the target architecture and stores the
+digest-pinned plan with the pending operation. `RemoveNodes` uninstalls the
+components already present on the node and does not fetch package content from
+the Registry.
 
 `delivery-policy` is part of the OCI delivery flow. Registry inventory proves that package
 bytes exist; delivery policy proves that a Kubernetes/component version combination is

@@ -19,12 +19,17 @@
 package clusteroperation
 
 import (
+	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
 )
 
 var (
@@ -203,6 +208,41 @@ func Test_MakeCompare(t *testing.T) {
 				t.Errorf(" MakeCompare() err: %v ", err)
 			}
 		})
+	}
+}
+
+func TestAddWorkerPackageStepPreservesResolvedTransport(t *testing.T) {
+	cluster := c2.DeepCopy()
+	cluster.KubernetesVersion = "v1.34.2"
+	resolved := deliveryapis.ResolvedComponent{
+		Kind:    "k8s",
+		Name:    k8s.K8s,
+		Version: cluster.KubernetesVersion,
+		Arch:    "amd64",
+		Transport: deliveryapis.TransportRef{
+			Type:   deliveryapis.TransportOCI,
+			Ref:    "registry.example/kubeclipper/packages/k8s/k8s:v1.34.2",
+			Digest: "sha256:resolved",
+		},
+		Contents: []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentConfigs}},
+	}
+	ctx := component.WithResolvedArtifactPlan(context.Background(), &deliveryapis.ResolvedArtifactPlan{
+		Components: []deliveryapis.ResolvedComponent{resolved},
+	})
+
+	steps, err := (&PatchNodes{}).getPackageSteps(ctx, cluster, v1.ActionInstall, []v1.StepNode{{ID: "worker-1"}})
+	if err != nil {
+		t.Fatalf("getPackageSteps() error: %v", err)
+	}
+	if len(steps) != 1 || len(steps[0].Commands) != 1 {
+		t.Fatalf("steps = %+v", steps)
+	}
+	var pack k8s.Package
+	if err := json.Unmarshal(steps[0].Commands[0].CustomCommand, &pack); err != nil {
+		t.Fatalf("decode package command: %v", err)
+	}
+	if pack.Transport != resolved.Transport || pack.Arch != resolved.Arch {
+		t.Fatalf("resolved package transport was not preserved: %+v", pack)
 	}
 }
 

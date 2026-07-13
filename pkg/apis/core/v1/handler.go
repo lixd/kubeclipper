@@ -65,6 +65,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/controller"
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/client"
 	"github.com/kubeclipper/kubeclipper/pkg/controller/cloudprovidercontroller"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
 	"github.com/kubeclipper/kubeclipper/pkg/models/core"
@@ -244,6 +245,18 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 		}
 		restplus.HandleBadRequest(response, request, err)
 		return
+	}
+	if pn.Operation == clusteroperation.NodesOperationAdd {
+		metadata := utils.NewMetadata(c)
+		metadata.Workers = append(metadata.Workers, nodes...)
+		resolvedCtx, resolveErr := h.withResolvedArtifactPlan(ctx, metadata, c, v1.ActionInstall)
+		if resolveErr != nil {
+			restplus.HandleBadRequest(response, request, resolveErr)
+			return
+		}
+		if plan, ok := component.GetResolvedArtifactPlan(resolvedCtx).(*deliveryapis.ResolvedArtifactPlan); ok {
+			pn.ResolvedPlan = plan
+		}
 	}
 
 	for _, n := range nodes {

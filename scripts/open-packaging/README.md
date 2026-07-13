@@ -77,7 +77,7 @@ Verification is optional and does not block `kcctl create cluster`:
 
 ```bash
 scripts/open-packaging/verify-release-manifest.sh \
-  --manifest /data/kc-resource/release-manifest.yaml \
+  --manifest kubeclipper-offline-registry-bundle-v1.8.0-amd64-release-manifest.yaml \
   --registry 10.0.0.10:5000 \
   --arch amd64 \
   --insecure
@@ -444,6 +444,49 @@ docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 
 Helm charts remain Helm OCI artifacts, but they were verified with
 `skopeo copy/sync` and can be mirrored with the same Registry tooling.
+
+### 3.2 Offline Registry Bundle
+
+For an air-gapped site, generate `release-manifest.yaml` with all required
+package images, Helm OCI charts, and runtime images, then export one
+architecture into a portable bundle:
+
+```bash
+scripts/open-packaging/export-offline-registry-bundle.sh \
+  --manifest /data/kc-resource/release-manifest.yaml \
+  --arch amd64 \
+  --output kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+```
+
+The tarball contains lossless Registry seed data, the original release
+manifest, an artifact index, and SHA256 checksums. Package images and Helm
+charts use OCI Layout. Runtime images use Skopeo's lossless directory transport
+because many upstream images still use Docker Schema 2 media types that cannot
+be read back from an OCI Layout without changing their digest. Shared
+content-addressed blobs are hard-linked before compression to avoid storing the
+same layer repeatedly. This is not a legacy KubeClipper Resource package and
+does not embed `images.tar.gz` in another image.
+
+After carrying the tarball into the offline environment, deploy KubeClipper's
+Registry or prepare Harbor, then import every object while preserving its
+repository path, tag, media type, and digest:
+
+```bash
+scripts/open-packaging/import-offline-registry-bundle.sh \
+  --bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz \
+  --registry registry.local:5000 \
+  --insecure-destination
+
+scripts/open-packaging/verify-release-manifest.sh \
+  --manifest /data/kc-resource/release-manifest.yaml \
+  --registry registry.local:5000 \
+  --arch amd64 \
+  --insecure
+```
+
+Both scripts use `skopeo`, so Docker/containerd does not need to be running on
+the export or import host. Registry credentials continue to use normal
+containers-auth configuration (`skopeo login`, Docker config, or an authfile).
 
 ## 4. Typical End-to-End Flow
 
