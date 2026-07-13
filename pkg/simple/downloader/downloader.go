@@ -16,7 +16,6 @@ import (
 
 const (
 	ManifestFilename = "manifest.json"
-	ImageFilename    = "images.tar.gz"
 	ConfigFilename   = "configs.tar.gz"
 	BaseDstDir       = "/tmp/kc-downloader"
 	ChartFilename    = "charts.tgz"
@@ -45,10 +44,6 @@ func ConfigPath(kind, name, version, arch string) string {
 	return filepath.Join(PackageContentsDir(kind, name, version, arch), ConfigFilename)
 }
 
-func ImagePath(kind, name, version, arch string) string {
-	return filepath.Join(PackageContentsDir(kind, name, version, arch), ImageFilename)
-}
-
 func ChartPath(kind, name, version, arch string) string {
 	return filepath.Join(PackageContentsDir(kind, name, version, arch), ChartFilename)
 }
@@ -61,19 +56,12 @@ func CleanupConfigs(kind, name, version, arch string, dryRun bool) error {
 	return cleanupConfigsAt(ConfigPath(kind, name, version, arch), dryRun)
 }
 
-func CleanupImages(kind, name, version, arch string, dryRun bool) error {
-	return cleanupPath(ImagePath(kind, name, version, arch), dryRun)
-}
-
 func CleanupCharts(kind, name, version, arch string, dryRun bool) error {
 	return cleanupPath(ChartPath(kind, name, version, arch), dryRun)
 }
 
 func CleanupPackage(kind, name, version, arch string, dryRun bool) error {
 	if err := CleanupConfigs(kind, name, version, arch, dryRun); err != nil {
-		return err
-	}
-	if err := CleanupImages(kind, name, version, arch, dryRun); err != nil {
 		return err
 	}
 	if err := CleanupCharts(kind, name, version, arch, dryRun); err != nil {

@@ -78,7 +78,7 @@ func run(ctx context.Context, registry string) error {
 		{kind: "cri", name: "containerd", version: "2.1.0", profile: deliveryapis.ContentProfileRuntime, files: []string{"configs.tar.gz"}},
 		{kind: "bootstrap", name: "kubeclipper", version: "v1.8.0", profile: deliveryapis.ContentProfileBinary, files: []string{"kubeclipper-server", "kubeclipper-agent"}},
 		{kind: "bootstrap", name: "etcd", version: "v3.5.15", profile: deliveryapis.ContentProfileBinary, files: []string{"etcd", "etcdctl", "etcdutl"}},
-		{kind: "k8s-extension", name: "k8s-extension", version: "v1", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz"}},
+		{kind: "k8s-extension", name: "k8s-extension", version: "v1", profile: deliveryapis.ContentProfileExtension, files: []string{"configs.tar.gz"}},
 	}
 
 	publisher := deliverypublisher.NewOCIArtifactPublisher()

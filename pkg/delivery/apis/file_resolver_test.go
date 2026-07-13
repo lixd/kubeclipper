@@ -111,7 +111,7 @@ func TestResolveExtensionArtifactFromStores(t *testing.T) {
 							Ref:    "registry.local/kubeclipper/packages/extension/kubectl-terminal:v1.0.0",
 							Digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 						},
-						Contents: []ArtifactContent{{Name: ContentImages, File: "images.tar.gz", MediaType: MediaTypeImagesLayer}},
+						Contents: []ArtifactContent{{Name: ContentConfigs, File: "configs.tar.gz", MediaType: MediaTypeConfigsLayer}},
 					},
 				},
 			},

@@ -232,17 +232,10 @@ func (stepper *Package) installResolved(ctx context.Context, opts component.Opti
 }
 
 func packageConfigContents(contents []deliveryapis.ArtifactContent) []deliveryapis.ArtifactContent {
-	filtered := make([]deliveryapis.ArtifactContent, 0, len(contents))
-	for _, content := range contents {
-		if content.Name == deliveryapis.ContentImages {
-			continue
-		}
-		filtered = append(filtered, content)
-	}
-	if len(filtered) == 0 {
+	if len(contents) == 0 {
 		return []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentConfigs, File: downloader.ConfigFilename}}
 	}
-	return filtered
+	return contents
 }
 
 func (stepper *Package) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {

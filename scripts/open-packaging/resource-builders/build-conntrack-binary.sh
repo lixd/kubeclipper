@@ -123,13 +123,16 @@ build_from_source_with_docker() {
       download_src() {
         archive="$1"
         url="$2"
-        curl -fL \
+        partial="$work/$archive.part"
+        curl --http1.1 -fL \
+          --continue-at - \
           --retry "$KC_DOWNLOAD_RETRIES" \
           --retry-delay 2 \
           --retry-all-errors \
           --connect-timeout "$KC_DOWNLOAD_CONNECT_TIMEOUT" \
           --max-time "$KC_DOWNLOAD_MAX_TIME" \
-          "$url" -o "$work/$archive"
+          "$url" -o "$partial"
+        mv -f "$partial" "$work/$archive"
         tar -C "$work" -xf "$work/$archive"
       }
 

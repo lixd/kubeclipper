@@ -352,9 +352,6 @@ func Test_parseOperationFromComponent_ResolvesAddonArtifacts(t *testing.T) {
 	var foundRender bool
 	for _, step := range op.Steps {
 		for _, cmd := range step.Commands {
-			if cmd.Type == v1.CommandCustom && cmd.Identity == "image/v1/AgentImager" {
-				t.Fatalf("addon install generated removed image tarball loader step: %+v", step)
-			}
 			if cmd.Type != v1.CommandTemplateRender || cmd.Template == nil || cmd.Template.Identity != "metallb/v1/metallb" {
 				continue
 			}

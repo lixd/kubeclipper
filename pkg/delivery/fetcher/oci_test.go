@@ -126,7 +126,6 @@ func TestContentFile(t *testing.T) {
 		want    string
 	}{
 		{content: deliveryapis.ArtifactContent{Name: deliveryapis.ContentConfigs}, want: downloader.ConfigFilename},
-		{content: deliveryapis.ArtifactContent{Name: deliveryapis.ContentImages}, want: downloader.ImageFilename},
 		{content: deliveryapis.ArtifactContent{Name: deliveryapis.ContentCharts}, want: downloader.ChartFilename},
 		{content: deliveryapis.ArtifactContent{Name: "descriptor", File: "descriptor.json"}, want: "descriptor.json"},
 	} {

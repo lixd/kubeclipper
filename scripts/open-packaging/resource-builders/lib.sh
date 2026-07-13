@@ -52,6 +52,7 @@ download() {
   local retries="${KC_DOWNLOAD_RETRIES:-3}"
   local connect_timeout="${KC_DOWNLOAD_CONNECT_TIMEOUT:-20}"
   local max_time="${KC_DOWNLOAD_MAX_TIME:-900}"
+  local partial="${dst}.part"
 
   mkdir -p "$(dirname "$dst")"
   if command -v curl >/dev/null 2>&1; then
@@ -59,20 +60,23 @@ download() {
     if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
       curl_retry_all_errors=(--retry-all-errors)
     fi
-    curl -fL \
+    curl --http1.1 -fL \
+      --continue-at - \
       --retry "$retries" \
       --retry-delay 2 \
       --connect-timeout "$connect_timeout" \
       --max-time "$max_time" \
       "${curl_retry_all_errors[@]}" \
-      "$url" -o "$dst"
+      "$url" -o "$partial"
+    mv -f "$partial" "$dst"
     return
   fi
   if command -v wget >/dev/null 2>&1; then
-    wget --tries "$retries" \
+    wget --continue --tries "$retries" \
       --connect-timeout "$connect_timeout" \
       --timeout "$max_time" \
-      -O "$dst" "$url"
+      -O "$partial" "$url"
+    mv -f "$partial" "$dst"
     return
   fi
   die "curl or wget is required"

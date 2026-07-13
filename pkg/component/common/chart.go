@@ -266,6 +266,13 @@ func (i *Chart) ArtifactPlatform() string {
 	return archOrRuntime(i.Arch)
 }
 
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return arch
+	}
+	return runtime.GOARCH
+}
+
 func (i *Chart) NewInstance() component.ObjectMeta {
 	return &Chart{}
 }

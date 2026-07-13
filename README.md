@@ -167,15 +167,13 @@ and operating system.
 
 KubeClipper provides command line tools 🔧 kcctl to simplify operations.
 
-You can download the latest version of kcctl directly with the following command:
+You can install the latest `kcctl` directly from GitHub Releases:
 
 ```bash
-# Install latest release
-curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | bash -
-# In China, you can add env "KC_REGION=cn", we use registry.aliyuncs.com/google_containers instead of k8s.gcr.io
-curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn bash -
-# The latest release version is downloaded by default. You can download the specified version. For example, specify the master development version to be installed
-curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=master bash -
+# Install the latest release
+curl -sfL https://raw.githubusercontent.com/kubeclipper/kubeclipper/master/scripts/get-kubeclipper.sh | bash -
+# Install a specific release
+curl -sfL https://raw.githubusercontent.com/kubeclipper/kubeclipper/master/scripts/get-kubeclipper.sh | KC_VERSION=v1.8.0 bash -
 ```
 
 > It is highly recommended that you install the latest release to experience more features. You can
@@ -190,18 +188,25 @@ kcctl version
 
 #### Get Started with Installation
 
-In this quick start tutorial, you only need to run just one command for installation:
-
-If you want to install AIO mode
+KubeClipper uses an OCI Registry for bootstrap packages, Kubernetes packages,
+Helm charts, and runtime images. If you already have a populated Registry, deploy
+an AIO control plane with:
 
 ```bash
-# install default release
-kcctl deploy
-# you can use KC_VERSION to install the specified version, default is latest release
-KC_VERSION=master kcctl deploy
+kcctl deploy --package-registry registry.example.com/kubeclipper
 ```
 
-If you want to install multi node, Use `kcctl deploy -h` for more information about a command
+If you need a local Registry, bootstrap it from the public package Registry first,
+mirror the required package images, Helm OCI charts, and runtime images into it,
+then deploy KubeClipper:
+
+```bash
+kcctl registry deploy --node 192.168.10.10 \
+  --package-registry ghcr.io/kubeclipper
+kcctl deploy --package-registry 192.168.10.10:5000
+```
+
+Use `kcctl deploy -h` for multi-node and SSH options.
 
 After you runn this command, kcctl will check your installation environment and enter the
 installation process, if the conditions are met.
@@ -241,7 +246,8 @@ Then create a k8s cluster with the following command:
 ```bash
 NODE=$(kcctl get node -o yaml|grep ipv4DefaultIP:|sed 's/ipv4DefaultIP: //')
 
-kcctl create cluster --master $NODE --name demo --untaint-master
+kcctl create cluster --master $NODE --name demo --untaint-master \
+  --local-registry 192.168.10.10:5000
 ```
 
 The cluster creation will be completed in about 3 minutes, or you can use the following command to

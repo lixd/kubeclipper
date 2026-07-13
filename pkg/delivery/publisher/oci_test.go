@@ -101,27 +101,20 @@ func TestBuildPackageIndexReplacesSameArch(t *testing.T) {
 	}
 }
 
-func TestInspectPackageContents(t *testing.T) {
+func TestInspectPackageContentsRejectsEmbeddedRuntimeImages(t *testing.T) {
 	root := t.TempDir()
 	base := filepath.Join(root, "k8s", "v1.36.0", "amd64")
 	if err := os.MkdirAll(base, 0755); err != nil {
 		t.Fatalf("mkdir base: %+v", err)
 	}
-	for _, file := range []string{"configs.tar.gz", "images.tar.gz", "charts.tgz"} {
+	for _, file := range []string{"configs.tar.gz", "images.tar.gz"} {
 		if err := writePayloadArchive(filepath.Join(base, file), file); err != nil {
 			t.Fatalf("write %s: %+v", file, err)
 		}
 	}
 
-	payloads, err := inspectPackageContents(root, "k8s", "v1.36.0", "amd64", deliveryapis.ContentProfileK8s)
-	if err != nil {
-		t.Fatalf("inspectPackageContents() error: %+v", err)
-	}
-	if len(payloads) != 1 {
-		t.Fatalf("payload count = %d, want 1", len(payloads))
-	}
-	if payloads[0].name != deliveryapis.ContentConfigs || payloads[0].mediaType != deliveryapis.MediaTypeConfigsLayer {
-		t.Fatalf("payload[0] = %+v", payloads[0])
+	if _, err := inspectPackageContents(root, "k8s", "v1.36.0", "amd64", deliveryapis.ContentProfileK8s); err == nil {
+		t.Fatalf("inspectPackageContents() expected embedded runtime image archive error")
 	}
 }
 
@@ -343,7 +336,6 @@ func TestExtractTarGz(t *testing.T) {
 	dir := t.TempDir()
 	archive := filepath.Join(dir, "pkg.tar.gz")
 	if err := writeTestArchive(archive, map[string]string{
-		"v1.36.0/amd64/images.tar.gz":  "images",
 		"v1.36.0/amd64/configs.tar.gz": "configs",
 	}); err != nil {
 		t.Fatalf("writeTestArchive() error: %+v", err)
@@ -353,15 +345,13 @@ func TestExtractTarGz(t *testing.T) {
 	if err := extractTarGz(archive, dst); err != nil {
 		t.Fatalf("extractTarGz() error: %+v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dst, "v1.36.0", "amd64", "images.tar.gz")); err != nil {
-		t.Fatalf("extracted images missing: %+v", err)
+	if _, err := os.Stat(filepath.Join(dst, "v1.36.0", "amd64", "configs.tar.gz")); err != nil {
+		t.Fatalf("extracted configs missing: %+v", err)
 	}
 }
 
 func TestValidatePublishContents(t *testing.T) {
-	err := validatePublishContents(deliveryapis.ContentProfileRuntime, []deliveryapis.ArtifactContent{
-		{Name: deliveryapis.ContentImages, File: "images.tar.gz", MediaType: deliveryapis.MediaTypeImagesLayer},
-	})
+	err := validatePublishContents(deliveryapis.ContentProfileRuntime, []deliveryapis.ArtifactContent{})
 	if err == nil {
 		t.Fatalf("expected validation error for incomplete runtime profile")
 	}

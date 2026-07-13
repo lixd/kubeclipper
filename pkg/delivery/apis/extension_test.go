@@ -92,7 +92,7 @@ func extensionPackage(version, arch string) PackageEntry {
 			Ref:    "registry.local/kubeclipper/packages/extension/kubectl-terminal:" + version,
 			Digest: testDigest,
 		},
-		Contents: []ArtifactContent{{Name: ContentImages, File: "images.tar.gz", MediaType: MediaTypeImagesLayer}},
+		Contents: []ArtifactContent{{Name: ContentConfigs, File: "configs.tar.gz", MediaType: MediaTypeConfigsLayer}},
 	}
 }
 

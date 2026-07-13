@@ -281,8 +281,6 @@ func contentFile(content deliveryapis.ArtifactContent) string {
 	switch content.Name {
 	case deliveryapis.ContentConfigs:
 		return downloader.ConfigFilename
-	case deliveryapis.ContentImages:
-		return downloader.ImageFilename
 	case deliveryapis.ContentCharts:
 		return downloader.ChartFilename
 	default:
@@ -368,7 +366,7 @@ func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
 
 func isPlainFileContent(contentName string) bool {
 	switch contentName {
-	case deliveryapis.ContentConfigs, deliveryapis.ContentImages, deliveryapis.ContentCharts:
+	case deliveryapis.ContentConfigs, deliveryapis.ContentCharts:
 		return false
 	default:
 		return true

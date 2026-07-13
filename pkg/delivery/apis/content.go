@@ -65,8 +65,6 @@ func ContentFile(name string) string {
 	switch name {
 	case ContentConfigs:
 		return "configs.tar.gz"
-	case ContentImages:
-		return "images.tar.gz"
 	case ContentCharts:
 		return "charts.tgz"
 	case ContentBinary:
@@ -80,8 +78,6 @@ func MediaTypeForContent(name string) string {
 	switch name {
 	case ContentConfigs:
 		return MediaTypeConfigsLayer
-	case ContentImages:
-		return MediaTypeImagesLayer
 	case ContentCharts:
 		return MediaTypeChartsLayer
 	case ContentBinary:

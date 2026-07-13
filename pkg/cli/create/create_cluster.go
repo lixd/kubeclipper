@@ -633,23 +633,11 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 		})
 	}
 
-	switch l.CRI {
-	case "docker":
-		c.ContainerRuntime = v1.ContainerRuntime{
-			Type:             v1.CRIDocker,
-			Version:          l.CRIVersion,
-			InsecureRegistry: append(insecureRegistry, l.InsecureRegistries...),
-			Registries:       criRegistry,
-		}
-	case "containerd":
-		fallthrough
-	default:
-		c.ContainerRuntime = v1.ContainerRuntime{
-			Type:             v1.CRIContainerd,
-			Version:          l.CRIVersion,
-			InsecureRegistry: append(insecureRegistry, l.InsecureRegistries...),
-			Registries:       criRegistry,
-		}
+	c.ContainerRuntime = v1.ContainerRuntime{
+		Type:             v1.CRIContainerd,
+		Version:          l.CRIVersion,
+		InsecureRegistry: append(insecureRegistry, l.InsecureRegistries...),
+		Registries:       criRegistry,
 	}
 	return c
 }

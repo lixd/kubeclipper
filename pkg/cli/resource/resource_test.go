@@ -88,7 +88,6 @@ func TestResourceListFromRegistry(t *testing.T) {
 							},
 							Contents: []deliveryapis.ArtifactContent{
 								{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-								{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 							},
 						},
 					},
@@ -164,7 +163,6 @@ func TestResourceInspect(t *testing.T) {
 							},
 							Contents: []deliveryapis.ArtifactContent{
 								{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-								{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 							},
 						},
 					},
@@ -211,7 +209,6 @@ func TestResourceRefreshFromRegistry(t *testing.T) {
 					},
 					Contents: []deliveryapis.ArtifactContent{
 						{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-						{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 					},
 				}},
 			},
@@ -278,7 +275,6 @@ func TestResourceListUsesRegistryInventory(t *testing.T) {
 							},
 							Contents: []deliveryapis.ArtifactContent{
 								{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-								{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 							},
 						},
 						{
@@ -293,7 +289,6 @@ func TestResourceListUsesRegistryInventory(t *testing.T) {
 							},
 							Contents: []deliveryapis.ArtifactContent{
 								{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-								{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 							},
 						},
 					},
@@ -335,7 +330,6 @@ func TestResourceListFiltersRegistryResults(t *testing.T) {
 							},
 							Contents: []deliveryapis.ArtifactContent{
 								{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-								{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 							},
 						},
 						{
@@ -350,7 +344,6 @@ func TestResourceListFiltersRegistryResults(t *testing.T) {
 							},
 							Contents: []deliveryapis.ArtifactContent{
 								{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-								{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 							},
 						},
 					},
@@ -393,7 +386,6 @@ func TestComponentMetasFromInventoryKeepsOCIPackageDespiteDeletedState(t *testin
 			},
 			Contents: []deliveryapis.ArtifactContent{
 				{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-				{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}

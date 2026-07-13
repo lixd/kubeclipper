@@ -26,14 +26,6 @@ import (
 
 func ApplyResolvedComponent(target interface{}, component deliveryapis.ResolvedComponent) error {
 	switch v := target.(type) {
-	case *Imager:
-		v.Kind = component.Kind
-		v.PkgName = component.Name
-		v.Version = component.Version
-		v.Arch = component.Arch
-		v.Transport = component.Transport
-		v.Contents = component.Contents
-		return nil
 	case *Chart:
 		v.Kind = component.Kind
 		v.PkgName = component.Name

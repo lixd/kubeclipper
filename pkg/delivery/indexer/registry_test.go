@@ -56,7 +56,6 @@ func TestRegistryPackageIndexerIndex(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	client := &fakeRegistryClient{
@@ -98,8 +97,8 @@ func TestRegistryPackageIndexerIndex(t *testing.T) {
 	if pkg.Transport.Digest == "" {
 		t.Fatalf("transport digest is empty")
 	}
-	if len(pkg.Contents) != 2 {
-		t.Fatalf("content count = %d, want 2", len(pkg.Contents))
+	if len(pkg.Contents) != 1 {
+		t.Fatalf("content count = %d, want 1", len(pkg.Contents))
 	}
 	if pkg.Contents[0].Digest == "" {
 		t.Fatalf("content digest is empty")
@@ -119,7 +118,6 @@ func TestRegistryPackageIndexerProjectsMultiArchArtifacts(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	arm64Image := testPackageImage(t, deliveryapis.PackageManifest{
@@ -134,7 +132,6 @@ func TestRegistryPackageIndexerProjectsMultiArchArtifacts(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest2},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest2},
 		},
 	})
 	client := &fakeRegistryClient{
@@ -245,7 +242,6 @@ func TestRegistryPackageIndexerSkipsInvalidArtifact(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	client := &fakeRegistryClient{
@@ -295,7 +291,6 @@ func TestRegistryPackageIndexerSkipsArtifactWithMissingPayloadDigest(t *testing.
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", MediaType: deliveryapis.MediaTypeConfigsLayer, Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", MediaType: deliveryapis.MediaTypeImagesLayer, Digest: testDigest},
 		},
 	})
 	client := &fakeRegistryClient{
@@ -332,7 +327,6 @@ func TestRegistryPackageIndexerSkipsUnresolvableTag(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	client := &fakeRegistryClient{
@@ -372,7 +366,6 @@ func TestRegistryPackageIndexerFailsOnDuplicateIdentity(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	second := testPackageImage(t, deliveryapis.PackageManifest{
@@ -387,7 +380,6 @@ func TestRegistryPackageIndexerFailsOnDuplicateIdentity(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest2},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest2},
 		},
 	})
 	client := &fakeRegistryClient{
@@ -425,7 +417,6 @@ func TestReadPackageManifest(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 			{Name: deliveryapis.ContentCharts, File: "charts.tgz", Digest: testDigest},
 		},
 	})
@@ -618,7 +609,6 @@ func TestRegistryPackageIndexerCachesResultsUntilRefresh(t *testing.T) {
 		},
 		Contents: []deliveryapis.PackageManifestFile{
 			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: deliveryapis.ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	client := &fakeRegistryClient{

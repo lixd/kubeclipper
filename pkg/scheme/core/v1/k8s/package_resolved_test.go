@@ -106,7 +106,6 @@ func TestUpgradeInitStepsPreserveResolvedTransport(t *testing.T) {
 			},
 			Contents: []deliveryapis.ArtifactContent{
 				{Name: deliveryapis.ContentConfigs, File: downloader.ConfigFilename},
-				{Name: deliveryapis.ContentImages, File: downloader.ImageFilename},
 			},
 		},
 	}}

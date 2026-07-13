@@ -465,7 +465,7 @@ func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
 
 func isPlainFileContent(contentName string) bool {
 	switch contentName {
-	case deliveryapis.ContentConfigs, deliveryapis.ContentImages, deliveryapis.ContentCharts:
+	case deliveryapis.ContentConfigs, deliveryapis.ContentCharts:
 		return false
 	default:
 		return true

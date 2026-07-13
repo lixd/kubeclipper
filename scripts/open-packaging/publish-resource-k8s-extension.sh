@@ -89,7 +89,7 @@ init_resource_publish_workspace
 
 leaf="$(resource_leaf k8s-extension)"
 [[ -f "$leaf/configs.tar.gz" ]] || die "missing $leaf/configs.tar.gz"
-publish_resource_package "k8s-extension" "k8s-extension" "k8s-extension" "k8s" "$leaf"
+publish_resource_package "k8s-extension" "k8s-extension" "k8s-extension" "extension" "$leaf"
 
 "$SCRIPT_DIR/push-runtime-images.sh" \
   --images-lock "$resource_dir/images.lock" \

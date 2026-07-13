@@ -36,12 +36,10 @@ const (
 	ContentProfileBinary    = "binary"
 
 	ContentConfigs = "configs"
-	ContentImages  = "images"
 	ContentCharts  = "charts"
 	ContentBinary  = "binary"
 
 	MediaTypeConfigsLayer   = "application/vnd.kubeclipper.configs.layer.v1.tar+gzip"
-	MediaTypeImagesLayer    = "application/vnd.kubeclipper.images.layer.v1.tar+gzip"
 	MediaTypeChartsLayer    = "application/vnd.kubeclipper.charts.layer.v1.tgz"
 	MediaTypeBinaryLayer    = "application/vnd.kubeclipper.binary.layer.v1"
 	MediaTypeHelmConfig     = "application/vnd.cncf.helm.config.v1+json"

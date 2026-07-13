@@ -419,6 +419,9 @@ func inspectPackageContents(root, name, version, arch, profile string) ([]payloa
 		if isMetadataFile(info.Name()) {
 			return nil
 		}
+		if info.Name() == "images.tar.gz" {
+			return fmt.Errorf("embedded runtime image archive %q is not supported; publish runtime images as standard images", path)
+		}
 		contentName, ok := contentNameFromFile(info.Name(), profile)
 		if !ok {
 			return nil
@@ -495,7 +498,6 @@ func expectedPayloadContents(profile string) []string {
 	default:
 		return []string{
 			deliveryapis.ContentConfigs,
-			deliveryapis.ContentImages,
 			deliveryapis.ContentCharts,
 		}
 	}
@@ -551,8 +553,6 @@ func contentNameFromFile(file, profile string) (string, bool) {
 	switch file {
 	case deliveryapis.ContentFile(deliveryapis.ContentConfigs):
 		return deliveryapis.ContentConfigs, true
-	case deliveryapis.ContentFile(deliveryapis.ContentImages):
-		return deliveryapis.ContentImages, true
 	case deliveryapis.ContentFile(deliveryapis.ContentCharts):
 		return deliveryapis.ContentCharts, true
 	default:
@@ -580,7 +580,7 @@ func mediaTypeForPayloadContent(contentName, profile string) string {
 
 func isBinaryPayloadContent(contentName string) bool {
 	switch contentName {
-	case deliveryapis.ContentConfigs, deliveryapis.ContentImages, deliveryapis.ContentCharts:
+	case deliveryapis.ContentConfigs, deliveryapis.ContentCharts:
 		return false
 	default:
 		return true

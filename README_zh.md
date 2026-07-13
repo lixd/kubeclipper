@@ -157,15 +157,13 @@ KubeClipper 本身并不会占用太多资源，但是为了后续更好的运�
 
 #### 下载 kcctl
 
-KubeClipper 提供了命令行工具🔧 kcctl 以简化运维工作，您可以直接使用以下命令下载最新版 kcctl：
+KubeClipper 提供命令行工具 `kcctl`，可以直接从 GitHub Releases 安装：
 
 ```bash
-# 安装最新的 release 版本
-curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | bash -
-# 如果你在中国，你可以在安装时使用 cn 环境变量, 此时我们会使用 registry.aliyuncs.com/google_containers 代替 k8s.gcr.io
-curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn bash -
-# 默认会下载最新版本，你可以通过指定 KC_VERSION 下载所需版本. 比如指定安装 master 开发版本
-curl -sfL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=master bash -
+# 安装最新 release
+curl -sfL https://raw.githubusercontent.com/kubeclipper/kubeclipper/master/scripts/get-kubeclipper.sh | bash -
+# 安装指定 release
+curl -sfL https://raw.githubusercontent.com/kubeclipper/kubeclipper/master/scripts/get-kubeclipper.sh | KC_VERSION=v1.8.0 bash -
 ```
 
 > 强烈建议您安装最新的发布版本，体验更多功能特性。\
@@ -180,18 +178,23 @@ kcctl version
 
 #### 开始安装
 
-在本快速入门教程中，您只需执行一个命令即可安装 KubeClipper：
-
-如果想运行 AIO 模式
+KubeClipper 使用 OCI Registry 分发 bootstrap 包、Kubernetes 包、Helm Chart 和运行镜像。
+如果已有完成资源同步的 Registry，可直接部署 AIO 控制面：
 
 ```bash
-# 安装默认版本
-kcctl deploy
-# 通过指定 KC_VERSION 的值，指定安装的版本，比如安装 master 分支
-KC_VERSION=master kcctl deploy
+kcctl deploy --package-registry registry.example.com/kubeclipper
 ```
 
-如果想安装多个节点，可以使用 `kcctl deploy -h` 获取更多帮助信息
+如果需要本地 Registry，先从公共 package Registry 提取并部署 Registry，
+再把 package image、Helm OCI Chart 和运行镜像同步到本地，最后部署 KubeClipper：
+
+```bash
+kcctl registry deploy --node 192.168.10.10 \
+  --package-registry ghcr.io/kubeclipper
+kcctl deploy --package-registry 192.168.10.10:5000
+```
+
+多节点和 SSH 参数可通过 `kcctl deploy -h` 查看。
 
 执行该命令后，Kcctl 将检查您的安装环境，若满足条件将会进入安装流程。在打印出如下的 KubeClipper
 banner 后即表示安装完成。
@@ -227,7 +230,8 @@ _   __      _          _____ _ _
 ```bash
 NODE=$(kcctl get node -o yaml|grep ipv4DefaultIP:|sed 's/ipv4DefaultIP: //')
 
-kcctl create cluster --master $NODE --name demo --untaint-master
+kcctl create cluster --master $NODE --name demo --untaint-master \
+  --local-registry 192.168.10.10:5000
 ```
 
 大概 3 分钟左右即可完成集群创建,也可以使用以下命令查看集群状态

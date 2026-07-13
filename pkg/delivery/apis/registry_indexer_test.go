@@ -56,7 +56,6 @@ func TestDerivePackageEntryFromManifest(t *testing.T) {
 		},
 		Contents: []PackageManifestFile{
 			{Name: ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: ContentImages, File: "images.tar.gz", Digest: testDigest},
 		},
 	})
 	if err != nil {
@@ -74,8 +73,8 @@ func TestDerivePackageEntryFromManifest(t *testing.T) {
 	if entry.Transport.Digest != testDigest {
 		t.Fatalf("transport digest = %q", entry.Transport.Digest)
 	}
-	if len(entry.Contents) != 2 {
-		t.Fatalf("content count = %d, want 2", len(entry.Contents))
+	if len(entry.Contents) != 1 {
+		t.Fatalf("content count = %d, want 1", len(entry.Contents))
 	}
 	if entry.Contents[0].MediaType != MediaTypeConfigsLayer {
 		t.Fatalf("content mediaType = %q", entry.Contents[0].MediaType)
@@ -99,7 +98,7 @@ func TestDerivePackageEntryFromManifestRejectsIdentityMismatch(t *testing.T) {
 		Platform:      PackageManifestPlatform{Arch: "amd64"},
 		Contents: []PackageManifestFile{
 			{Name: ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: ContentImages, File: "images.tar.gz", Digest: testDigest},
+			{Name: ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
 		},
 	})
 	if err == nil {
@@ -120,7 +119,7 @@ func TestDerivePackageEntryFromManifestRejectsMissingArch(t *testing.T) {
 		Version:       "2.1.0",
 		Contents: []PackageManifestFile{
 			{Name: ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
-			{Name: ContentImages, File: "images.tar.gz", Digest: testDigest},
+			{Name: ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
 		},
 	})
 	if err == nil {

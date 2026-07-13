@@ -36,13 +36,34 @@ func TestPackageInventoryValidate(t *testing.T) {
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
-				{Name: ContentCharts, File: "charts.tgz"},
 			},
 		},
 	}
 	if err := catalog.Validate(); err != nil {
 		t.Fatalf("Validate() error: %+v", err)
+	}
+}
+
+func TestPackageInventoryValidateRejectsEmbeddedRuntimeImages(t *testing.T) {
+	catalog := NewPackageInventory("default")
+	catalog.Spec.Packages = []PackageEntry{{
+		Name:           "k8s",
+		Kind:           "k8s",
+		Version:        "v1.36.0",
+		Arch:           "amd64",
+		ContentProfile: ContentProfileK8s,
+		Transport: TransportRef{
+			Type:   TransportOCI,
+			Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+			Digest: testDigest,
+		},
+		Contents: []ArtifactContent{
+			{Name: ContentConfigs, File: "configs.tar.gz"},
+			{Name: "images", File: "images.tar.gz"},
+		},
+	}}
+	if err := catalog.Validate(); err == nil {
+		t.Fatalf("Validate() expected embedded runtime image archive error")
 	}
 }
 
@@ -61,7 +82,6 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentity(t *testing.T) {
 		},
 		Contents: []ArtifactContent{
 			{Name: ContentConfigs, File: "configs.tar.gz"},
-			{Name: ContentImages, File: "images.tar.gz"},
 		},
 	}
 	catalog.Spec.Packages = []PackageEntry{pkg, pkg}
@@ -86,7 +106,6 @@ func TestPackageInventoryValidateTreatsOSAsPackageIdentity(t *testing.T) {
 		},
 		Contents: []ArtifactContent{
 			{Name: ContentConfigs, File: "configs.tar.gz"},
-			{Name: ContentImages, File: "images.tar.gz"},
 		},
 	}
 	otherOS := base
@@ -114,7 +133,6 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithDifferentDig
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz", MediaType: MediaTypeConfigsLayer},
-				{Name: ContentImages, File: "images.tar.gz", MediaType: MediaTypeImagesLayer},
 			},
 		},
 		{
@@ -130,7 +148,6 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithDifferentDig
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz", MediaType: MediaTypeConfigsLayer},
-				{Name: ContentImages, File: "images.tar.gz", MediaType: MediaTypeImagesLayer},
 			},
 		},
 	}
@@ -156,7 +173,6 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithSameDigest(t
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
 			},
 		},
 		{
@@ -172,7 +188,6 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithSameDigest(t
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}
@@ -223,7 +238,6 @@ func TestPackageInventoryValidateRejectsDuplicateContents(t *testing.T) {
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
 				{Name: ContentConfigs, File: "configs-copy.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}
@@ -247,7 +261,6 @@ func TestPackageInventoryValidateRejectsNonOCITransport(t *testing.T) {
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}
@@ -272,7 +285,6 @@ func TestPackageInventoryValidateRejectsLatestVersion(t *testing.T) {
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}
@@ -322,7 +334,6 @@ func TestPackageInventoryValidateRejectsMismatchedPinnedRefDigest(t *testing.T) 
 			},
 			Contents: []ArtifactContent{
 				{Name: ContentConfigs, File: "configs.tar.gz"},
-				{Name: ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}

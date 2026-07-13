@@ -131,6 +131,9 @@ func validateContentProfile(profile string, contents []ArtifactContent) error {
 		if content.Name == "" {
 			return fmt.Errorf("content name is required")
 		}
+		if content.Name == "images" || content.File == "images.tar.gz" {
+			return fmt.Errorf("embedded runtime image archives are not supported; publish runtime images as standard images")
+		}
 		if _, ok := contentSet[content.Name]; ok {
 			return fmt.Errorf("duplicate content %q", content.Name)
 		}
@@ -143,6 +146,9 @@ func validateContentProfile(profile string, contents []ArtifactContent) error {
 		if err := validateContentTransport(content); err != nil {
 			return err
 		}
+		if !contentAllowedForProfile(profile, content.Name) {
+			return fmt.Errorf("content profile %q does not support %q", profile, content.Name)
+		}
 		contentSet[content.Name] = struct{}{}
 	}
 	for _, required := range requiredContents(profile) {
@@ -154,15 +160,25 @@ func validateContentProfile(profile string, contents []ArtifactContent) error {
 		if _, hasConfigs := contentSet[ContentConfigs]; hasConfigs {
 			return nil
 		}
-		if _, hasImages := contentSet[ContentImages]; hasImages {
-			return nil
-		}
 		if _, hasCharts := contentSet[ContentCharts]; hasCharts {
 			return nil
 		}
-		return fmt.Errorf("content profile %q requires %q, %q or %q", profile, ContentConfigs, ContentImages, ContentCharts)
+		return fmt.Errorf("content profile %q requires %q or %q", profile, ContentConfigs, ContentCharts)
 	}
 	return nil
+}
+
+func contentAllowedForProfile(profile, name string) bool {
+	switch profile {
+	case ContentProfileK8s, ContentProfileRuntime, ContentProfileExtension:
+		return name == ContentConfigs
+	case ContentProfileAddon:
+		return name == ContentConfigs || name == ContentCharts
+	case ContentProfileBinary:
+		return name != ""
+	default:
+		return false
+	}
 }
 
 func validateContentTransport(content ArtifactContent) error {
@@ -192,7 +208,7 @@ func requiredContents(profile string) []string {
 	case ContentProfileAddon:
 		return nil
 	case ContentProfileExtension:
-		return []string{ContentImages}
+		return []string{ContentConfigs}
 	case ContentProfileBinary:
 		return nil
 	default:

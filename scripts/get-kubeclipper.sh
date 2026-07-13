@@ -7,8 +7,8 @@ set -e
 #   ENV_VAR=... ./get-kubeclipper.sh
 #
 # Example:
-#   Installing the master branch kcctl:
-#     curl ... | KC_VERSION=master bash -
+#   Installing a specific kcctl release:
+#     curl ... | KC_VERSION=v1.8.0 bash -
 #   Installing kcctl to the specified directory:
 #     curl ... | KC_BIN_DIR=/usr/local/bin bash -
 #
@@ -46,14 +46,12 @@ fi
 
 OS_TYPE="linux"
 
-# default kcctl-only release endpoint
-DOWNLOAD_URL="${KC_DOWNLOAD_URL:-https://release.kubeclipper.io/kc}"
+# default kcctl-only GitHub Release endpoint
+DOWNLOAD_URL="${KC_DOWNLOAD_URL:-https://github.com/kubeclipper/kubeclipper/releases}"
 # default directory for storing binary files
 BIN_DIR="/usr/local/bin"
 
-if [[ -z "${KC_VERSION}" ]]; then
-  KC_VERSION="v1.6.0"
-fi
+KC_VERSION="${KC_VERSION:-latest}"
 info "The ${KC_VERSION} version will be installed"
 
 verify_system() {
@@ -140,7 +138,11 @@ install_pkg() {
   if [ $? -ne 0 ] || [ -z "$TMP_DIR" ]; then
     fatal 'Failed to create a temporary directory!'
   fi
-  REMOTE=${DOWNLOAD_URL}/${KC_VERSION}/kcctl-${OS_TYPE}-${ARCH}
+  if [[ "$KC_VERSION" == "latest" ]]; then
+    REMOTE=${DOWNLOAD_URL}/latest/download/kcctl-${OS_TYPE}-${ARCH}
+  else
+    REMOTE=${DOWNLOAD_URL}/download/${KC_VERSION}/kcctl-${OS_TYPE}-${ARCH}
+  fi
   TARGET=${TMP_DIR}"/kcctl"
   # download
   download "${TARGET}" "${REMOTE}"

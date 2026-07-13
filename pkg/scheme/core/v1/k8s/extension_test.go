@@ -45,7 +45,6 @@ func TestExtensionInstallStepsWithContextPreserveResolvedTransport(t *testing.T)
 			},
 			Contents: []deliveryapis.ArtifactContent{
 				{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz"},
-				{Name: deliveryapis.ContentImages, File: "images.tar.gz"},
 			},
 		},
 	}}
@@ -65,7 +64,7 @@ func TestExtensionInstallStepsWithContextPreserveResolvedTransport(t *testing.T)
 	if decoded.Transport.Ref != "registry.local:5000/kubeclipper/packages/k8s-extension/k8s-extension:v1" {
 		t.Fatalf("transport = %+v", decoded.Transport)
 	}
-	if len(decoded.Contents) != 2 {
+	if len(decoded.Contents) != 1 || decoded.Contents[0].Name != deliveryapis.ContentConfigs {
 		t.Fatalf("contents = %+v", decoded.Contents)
 	}
 }

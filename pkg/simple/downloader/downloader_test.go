@@ -48,7 +48,7 @@ func TestCleanupConfigsAtRemovesManifestFilesAndArchive(t *testing.T) {
 
 func TestCleanupPathDryRunDoesNotRemoveFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "images.tar.gz")
+	path := filepath.Join(tmpDir, "temporary-file")
 	if err := os.WriteFile(path, []byte("image"), 0644); err != nil {
 		t.Fatalf("WriteFile() error: %v", err)
 	}
