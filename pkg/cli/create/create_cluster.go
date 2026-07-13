@@ -346,20 +346,19 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	if l.Offline && strings.TrimSpace(l.LocalRegistry) == "" {
 		return utils.UsageErrorf(cmd, "offline cluster requires --local-registry; runtime image tarball loading has been removed")
 	}
-	if l.useDeliveryPolicyResolution() {
-		return l.validateCRIRegistries(cmd)
-	}
-	k8sVersions := l.listK8s("")
-	if !sliceutil.HasString(k8sVersions, l.K8sVersion) {
-		return utils.UsageErrorf(cmd, "unsupported k8s version,support %v now", k8sVersions)
-	}
-	criVersions := l.listCRI("")
-	if !sliceutil.HasString(criVersions, l.CRIVersion) {
-		return utils.UsageErrorf(cmd, "unsupported cri version,support %v now", criVersions)
-	}
-	cniVersions := l.listCNI("")
-	if !sliceutil.HasString(cniVersions, l.CNIVersion) {
-		return utils.UsageErrorf(cmd, "unsupported cni version,support %v now", cniVersions)
+	if !l.useDeliveryPolicyResolution() {
+		k8sVersions := l.listK8s("")
+		if !sliceutil.HasString(k8sVersions, l.K8sVersion) {
+			return utils.UsageErrorf(cmd, "unsupported k8s version,support %v now", k8sVersions)
+		}
+		criVersions := l.listCRI("")
+		if !sliceutil.HasString(criVersions, l.CRIVersion) {
+			return utils.UsageErrorf(cmd, "unsupported cri version,support %v now", criVersions)
+		}
+		cniVersions := l.listCNI("")
+		if !sliceutil.HasString(cniVersions, l.CNIVersion) {
+			return utils.UsageErrorf(cmd, "unsupported cni version,support %v now", cniVersions)
+		}
 	}
 
 	if err := l.validateCRIRegistries(cmd); err != nil {
