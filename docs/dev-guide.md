@@ -443,6 +443,16 @@ kcctl create cluster \
   --local-registry ${REGISTRY} \
   --insecure-registry ${REGISTRY}
 
+# 9. Add or remove Kubernetes worker nodes after the cluster is running.
+# The worker value may be a KubeClipper node ID or its primary IPv4 address.
+kcctl cluster add-node \
+  --cluster-name demo \
+  --worker <worker-node-id-or-ip>
+
+kcctl cluster remove-node \
+  --cluster-name demo \
+  --worker <worker-node-id-or-ip>
+
 # For a single-node control-plane-only test cluster, remove control-plane taints
 # if CoreDNS remains Pending because there is no worker node.
 kubectl taint node <node-name> node-role.kubernetes.io/control-plane:NoSchedule- || true
@@ -454,7 +464,8 @@ Worker-node additions use the same OCI resolver as cluster creation. Before an
 and Kubernetes package images for the target architecture and stores the
 digest-pinned plan with the pending operation. `RemoveNodes` uninstalls the
 components already present on the node and does not fetch package content from
-the Registry.
+the Registry. `kcctl join` only installs and registers a KubeClipper agent; use
+`kcctl cluster add-node` when that agent should become a Kubernetes worker.
 
 `delivery-policy` is part of the OCI delivery flow. Registry inventory proves that package
 bytes exist; delivery policy proves that a Kubernetes/component version combination is

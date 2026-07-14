@@ -79,6 +79,20 @@ kcctl join \
 
 如果 deploy config 中已经保存了 `packageRegistry`，`join` 可以继承该配置；显式传入 `--package-registry` 更清晰。
 
+将已经加入 KubeClipper 的 agent 节点加入或移出 Kubernetes 集群：
+
+```bash
+kcctl cluster add-node \
+  --cluster-name demo \
+  --worker 10.0.0.11
+
+kcctl cluster remove-node \
+  --cluster-name demo \
+  --worker 10.0.0.11
+```
+
+`--worker` 支持 KubeClipper node ID 或节点主 IPv4 地址，也支持重复指定以批量操作。添加节点复用创建集群时的 OCI 解析流程，按目标节点架构解析并固定 package digest；删除节点只卸载已有组件，不再下载 package。`kcctl join` 与 `cluster add-node` 职责不同：前者部署 KubeClipper agent，后者才把该 agent 加入 Kubernetes 集群。
+
 ### 3. 准备离线 package
 
 之前：
