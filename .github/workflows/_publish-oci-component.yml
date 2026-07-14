@@ -73,7 +73,7 @@ jobs:
           registry_prefix="$(printf '%s' "$registry_prefix" | tr '[:upper:]' '[:lower:]')"
 
           case "$component" in
-            bootstrap-kubeclipper|bootstrap-etcd|bootstrap-console|bootstrap-registry|resource-k8s|resource-containerd|resource-k8s-extension|resource-calico|resource-kc-runtime) ;;
+            bootstrap-kubeclipper|bootstrap-etcd|bootstrap-console|bootstrap-registry|resource-k8s|resource-containerd|resource-k8s-extension|resource-calico|resource-kc-runtime|resource-nfs|resource-metallb) ;;
             *) echo "unsupported component: $component" >&2; exit 1 ;;
           esac
           case "$architecture" in
@@ -164,6 +164,12 @@ jobs:
                 ;;
               resource-kc-runtime)
                 scripts/open-packaging/publish-resource-kc-runtime.sh --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-nfs)
+                scripts/open-packaging/publish-resource-nfs.sh --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
+                ;;
+              resource-metallb)
+                scripts/open-packaging/publish-resource-metallb.sh --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
                 ;;
             esac
           done

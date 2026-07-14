@@ -105,6 +105,8 @@ not run an aggregate release build:
 | `publish-resource-k8s-extension.yml` | Manual | Kubernetes helper package image and runtime images |
 | `publish-resource-calico.yml` | Manual | Tigera operator Helm OCI chart and Calico runtime images |
 | `publish-resource-kc-runtime.yml` | Manual | KubeClipper helper runtime images |
+| `publish-resource-nfs.yml` | Manual | NFS provisioner or NFS CSI runtime images |
+| `publish-resource-metallb.yml` | Manual | MetalLB runtime images |
 
 The automatic KubeClipper workflow derives its package tag from the Git ref:
 
@@ -215,6 +217,8 @@ everything into one large static-server package:
   k8s/v1.36.1/amd64/configs.tar.gz
   k8s/v1.36.1/amd64/images.txt
   kc-runtime/v1.8.0/amd64/images.txt
+  nfs/v4.1.0/amd64/images.txt
+  metallb/v0.13.7/amd64/images.txt
   containerd/2.2.4/amd64/configs.tar.gz
   calico/v3.31.5/amd64/charts.tgz
   calico/v3.31.5/amd64/images.txt
@@ -236,6 +240,9 @@ Notes:
 - `build-addon-package.sh` covers optional image/chart style addons such as
   `nvidia-dra-driver-gpu` and `nvidia-gpu-operator`. These are not part of the
   default core cluster release manifest.
+- `build-runtime-image-set.sh` covers components whose Kubernetes manifests are
+  embedded in KubeClipper and therefore need only standard runtime images. NFS
+  and MetalLB use this path and do not publish package images.
 - `build-k8s-extension-package.sh` builds the Kubernetes helper tool package
   from public upstream downloads: Helm, etcdctl, conntrack, nerdctl, CNI
   plugins, calicoctl, and the bundled debug image list.
@@ -264,6 +271,8 @@ Old script mapping:
 | `tarball-containerd.sh` | `build-containerd-package.sh` |
 | `tarball-calico.sh` | `build-calico-package.sh` |
 | `tarball-k8s-extension.sh` | `build-k8s-extension-package.sh` |
+| `nfs/v4.0.2` and `nfs/v4.1.0` image archives | `build-runtime-image-set.sh --name nfs` |
+| `metallb` image archive | `build-runtime-image-set.sh --name metallb` |
 | `tarball-nvidia-dra-driver-gpu.sh` | `build-addon-package.sh --name nvidia-dra-driver-gpu` |
 | `tarball-nvidia-gpu-operator.sh` | `build-addon-package.sh --name nvidia-gpu-operator` |
 
@@ -350,6 +359,14 @@ scripts/open-packaging/publish-resource-calico.sh \
 scripts/open-packaging/publish-resource-kc-runtime.sh \
   --image-registry-prefix 10.0.0.10:5000 \
   --version v1.8.0
+
+scripts/open-packaging/publish-resource-nfs.sh \
+  --image-registry-prefix 10.0.0.10:5000 \
+  --version v4.1.0
+
+scripts/open-packaging/publish-resource-metallb.sh \
+  --image-registry-prefix 10.0.0.10:5000 \
+  --version v0.13.7
 ```
 
 `publish-resource-calico.sh` publishes `charts.tgz` as the native Helm OCI
@@ -407,6 +424,10 @@ The publisher deliberately separates the old static-server payloads:
   `kubeclipper/kubectl:latest` separate from native Kubernetes images while
   still mirroring them as normal runtime images. No `kc-runtime` package image
   is published.
+- NFS and MetalLB manifests remain embedded in KubeClipper. Their Actions mirror
+  only the exact standard runtime images referenced by those manifests, so the
+  offline Registry bundle supports installing these existing addons without
+  restoring static-server image archives.
 
 The resource publish scripts support `--dry-run` for local validation without
 pushing to a Registry. Bootstrap publish scripts are release-style entry points:

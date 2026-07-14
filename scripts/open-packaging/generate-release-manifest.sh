@@ -110,6 +110,8 @@ allowed_versions = {
     "containerd": {str(value) for value in ((resources.get("cri") or {}).get("containerd") or {}).get("versions") or []},
     "calico": {str(value) for value in ((resources.get("cni") or {}).get("calico") or {}).get("versions") or []},
 }
+for name, image_set in (resources.get("runtimeImageSets") or {}).items():
+    allowed_versions[str(name)] = {str(value) for value in (image_set or {}).get("versions") or []}
 for name, addon in (build.get("addons") or {}).items():
     addon = addon or {}
     if addon.get("enabled") is not False:

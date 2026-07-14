@@ -34,6 +34,14 @@ resources:
   kcRuntime:
     versions:
       - v1.8.0
+  runtimeImageSets:
+    nfs:
+      versions:
+        - v4.0.2
+        - v4.1.0
+    metallb:
+      versions:
+        - v0.13.7
   cri:
     containerd:
       versions:

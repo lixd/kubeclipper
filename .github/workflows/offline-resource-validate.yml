@@ -58,11 +58,14 @@ jobs:
           scripts/open-packaging/publish-resource-k8s.sh --help >/dev/null
           scripts/open-packaging/publish-resource-containerd.sh --help >/dev/null
           scripts/open-packaging/publish-resource-calico.sh --help >/dev/null
+          scripts/open-packaging/publish-resource-nfs.sh --help >/dev/null
+          scripts/open-packaging/publish-resource-metallb.sh --help >/dev/null
           scripts/open-packaging/bootstrap-builders/build-bootstrap-binaries.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-k8s-package.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-containerd-package.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-calico-package.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-addon-package.sh --help >/dev/null
+          scripts/open-packaging/resource-builders/build-runtime-image-set.sh --help >/dev/null
 
       - name: Manifest dry run
         run: |
@@ -78,9 +81,17 @@ jobs:
           mkdir -p /tmp/kc-release-manifest/calico/v3.31.5/amd64
           touch /tmp/kc-release-manifest/k8s/v1.36.1/amd64/configs.tar.gz
           touch /tmp/kc-release-manifest/calico/v3.31.5/amd64/charts.tgz
-          printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > /tmp/kc-release-manifest/images.lock
-          printf 'k8s\tv1.36.1\tamd64\tregistry.k8s.io/pause:3.10\tghcr.io/lixd/kubeclipper/pause:3.10\n' >> /tmp/kc-release-manifest/images.lock
-          printf 'calico\tv3.31.5\tamd64\tdocker.io/calico/node:v3.31.5\tghcr.io/lixd/kubeclipper/calico/node:v3.31.5\n' >> /tmp/kc-release-manifest/images.lock
+          printf 'registry.k8s.io/pause:3.10\n' > /tmp/kc-release-manifest/k8s/v1.36.1/amd64/images.txt
+          printf 'docker.io/calico/node:v3.31.5\n' > /tmp/kc-release-manifest/calico/v3.31.5/amd64/images.txt
+          scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
+            --name nfs --version v4.0.2 --arch amd64 --output /tmp/kc-release-manifest
+          scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
+            --name nfs --version v4.1.0 --arch amd64 --output /tmp/kc-release-manifest
+          scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
+            --name metallb --version v0.13.7 --arch amd64 --output /tmp/kc-release-manifest
+          scripts/open-packaging/generate-resource-metadata.sh \
+            --resource-dir /tmp/kc-release-manifest \
+            --image-registry ghcr.io/lixd/kubeclipper
           scripts/open-packaging/generate-release-manifest.sh \
             --build-manifest packaging/resources.yaml \
             --resource-dir /tmp/kc-release-manifest \
@@ -95,7 +106,11 @@ jobs:
           assert manifest['kind'] == 'ReleaseManifest'
           assert len([item for item in artifacts if item['type'] == 'package-image']) == 5
           assert len([item for item in artifacts if item['type'] == 'helm-chart']) == 1
-          assert len([item for item in artifacts if item['type'] == 'runtime-image']) == 2
+          runtime_images = [item for item in artifacts if item['type'] == 'runtime-image']
+          assert len(runtime_images) == 11
+          assert {item['component']['name'] for item in runtime_images} == {
+              'k8s', 'calico', 'nfs', 'metallb'
+          }
           PY
 
       - name: Internal dependency scan

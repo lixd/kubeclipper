@@ -219,6 +219,14 @@ for version in versions(kc_runtime):
         add_if_present(args, "--images-file", kc_runtime.get("imagesFile"))
         emit("resource", "kc-runtime", version, arch, args)
 
+for name, image_set in (resources.get("runtimeImageSets") or {}).items():
+    image_set = image_set or {}
+    for version in versions(image_set):
+        for arch in archs:
+            args = []
+            add_if_present(args, "--images-file", image_set.get("imagesFile"))
+            emit("runtime-images", str(name), version, arch, args)
+
 for name, addon in (doc.get("addons") or {}).items():
     addon = addon or {}
     if addon.get("enabled") is False and not include_disabled:
@@ -298,6 +306,9 @@ build_line() {
   resource/kc-runtime)
     cmd=("$ROOT/scripts/open-packaging/resource-builders/build-kc-runtime-package.sh" --version "$version" --arch "$arch" --output "$output" "$@")
     ;;
+  runtime-images/*)
+    cmd=("$ROOT/scripts/open-packaging/resource-builders/build-runtime-image-set.sh" --name "$name" --version "$version" --arch "$arch" --output "$output" "$@")
+    ;;
   addon/*)
     cmd=("$ROOT/scripts/open-packaging/resource-builders/build-addon-package.sh" --name "$name" --version "$version" --arch "$arch" --output "$output" "$@")
     ;;
@@ -336,6 +347,12 @@ publish_line() {
     ;;
   resource/kc-runtime)
     cmd=("$ROOT/scripts/open-packaging/publish-resource-kc-runtime.sh" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  runtime-images/nfs)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-nfs.sh" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
+    ;;
+  runtime-images/metallb)
+    cmd=("$ROOT/scripts/open-packaging/publish-resource-metallb.sh" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
     ;;
   addon/*)
     echo "skipping disabled or optional addon publish path: $name/$version/$arch"

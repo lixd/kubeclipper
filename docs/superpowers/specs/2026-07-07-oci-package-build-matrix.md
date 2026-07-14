@@ -107,6 +107,8 @@ layer:    application/vnd.oci.image.layer.v1.tar+gzip
 | `kc-runtime` image list | `v1.8.0` | `resource-builders/build-kc-runtime-package.sh` + `push-runtime-images.sh` | `fanux/lvscare:v1.1.1`、`kubeclipper/kubectl:latest` | `kc-runtime/v1.8.0/amd64/images.txt` | runtime images |
 | `cri/containerd` | `2.2.4` | `resource-builders/build-containerd-package.sh` | containerd GitHub Release、runc GitHub Release、cri-tools GitHub Release | `containerd/2.2.4/amd64/configs.tar.gz` | package image |
 | `cni/calico` | `v3.31.5` | `resource-builders/build-calico-package.sh` | Tigera Helm repo、本仓库 image list、公开镜像仓库 | `calico/v3.31.5/amd64/charts.tgz`、`images.txt` | Helm OCI chart + runtime images |
+| `nfs` runtime images | `v4.0.2`、`v4.1.0` | `resource-builders/build-runtime-image-set.sh` + `publish-resource-nfs.sh` | 公开镜像仓库 | `nfs/<version>/amd64/images.txt` | runtime images |
+| `metallb` runtime images | `v0.13.7` | `resource-builders/build-runtime-image-set.sh` + `publish-resource-metallb.sh` | 公开镜像仓库 | `metallb/v0.13.7/amd64/images.txt` | runtime images |
 
 ### 3.1 k8s 包内容
 
@@ -153,13 +155,13 @@ opt/kc/manifest/k8s/<version>/<arch>/config/manifest.json
 `kc-runtime` image list 管理，镜像本体仍作为标准 runtime image 同步到
 Registry，不再发布 `extension/kc-runtime` package image。
 
-默认 release 提供 `publish-resource-k8s.sh`、`publish-resource-containerd.sh`、`publish-resource-k8s-extension.sh`、`publish-resource-calico.sh` 这些 package/chart 发布入口；`kc-runtime` 只通过 `push-runtime-images.sh` 同步标准镜像。Legacy/扩展包后续如仍需要，应单独设计对应发布入口，不复用默认发布流程。
+默认 release 提供 K8s、containerd、k8s-extension、Calico 的 package/chart 发布入口；kc-runtime、NFS 和 MetalLB 只同步标准 runtime images，不发布空 package image。Legacy/扩展包后续如仍需要，应单独设计对应发布入口，不复用默认发布流程。
 
 ## 6. 构建顺序建议
 
-GitHub Actions 按组件提供九个独立发布入口。`bootstrap/kubeclipper` 跟随
+GitHub Actions 按组件提供十一个独立发布入口。`bootstrap/kubeclipper` 跟随
 `main`、`master`、`release-*` 和 Git tag 自动构建；其他 bootstrap、K8s、
-containerd、k8s-extension、Calico 和 kc-runtime 组件按版本手动构建。
+containerd、k8s-extension、Calico、kc-runtime、NFS 和 MetalLB 组件按版本手动构建。
 runtime image 同步属于对应组件 Action 的一部分，不再单独运行一个全量
 release workflow。
 
