@@ -79,6 +79,7 @@ trap 'rm -rf "$workdir"' EXIT
 bundle_root="$workdir/kubeclipper-offline-registry-bundle"
 mkdir -p "$bundle_root/layouts"
 cp -f "$manifest" "$bundle_root/release-manifest.yaml"
+registry_bootstrap_archive="$bundle_root/bootstrap/registry-image.tar"
 
 selection="$workdir/selection.tsv"
 python3 - "$manifest" "$arch" > "$selection" <<'PY'
@@ -146,11 +147,23 @@ if len(manifests) != 1 or not manifests[0].get("digest"):
 print(manifests[0]["digest"])
 PY
 )"
+    if [[ "$type" == "package-image" && "$target" == kubeclipper/packages/bootstrap/registry:* ]]; then
+      mkdir -p "$(dirname "$registry_bootstrap_archive")"
+      bootstrap_args=(copy)
+      [[ "$insecure_source" == false ]] || bootstrap_args+=(--src-tls-verify=false)
+      [[ "$platforms" == "-" ]] || bootstrap_args+=(--override-os linux --override-arch "$arch")
+      echo "exporting self-bootstrap registry archive: $src"
+      skopeo "${bootstrap_args[@]}" "docker://$src" "docker-archive:$registry_bootstrap_archive:registry-bootstrap"
+    fi
   fi
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
     "$id" "$type" "$target" "$source" "$digest" "$bundle_digest" "$platforms" "$storage" "$path" >> "$index_file"
   count=$((count + 1))
 done < "$selection"
+
+if [[ ! -f "$registry_bootstrap_archive" ]]; then
+  echo "warning: bundle is not self-bootstrapping because bootstrap/registry is absent from the release manifest" >&2
+fi
 
 python3 - "$manifest" "$index_file" "$bundle_root/release-manifest.yaml" "$arch" <<'PY'
 import csv

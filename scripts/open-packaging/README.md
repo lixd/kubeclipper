@@ -483,6 +483,20 @@ scripts/open-packaging/export-offline-registry-bundle.sh \
   --output kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
 ```
 
+When the release manifest includes `bootstrap/registry`, the exported bundle is
+self-bootstrapping. It contains `bootstrap/registry-image.tar`, covered by the
+bundle `SHA256SUMS`, so a host without Docker, containerd, or an existing
+Registry can start the first Registry directly:
+
+```bash
+kcctl registry deploy \
+  --node 10.0.0.10 \
+  --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+```
+
+After the Registry is healthy, import the same bundle with the command below.
+No separate registry binary or second archive is required.
+
 The tarball contains lossless Registry seed data, the original release
 manifest, an artifact index, and SHA256 checksums. Package images and Helm
 charts use OCI Layout. Runtime images use Skopeo's lossless directory transport

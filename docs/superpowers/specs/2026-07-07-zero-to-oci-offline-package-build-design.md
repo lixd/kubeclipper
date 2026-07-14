@@ -332,12 +332,15 @@ Bootstrap package 合并为 4 个标准 OCI package image：
 
 `kcctl` 自身只作为用户下载入口发布到 GitHub Release，不放入 package registry。
 
-`kcctl registry deploy` 是特例。部署第一个本地 Registry 时，可以从公网或已有私有 package registry 拉取 `bootstrap/registry` package image，并从 `/opt/kubeclipper/resource/registry` 提取 registry 二进制；完全离线时再使用 image archive 或本地 binary。它应支持：
+`kcctl registry deploy` 是特例。部署第一个本地 Registry 时，可以从公网或已有私有 package registry 拉取 `bootstrap/registry` package image，并从 `/opt/kubeclipper/resource/registry` 提取 registry 二进制；完全离线时直接从同一个离线 Registry bundle 中提取经过校验的 bootstrap image。它支持：
 
 1. `--package-registry` 指向公开或已有私有 package registry。
 2. `--registry-image` 指向完整 `kubeclipper/packages/bootstrap/registry:<version>` package image。
 3. 本地 registry image archive。
 4. 本地 registry binary。
+5. `--offline-bundle`，直接读取 bundle 内 `bootstrap/registry-image.tar`；该文件必须包含在 `SHA256SUMS` 中。
+
+正式离线 bundle 的 release manifest 必须包含 `bootstrap/registry`。导出脚本会把它同时保存为 Registry seed OCI layout 和首个 Registry 的自举 archive；启动 Registry 后，再把同一个 bundle 的全部 seed data 导入目标 Registry，不需要第二份介质。
 
 当用户已经有可用 Registry 时，`bootstrap/registry` 可以作为后续部署、复用或审计的 package image。
 

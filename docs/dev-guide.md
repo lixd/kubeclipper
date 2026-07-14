@@ -344,7 +344,7 @@ Command status after the OCI switch:
 | `scripts/open-packaging/export-offline-registry-bundle.sh` | Air-gap export | Export one architecture as checksummed, digest-preserving Registry seed data. |
 | `scripts/open-packaging/import-offline-registry-bundle.sh` | Air-gap import | Import a bundle into any OCI Registry or Harbor without requiring Docker/containerd. |
 | `tools/oci-publish` | Package image publisher | Assemble and push standard OCI package images. |
-| `kcctl registry deploy --registry-image/--registry-image-archive/--registry-binary` | OCI bootstrap | Deploy the bootstrap Registry without the legacy release tarball. |
+| `kcctl registry deploy --package-registry/--offline-bundle` | OCI bootstrap | Pull the Registry package image online, or bootstrap directly from the checksummed offline Registry bundle. |
 | `kcctl resource list/inspect/refresh --registry` | Existing command, OCI-only semantics | Inspect Registry-derived inventory; no static-server SSH or `--transport` mode. |
 | `kcctl delivery-policy` | OCI delivery capability | Maintain the supported component/version matrix; it does not upload packages. |
 | `packageRegistry` | Deploy/join config | Registry source for offline package resolution and fetch. |
@@ -399,6 +399,11 @@ scripts/open-packaging/export-offline-registry-bundle.sh \
   --manifest "${RESOURCE_DIR}/release-manifest.yaml" \
   --arch amd64 \
   --output kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+
+# On an air-gapped host with no existing Registry, bootstrap from this same bundle.
+kcctl registry deploy \
+  --node 10.0.0.10 \
+  --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
 
 scripts/open-packaging/import-offline-registry-bundle.sh \
   --bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz \

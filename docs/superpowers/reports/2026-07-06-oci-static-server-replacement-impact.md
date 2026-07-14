@@ -13,6 +13,7 @@
 | `kcctl deploy` | 移除 `--pkg` 主路径 | 通过 `--package-registry` 从 OCI Registry 获取 bootstrap 二进制和离线 package。 |
 | `kcctl join` | 移除 `--pkg` 主路径 | 新 agent 节点从 `--package-registry` 获取所需 bootstrap 二进制。 |
 | `kcctl registry deploy` | 不再依赖 KubeClipper 大包 | Registry 作为基础设施组件单独部署，后续 package image、Helm OCI Chart 和 runtime image 都推到 Registry。 |
+| 完全离线 Registry 自举 | 单一离线 bundle | `kcctl registry deploy --offline-bundle` 校验并提取 bundle 内的 Registry package image，再用同一 bundle 填充 Registry。 |
 | `kcctl registry push` | 不再承担 package 发布 | 仅作为通用容器镜像归档导入工具；KubeClipper release 主路径使用标准 Registry 同步工具和 `release-manifest.yaml`。 |
 | `kcctl resource list/inspect/refresh` | 数据源变更 | 从 OCI Registry inventory 读取 package 信息，不再依赖 static server 目录索引。 |
 | `kcctl create cluster` | 离线安装更严格 | 离线模式必须指定 `--local-registry`，并要求运行镜像已经在 Registry 中。 |

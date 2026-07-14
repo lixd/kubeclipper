@@ -21,13 +21,17 @@ package registry
 import (
 	"archive/tar"
 	"bytes"
+	"compress/gzip"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	containerv1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -41,7 +45,7 @@ func TestNewCmdRegistryDeployDoesNotExposeLegacyPackageFlag(t *testing.T) {
 	if cmd.Flags().Lookup("pkg") != nil {
 		t.Fatalf("registry deploy should not expose package flag")
 	}
-	for _, name := range []string{"registry-image", "registry-image-archive", "registry-binary", "package-registry"} {
+	for _, name := range []string{"registry-image", "registry-image-archive", "registry-binary", "offline-bundle", "package-registry"} {
 		if cmd.Flags().Lookup(name) == nil {
 			t.Fatalf("registry deploy missing --%s flag", name)
 		}
@@ -187,6 +191,43 @@ func TestExtractRegistryBinaryRejectsUnexpectedPath(t *testing.T) {
 	}
 }
 
+func TestExtractRegistryArchiveFromOfflineBundle(t *testing.T) {
+	bundle := testOfflineRegistryBundle(t, false)
+	archive, cleanup, err := extractRegistryArchiveFromOfflineBundle(bundle)
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err != nil {
+		t.Fatalf("extractRegistryArchiveFromOfflineBundle() error = %+v", err)
+	}
+
+	o := NewRegistryOptions(options.IOStreams{})
+	binary, binaryCleanup, err := o.obtainRegistryBinaryFromArchive(archive, packageRegistryBinaryPath)
+	if binaryCleanup != nil {
+		defer binaryCleanup()
+	}
+	if err != nil {
+		t.Fatalf("obtainRegistryBinaryFromArchive() error = %+v", err)
+	}
+	data, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %+v", err)
+	}
+	if string(data) != "registry-binary" {
+		t.Fatalf("registry binary = %q", data)
+	}
+}
+
+func TestExtractRegistryArchiveFromOfflineBundleRejectsChecksumMismatch(t *testing.T) {
+	bundle := testOfflineRegistryBundle(t, true)
+	if _, cleanup, err := extractRegistryArchiveFromOfflineBundle(bundle); err == nil {
+		if cleanup != nil {
+			cleanup()
+		}
+		t.Fatal("extractRegistryArchiveFromOfflineBundle() expected checksum error")
+	}
+}
+
 func TestNormalizeRegistryArchitecture(t *testing.T) {
 	tests := map[string]string{
 		"x86_64\n":  "amd64",
@@ -242,6 +283,53 @@ func testRegistryImage(t *testing.T, binaryPath, content string) containerv1.Ima
 		t.Fatalf("AppendLayers() error = %+v", err)
 	}
 	return img
+}
+
+func testOfflineRegistryBundle(t *testing.T, corruptChecksum bool) string {
+	t.Helper()
+	imageArchive := filepath.Join(t.TempDir(), "registry-image.tar")
+	ref := name.MustParseReference("registry-bootstrap:3.1.1")
+	if err := tarball.WriteToFile(imageArchive, ref, testRegistryImage(t, packageRegistryBinaryPath, "registry-binary")); err != nil {
+		t.Fatalf("WriteToFile() error = %+v", err)
+	}
+	archiveData, err := os.ReadFile(imageArchive)
+	if err != nil {
+		t.Fatalf("ReadFile() error = %+v", err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(archiveData))
+	if corruptChecksum {
+		digest = strings.Repeat("0", 64)
+	}
+
+	bundle := filepath.Join(t.TempDir(), "bundle.tar.gz")
+	file, err := os.Create(bundle)
+	if err != nil {
+		t.Fatalf("Create() error = %+v", err)
+	}
+	gzw := gzip.NewWriter(file)
+	tw := tar.NewWriter(gzw)
+	writeBundleFile(t, tw, offlineBundleRegistryArchive, archiveData)
+	writeBundleFile(t, tw, offlineBundleChecksums, []byte(fmt.Sprintf("%s  ./bootstrap/registry-image.tar\n", digest)))
+	if err = tw.Close(); err != nil {
+		t.Fatalf("Close tar writer error = %+v", err)
+	}
+	if err = gzw.Close(); err != nil {
+		t.Fatalf("Close gzip writer error = %+v", err)
+	}
+	if err = file.Close(); err != nil {
+		t.Fatalf("Close bundle error = %+v", err)
+	}
+	return bundle
+}
+
+func writeBundleFile(t *testing.T, tw *tar.Writer, name string, data []byte) {
+	t.Helper()
+	if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0600, Size: int64(len(data))}); err != nil {
+		t.Fatalf("WriteHeader() error = %+v", err)
+	}
+	if _, err := tw.Write(data); err != nil {
+		t.Fatalf("Write() error = %+v", err)
+	}
 }
 
 func contains(s, substr string) bool {

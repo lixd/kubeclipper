@@ -22,6 +22,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -64,6 +65,8 @@ const (
 	defaultRegistryVersion         = "3.1.1"
 	packageRegistryBinaryPath      = "/opt/kubeclipper/resource/registry"
 	standardRegistryBinaryPath     = "/bin/registry"
+	offlineBundleRegistryArchive   = "kubeclipper-offline-registry-bundle/bootstrap/registry-image.tar"
+	offlineBundleChecksums         = "kubeclipper-offline-registry-bundle/SHA256SUMS"
 
 	longDescription = `
   Docker registry operation.
@@ -75,6 +78,8 @@ const (
   kcctl registry deploy --pk-file key --node 10.0.0.111
   # Deploy docker registry from an offline image archive
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
+  # Deploy docker registry directly from a self-bootstrapping offline Registry bundle
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
   # Clean docker registry
   kcctl registry clean --pk-file key --node 10.0.0.111
   # Push docker image to registry
@@ -101,6 +106,8 @@ const (
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-port 6666
   # Deploy docker registry from an offline image archive
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
+  # Deploy docker registry from a self-bootstrapping offline Registry bundle
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
   # Deploy docker registry from a local binary
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-binary registry-linux-amd64
 
@@ -165,6 +172,7 @@ type RegistryOptions struct {
 	RegistryImage        string
 	RegistryImageArchive string
 	RegistryBinary       string
+	OfflineBundle        string
 	PackageRegistry      string
 	Version              string
 	Arch                 string
@@ -187,6 +195,7 @@ type RegistryOptions struct {
 	registryImageChanged   bool
 	registryArchiveChanged bool
 	registryBinaryChanged  bool
+	offlineBundleChanged   bool
 	packageRegistryChanged bool
 	versionChanged         bool
 }
@@ -228,7 +237,7 @@ func NewCmdRegistry(streams options.IOStreams) *cobra.Command {
 
 func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:                   "deploy (--user | -u <user>) (--passwd <passwd>) (--pk-file <pk-file>) (--pk-passwd <pk-passwd>) (--node <node>) [--registry-image <image> | --registry-image-archive <archive> | --registry-binary <binary> | --package-registry <registry>] (--data-root <data-root>)  (--registry-port <registry-port>) [flags]",
+		Use:                   "deploy (--user | -u <user>) (--passwd <passwd>) (--pk-file <pk-file>) (--pk-passwd <pk-passwd>) (--node <node>) [--offline-bundle <bundle> | --registry-image <image> | --registry-image-archive <archive> | --registry-binary <binary> | --package-registry <registry>] (--data-root <data-root>)  (--registry-port <registry-port>) [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "registry deploy",
 		Long:                  deployLongDescription,
@@ -250,6 +259,7 @@ func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 	cmd.Flags().StringVar(&o.RegistryImage, "registry-image", o.RegistryImage, "full registry bootstrap package image reference.")
 	cmd.Flags().StringVar(&o.RegistryImageArchive, "registry-image-archive", o.RegistryImageArchive, "local docker image archive containing the registry binary.")
 	cmd.Flags().StringVar(&o.RegistryBinary, "registry-binary", o.RegistryBinary, "local registry binary path.")
+	cmd.Flags().StringVar(&o.OfflineBundle, "offline-bundle", o.OfflineBundle, "self-bootstrapping KubeClipper offline Registry bundle.")
 	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", o.PackageRegistry, "OCI registry prefix containing kubeclipper/packages/bootstrap/registry. Default: ghcr.io/lixd/kubeclipper.")
 	cmd.Flags().StringVar(&o.Version, "version", o.Version, "registry bootstrap image version. Default: 3.1.1.")
 	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry bootstrap image architecture. Default: detected from the target node.")
@@ -395,6 +405,7 @@ func (o *RegistryOptions) trackChangedFlags(cmd *cobra.Command) {
 	o.registryImageChanged = cmd.Flags().Changed("registry-image")
 	o.registryArchiveChanged = cmd.Flags().Changed("registry-image-archive")
 	o.registryBinaryChanged = cmd.Flags().Changed("registry-binary")
+	o.offlineBundleChanged = cmd.Flags().Changed("offline-bundle")
 	o.packageRegistryChanged = cmd.Flags().Changed("package-registry")
 	o.versionChanged = cmd.Flags().Changed("version")
 }
@@ -481,7 +492,7 @@ func (o *RegistryOptions) ValidateArgsDeploy() error {
 	if len(sources) > 1 {
 		return fmt.Errorf("registry deploy source flags are mutually exclusive: %s", strings.Join(sources, ", "))
 	}
-	if o.Version != "" && (o.RegistryImage != "" || o.RegistryImageArchive != "" || o.RegistryBinary != "") {
+	if o.Version != "" && (o.RegistryImage != "" || o.RegistryImageArchive != "" || o.RegistryBinary != "" || o.OfflineBundle != "") {
 		return fmt.Errorf("--version can only be used with --package-registry or the default package registry")
 	}
 	return nil
@@ -837,6 +848,9 @@ func (o *RegistryOptions) explicitRegistryDeploySources() []string {
 	if o.RegistryImage != "" {
 		sources = append(sources, "--registry-image")
 	}
+	if o.OfflineBundle != "" {
+		sources = append(sources, "--offline-bundle")
+	}
 	if o.PackageRegistry != "" {
 		sources = append(sources, "--package-registry")
 	}
@@ -844,6 +858,20 @@ func (o *RegistryOptions) explicitRegistryDeploySources() []string {
 }
 
 func (o *RegistryOptions) obtainRegistryBinary() (string, func(), error) {
+	if o.OfflineBundle != "" {
+		archivePath, archiveCleanup, err := extractRegistryArchiveFromOfflineBundle(o.OfflineBundle)
+		if err != nil {
+			return "", archiveCleanup, err
+		}
+		defer archiveCleanup()
+		path, cleanup, err := o.obtainRegistryBinaryFromArchive(archivePath, packageRegistryBinaryPath)
+		if err != nil {
+			return "", cleanup, err
+		}
+		logger.Infof("extracted registry binary from offline bundle %s", o.OfflineBundle)
+		return path, cleanup, nil
+	}
+
 	if o.RegistryBinary != "" {
 		path, cleanup, err := normalizeRegistryBinary(o.RegistryBinary)
 		if err != nil {
@@ -997,6 +1025,87 @@ func dockerArchiveOpener(archivePath string) tarball.Opener {
 		}
 		return gzipReadCloser{Reader: gzr, closers: []io.Closer{gzr, file}}, nil
 	}
+}
+
+func extractRegistryArchiveFromOfflineBundle(bundlePath string) (string, func(), error) {
+	rc, err := dockerArchiveOpener(bundlePath)()
+	if err != nil {
+		return "", nil, err
+	}
+	defer rc.Close()
+
+	tmpDir, err := os.MkdirTemp("", "kc-registry-offline-bundle-")
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
+	archivePath := filepath.Join(tmpDir, "registry-image.tar")
+	var checksumData []byte
+	foundArchive := false
+
+	tr := tar.NewReader(rc)
+	for {
+		header, nextErr := tr.Next()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			cleanup()
+			return "", nil, nextErr
+		}
+		name := strings.TrimPrefix(path.Clean(strings.TrimPrefix(header.Name, "./")), "/")
+		switch name {
+		case offlineBundleRegistryArchive:
+			if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
+				cleanup()
+				return "", nil, fmt.Errorf("offline bundle registry archive is not a regular file")
+			}
+			if err = writeReaderToFile(tr, archivePath, 0600); err != nil {
+				cleanup()
+				return "", nil, err
+			}
+			foundArchive = true
+		case offlineBundleChecksums:
+			checksumData, err = io.ReadAll(tr)
+			if err != nil {
+				cleanup()
+				return "", nil, err
+			}
+		}
+	}
+	if !foundArchive {
+		cleanup()
+		return "", nil, fmt.Errorf("offline bundle does not contain %s; regenerate it from a release manifest with bootstrap packages", offlineBundleRegistryArchive)
+	}
+	expected := checksumForBundleFile(checksumData, "bootstrap/registry-image.tar")
+	if expected == "" {
+		cleanup()
+		return "", nil, fmt.Errorf("offline bundle checksum is missing for bootstrap/registry-image.tar")
+	}
+	data, err := os.ReadFile(archivePath)
+	if err != nil {
+		cleanup()
+		return "", nil, err
+	}
+	actual := fmt.Sprintf("%x", sha256.Sum256(data))
+	if actual != expected {
+		cleanup()
+		return "", nil, fmt.Errorf("offline bundle registry archive checksum mismatch: got %s, want %s", actual, expected)
+	}
+	return archivePath, cleanup, nil
+}
+
+func checksumForBundleFile(data []byte, name string) string {
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		if strings.TrimPrefix(fields[1], "./") == name {
+			return strings.ToLower(fields[0])
+		}
+	}
+	return ""
 }
 
 type gzipReadCloser struct {
