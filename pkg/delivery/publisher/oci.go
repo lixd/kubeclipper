@@ -53,6 +53,7 @@ type PublishRequest struct {
 	Arch             string
 	Registry         string
 	ContentProfile   string
+	SourceRevision   string
 	ExternalContents []deliveryapis.ArtifactContent
 }
 
@@ -113,7 +114,7 @@ func (p *OCIArtifactPublisher) Publish(req PublishRequest) (*PublishResult, erro
 	if err != nil {
 		return nil, err
 	}
-	img, err := buildArtifactImage(manifestPath, payloads)
+	img, err := buildArtifactImage(manifestPath, payloads, req)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +183,7 @@ func writePackageManifest(workdir string, req PublishRequest, profile string, pa
 		Kind:           req.Kind,
 		Name:           req.Name,
 		Version:        req.Version,
+		SourceRevision: req.SourceRevision,
 		ContentProfile: profile,
 		Platform: deliveryapis.PackageManifestPlatform{
 			OS:   "linux",
@@ -222,7 +224,7 @@ func writePackageManifest(workdir string, req PublishRequest, profile string, pa
 	return path, os.WriteFile(path, data, 0644)
 }
 
-func buildArtifactImage(manifestPath string, payloads []payloadFile) (v1.Image, error) {
+func buildArtifactImage(manifestPath string, payloads []payloadFile, req PublishRequest) (v1.Image, error) {
 	rootfsPath := filepath.Join(filepath.Dir(manifestPath), "kc-package-rootfs.tar")
 	if err := writePackageRootFS(rootfsPath, manifestPath, payloads); err != nil {
 		return nil, err
@@ -237,6 +239,22 @@ func buildArtifactImage(manifestPath string, payloads []payloadFile) (v1.Image, 
 		Layer:     layer,
 		MediaType: types.OCILayer,
 	})
+	if err != nil {
+		return nil, err
+	}
+	config, err := img.ConfigFile()
+	if err != nil {
+		return nil, err
+	}
+	config.Config.Labels = map[string]string{
+		"org.opencontainers.image.source":  "https://github.com/kubeclipper/kubeclipper",
+		"org.opencontainers.image.title":   req.Kind + "/" + req.Name,
+		"org.opencontainers.image.version": req.Version,
+	}
+	if req.SourceRevision != "" {
+		config.Config.Labels["org.opencontainers.image.revision"] = req.SourceRevision
+	}
+	img, err = mutate.ConfigFile(img, config)
 	if err != nil {
 		return nil, err
 	}

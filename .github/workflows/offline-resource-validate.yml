@@ -15,7 +15,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Release artifact/support policy consistency
+        run: go run ./tools/release-policy-verify --manifest packaging/resources.yaml
 
       - name: Bash syntax
         run: |
@@ -115,6 +124,9 @@ jobs:
 
       - name: Offline Registry bundle export test
         run: scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
+
+      - name: Release manifest provenance test
+        run: scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
 
       - name: Internal dependency scan
         run: scripts/open-packaging/check-open-packaging-sources.sh

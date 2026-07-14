@@ -56,7 +56,9 @@ kcctl deploy \
   --package-registry 10.0.0.10:5000
 ```
 
-新模式要求 `10.0.0.10:5000` 中已经存在四个 bootstrap package image：`bootstrap/kubeclipper`、`bootstrap/etcd`、`bootstrap/console` 和 `bootstrap/registry`。镜像内资源统一位于 `/opt/kubeclipper/resource`。`kcctl` 由用户从 GitHub Release 下载，不放入 package Registry。
+完整发布集包含四个 bootstrap package image：`bootstrap/kubeclipper`、`bootstrap/etcd`、`bootstrap/console` 和 `bootstrap/registry`。其中 `kcctl registry deploy` 单独消费 `bootstrap/registry`；后续 `kcctl deploy` 只消费 kubeclipper、etcd、console 三个包，不会重复下载未使用的 registry 二进制。镜像内资源统一位于 `/opt/kubeclipper/resource`。`kcctl` 由用户从 GitHub Release 下载，不放入 package Registry。
+
+KubeClipper package 不是按 Registry 中“最大 tag”选择。初次部署使用 `kcctl` 自身 Git commit，join 使用已运行 server 的 Git commit，精确匹配 package manifest 的 `sourceRevision`；因此同一 Registry 可以保留多个 release/branch tag，而不会把旧客户端、server 和新 agent 混装。etcd 与 console 使用该 KubeClipper release 固定的版本。
 
 ### 2. 扩容 agent 节点
 

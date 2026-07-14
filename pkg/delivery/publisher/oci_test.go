@@ -45,10 +45,11 @@ func TestRepositoryRef(t *testing.T) {
 
 func TestWritePackageManifest(t *testing.T) {
 	path, err := writePackageManifest(t.TempDir(), PublishRequest{
-		Kind:    "cri",
-		Name:    "containerd",
-		Version: "2.1.0",
-		Arch:    "amd64",
+		Kind:           "cri",
+		Name:           "containerd",
+		Version:        "2.1.0",
+		Arch:           "amd64",
+		SourceRevision: "abc123",
 	}, deliveryapis.ContentProfileRuntime, []payloadFile{
 		{name: deliveryapis.ContentConfigs, file: "configs.tar.gz", digest: "sha256:aaaa"},
 	}, nil)
@@ -68,6 +69,9 @@ func TestWritePackageManifest(t *testing.T) {
 	}
 	if manifest.Platform.Arch != "amd64" {
 		t.Fatalf("platform arch = %q", manifest.Platform.Arch)
+	}
+	if manifest.SourceRevision != "abc123" {
+		t.Fatalf("source revision = %q", manifest.SourceRevision)
 	}
 	if len(manifest.Contents) != 1 {
 		t.Fatalf("content count = %d, want 1", len(manifest.Contents))
@@ -164,7 +168,7 @@ func TestBuildArtifactImageUsesStandardRootFSLayer(t *testing.T) {
 		name: deliveryapis.ContentConfigs,
 		path: payloadPath,
 		file: "configs.tar.gz",
-	}})
+	}}, PublishRequest{Kind: "k8s", Name: "k8s", Version: "v1.36.1", SourceRevision: "abc123"})
 	if err != nil {
 		t.Fatalf("buildArtifactImage() error: %+v", err)
 	}
@@ -177,6 +181,16 @@ func TestBuildArtifactImageUsesStandardRootFSLayer(t *testing.T) {
 	}
 	if len(manifest.Layers) != 1 || manifest.Layers[0].MediaType != types.OCILayer {
 		t.Fatalf("layers = %+v", manifest.Layers)
+	}
+	config, err := img.ConfigFile()
+	if err != nil {
+		t.Fatalf("ConfigFile() error: %+v", err)
+	}
+	if config.Config.Labels["org.opencontainers.image.revision"] != "abc123" {
+		t.Fatalf("revision label = %q", config.Config.Labels["org.opencontainers.image.revision"])
+	}
+	if config.Config.Labels["org.opencontainers.image.version"] != "v1.36.1" {
+		t.Fatalf("version label = %q", config.Config.Labels["org.opencontainers.image.version"])
 	}
 	layers, err := img.Layers()
 	if err != nil {

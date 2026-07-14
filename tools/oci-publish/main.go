@@ -36,6 +36,7 @@ type options struct {
 	Arch             string
 	Registry         string
 	Profile          string
+	SourceRevision   string
 	ExternalContents externalContentFlags
 }
 
@@ -85,6 +86,7 @@ func main() {
 		Arch:             opts.Arch,
 		Registry:         opts.Registry,
 		ContentProfile:   opts.Profile,
+		SourceRevision:   opts.SourceRevision,
 		ExternalContents: []deliveryapis.ArtifactContent(opts.ExternalContents),
 	})
 	if err != nil {
@@ -109,6 +111,7 @@ func parseFlags() options {
 	flag.StringVar(&opts.Arch, "arch", "amd64", "package architecture")
 	flag.StringVar(&opts.Registry, "registry", "", "OCI registry host:port")
 	flag.StringVar(&opts.Profile, "profile", "", "optional content profile override")
+	flag.StringVar(&opts.SourceRevision, "source-revision", os.Getenv("KC_SOURCE_REVISION"), "source commit revision recorded in OCI metadata")
 	flag.Var(&opts.ExternalContents, "external-content", "external content descriptor: name=<name>,file=<file>,transport=<oci|helm-oci>,ref=<ref>,digest=<sha256>,mediaType=<type>")
 	flag.Parse()
 

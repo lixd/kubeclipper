@@ -70,6 +70,7 @@ type PackageEntry struct {
 	Name           string            `json:"name"`
 	Kind           string            `json:"kind"`
 	Version        string            `json:"version"`
+	SourceRevision string            `json:"sourceRevision,omitempty"`
 	OS             string            `json:"os,omitempty"`
 	Arch           string            `json:"arch"`
 	ContentProfile string            `json:"contentProfile,omitempty"`

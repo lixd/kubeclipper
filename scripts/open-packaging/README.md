@@ -70,8 +70,28 @@ After all artifacts are published, release CI can pin their Registry digests:
 scripts/open-packaging/generate-release-manifest.sh \
   --build-manifest packaging/resources.yaml \
   --resource-dir /data/kc-resource \
-  --resolve-digests
+  --resolve-digests \
+  --source-revision "$(git rev-parse HEAD)"
 ```
+
+Package publishing records `KC_SOURCE_REVISION` in both the package manifest
+and the standard `org.opencontainers.image.revision` OCI label. Component
+workflows set it to `github.sha` automatically. Release assembly must pass the
+kcctl release commit to `--source-revision`; generation then requires every
+package platform to expose provenance, rejects mixed revisions inside a
+multi-architecture tag, and requires `bootstrap/kubeclipper` to match that
+release commit. Independently maintained third-party packages may come from a
+different recorded commit. The provenance gate requires `--resolve-digests`
+because it verifies the actual remote image config rather than trusting a local
+declaration.
+
+The revision is also part of Registry inventory. `kcctl deploy` selects the
+KubeClipper server/agent package built from the same commit as `kcctl`, and
+`kcctl join` selects an agent built from the running server's commit. This is
+intentional: publishing a newer mutable tag must not silently change an older
+installation. Deploy consumes the kubeclipper, etcd, and console bootstrap
+packages; the registry package is consumed only by `kcctl registry deploy` or
+offline Registry self-bootstrap.
 
 Verification is optional and does not block `kcctl create cluster`:
 

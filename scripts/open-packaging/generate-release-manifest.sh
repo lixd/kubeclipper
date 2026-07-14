@@ -13,6 +13,7 @@ resolve_digests=false
 insecure=false
 include_bootstrap=false
 arch_override=""
+source_revision=""
 
 usage() {
   cat <<'EOF'
@@ -32,6 +33,7 @@ Flags:
   --insecure                    Use plain HTTP when resolving digests with crane.
   --include-bootstrap           Include the four bootstrap package images.
   --arch <amd64|arm64|all>      Override bootstrap platforms from the build manifest.
+  --source-revision <commit>    Require every package image to carry this OCI revision label.
   -h, --help                    Show this help.
 EOF
 }
@@ -56,10 +58,15 @@ while [[ $# -gt 0 ]]; do
   --insecure) insecure=true; shift ;;
   --include-bootstrap) include_bootstrap=true; shift ;;
   --arch) need_value "$@"; arch_override="$2"; shift 2 ;;
+  --source-revision) need_value "$@"; source_revision="$2"; shift 2 ;;
   -h | --help) usage; exit 0 ;;
   *) die "unknown argument: $1" ;;
   esac
 done
+
+if [[ -n "$source_revision" && "$resolve_digests" != true ]]; then
+  die "--source-revision requires --resolve-digests"
+fi
 
 [[ -f "$build_manifest" ]] || die "build manifest not found: $build_manifest"
 [[ -d "$resource_dir" ]] || die "resource directory not found: $resource_dir"
@@ -74,7 +81,8 @@ fi
 output="${output:-$resource_dir/release-manifest.yaml}"
 mkdir -p "$(dirname "$output")"
 
-python3 - "$build_manifest" "$resource_dir" "$output" "$package_registry" "$image_registry" "$resolve_digests" "$insecure" "$include_bootstrap" "$arch_override" <<'PY'
+python3 - "$build_manifest" "$resource_dir" "$output" "$package_registry" "$image_registry" "$resolve_digests" "$insecure" "$include_bootstrap" "$arch_override" "$source_revision" <<'PY'
+import json
 import os
 import subprocess
 import sys
@@ -85,7 +93,7 @@ try:
 except ImportError:
     raise SystemExit("PyYAML is required; install python3-yaml or pyyaml")
 
-build_manifest, resource_dir, output, package_override, image_override, resolve_raw, insecure_raw, include_bootstrap_raw, arch_override = sys.argv[1:]
+build_manifest, resource_dir, output, package_override, image_override, resolve_raw, insecure_raw, include_bootstrap_raw, arch_override, source_revision = sys.argv[1:]
 resolve_digests = resolve_raw == "true"
 insecure = insecure_raw == "true"
 include_bootstrap = include_bootstrap_raw == "true"
@@ -246,6 +254,7 @@ artifacts.sort(key=lambda item: (
     item["component"]["version"], item["target"],
 ))
 if resolve_digests:
+    release_bootstrap_verified = False
     for artifact in artifacts:
         command = ["crane", "digest"]
         if insecure:
@@ -258,6 +267,51 @@ if resolve_digests:
         except subprocess.CalledProcessError as error:
             message = error.stderr.strip() or str(error)
             raise SystemExit(f"resolve digest failed for {artifact['source']}: {message}")
+        if source_revision and artifact["type"] == "package-image":
+            platforms = artifact.get("platforms") or []
+            source_ref = artifact["source"].removeprefix("oci://").split("@", 1)[0]
+            if ":" in source_ref.rsplit("/", 1)[-1]:
+                source_ref = source_ref.rsplit(":", 1)[0]
+            platform_revisions = {}
+            for platform in platforms or [""]:
+                config_command = ["crane", "config"]
+                if insecure:
+                    config_command.append("--insecure")
+                if platform:
+                    config_command.extend(["--platform", platform])
+                config_command.append(source_ref + "@" + artifact["digest"])
+                try:
+                    config = json.loads(subprocess.check_output(config_command, text=True, stderr=subprocess.PIPE))
+                except (subprocess.CalledProcessError, json.JSONDecodeError) as error:
+                    message = getattr(error, "stderr", "") or str(error)
+                    suffix = f" for {platform}" if platform else ""
+                    raise SystemExit(
+                        f"read OCI provenance failed for {artifact['source']}{suffix}: {message.strip()}"
+                    )
+                labels = ((config.get("config") or {}).get("Labels") or {})
+                actual_revision = str(labels.get("org.opencontainers.image.revision") or "")
+                if not actual_revision:
+                    suffix = f" platform={platform}" if platform else ""
+                    raise SystemExit(
+                        f"source revision missing for {artifact['source']}{suffix}"
+                    )
+                platform_revisions[platform or "default"] = actual_revision
+            revisions = set(platform_revisions.values())
+            if len(revisions) != 1:
+                details = ", ".join(f"{platform}={revision}" for platform, revision in sorted(platform_revisions.items()))
+                raise SystemExit(f"mixed platform source revisions for {artifact['source']}: {details}")
+            actual_revision = revisions.pop()
+            artifact["sourceRevision"] = actual_revision
+            component = artifact.get("component") or {}
+            if component.get("kind") == "bootstrap" and component.get("name") == "kubeclipper":
+                if actual_revision != source_revision:
+                    raise SystemExit(
+                        f"source revision mismatch for {artifact['source']}: "
+                        f"expected={source_revision} actual={actual_revision}"
+                    )
+                release_bootstrap_verified = True
+    if source_revision and not release_bootstrap_verified:
+        raise SystemExit("release source revision requires bootstrap/kubeclipper in the manifest")
 document = {
     "apiVersion": "delivery.kubeclipper.io/v1alpha1",
     "kind": "ReleaseManifest",
@@ -268,6 +322,8 @@ document = {
     "registries": {"package": package_registry, "image": image_registry},
     "artifacts": artifacts,
 }
+if source_revision:
+    document["metadata"]["sourceRevision"] = source_revision
 with open(output, "w", encoding="utf-8") as stream:
     yaml.safe_dump(document, stream, sort_keys=False, default_flow_style=False)
 PY

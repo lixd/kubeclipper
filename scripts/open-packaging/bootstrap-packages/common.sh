@@ -114,14 +114,22 @@ docker_go_env_args() {
   done
 }
 
+kubeclipper_build_ldflags() (
+  export KUBE_ROOT="$ROOT"
+  source "$ROOT/hack/lib/version.sh"
+  kube::version::ldflags
+)
+
 build_core_binaries() {
+  local ldflags
+  ldflags="$(kubeclipper_build_ldflags)"
   echo "building core binaries for linux/$arch"
   if command -v go >/dev/null 2>&1; then
     (
       cd "$ROOT"
       for attempt in 1 2 3; do
-        if GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$build_dir/kubeclipper-server" ./cmd/kubeclipper-server &&
-          GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$build_dir/kubeclipper-agent" ./cmd/kubeclipper-agent; then
+        if GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "$ldflags" -o "$build_dir/kubeclipper-server" ./cmd/kubeclipper-server &&
+          GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "$ldflags" -o "$build_dir/kubeclipper-agent" ./cmd/kubeclipper-agent; then
           exit 0
         fi
         echo "go build failed; retrying ($attempt/3)" >&2
@@ -148,8 +156,9 @@ build_core_binaries() {
     -e GOOS=linux \
     -e GOARCH="$arch" \
     -e CGO_ENABLED=0 \
+    -e "KC_BUILD_LDFLAGS=$ldflags" \
     "$image" \
-    sh -c 'for attempt in 1 2 3; do go build -o /out/kubeclipper-server ./cmd/kubeclipper-server && go build -o /out/kubeclipper-agent ./cmd/kubeclipper-agent && exit 0; echo "go build failed; retrying ($attempt/3)" >&2; sleep $((attempt * 2)); done; exit 1'
+    sh -c 'for attempt in 1 2 3; do go build -ldflags "$KC_BUILD_LDFLAGS" -o /out/kubeclipper-server ./cmd/kubeclipper-server && go build -ldflags "$KC_BUILD_LDFLAGS" -o /out/kubeclipper-agent ./cmd/kubeclipper-agent && exit 0; echo "go build failed; retrying ($attempt/3)" >&2; sleep $((attempt * 2)); done; exit 1'
 }
 
 download_etcd_binaries() {

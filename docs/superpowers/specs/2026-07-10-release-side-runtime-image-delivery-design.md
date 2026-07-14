@@ -52,6 +52,17 @@ release manifest containing:
 - supported platforms;
 - optional immutable Registry digests.
 
+For release assembly, package images also carry the source commit in
+`kc-package-manifest.json` and the OCI
+`org.opencontainers.image.revision` label. Running the generator with
+`--resolve-digests --source-revision <commit>` records each package's own build
+revision, rejects missing provenance and mixed platform revisions, and verifies
+that `bootstrap/kubeclipper` matches the kcctl release commit. Independently
+maintained third-party packages may retain a different revision. A stale
+KubeClipper bootstrap or internally mixed multi-architecture tag is a release
+error, even when mutable tags and their current digests are otherwise
+internally consistent.
+
 The build manifest is the allowlist. Files left in an output directory from an
 older build are not added unless their component and version are still declared.
 

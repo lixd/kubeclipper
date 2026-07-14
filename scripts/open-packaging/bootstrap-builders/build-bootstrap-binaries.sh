@@ -54,6 +54,12 @@ need_value() {
   [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a value"
 }
 
+kubeclipper_build_ldflags() (
+  export KUBE_ROOT="$ROOT"
+  source "$ROOT/hack/lib/version.sh"
+  kube::version::ldflags
+)
+
 docker_network_args() {
   if [[ -n "${KC_DOCKER_NETWORK:-}" ]]; then
     printf '%s\n' "--network=${KC_DOCKER_NETWORK}"
@@ -151,13 +157,14 @@ work="$(mktemp -d -t kc-bootstrap-build.XXXXXX)"
 trap 'rm -rf "$work"' EXIT
 
 if [[ "$skip_core" != true ]]; then
+  kc_ldflags="$(kubeclipper_build_ldflags)"
   echo "==> building KubeClipper core binaries ${kc_version:+($kc_version) }for linux/$arch"
   if command -v go >/dev/null 2>&1; then
     (
       cd "$ROOT"
       for attempt in 1 2 3; do
-        if GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-server" ./cmd/kubeclipper-server &&
-          GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o "$output_dir/kubeclipper-agent" ./cmd/kubeclipper-agent; then
+        if GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "$kc_ldflags" -o "$output_dir/kubeclipper-server" ./cmd/kubeclipper-server &&
+          GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "$kc_ldflags" -o "$output_dir/kubeclipper-agent" ./cmd/kubeclipper-agent; then
           exit 0
         fi
         echo "go build failed; retrying ($attempt/3)" >&2
@@ -181,8 +188,9 @@ if [[ "$skip_core" != true ]]; then
       -e GOOS=linux \
       -e GOARCH="$arch" \
       -e CGO_ENABLED=0 \
+      -e "KC_BUILD_LDFLAGS=$kc_ldflags" \
       "$image" \
-      sh -c 'for attempt in 1 2 3; do go build -o /out/kubeclipper-server ./cmd/kubeclipper-server && go build -o /out/kubeclipper-agent ./cmd/kubeclipper-agent && exit 0; echo "go build failed; retrying ($attempt/3)" >&2; sleep $((attempt * 2)); done; exit 1'
+      sh -c 'for attempt in 1 2 3; do go build -ldflags "$KC_BUILD_LDFLAGS" -o /out/kubeclipper-server ./cmd/kubeclipper-server && go build -ldflags "$KC_BUILD_LDFLAGS" -o /out/kubeclipper-agent ./cmd/kubeclipper-agent && exit 0; echo "go build failed; retrying ($attempt/3)" >&2; sleep $((attempt * 2)); done; exit 1'
   fi
 fi
 

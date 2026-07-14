@@ -150,7 +150,7 @@ generate_manifest() {
   printf '[' > "$output"
   while IFS= read -r file; do
     local rel dir name digest
-    rel="${file#$root/}"
+    rel="${file#"$root"/}"
     dir="$(dirname "$rel")"
     name="$(basename "$rel")"
     digest="$(md5_digest "$file")"

@@ -49,6 +49,7 @@ func TestDerivePackageEntryFromManifest(t *testing.T) {
 		Kind:           "cri",
 		Name:           "containerd",
 		Version:        "2.1.0",
+		SourceRevision: "abc123",
 		ContentProfile: ContentProfileRuntime,
 		Platform: PackageManifestPlatform{
 			OS:   "linux",
@@ -63,6 +64,9 @@ func TestDerivePackageEntryFromManifest(t *testing.T) {
 	}
 	if entry.Kind != "cri" || entry.Name != "containerd" || entry.Version != "2.1.0" {
 		t.Fatalf("entry identity = %+v", entry)
+	}
+	if entry.SourceRevision != "abc123" {
+		t.Fatalf("source revision = %q", entry.SourceRevision)
 	}
 	if entry.OS != "linux" || entry.Arch != "amd64" {
 		t.Fatalf("entry platform = %s/%s", entry.OS, entry.Arch)

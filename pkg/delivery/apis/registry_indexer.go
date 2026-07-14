@@ -62,6 +62,7 @@ type PackageManifest struct {
 	Kind           string                  `json:"kind"`
 	Name           string                  `json:"name"`
 	Version        string                  `json:"version"`
+	SourceRevision string                  `json:"sourceRevision,omitempty"`
 	ContentProfile string                  `json:"contentProfile,omitempty"`
 	Platform       PackageManifestPlatform `json:"platform"`
 	Contents       []PackageManifestFile   `json:"contents"`
@@ -202,6 +203,7 @@ func DerivePackageEntryFromManifest(ref PackageRef, manifest PackageManifest) (P
 		Kind:           kind,
 		Name:           name,
 		Version:        ref.Tag,
+		SourceRevision: manifest.SourceRevision,
 		OS:             manifest.Platform.OS,
 		Arch:           manifest.Platform.Arch,
 		ContentProfile: profile,
