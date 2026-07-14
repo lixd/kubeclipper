@@ -278,7 +278,7 @@ func TestRegistryPackageIndexerSkipsInvalidArtifact(t *testing.T) {
 	}
 }
 
-func TestRegistryPackageIndexerSkipsArtifactWithMissingPayloadDigest(t *testing.T) {
+func TestRegistryPackageIndexerDoesNotDownloadPayloads(t *testing.T) {
 	img := testPackageImageWithoutPayloads(t, deliveryapis.PackageManifest{
 		SchemaVersion:  1,
 		Kind:           "cri",
@@ -309,8 +309,8 @@ func TestRegistryPackageIndexerSkipsArtifactWithMissingPayloadDigest(t *testing.
 	if err != nil {
 		t.Fatalf("Index() error: %+v", err)
 	}
-	if len(inventory.Spec.Packages) != 0 {
-		t.Fatalf("package count = %d, want 0", len(inventory.Spec.Packages))
+	if len(inventory.Spec.Packages) != 1 {
+		t.Fatalf("package count = %d, want 1", len(inventory.Spec.Packages))
 	}
 }
 

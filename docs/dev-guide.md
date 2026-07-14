@@ -471,7 +471,16 @@ Shell completion for `kcctl create cluster --k8s-version`, `--cri-version`, and
 `--cni-version` is generated from the ComponentMeta projection. This projection
 is the intersection of Registry-derived package inventory and `delivery-policy`,
 so completion only offers versions that are both published and supported. It no
-longer switches between separate online/offline metadata sources.
+longer switches between separate online/offline metadata sources. CRI and CNI
+completion is scoped to the selected Kubernetes version's policy rule. When the
+version flags are omitted, `kcctl` selects the newest published and supported
+Kubernetes version and then uses that rule's default CRI and CNI versions.
+
+Registry inventory reads only OCI descriptors and
+`/opt/kubeclipper/resource/kc-package-manifest.json`; it does not download package
+payloads while listing versions. Package payload digests are checked by the
+publisher/verifier and checked again by the fetcher when an installation actually
+extracts the package.
 
 Kubernetes and containerd binaries are always resolved as OCI packages. Setting
 `--offline=false` only allows runtime images to use their upstream registries;

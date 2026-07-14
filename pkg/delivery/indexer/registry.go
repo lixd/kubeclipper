@@ -159,10 +159,6 @@ func (i *RegistryPackageInventoryIndexer) indexPackageRepository(ctx context.Con
 				logger.Warnf("skip invalid OCI package image %s@%s: validate package platform failed: %v", ref, artifact.Digest, err)
 				continue
 			}
-			if err = validateManifestContentFiles(artifact.Image, manifest); err != nil {
-				logger.Warnf("skip invalid OCI package image %s@%s: validate package contents failed: %v", ref, artifact.Digest, err)
-				continue
-			}
 			entry, err := deliveryapis.DerivePackageEntryFromManifest(deliveryapis.PackageRef{
 				Registry:   registry,
 				Repository: repository,
@@ -377,75 +373,6 @@ func validateArtifactPlatform(platform *containerv1.Platform, manifestPlatform d
 	return nil
 }
 
-func validateManifestContentFiles(img containerv1.Image, manifest deliveryapis.PackageManifest) error {
-	layers, err := img.Layers()
-	if err != nil {
-		return err
-	}
-	for _, content := range manifest.Contents {
-		if content.Name == "" {
-			continue
-		}
-		if content.Transport.Type != "" {
-			continue
-		}
-		if content.Digest == "" {
-			return fmt.Errorf("content %q digest is required", content.Name)
-		}
-		data, err := readPackageFile(layers, content.File)
-		if err != nil {
-			return fmt.Errorf("content %q file %q not found in package image: %w", content.Name, content.File, err)
-		}
-		digest, err := packageFilePayloadDigest(data, content.Name)
-		if err != nil {
-			return err
-		}
-		if digest != content.Digest {
-			return fmt.Errorf("content %q digest mismatch: expected %s, got %s", content.Name, content.Digest, digest)
-		}
-	}
-	return nil
-}
-
-func readPackageFile(layers []containerv1.Layer, file string) ([]byte, error) {
-	if file == "" {
-		return nil, fmt.Errorf("package content file is required")
-	}
-	target := path.Join("opt/kubeclipper/resource", file)
-	for _, layer := range layers {
-		reader, err := layer.Uncompressed()
-		if err != nil {
-			return nil, err
-		}
-		data, err := readFileFromRootFS(reader, target)
-		reader.Close()
-		if err == nil {
-			return data, nil
-		}
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	}
-	return nil, fmt.Errorf("%s not found", target)
-}
-
-func readFileFromRootFS(reader io.Reader, target string) ([]byte, error) {
-	tr := tar.NewReader(reader)
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			return nil, os.ErrNotExist
-		}
-		if err != nil {
-			return nil, err
-		}
-		if header.Typeflag != tar.TypeReg || path.Clean(header.Name) != target {
-			continue
-		}
-		return io.ReadAll(tr)
-	}
-}
-
 func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
 	if isPlainFileContent(contentName) {
 		sum := sha256.Sum256(data)
@@ -470,17 +397,4 @@ func isPlainFileContent(contentName string) bool {
 	default:
 		return true
 	}
-}
-
-func layerUncompressedDigest(layer containerv1.Layer) (string, error) {
-	reader, err := layer.Uncompressed()
-	if err != nil {
-		return "", err
-	}
-	defer reader.Close()
-	hash := sha256.New()
-	if _, err = io.Copy(hash, reader); err != nil {
-		return "", err
-	}
-	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
 }

@@ -25,10 +25,12 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/autodetection"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/netutil"
 
@@ -174,6 +176,7 @@ type CreateClusterOptions struct {
 	OnlyInstallKubernetesComp        bool
 	FeatureGatesString               []string
 	FeatureGates                     map[string]bool
+	componentMeta                    *kc.ComponentMeta
 }
 
 var (
@@ -295,29 +298,37 @@ func (l *CreateClusterOptions) Complete(opts *options.CliOptions) error {
 }
 
 func (l *CreateClusterOptions) PreRun() error {
-	if l.CRIVersion == "" {
-		cri := l.listCRI("")
-		if len(cri) == 0 {
-			return errors.New("no valid cri-version")
-		}
-		l.CRIVersion = cri[0]
-		logger.Infof("use default %s version %s", l.CRI, l.CRIVersion)
-	}
-	if l.CNIVersion == "" {
-		cni := l.listCNI("")
-		if len(cni) == 0 {
-			return errors.New("no valid cni-version")
-		}
-		l.CNIVersion = cni[0]
-		logger.Infof("use default %s version %s", l.CNI, l.CNIVersion)
-	}
 	if l.K8sVersion == "" {
 		k8s := l.listK8s("")
 		if len(k8s) == 0 {
 			return errors.New("no valid k8s-version")
 		}
-		l.K8sVersion = k8s[0]
+		l.K8sVersion = newestVersion(k8s)
 		logger.Infof("use default k8s version %s", l.K8sVersion)
+	}
+	if l.CRIVersion == "" {
+		if version := l.defaultComponentVersion("cri", l.CRI); version != "" {
+			l.CRIVersion = version
+		} else {
+			cri := l.listCRI("")
+			if len(cri) == 0 {
+				return fmt.Errorf("no valid cri-version for k8s %s", l.K8sVersion)
+			}
+			l.CRIVersion = newestVersion(cri)
+		}
+		logger.Infof("use default %s version %s", l.CRI, l.CRIVersion)
+	}
+	if l.CNIVersion == "" {
+		if version := l.defaultComponentVersion("cni", l.CNI); version != "" {
+			l.CNIVersion = version
+		} else {
+			cni := l.listCNI("")
+			if len(cni) == 0 {
+				return fmt.Errorf("no valid cni-version for k8s %s", l.K8sVersion)
+			}
+			l.CNIVersion = newestVersion(cni)
+		}
+		logger.Infof("use default %s version %s", l.CNI, l.CNIVersion)
 	}
 	return nil
 }
@@ -648,7 +659,7 @@ func (l *CreateClusterOptions) listCRI(toComplete string) []string {
 		logger.V(2).Infof("unsupported cri %s,support %s now", l.CRI, allowedCRI)
 		return nil
 	}
-	return l.componentVersions(l.CRI, toComplete)
+	return l.componentVersions("cri", l.CRI, toComplete)
 }
 
 func (l *CreateClusterOptions) listCNI(toComplete string) []string {
@@ -658,13 +669,13 @@ func (l *CreateClusterOptions) listCNI(toComplete string) []string {
 		logger.V(2).Infof("unsupported cni %s,support %s now", l.CNI, allowedCNI)
 		return nil
 	}
-	return l.componentVersions(l.CNI, toComplete)
+	return l.componentVersions("cni", l.CNI, toComplete)
 }
 
 func (l *CreateClusterOptions) listK8s(toComplete string) []string {
 	utils.CheckErr(l.Complete(l.CliOpts))
 
-	return l.componentVersions("k8s", toComplete)
+	return l.componentVersions("", "k8s", toComplete)
 }
 
 func (l *CreateClusterOptions) listCRIRegistry() []string {
@@ -680,11 +691,14 @@ func (l *CreateClusterOptions) listCRIRegistry() []string {
 	return names
 }
 
-func (l *CreateClusterOptions) componentVersions(component, toComplete string) []string {
-	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
+func (l *CreateClusterOptions) componentVersions(slot, component, toComplete string) []string {
+	metas, err := l.loadComponentMeta()
 	if err != nil {
 		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
 		return nil
+	}
+	if l.K8sVersion != "" && component != "k8s" {
+		return ruleComponentVersions(metas, l.K8sVersion, slot, component, toComplete)
 	}
 	set := sets.NewString()
 	for _, resource := range metas.Addons {
@@ -693,6 +707,112 @@ func (l *CreateClusterOptions) componentVersions(component, toComplete string) [
 		}
 	}
 	return set.List()
+}
+
+func (l *CreateClusterOptions) loadComponentMeta() (*kc.ComponentMeta, error) {
+	if l.componentMeta != nil {
+		return l.componentMeta, nil
+	}
+	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
+	if err != nil {
+		return nil, err
+	}
+	l.componentMeta = metas
+	return metas, nil
+}
+
+func (l *CreateClusterOptions) defaultComponentVersion(slot, component string) string {
+	metas, err := l.loadComponentMeta()
+	if err != nil {
+		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
+		return ""
+	}
+	for _, option := range ruleComponentOptions(metas, l.K8sVersion, slot) {
+		if option.name == component && option.isDefault {
+			return option.version
+		}
+	}
+	return ""
+}
+
+type ruleComponentOption struct {
+	name      string
+	version   string
+	isDefault bool
+}
+
+func ruleComponentVersions(metas *kc.ComponentMeta, k8sVersion, slot, component, prefix string) []string {
+	versions := sets.NewString()
+	for _, option := range ruleComponentOptions(metas, k8sVersion, slot) {
+		if option.name == component && strings.HasPrefix(option.version, prefix) {
+			versions.Insert(option.version)
+		}
+	}
+	return versions.List()
+}
+
+func ruleComponentOptions(metas *kc.ComponentMeta, k8sVersion, slot string) []ruleComponentOption {
+	if metas == nil || k8sVersion == "" {
+		return nil
+	}
+	var options []ruleComponentOption
+	for _, rule := range metas.Rules {
+		if stringMapValue(rule, "version") != k8sVersion {
+			continue
+		}
+		versionControl, ok := rule["version_control"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, raw := range interfaceSlice(versionControl[slot]) {
+			option, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name := stringMapValue(option, "name")
+			version := stringMapValue(option, "version")
+			if name == "" || version == "" {
+				continue
+			}
+			isDefault, _ := option["default"].(bool)
+			options = append(options, ruleComponentOption{name: name, version: version, isDefault: isDefault})
+		}
+	}
+	return options
+}
+
+func interfaceSlice(value interface{}) []interface{} {
+	switch values := value.(type) {
+	case []interface{}:
+		return values
+	case []map[string]interface{}:
+		out := make([]interface{}, len(values))
+		for i := range values {
+			out[i] = values[i]
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func stringMapValue(values map[string]interface{}, key string) string {
+	value, _ := values[key].(string)
+	return value
+}
+
+func newestVersion(versions []string) string {
+	if len(versions) == 0 {
+		return ""
+	}
+	values := append([]string(nil), versions...)
+	sort.SliceStable(values, func(i, j int) bool {
+		if cmp, ok := deliveryapis.CompareVersions(values[i], values[j]); ok && cmp != 0 {
+			return cmp > 0
+		}
+		return values[i] > values[j]
+	})
+	return values[0]
 }
 
 func (l *CreateClusterOptions) listNode(toComplete string, exclude []string) []string {
