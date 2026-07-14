@@ -42,6 +42,21 @@ sha256_file() {
   fi
 }
 
+digest_pinned_ref() {
+  local ref="${1#oci://}"
+  local digest=$2
+  local base last
+
+  # Skopeo rejects name:tag@digest. Remove a tag from the final path segment
+  # without mistaking the Registry port for a tag separator.
+  base="${ref%@*}"
+  last="${base##*/}"
+  if [[ "$last" == *:* ]]; then
+    base="${base%:*}"
+  fi
+  printf '%s@%s\n' "$base" "$digest"
+}
+
 while [[ $# -gt 0 ]]; do
   case "$1" in
   --manifest) need_value "$@"; manifest="$2"; shift 2 ;;
@@ -120,7 +135,7 @@ count=0
 while IFS=$'\t' read -r id type source target digest platforms; do
   [[ -n "$id" ]] || continue
   src="$source"
-  [[ "$digest" == "-" ]] || src="${source%@*}@$digest"
+  [[ "$digest" == "-" ]] || src="$(digest_pinned_ref "$source" "$digest")"
   args=(copy --preserve-digests)
   [[ "$insecure_source" == false ]] || args+=(--src-tls-verify=false)
   if [[ "$platforms" != "-" ]]; then

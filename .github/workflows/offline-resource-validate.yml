@@ -113,5 +113,8 @@ jobs:
           }
           PY
 
+      - name: Offline Registry bundle export test
+        run: scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
+
       - name: Internal dependency scan
         run: scripts/open-packaging/check-open-packaging-sources.sh
