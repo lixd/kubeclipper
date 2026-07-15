@@ -8,65 +8,61 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        go-version: [ '1.21' ]
+    runs-on: ubuntu-24.04
 
     steps:
       - uses: actions/checkout@v6
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Get tag or branch
-        id: extract_branch
-        shell: bash
-        run: |
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null)
-          branch=${GITHUB_REF#refs/heads/}
-          if [[ "$branch" == "master" || "$branch" == "main" ]]; then
-            ref_name=$branch
-          elif [[ -n "$latest_tag" ]]; then
-            ref_name=$latest_tag
-          else
-            ref_name=$branch
-          fi
-          echo "The ref name is $ref_name"
-          echo "##[set-output name=branch;]${ref_name}"
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
       - name: Build
-        if: github.event_name == 'pull_request'
-        run:
-          KUBE_BUILD_PLATFORMS="linux/amd64" make build
-      - name: deploy
+        run: KUBE_BUILD_PLATFORMS="linux/amd64" make build
+
+      - name: Start local OCI Registry
         run: |
-          current_branch=master
-          if [[ "${{ steps.extract_branch.outputs.branch }}" =~ ^release-.* ]]; then
-            IFS="-" read -ra items <<< "$(git describe)"
-            if [[ ! ${#items[@]} -eq 0 ]]; then
-              current_branch=${items[0]}
-            fi
-          fi
-          echo current version is ${current_branch}
+          docker run --detach --name kc-e2e-registry --publish 5000:5000 registry:2
+          for _ in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:5000/v2/ && exit 0
+            sleep 1
+          done
+          docker logs kc-e2e-registry
+          exit 1
+
+      - name: Publish bootstrap package images
+        env:
+          KC_SOURCE_REVISION: ${{ github.sha }}
+        run: |
+          mkdir -p bin
+          go build -o bin/oci-publish ./tools/oci-publish
+          scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
+            --registry-prefix 127.0.0.1:5000 --version pr-e2e --arch amd64
+          scripts/open-packaging/publish-bootstrap-etcd.sh \
+            --registry-prefix 127.0.0.1:5000 --version 3.5.21 --arch amd64
+          scripts/open-packaging/publish-bootstrap-console.sh \
+            --registry-prefix 127.0.0.1:5000 --version v1.6.0 --arch amd64
+
+      - name: Deploy KubeClipper from OCI
+        run: |
           sudo cp ./dist/kcctl /usr/local/bin/kcctl
-          sudo kcctl deploy --package-registry "${KC_PACKAGE_REGISTRY:-127.0.0.1:5000}"
+          sudo kcctl deploy \
+            --package-registry 127.0.0.1:5000 \
+            --ip-detect interface=eth0 \
+            --node-ip-detect interface=eth0 \
+            --assumeyes
           sudo rm -rf /tmp/kc
-      - name: update kc assembly
-        run: |
-          sudo cp ./dist/kcctl /usr/local/bin/
-          sudo systemctl stop kc-agent
-          sudo systemctl stop kc-server
-          sudo cp ./dist/kubeclipper-agent /usr/local/bin/
-          sudo cp ./dist/kubeclipper-server /usr/local/bin/
-          sudo systemctl start kc-server
-          sudo systemctl start kc-agent
-      - name: login and build-e2e
+
+      - name: Login and run fast E2E
         run: |
           make build-e2e
           kcctl login -H http://localhost:80  -u admin -p Thinkbig1
-          ./dist/e2e.test -cluster-install-short-timeout=10m -ginkgo.focus="\[Containerd\]"
+          ./dist/e2e.test -cluster-install-short-timeout=10m -ginkgo.focus="\[Fast\]"
+
+      - name: Clean test environment
+        if: always()
+        run: |
+          sudo kcctl clean --all --force --assumeyes
+          docker rm --force kc-e2e-registry || true
