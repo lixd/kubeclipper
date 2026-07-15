@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/subosito/gotenv"
@@ -226,6 +227,7 @@ func (a Agents) ListIP() []string {
 	for ip := range a {
 		list = append(list, ip)
 	}
+	sort.Strings(list)
 	return list
 }
 
@@ -267,6 +269,7 @@ type Metadata struct {
 type DeployConfig struct {
 	Config                     string                         `json:"-" yaml:"-"`
 	SSHConfig                  *sshutils.SSH                  `json:"ssh" yaml:"ssh,omitempty"`
+	AgentSSHConfig             *sshutils.SSH                  `json:"agentSSH" yaml:"agentSSH,omitempty"`
 	EtcdConfig                 *Etcd                          `json:"etcd" yaml:"etcd,omitempty"`
 	ServerIPs                  []string                       `json:"serverIPs" yaml:"serverIPs,omitempty"`
 	Agents                     Agents                         `json:"agents" yaml:"agents,omitempty"`

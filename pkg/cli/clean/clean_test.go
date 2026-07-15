@@ -9,6 +9,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
 func TestMergeOnlineAgentsIncludesJoinedNodes(t *testing.T) {
@@ -24,6 +25,22 @@ func TestMergeOnlineAgentsIncludesJoinedNodes(t *testing.T) {
 	}
 	if got, want := config.Agents.ListIP(), []string{"10.0.0.1", "10.0.0.2"}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("agents = %v, want %v", got, want)
+	}
+}
+
+func TestAgentSSHConfigUsesJoinTransport(t *testing.T) {
+	deploySSH := &sshutils.SSH{User: "server", PkFile: "/server/key"}
+	agentSSH := &sshutils.SSH{User: "agent", PkFile: "/agent/key"}
+	o := NewCleanOptions(options.IOStreams{})
+	o.deployConfig.SSHConfig = deploySSH
+	o.deployConfig.AgentSSHConfig = agentSSH
+
+	if got := o.agentSSHConfig(); got != agentSSH {
+		t.Fatalf("agentSSHConfig() = %+v, want join transport %+v", got, agentSSH)
+	}
+	o.deployConfig.AgentSSHConfig = nil
+	if got := o.agentSSHConfig(); got != deploySSH {
+		t.Fatalf("agentSSHConfig() fallback = %+v, want deploy transport %+v", got, deploySSH)
 	}
 }
 

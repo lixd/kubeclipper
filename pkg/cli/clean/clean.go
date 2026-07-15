@@ -167,7 +167,16 @@ func mergeOnlineAgents(deployConfig *options.DeployConfig, nodes *kc.NodesList) 
 }
 
 func (c *CleanOptions) preCheck() bool {
-	return sudo.PreCheck("sudo", c.deployConfig.SSHConfig, c.IOStreams, c.allNodes)
+	serverOK := sudo.PreCheck("server sudo", c.deployConfig.SSHConfig, c.IOStreams, c.deployConfig.ServerIPs)
+	agentOK := sudo.PreCheck("agent sudo", c.agentSSHConfig(), c.IOStreams, c.deployConfig.Agents.ListIP())
+	return serverOK && agentOK
+}
+
+func (c *CleanOptions) agentSSHConfig() *sshutils.SSH {
+	if c.deployConfig.AgentSSHConfig != nil {
+		return c.deployConfig.AgentSSHConfig
+	}
+	return c.deployConfig.SSHConfig
 }
 
 func (c *CleanOptions) RunClean() error {
@@ -196,7 +205,7 @@ func (c *CleanOptions) cleanKcAgent() error {
 		fmt.Sprintf("rm -rf %s", c.deployConfig.OpLog.Dir),
 		"systemctl reset-failed kc-agent || true",
 	}
-	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.Agents.ListIP(), "kc agent", cmdList)
+	return runRemoteCleanup(c.agentSSHConfig(), c.deployConfig.Agents.ListIP(), "kc agent", cmdList)
 }
 
 func (c *CleanOptions) cleanKcServer() error {
@@ -243,7 +252,10 @@ func (c *CleanOptions) cleanBinaries() error {
 		"rm -rf /usr/local/bin/kubeclipper* && rm -rf /usr/local/bin/etcd*  && rm -rf /usr/local/bin/caddy",
 	}
 
-	return runRemoteCleanup(c.deployConfig.SSHConfig, c.allNodes, "kc binaries", cmdList)
+	return utilerrors.NewAggregate([]error{
+		runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "server binaries", cmdList),
+		runRemoteCleanup(c.agentSSHConfig(), c.deployConfig.Agents.ListIP(), "agent binaries", cmdList),
+	})
 }
 
 func (c *CleanOptions) cleanKcEnv() error {

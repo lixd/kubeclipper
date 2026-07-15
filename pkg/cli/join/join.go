@@ -375,22 +375,42 @@ func (c *JoinOptions) runJoinAgentNode() error {
 		metadata := c.parseAgent[ip]
 		metadata.AgentID = uuid.New().String()
 		c.parseAgent[ip] = metadata
+		if c.deployConfig.Agents == nil {
+			c.deployConfig.Agents = make(options.Agents)
+		}
+		c.deployConfig.Agents.Add(ip, metadata)
+	}
+	// Persist the cleanup inventory before installing anything. If the kcctl
+	// process is interrupted after an agent starts, force-clean still knows
+	// both the host and the transport that were used to reach it.
+	agentSSH := *c.sshConfig
+	c.deployConfig.AgentSSHConfig = &agentSSH
+	if err := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
+		return errors.Wrap(err, "persist planned agents in deploy config failed")
+	}
+
+	for ip, metadata := range c.parseAgent {
 		if err := c.agentNodeFiles(ip, metadata); err != nil {
-			return c.failJoinWithRollback(err)
+			return c.failJoinWithRollbackAndConfig(err)
 		}
 		if err := c.enableAgent(ip, metadata); err != nil {
-			return c.failJoinWithRollback(err)
+			return c.failJoinWithRollbackAndConfig(err)
 		}
-	}
-	if err := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
-		rollbackErr := c.rollbackJoinedAgents()
-		if rollbackErr != nil {
-			return errors.Wrapf(err, "persist joined agents in deploy config failed; rollback also failed: %v", rollbackErr)
-		}
-		return errors.Wrap(err, "persist joined agents in deploy config failed; joined agents were rolled back")
 	}
 	logger.Info("agent node join completed. show command: 'kcctl get node'")
 	return nil
+}
+
+func (c *JoinOptions) failJoinWithRollbackAndConfig(joinErr error) error {
+	rollbackErr := c.rollbackJoinedAgents()
+	for ip := range c.parseAgent {
+		delete(c.deployConfig.Agents, ip)
+	}
+	persistErr := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true)
+	if rollbackErr != nil || persistErr != nil {
+		return errors.Wrapf(joinErr, "join agent failed; rollback error: %v; cleanup inventory update error: %v", rollbackErr, persistErr)
+	}
+	return errors.Wrap(joinErr, "join agent failed; partially installed agents were rolled back")
 }
 
 func (c *JoinOptions) failJoinWithRollback(joinErr error) error {
