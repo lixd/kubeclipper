@@ -19,9 +19,12 @@
 package deploy
 
 import (
+	"fmt"
+	"reflect"
 	"testing"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
 func TestResolveBootstrapAssetComponentsReportsMissing(t *testing.T) {
@@ -33,7 +36,7 @@ func TestResolveBootstrapAssetComponentsReportsMissing(t *testing.T) {
 	components, missing := resolveBootstrapAssetComponents(inventory, []bootstrapAsset{
 		{PackageName: "kubeclipper", Name: "kubeclipper-agent"},
 		{PackageName: "kubeclipper", Name: "kubeclipper-server"},
-	}, "amd64")
+	}, "amd64", "rev-a")
 
 	if len(components) != 0 {
 		t.Fatalf("components = %#v", components)
@@ -43,19 +46,102 @@ func TestResolveBootstrapAssetComponentsReportsMissing(t *testing.T) {
 	}
 }
 
-func TestSelectBootstrapPackageUsesNewestVersion(t *testing.T) {
+func TestSelectBootstrapPackageUsesSourceRevision(t *testing.T) {
 	inventory := deliveryapis.NewPackageInventory("registry")
-	inventory.Spec.Packages = []deliveryapis.PackageEntry{
-		bootstrapPackage("kubeclipper-agent", "v1.0.0"),
-		bootstrapPackage("kubeclipper-agent", "v1.2.0"),
-	}
+	oldPackage := bootstrapPackage("kubeclipper-agent", "v1.0.0")
+	oldPackage.SourceRevision = "rev-old"
+	wantedPackage := bootstrapPackage("kubeclipper-agent", "v1.1.0")
+	wantedPackage.SourceRevision = "rev-wanted"
+	newPackage := bootstrapPackage("kubeclipper-agent", "v1.2.0")
+	newPackage.SourceRevision = "rev-new"
+	inventory.Spec.Packages = []deliveryapis.PackageEntry{oldPackage, wantedPackage, newPackage}
 
-	pkg, ok := selectBootstrapPackage(inventory, "kubeclipper", []bootstrapAsset{{PackageName: "kubeclipper", Name: "kubeclipper-agent"}}, "amd64")
+	pkg, ok := selectBootstrapPackage(inventory, "kubeclipper", []bootstrapAsset{{PackageName: "kubeclipper", Name: "kubeclipper-agent"}}, "amd64", "rev-wanted")
 	if !ok {
 		t.Fatal("selectBootstrapPackage() ok = false")
 	}
-	if pkg.Version != "v1.2.0" {
-		t.Fatalf("selected version = %q, want v1.2.0", pkg.Version)
+	if pkg.Version != "v1.1.0" {
+		t.Fatalf("selected version = %q, want v1.1.0", pkg.Version)
+	}
+}
+
+func TestSelectBootstrapPackageRejectsMissingSourceRevision(t *testing.T) {
+	inventory := deliveryapis.NewPackageInventory("registry")
+	inventory.Spec.Packages = []deliveryapis.PackageEntry{bootstrapPackage("kubeclipper-agent", "v1.2.0")}
+
+	if _, ok := selectBootstrapPackage(inventory, "kubeclipper", []bootstrapAsset{{PackageName: "kubeclipper", Name: "kubeclipper-agent"}}, "amd64", "rev-wanted"); ok {
+		t.Fatal("selectBootstrapPackage() unexpectedly selected package without matching source revision")
+	}
+}
+
+func TestSelectBootstrapPackageUsesPinnedDependencyVersion(t *testing.T) {
+	inventory := deliveryapis.NewPackageInventory("registry")
+	oldPackage := bootstrapPackage("etcd", "3.5.20")
+	oldPackage.Name = "etcd"
+	wantedPackage := bootstrapPackage("etcd", bootstrapEtcdVersion)
+	wantedPackage.Name = "etcd"
+	newPackage := bootstrapPackage("etcd", "3.6.0")
+	newPackage.Name = "etcd"
+	inventory.Spec.Packages = []deliveryapis.PackageEntry{oldPackage, wantedPackage, newPackage}
+
+	pkg, ok := selectBootstrapPackage(inventory, "etcd", []bootstrapAsset{{PackageName: "etcd", Name: "etcd"}}, "amd64", "rev-wanted")
+	if !ok {
+		t.Fatal("selectBootstrapPackage() ok = false")
+	}
+	if pkg.Version != bootstrapEtcdVersion {
+		t.Fatalf("selected version = %q, want %s", pkg.Version, bootstrapEtcdVersion)
+	}
+}
+
+func TestDeployBootstrapAssetsExcludeRegistry(t *testing.T) {
+	for _, asset := range deployBootstrapAssets {
+		if asset.PackageName == "registry" || asset.Name == "registry" {
+			t.Fatalf("kcctl deploy must not fetch registry asset: %+v", asset)
+		}
+	}
+}
+
+func TestNormalizeBootstrapArchitecture(t *testing.T) {
+	for input, want := range map[string]string{
+		"x86_64\n": "amd64",
+		"amd64":    "amd64",
+		"aarch64":  "arm64",
+		"arm64\n":  "arm64",
+	} {
+		got, err := normalizeBootstrapArchitecture(input)
+		if err != nil || got != want {
+			t.Fatalf("normalizeBootstrapArchitecture(%q) = %q, %v; want %q", input, got, err, want)
+		}
+	}
+	if _, err := normalizeBootstrapArchitecture("s390x"); err == nil {
+		t.Fatal("normalizeBootstrapArchitecture(s390x) unexpectedly succeeded")
+	}
+}
+
+func TestGroupBootstrapHostsByArchitectureUsesTargetSSHRunner(t *testing.T) {
+	machines := map[string]string{
+		"node-a": "x86_64\n",
+		"node-b": "aarch64\n",
+		"node-c": "amd64\n",
+	}
+	runner := func(_ *sshutils.SSH, host, command string) (sshutils.Result, error) {
+		if command != "uname -m" {
+			return sshutils.Result{}, fmt.Errorf("unexpected command %q", command)
+		}
+		machine, ok := machines[host]
+		if !ok {
+			return sshutils.Result{}, fmt.Errorf("unexpected host %q", host)
+		}
+		return sshutils.Result{Stdout: machine}, nil
+	}
+
+	got, err := groupBootstrapHostsByArchitecture(runner, sshutils.NewSSH(), []string{"node-a", "node-b", "node-c"})
+	if err != nil {
+		t.Fatalf("groupBootstrapHostsByArchitecture() error: %v", err)
+	}
+	want := map[string][]string{"amd64": {"node-a", "node-c"}, "arm64": {"node-b"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("groups = %#v, want %#v", got, want)
 	}
 }
 

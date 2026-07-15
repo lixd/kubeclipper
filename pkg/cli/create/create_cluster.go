@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -700,6 +701,9 @@ func (l *CreateClusterOptions) componentVersions(slot, component, toComplete str
 	if l.K8sVersion != "" && component != "k8s" {
 		return ruleComponentVersions(metas, l.K8sVersion, slot, component, toComplete)
 	}
+	if component == "k8s" {
+		return resolvableKubernetesVersions(metas, toComplete)
+	}
 	set := sets.NewString()
 	for _, resource := range metas.Addons {
 		if resource.Name == component && strings.HasPrefix(resource.Version, toComplete) {
@@ -709,16 +713,83 @@ func (l *CreateClusterOptions) componentVersions(slot, component, toComplete str
 	return set.List()
 }
 
+func resolvableKubernetesVersions(metas *kc.ComponentMeta, prefix string) []string {
+	versions := sets.NewString()
+	if metas == nil {
+		return versions.List()
+	}
+	for _, rule := range metas.Rules {
+		if stringMapValue(rule, "name") != "k8s" {
+			continue
+		}
+		version := stringMapValue(rule, "version")
+		if version != "" && strings.HasPrefix(version, prefix) {
+			versions.Insert(version)
+		}
+	}
+	return versions.List()
+}
+
 func (l *CreateClusterOptions) loadComponentMeta() (*kc.ComponentMeta, error) {
 	if l.componentMeta != nil {
 		return l.componentMeta, nil
 	}
-	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
+	archs, err := l.selectedNodeArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	query := url.Values{}
+	if len(archs) > 0 {
+		query.Set("arch", strings.Join(archs, ","))
+	}
+	metas, err := l.Client.GetComponentMeta(context.TODO(), query)
 	if err != nil {
 		return nil, err
 	}
 	l.componentMeta = metas
 	return metas, nil
+}
+
+func (l *CreateClusterOptions) selectedNodeArchitectures() ([]string, error) {
+	selected := append(append([]string{}, l.Masters...), l.Workers...)
+	if len(selected) == 0 {
+		return nil, nil
+	}
+	nodes, err := l.Client.ListNodes(context.TODO(), kc.Queries(*query.New()))
+	if err != nil {
+		return nil, err
+	}
+	archs, complete := architecturesForSelectedNodes(nodes.Items, selected)
+	if !complete {
+		// Partially typed completion input should not hide otherwise valid versions.
+		return nil, nil
+	}
+	return archs, nil
+}
+
+func architecturesForSelectedNodes(nodes []v1.Node, selected []string) ([]string, bool) {
+	byIdentity := make(map[string]string, len(nodes)*3)
+	for _, node := range nodes {
+		arch := strings.TrimSpace(node.Labels[common.LabelArchStable])
+		if arch == "" {
+			arch = strings.TrimSpace(node.Status.NodeInfo.Arch)
+		}
+		if arch == "" {
+			continue
+		}
+		byIdentity[node.Name] = arch
+		byIdentity[node.Status.Ipv4DefaultIP] = arch
+		byIdentity[node.Status.NodeIpv4DefaultIP] = arch
+	}
+	archs := sets.NewString()
+	for _, identity := range selected {
+		arch, ok := byIdentity[identity]
+		if !ok {
+			return nil, false
+		}
+		archs.Insert(arch)
+	}
+	return archs.List(), true
 }
 
 func (l *CreateClusterOptions) defaultComponentVersion(slot, component string) string {

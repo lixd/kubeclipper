@@ -84,6 +84,12 @@ ssh:
   pkPassword: ""
   port: 22
   connectionTimeout: 1m0s
+# Optional transport used only to read certificates from the existing server.
+# Omit it when server and agent nodes share the deploy SSH settings.
+serverSSH:
+  user: root
+  pkFile: "/root/.ssh/server_id_rsa"
+  port: 2202
 #	MethodFirst     = "first-found"
 #	MethodInterface = "interface="
 #	MethodCidr      = "cidr="
@@ -104,9 +110,10 @@ agents:
 
 type JoinOptions struct {
 	options.IOStreams
-	deployConfig *options.DeployConfig
-	cliOpts      *options.CliOptions
-	client       *kc.Client
+	deployConfig         *options.DeployConfig
+	cliOpts              *options.CliOptions
+	client               *kc.Client
+	serverSourceRevision string
 
 	agents       []string // user input agents,maybe with region,need to parse.
 	floatIPs     []string // format: ip:floatIP,e.g. 192.168.10.11:172.20.149.199
@@ -114,7 +121,9 @@ type JoinOptions struct {
 	nodeIPDetect string
 	parseAgent   options.Agents
 
-	sshConfig *sshutils.SSH
+	sshConfig       *sshutils.SSH
+	serverSSHConfig *sshutils.SSH
+	sshRunner       func(*sshutils.SSH, string, string) (sshutils.Result, error)
 
 	joinConfigPath string
 
@@ -127,15 +136,18 @@ type JoinConfig struct {
 	NodeIPDetect    string         `json:"nodeIPDetect,omitempty" yaml:"nodeIPDetect,omitempty"`
 	PackageRegistry string         `json:"packageRegistry,omitempty" yaml:"packageRegistry,omitempty"`
 	SSHConfig       *sshutils.SSH  `json:"ssh,omitempty" yaml:"ssh,omitempty"`
+	ServerSSHConfig *sshutils.SSH  `json:"serverSSH,omitempty" yaml:"serverSSH,omitempty"`
 }
 
 func NewJoinOptions(streams options.IOStreams) *JoinOptions {
 	return &JoinOptions{
-		cliOpts:      options.NewCliOptions(),
-		IOStreams:    streams,
-		deployConfig: options.NewDeployOptions(),
-		ipDetect:     autodetection.MethodFirst,
-		sshConfig:    sshutils.NewSSH(),
+		cliOpts:         options.NewCliOptions(),
+		IOStreams:       streams,
+		deployConfig:    options.NewDeployOptions(),
+		ipDetect:        autodetection.MethodFirst,
+		sshConfig:       sshutils.NewSSH(),
+		serverSSHConfig: &sshutils.SSH{},
+		sshRunner:       sshutils.SSHCmdWithSudo,
 	}
 }
 
@@ -166,6 +178,11 @@ func NewCmdJoin(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.joinConfigPath, "join-config", "", "path to the join config file to use for join")
 
 	options.AddFlagsToSSH(o.sshConfig, cmd.Flags())
+	cmd.Flags().StringVar(&o.serverSSHConfig.User, "server-ssh-user", "", "SSH user for reading certificates from the server node")
+	cmd.Flags().StringVar(&o.serverSSHConfig.Password, "server-ssh-password", "", "SSH password for the server node")
+	cmd.Flags().StringVar(&o.serverSSHConfig.PkFile, "server-ssh-pk-file", "", "SSH private key file for the server node")
+	cmd.Flags().StringVar(&o.serverSSHConfig.PkPassword, "server-ssh-pk-password", "", "SSH private key password for the server node")
+	cmd.Flags().IntVar(&o.serverSSHConfig.Port, "server-ssh-port", 0, "SSH port for the server node (defaults to deploy SSH config)")
 	return cmd
 }
 
@@ -204,6 +221,9 @@ func (c *JoinOptions) Complete() error {
 		if joinConfig.SSHConfig != nil {
 			c.sshConfig = joinConfig.SSHConfig
 		}
+		if joinConfig.ServerSSHConfig != nil {
+			c.serverSSHConfig = joinConfig.ServerSSHConfig
+		}
 	} else {
 		if c.parseAgent, err = deploy.BuildAgent(c.agents, c.floatIPs, c.deployConfig.DefaultRegion); err != nil {
 			return err
@@ -222,6 +242,14 @@ func (c *JoinOptions) Complete() error {
 	c.deployConfig, err = deploy.GetDeployConfig(context.Background(), c.client, true)
 	if err != nil {
 		return errors.WithMessage(err, "get online deploy-config failed")
+	}
+	serverVersion, err := c.client.Version(context.Background())
+	if err != nil {
+		return errors.WithMessage(err, "get kubeclipper server version failed")
+	}
+	c.serverSourceRevision = strings.TrimSpace(serverVersion.GitCommit)
+	if c.serverSourceRevision == "" {
+		return errors.New("kubeclipper server source revision is empty")
 	}
 	if strings.TrimSpace(c.PackageRegistry) != "" {
 		c.deployConfig.PackageRegistry = c.PackageRegistry
@@ -248,11 +276,44 @@ func (c *JoinOptions) Complete() error {
 	} else {
 		c.sshConfig = c.deployConfig.SSHConfig
 	}
+	c.serverSSHConfig = completeServerSSHConfig(c.serverSSHConfig, c.deployConfig.SSHConfig)
 	return nil
 }
 
+func completeServerSSHConfig(server, fallback *sshutils.SSH) *sshutils.SSH {
+	if server == nil {
+		server = &sshutils.SSH{}
+	}
+	if fallback == nil {
+		fallback = sshutils.NewSSH()
+	}
+	completed := *server
+	if completed.User == "" {
+		completed.User = fallback.User
+	}
+	if completed.Password == "" {
+		completed.Password = fallback.Password
+	}
+	if completed.Port == 0 {
+		completed.Port = fallback.Port
+	}
+	if completed.PkFile == "" && completed.PrivateKey == "" {
+		completed.PkFile, completed.PrivateKey = fallback.PkFile, fallback.PrivateKey
+	}
+	if completed.PkPassword == "" {
+		completed.PkPassword = fallback.PkPassword
+	}
+	if completed.ConnectionTimeout == nil {
+		completed.ConnectionTimeout = fallback.ConnectionTimeout
+	}
+	return &completed
+}
+
 func (c *JoinOptions) preCheck() bool {
-	if !sudo.PreCheck("sudo", c.sshConfig, c.IOStreams, append(c.parseAgent.ListIP(), c.deployConfig.ServerIPs...)) {
+	if !sudo.PreCheck("sudo", c.sshConfig, c.IOStreams, c.parseAgent.ListIP()) {
+		return false
+	}
+	if !sudo.PreCheck("server sudo", c.serverSSHConfig, c.IOStreams, c.deployConfig.ServerIPs) {
 		return false
 	}
 	// check if the node is already added
@@ -315,16 +376,46 @@ func (c *JoinOptions) runJoinAgentNode() error {
 		metadata.AgentID = uuid.New().String()
 		c.parseAgent[ip] = metadata
 		if err := c.agentNodeFiles(ip, metadata); err != nil {
-			return err
+			return c.failJoinWithRollback(err)
 		}
 		if err := c.enableAgent(ip, metadata); err != nil {
-			return err
+			return c.failJoinWithRollback(err)
 		}
 	}
 	if err := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
-		logger.Warn("drain agent node success,but update online deploy-config failed, you can update manual,err:", err)
+		rollbackErr := c.rollbackJoinedAgents()
+		if rollbackErr != nil {
+			return errors.Wrapf(err, "persist joined agents in deploy config failed; rollback also failed: %v", rollbackErr)
+		}
+		return errors.Wrap(err, "persist joined agents in deploy config failed; joined agents were rolled back")
 	}
 	logger.Info("agent node join completed. show command: 'kcctl get node'")
+	return nil
+}
+
+func (c *JoinOptions) failJoinWithRollback(joinErr error) error {
+	if rollbackErr := c.rollbackJoinedAgents(); rollbackErr != nil {
+		return errors.Wrapf(joinErr, "join agent failed; rollback also failed: %v", rollbackErr)
+	}
+	return errors.Wrap(joinErr, "join agent failed; partially installed agents were rolled back")
+}
+
+func (c *JoinOptions) rollbackJoinedAgents() error {
+	command := "systemctl disable kc-agent --now || true; rm -rf /usr/lib/systemd/system/kc-agent.service /etc/kubeclipper-agent /usr/local/bin/kubeclipper-agent; systemctl daemon-reload; systemctl reset-failed kc-agent || true"
+	var rollbackErrors []string
+	for _, ip := range c.parseAgent.ListIP() {
+		result, err := c.sshRunner(c.sshConfig, ip, command)
+		if err != nil {
+			rollbackErrors = append(rollbackErrors, fmt.Sprintf("%s: %v", ip, err))
+			continue
+		}
+		if err := result.Error(); err != nil {
+			rollbackErrors = append(rollbackErrors, fmt.Sprintf("%s: %v", ip, err))
+		}
+	}
+	if len(rollbackErrors) > 0 {
+		return errors.New(strings.Join(rollbackErrors, "; "))
+	}
 	return nil
 }
 
@@ -350,11 +441,11 @@ func (c *JoinOptions) preCheckKcAgent(ip string) bool {
 
 func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata) error {
 	if err := deploy.InstallBootstrapAssetsFromRegistry(context.Background(), deploy.BootstrapInstallOptions{
-		Registry:  c.deployConfig.PackageRegistry,
-		Arch:      deploy.RuntimeArch(),
-		SSH:       c.sshConfig,
-		Hosts:     []string{node},
-		NeedAgent: false,
+		Registry:                  c.deployConfig.PackageRegistry,
+		SSH:                       c.sshConfig,
+		Hosts:                     []string{node},
+		NeedAgent:                 false,
+		KubeClipperSourceRevision: c.serverSourceRevision,
 	}); err != nil {
 		return errors.Wrap(err, "install bootstrap agent from registry")
 	}
@@ -472,7 +563,7 @@ func (c *JoinOptions) sendCerts(ip string) error {
 			return errors.WithMessage(err, "check file exist")
 		}
 		if !exist {
-			if err = c.sshConfig.DownloadSudo(c.deployConfig.ServerIPs[0], file, file); err != nil {
+			if err = c.serverSSHConfig.DownloadSudo(c.deployConfig.ServerIPs[0], file, file); err != nil {
 				return errors.WithMessage(err, "download cert from server")
 			}
 		}

@@ -1,6 +1,7 @@
 package join
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -49,5 +50,43 @@ func TestReadJoinConfigPackageRegistry(t *testing.T) {
 	}
 	if cfg.PackageRegistry != "registry.local:5000" {
 		t.Fatalf("PackageRegistry = %q, want registry.local:5000", cfg.PackageRegistry)
+	}
+}
+
+func TestCompleteServerSSHConfigKeepsServerOverrides(t *testing.T) {
+	fallback := &sshutils.SSH{User: "deploy", Password: "deploy-secret", Port: 22, PkFile: "/deploy/key"}
+	server := &sshutils.SSH{User: "server", Port: 2202, PkFile: "/server/key"}
+
+	got := completeServerSSHConfig(server, fallback)
+	if got.User != "server" || got.Port != 2202 || got.PkFile != "/server/key" {
+		t.Fatalf("server overrides lost: %+v", got)
+	}
+	if got.Password != "deploy-secret" {
+		t.Fatalf("fallback password = %q", got.Password)
+	}
+}
+
+func TestFailJoinWithRollbackCleansEveryRequestedAgent(t *testing.T) {
+	o := NewJoinOptions(options.IOStreams{})
+	o.parseAgent = options.Agents{
+		"10.0.0.1": {},
+		"10.0.0.2": {},
+	}
+	called := map[string]bool{}
+	o.sshRunner = func(_ *sshutils.SSH, host, _ string) (sshutils.Result, error) {
+		called[host] = true
+		return sshutils.Result{}, nil
+	}
+	err := o.failJoinWithRollback(errors.New("install failed"))
+	if err == nil || len(called) != 2 || !called["10.0.0.1"] || !called["10.0.0.2"] {
+		t.Fatalf("rollback error=%v called=%v", err, called)
+	}
+}
+
+func TestCompleteServerSSHConfigFallsBackToDeployTransport(t *testing.T) {
+	fallback := &sshutils.SSH{User: "deploy", Port: 2222, PrivateKey: "key-data"}
+	got := completeServerSSHConfig(nil, fallback)
+	if got.User != fallback.User || got.Port != fallback.Port || got.PrivateKey != fallback.PrivateKey {
+		t.Fatalf("completed transport = %+v, want fallback %+v", got, fallback)
 	}
 }

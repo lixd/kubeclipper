@@ -350,6 +350,14 @@ Command status after the OCI switch:
 | `packageRegistry` | Deploy/join config | Registry source for offline package resolution and fetch. |
 | `staticServer` / `staticServerPath` | Removed from the main flow | Do not use it for OCI package delivery. |
 
+The complete release publishes four bootstrap package images, but they have
+separate consumers. `kcctl registry deploy` fetches only `bootstrap/registry`;
+`kcctl deploy` fetches `bootstrap/kubeclipper`, `bootstrap/etcd`, and
+`bootstrap/console`. KubeClipper server/agent selection is pinned to the
+caller's source commit recorded in `sourceRevision`, while join pins the agent
+to the running server's commit. Registry tag ordering is never used as a
+compatibility decision.
+
 Pure OCI quick run:
 
 ```bash
@@ -386,6 +394,14 @@ scripts/open-packaging/build-offline-resources.sh \
 
 # 3. The release manifest is for mirroring/offline delivery validation only.
 # It is not uploaded to the KubeClipper control plane.
+scripts/open-packaging/generate-release-manifest.sh \
+  --build-manifest packaging/resources.yaml \
+  --resource-dir "${RESOURCE_DIR}" \
+  --output "${RESOURCE_DIR}/release-manifest.yaml" \
+  --include-bootstrap \
+  --resolve-digests \
+  --source-revision "$(git rev-parse HEAD)"
+
 scripts/open-packaging/verify-release-manifest.sh \
   --manifest "${RESOURCE_DIR}/release-manifest.yaml" \
   --registry "${REGISTRY}" \
@@ -435,6 +451,17 @@ kcctl join \
   --pk-file ~/.ssh/id_rsa \
   --package-registry ${REGISTRY}
 
+# If the existing server uses a different SSH endpoint, keep the transports
+# separate instead of reusing the agent port and credentials for certificate
+# retrieval:
+kcctl join \
+  --agent <new-agent-ip> \
+  --pk-file ~/.ssh/agent_id_rsa \
+  --server-ssh-user root \
+  --server-ssh-port 2202 \
+  --server-ssh-pk-file ~/.ssh/server_id_rsa \
+  --package-registry ${REGISTRY}
+
 # 8. Create an offline Kubernetes cluster from policy + inventory.
 kcctl create cluster \
   --name demo \
@@ -463,6 +490,14 @@ kcctl cluster remove-node \
 kubectl taint node <node-name> node-role.kubernetes.io/control-plane:NoSchedule- || true
 kubectl taint node <node-name> node-role.kubernetes.io/master:NoSchedule- || true
 ```
+
+Each package workflow writes its `github.sha` to the package manifest and the
+OCI `org.opencontainers.image.revision` label. Release assembly passes the
+kcctl release commit with `--source-revision`. Every package platform must have
+provenance and all platforms under one tag must agree; specifically,
+`bootstrap/kubeclipper` must match the kcctl commit. Third-party components may
+retain their own earlier source revision. The command also pins every artifact
+by digest before an offline Registry bundle is exported.
 
 Worker-node additions use the same OCI resolver as cluster creation. Before an
 `AddNodes` operation is queued, KubeClipper resolves containerd, k8s-extension,

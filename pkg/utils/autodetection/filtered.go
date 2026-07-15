@@ -27,7 +27,7 @@ import (
 // DefaultInterfacesToExclude Default interfaces to exclude for any logic following the first-found
 // autodetect IP method
 var DefaultInterfacesToExclude = []string{
-	"docker.*", "cbr.*", "dummy.*",
+	"docker.*", "br-.*", "podman.*", "nerdctl.*", "cbr.*", "dummy.*",
 	"virbr.*", "lxcbr.*", "veth.*", "lo",
 	"vxlan.calico", "cali.*", "tunl.*", "flannel.*", "kube-ipvs.*", "cni.*",
 }

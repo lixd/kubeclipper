@@ -44,6 +44,7 @@ import (
 	"github.com/google/uuid"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
+	"k8s.io/component-base/version"
 
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/user"
 
@@ -620,11 +621,11 @@ func (d *DeployOptions) RunDeploy() error {
 
 func (d *DeployOptions) sendPackage() error {
 	return InstallBootstrapAssetsFromRegistry(context.Background(), BootstrapInstallOptions{
-		Registry:  d.deployConfig.PackageRegistry,
-		Arch:      RuntimeArch(),
-		SSH:       d.deployConfig.SSHConfig,
-		Hosts:     d.allNodes,
-		NeedAgent: true,
+		Registry:                  d.deployConfig.PackageRegistry,
+		SSH:                       d.deployConfig.SSHConfig,
+		Hosts:                     d.allNodes,
+		NeedAgent:                 true,
+		KubeClipperSourceRevision: version.Get().GitCommit,
 	})
 }
 

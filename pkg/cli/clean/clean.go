@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/deploy"
@@ -94,7 +95,7 @@ func NewCmdClean(streams options.IOStreams) *cobra.Command {
 			if !o.preCheck() {
 				return
 			}
-			o.RunClean()
+			utils.CheckErr(o.RunClean())
 			fmt.Printf("\033[1;40;36m%s\033[0m\n", options.Contact)
 		},
 	}
@@ -127,6 +128,13 @@ func (c *CleanOptions) Complete() error {
 		if err != nil {
 			return errors.WithMessage(err, "get online deploy-config failed")
 		}
+		nodes, err := c.client.ListNodes(context.Background(), kc.Queries{})
+		if err != nil {
+			return errors.WithMessage(err, "get online node inventory for clean failed")
+		}
+		if err := mergeOnlineAgents(c.deployConfig, nodes); err != nil {
+			return err
+		}
 	}
 
 	c.allNodes = sets.NewString().
@@ -136,125 +144,134 @@ func (c *CleanOptions) Complete() error {
 	return nil
 }
 
+func mergeOnlineAgents(deployConfig *options.DeployConfig, nodes *kc.NodesList) error {
+	if deployConfig.Agents == nil {
+		deployConfig.Agents = make(options.Agents)
+	}
+	if nodes == nil {
+		return nil
+	}
+	for _, node := range nodes.Items {
+		ip := node.Status.Ipv4DefaultIP
+		if ip == "" {
+			ip = node.Status.NodeIpv4DefaultIP
+		}
+		if ip == "" {
+			return fmt.Errorf("online node %q has no reachable IPv4 address for clean", node.Name)
+		}
+		if !deployConfig.Agents.Exists(ip) {
+			deployConfig.Agents.Add(ip, options.Metadata{AgentID: node.Name})
+		}
+	}
+	return nil
+}
+
 func (c *CleanOptions) preCheck() bool {
 	return sudo.PreCheck("sudo", c.deployConfig.SSHConfig, c.IOStreams, c.allNodes)
 }
 
-func (c *CleanOptions) RunClean() {
+func (c *CleanOptions) RunClean() error {
 	if c.cleanAll {
-		c.cleanKcAgent()
-		c.cleanKcServer()
-		c.cleanKcConsole()
-		c.cleanBinaries()
-		c.cleanKcEnv()
-		c.cleanKcConfig()
+		if err := utilerrors.NewAggregate([]error{
+			c.cleanKcAgent(), c.cleanKcServer(), c.cleanKcConsole(),
+			c.cleanBinaries(), c.cleanKcEnv(), c.cleanKcConfig(),
+		}); err != nil {
+			return errors.Wrap(err, "clean kubeclipper platform failed")
+		}
 	}
 	logger.Info("clean successful")
+	return nil
 }
 
-func (c *CleanOptions) cleanKcAgent() {
+func (c *CleanOptions) cleanKcAgent() error {
 	if len(c.deployConfig.Agents.ListIP()) == 0 {
 		logger.V(2).Info("no kubeclipper agent need to be cleaned")
-		return
+		return nil
 	}
 
 	cmdList := []string{
-		"systemctl disable kc-agent --now",
+		"systemctl disable kc-agent --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-agent.service",
 		"rm -rf /etc/kubeclipper-agent",
 		fmt.Sprintf("rm -rf %s", c.deployConfig.OpLog.Dir),
 		"systemctl reset-failed kc-agent || true",
 	}
-	for _, cmd := range cmdList {
-		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.Agents.ListIP(), cmd, sshutils.DefaultWalk)
-		if err != nil {
-			logger.Warn("clean kc agent failed,reason: ", err)
-		}
-	}
+	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.Agents.ListIP(), "kc agent", cmdList)
 }
 
-func (c *CleanOptions) cleanKcServer() {
+func (c *CleanOptions) cleanKcServer() error {
 	if len(c.deployConfig.ServerIPs) == 0 {
 		logger.V(2).Info("no kubeclipper server need to be cleaned")
-		return
+		return nil
 	}
 
 	cmdList := []string{
-		"systemctl disable kc-server --now",
+		"systemctl disable kc-server --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-server.service",
-		"systemctl disable kc-etcd --now",
+		"systemctl disable kc-etcd --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-etcd.service",
 		"rm -rf /etc/kubeclipper-server",
 		fmt.Sprintf("rm -rf %s", c.deployConfig.EtcdConfig.DataDir),
 		"systemctl reset-failed kc-etcd || true",
 		"systemctl reset-failed kc-server || true",
 	}
-	for _, cmd := range cmdList {
-		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
-		if err != nil {
-			logger.Warn("clean kc server failed,reason: ", err)
-		}
-	}
+	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc server", cmdList)
 }
 
-func (c *CleanOptions) cleanKcConsole() {
+func (c *CleanOptions) cleanKcConsole() error {
 	if len(c.deployConfig.ServerIPs) == 0 {
 		logger.V(2).Info("no kubeclipper console need to be cleaned")
-		return
+		return nil
 	}
 
 	cmdList := []string{
-		"systemctl disable kc-console --now",
+		"systemctl disable kc-console --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-console.service",
 		"rm -rf /etc/kc-console",
 		"systemctl reset-failed kc-console || true",
 	}
-	for _, cmd := range cmdList {
-		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
-		if err != nil {
-			logger.Warn("clean kc console failed,reason: ", err)
-		}
-	}
+	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc console", cmdList)
 }
 
-func (c *CleanOptions) cleanBinaries() {
+func (c *CleanOptions) cleanBinaries() error {
 	if len(c.allNodes) == 0 {
 		logger.V(2).Info("no kubeclipper node need to be cleaned")
-		return
+		return nil
 	}
 
 	cmdList := []string{
 		"rm -rf /usr/local/bin/kubeclipper* && rm -rf /usr/local/bin/etcd*  && rm -rf /usr/local/bin/caddy",
 	}
 
-	for _, cmd := range cmdList {
-		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.allNodes, cmd, sshutils.DefaultWalk)
-		if err != nil {
-			logger.Warn("clean kc binary failed,reason: ", err)
-		}
-	}
+	return runRemoteCleanup(c.deployConfig.SSHConfig, c.allNodes, "kc binaries", cmdList)
 }
 
-func (c *CleanOptions) cleanKcEnv() {
+func (c *CleanOptions) cleanKcEnv() error {
 	if len(c.deployConfig.ServerIPs) == 0 {
 		logger.V(2).Info("no kubeclipper console need to be cleaned")
-		return
+		return nil
 	}
 
 	cmdList := []string{
 		"rm -rf /etc/kc/kc.env",
 	}
 
-	for _, cmd := range cmdList {
-		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
-		if err != nil {
-			logger.Warn("clean kc env failed,reason: ", err)
-		}
-	}
+	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc environment", cmdList)
 }
 
-func (c *CleanOptions) cleanKcConfig() {
+func (c *CleanOptions) cleanKcConfig() error {
 	if err := sshutils.Cmd("rm", "-rf", filepath.Dir(options.DefaultDeployConfigPath)); err != nil {
-		logger.Warn("clean kc config failed,reason: ", err)
+		return errors.Wrap(err, "clean kc config")
 	}
+	return nil
+}
+
+func runRemoteCleanup(sshConfig *sshutils.SSH, hosts []string, component string, commands []string) error {
+	var errs []error
+	for _, command := range commands {
+		if err := sshutils.CmdBatchWithSudo(sshConfig, hosts, command, sshutils.DefaultWalk); err != nil {
+			errs = append(errs, errors.Wrapf(err, "clean %s", component))
+		}
+	}
+	return utilerrors.NewAggregate(errs)
 }

@@ -123,12 +123,16 @@ func ResolveArtifacts(inventory *PackageInventory, policy *SupportPolicy, req Re
 func filterClusterInstallComponents(components []selectedComponent) []selectedComponent {
 	filtered := components[:0]
 	for _, component := range components {
-		if strings.HasPrefix(component.Slot, "bootstrap") || strings.HasPrefix(component.Slot, "extension") {
+		if !isClusterInstallSlot(component.Slot) {
 			continue
 		}
 		filtered = append(filtered, component)
 	}
 	return filtered
+}
+
+func isClusterInstallSlot(slot string) bool {
+	return !strings.HasPrefix(slot, "bootstrap") && !strings.HasPrefix(slot, "extension")
 }
 
 type selectedComponent struct {

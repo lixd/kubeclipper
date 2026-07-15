@@ -37,6 +37,11 @@ import (
 
 const bootstrapKind = "bootstrap"
 
+const (
+	bootstrapEtcdVersion    = "3.5.21"
+	bootstrapConsoleVersion = "v1.6.0"
+)
+
 type bootstrapAsset struct {
 	PackageName    string
 	Name           string
@@ -52,7 +57,6 @@ var deployBootstrapAssets = []bootstrapAsset{
 	{PackageName: "etcd", Name: "etcdutl", RemotePath: "/usr/local/bin/etcdutl"},
 	{PackageName: "console", Name: "caddy", RemotePath: "/usr/local/bin/caddy"},
 	{PackageName: "console", Name: "kc-console", ConsoleArchive: true},
-	{PackageName: "registry", Name: "registry", RemotePath: "/usr/local/bin/registry"},
 }
 
 var joinBootstrapAssets = []bootstrapAsset{
@@ -65,7 +69,14 @@ type BootstrapInstallOptions struct {
 	SSH       *sshutils.SSH
 	Hosts     []string
 	NeedAgent bool
+	// KubeClipperSourceRevision binds server and agent binaries to the caller's build.
+	KubeClipperSourceRevision string
+	// SSHRunner is injectable so target architecture selection can be tested
+	// without opening real SSH connections.
+	SSHRunner BootstrapSSHRunner
 }
+
+type BootstrapSSHRunner func(*sshutils.SSH, string, string) (sshutils.Result, error)
 
 func RuntimeArch() string {
 	return runtime.GOARCH
@@ -79,18 +90,38 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if strings.TrimSpace(opts.Registry) == "" {
 		return fmt.Errorf("--package-registry must be specified")
 	}
-	if opts.Arch == "" {
-		opts.Arch = RuntimeArch()
-	}
 	if len(opts.Hosts) == 0 {
 		return fmt.Errorf("bootstrap install hosts are required")
+	}
+	if strings.TrimSpace(opts.KubeClipperSourceRevision) == "" {
+		return fmt.Errorf("kubeclipper source revision is required for bootstrap install")
+	}
+	if opts.Arch == "" {
+		hostsByArch, err := groupBootstrapHostsByArchitecture(opts.SSHRunner, opts.SSH, opts.Hosts)
+		if err != nil {
+			return err
+		}
+		archs := make([]string, 0, len(hostsByArch))
+		for arch := range hostsByArch {
+			archs = append(archs, arch)
+		}
+		sort.Strings(archs)
+		for _, arch := range archs {
+			archOpts := opts
+			archOpts.Arch = arch
+			archOpts.Hosts = hostsByArch[arch]
+			if err := InstallBootstrapAssetsFromRegistry(ctx, archOpts); err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 	logger.Infof("refresh bootstrap assets from OCI registry %s", opts.Registry)
 	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexer(nil).Refresh(ctx, opts.Registry)
 	if err != nil {
 		return fmt.Errorf("refresh bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
-	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch)
+	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch, opts.KubeClipperSourceRevision)
 	if len(missing) > 0 {
 		return fmt.Errorf("package registry %s is missing bootstrap assets for arch %s: %s", opts.Registry, opts.Arch, strings.Join(missing, ", "))
 	}
@@ -122,7 +153,52 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	return nil
 }
 
-func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch string) ([]deliveryapis.ResolvedComponent, []string) {
+func groupBootstrapHostsByArchitecture(runner BootstrapSSHRunner, sshConfig *sshutils.SSH, hosts []string) (map[string][]string, error) {
+	hostsByArch := make(map[string][]string)
+	for _, host := range hosts {
+		arch, err := detectBootstrapHostArchitecture(runner, sshConfig, host)
+		if err != nil {
+			return nil, err
+		}
+		hostsByArch[arch] = append(hostsByArch[arch], host)
+	}
+	return hostsByArch, nil
+}
+
+func DetectBootstrapHostArchitecture(sshConfig *sshutils.SSH, host string) (string, error) {
+	return detectBootstrapHostArchitecture(nil, sshConfig, host)
+}
+
+func detectBootstrapHostArchitecture(runner BootstrapSSHRunner, sshConfig *sshutils.SSH, host string) (string, error) {
+	if runner == nil {
+		runner = sshutils.SSHCmdWithSudo
+	}
+	result, err := runner(sshConfig, host, "uname -m")
+	if err != nil {
+		return "", fmt.Errorf("detect bootstrap host architecture on %s: %w", host, err)
+	}
+	if err := result.Error(); err != nil {
+		return "", fmt.Errorf("detect bootstrap host architecture on %s: %s", host, result.String())
+	}
+	arch, err := normalizeBootstrapArchitecture(result.Stdout)
+	if err != nil {
+		return "", fmt.Errorf("detect bootstrap host architecture on %s: %w", host, err)
+	}
+	return arch, nil
+}
+
+func normalizeBootstrapArchitecture(machine string) (string, error) {
+	switch strings.TrimSpace(machine) {
+	case "x86_64", "amd64":
+		return "amd64", nil
+	case "aarch64", "arm64":
+		return "arm64", nil
+	default:
+		return "", fmt.Errorf("unsupported architecture %q", strings.TrimSpace(machine))
+	}
+}
+
+func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch, kubeClipperSourceRevision string) ([]deliveryapis.ResolvedComponent, []string) {
 	assetsByPackage := make(map[string][]bootstrapAsset)
 	var packageNames []string
 	for _, asset := range assets {
@@ -137,7 +213,7 @@ func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, a
 	missing := make([]string, 0)
 	for _, packageName := range packageNames {
 		packageAssets := assetsByPackage[packageName]
-		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch)
+		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch, kubeClipperSourceRevision)
 		if !ok {
 			for _, asset := range packageAssets {
 				missing = append(missing, fmt.Sprintf("%s/%s:%s", bootstrapKind, packageName, asset.Name))
@@ -159,7 +235,7 @@ func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, a
 	return components, missing
 }
 
-func selectBootstrapPackage(inventory *deliveryapis.PackageInventory, packageName string, assets []bootstrapAsset, arch string) (deliveryapis.PackageEntry, bool) {
+func selectBootstrapPackage(inventory *deliveryapis.PackageInventory, packageName string, assets []bootstrapAsset, arch, kubeClipperSourceRevision string) (deliveryapis.PackageEntry, bool) {
 	if inventory == nil {
 		return deliveryapis.PackageEntry{}, false
 	}
@@ -167,6 +243,20 @@ func selectBootstrapPackage(inventory *deliveryapis.PackageInventory, packageNam
 	for _, pkg := range inventory.Spec.Packages {
 		if pkg.Kind != bootstrapKind || pkg.Name != packageName || pkg.Arch != arch {
 			continue
+		}
+		switch packageName {
+		case "kubeclipper":
+			if pkg.SourceRevision != kubeClipperSourceRevision {
+				continue
+			}
+		case "etcd":
+			if pkg.Version != bootstrapEtcdVersion {
+				continue
+			}
+		case "console":
+			if pkg.Version != bootstrapConsoleVersion {
+				continue
+			}
 		}
 		if !hasBootstrapAssetContents(pkg.Contents, assets) {
 			continue

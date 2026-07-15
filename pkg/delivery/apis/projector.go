@@ -85,6 +85,9 @@ func projectAddons(packages []PackageEntry, policy *SupportPolicy, opts ProjectO
 		}
 		supported[PackageKey(k8sPkg)] = k8sPkg
 		for _, slot := range supportPolicy.ComponentSlots {
+			if !isClusterInstallSlot(slot.Slot) {
+				continue
+			}
 			for _, pkg := range projectSlotPackages(packages, slot, archSet) {
 				supported[PackageKey(pkg)] = pkg
 			}
@@ -128,6 +131,9 @@ func projectRules(packages []PackageEntry, policy *SupportPolicy, opts ProjectOp
 		versionControl := make(map[string]interface{}, len(supportPolicy.ComponentSlots))
 		resolvable := true
 		for _, slot := range supportPolicy.ComponentSlots {
+			if !isClusterInstallSlot(slot.Slot) {
+				continue
+			}
 			validAddons := projectSlotAddons(packages, slot, archSet)
 			if len(validAddons) == 0 && slot.Required {
 				resolvable = false
@@ -159,6 +165,9 @@ func projectUnavailable(packages []PackageEntry, policy *SupportPolicy, opts Pro
 			continue
 		}
 		for _, slot := range supportPolicy.ComponentSlots {
+			if !isClusterInstallSlot(slot.Slot) {
+				continue
+			}
 			for _, option := range slot.Options {
 				for _, version := range option.AllowedVersions {
 					for _, missing := range unavailablePackageArchs(packages, option, version, archSet) {

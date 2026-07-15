@@ -20,6 +20,8 @@ package autodetection
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -31,4 +33,18 @@ func TestFilteredEnumeration(t *testing.T) {
 
 	fmt.Println(*enumeration)
 	fmt.Println(*c)
+}
+
+func TestDefaultInterfacesExcludeContainerBridges(t *testing.T) {
+	excluded := regexp.MustCompile("(" + strings.Join(DefaultInterfacesToExclude, ")|(") + ")")
+	for _, name := range []string{"docker0", "br-19bb2f9f61b0", "cni0", "cbr0", "podman0", "nerdctl0", "virbr0"} {
+		if !excluded.MatchString(name) {
+			t.Errorf("container bridge %q is not excluded from first-found detection", name)
+		}
+	}
+	for _, name := range []string{"eth0", "ens192", "bond0"} {
+		if excluded.MatchString(name) {
+			t.Errorf("host interface %q is unexpectedly excluded", name)
+		}
+	}
 }

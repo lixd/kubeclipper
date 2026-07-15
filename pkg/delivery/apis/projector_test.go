@@ -82,6 +82,34 @@ func TestProjectComponentMetaMultiArchIntersection(t *testing.T) {
 	}
 }
 
+func TestProjectComponentMetaDoesNotGateClusterVersionsOnBootstrapPackages(t *testing.T) {
+	policy := projectorPolicy()
+	policy.Spec.Policies[0].ComponentSlots = append(policy.Spec.Policies[0].ComponentSlots, ComponentSlotRule{
+		Slot:      "bootstrap-kubeclipper",
+		Selection: SelectionOneOf,
+		Required:  true,
+		Default:   ComponentChoice{Name: "kubeclipper", Version: "v1.8.0"},
+		Options: []ComponentOption{{
+			Name: "kubeclipper", Kind: "bootstrap", AllowedVersions: []string{"v1.8.0"},
+		}},
+	})
+
+	projection, err := ProjectComponentMeta(projectorCatalog(), policy, ProjectOptions{Archs: []string{"amd64"}})
+	if err != nil {
+		t.Fatalf("ProjectComponentMeta() error: %+v", err)
+	}
+	if len(projection.Rules) != 1 {
+		t.Fatalf("rules length = %d, want 1", len(projection.Rules))
+	}
+	versionControl := projection.Rules[0]["version_control"].(map[string]interface{})
+	if _, ok := versionControl["bootstrap-kubeclipper"]; ok {
+		t.Fatalf("bootstrap slot leaked into cluster version controls: %+v", versionControl)
+	}
+	if availability := findUnavailable(projection.Unavailable, "bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v1.8.0", "amd64"); availability != nil {
+		t.Fatalf("bootstrap package leaked into cluster availability: %+v", availability)
+	}
+}
+
 func TestProjectComponentMetaIgnoresInventoryPresentationFields(t *testing.T) {
 	catalog := NewPackageInventory("default")
 	catalog.Spec.Packages = []PackageEntry{
