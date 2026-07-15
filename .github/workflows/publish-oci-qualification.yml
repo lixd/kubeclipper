@@ -1,0 +1,104 @@
+name: publish-oci-qualification
+
+on:
+  push:
+    tags:
+      - "oci-qualification-*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {component: bootstrap-kubeclipper, version: v1.8.0}
+          - {component: bootstrap-etcd, version: "3.5.21"}
+          - {component: bootstrap-console, version: v1.6.0}
+          - {component: bootstrap-registry, version: "3.1.1"}
+          - {component: resource-k8s, version: v1.36.1}
+          - {component: resource-k8s, version: v1.35.0}
+          - {component: resource-k8s, version: v1.34.2}
+          - {component: resource-containerd, version: "2.2.4"}
+          - {component: resource-containerd, version: "1.7.29"}
+          - {component: resource-k8s-extension, version: v1}
+          - {component: resource-calico, version: v3.31.5}
+          - {component: resource-calico, version: v3.29.6}
+          - {component: resource-kc-runtime, version: v1.8.0}
+          - {component: resource-nfs, version: v4.0.2}
+          - {component: resource-nfs, version: v4.1.0}
+          - {component: resource-metallb, version: v0.13.7}
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: ${{ matrix.component }}
+      version: ${{ matrix.version }}
+      architecture: all
+      registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
+    secrets: inherit
+
+  manifest:
+    needs: publish
+    runs-on: ubuntu-24.04
+    env:
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: imjasonh/setup-crane@v0.4
+
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Create release assembly inputs
+        run: |
+          set -euo pipefail
+          resource_dir="$RUNNER_TEMP/kc-release"
+          for arch in amd64 arm64; do
+            for version in v1.36.1 v1.35.0 v1.34.2; do
+              mkdir -p "$resource_dir/k8s/$version/$arch"
+              touch "$resource_dir/k8s/$version/$arch/configs.tar.gz"
+            done
+            for version in 2.2.4 1.7.29; do
+              mkdir -p "$resource_dir/containerd/$version/$arch"
+              touch "$resource_dir/containerd/$version/$arch/configs.tar.gz"
+            done
+            mkdir -p "$resource_dir/k8s-extension/v1/$arch"
+            touch "$resource_dir/k8s-extension/v1/$arch/configs.tar.gz"
+            for version in v3.31.5 v3.29.6; do
+              chart_dir="$RUNNER_TEMP/chart-$version/tigera-operator"
+              mkdir -p "$chart_dir" "$resource_dir/calico/$version/$arch"
+              printf 'apiVersion: v2\nname: tigera-operator\nversion: %s\n' "$version" > "$chart_dir/Chart.yaml"
+              tar -czf "$resource_dir/calico/$version/$arch/charts.tgz" -C "$(dirname "$chart_dir")" tigera-operator
+            done
+          done
+          printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > "$resource_dir/images.lock"
+          echo "RESOURCE_DIR=$resource_dir" >> "$GITHUB_ENV"
+
+      - name: Resolve release digests and provenance
+        run: |
+          scripts/open-packaging/generate-release-manifest.sh \
+            --build-manifest packaging/resources.yaml \
+            --resource-dir "$RESOURCE_DIR" \
+            --output "$RESOURCE_DIR/release-manifest.yaml" \
+            --package-registry "$REGISTRY_PREFIX" \
+            --image-registry "$REGISTRY_PREFIX" \
+            --include-bootstrap \
+            --arch all \
+            --resolve-digests \
+            --source-revision "$GITHUB_SHA"
+          scripts/open-packaging/verify-release-manifest.sh \
+            --manifest "$RESOURCE_DIR/release-manifest.yaml" \
+            --registry "$REGISTRY_PREFIX"
+          sha256sum "$RESOURCE_DIR/release-manifest.yaml" | tee "$RESOURCE_DIR/release-manifest.yaml.sha256"
+          cat "$RESOURCE_DIR/release-manifest.yaml"
