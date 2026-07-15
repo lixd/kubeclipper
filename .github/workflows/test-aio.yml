@@ -1,6 +1,9 @@
 name: e2e-aio-test
 
 on:
+  push:
+    tags:
+      - 'oci-qualification-*'
   pull_request:
     branches:
       - 'master'

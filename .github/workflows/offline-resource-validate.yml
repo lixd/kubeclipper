@@ -1,6 +1,9 @@
 name: offline-resource-validate
 
 on:
+  push:
+    tags:
+      - "oci-qualification-*"
   pull_request:
     paths:
       - "packaging/**"
