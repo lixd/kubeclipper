@@ -383,8 +383,7 @@ func (c *JoinOptions) runJoinAgentNode() error {
 	// Persist the cleanup inventory before installing anything. If the kcctl
 	// process is interrupted after an agent starts, force-clean still knows
 	// both the host and the transport that were used to reach it.
-	agentSSH := *c.sshConfig
-	c.deployConfig.AgentSSHConfig = &agentSSH
+	c.deployConfig.AgentSSHConfig = agentSSHConfigForPersistence(c.sshConfig)
 	if err := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
 		return errors.Wrap(err, "persist planned agents in deploy config failed")
 	}
@@ -399,6 +398,20 @@ func (c *JoinOptions) runJoinAgentNode() error {
 	}
 	logger.Info("agent node join completed. show command: 'kcctl get node'")
 	return nil
+}
+
+func agentSSHConfigForPersistence(source *sshutils.SSH) *sshutils.SSH {
+	if source == nil {
+		return nil
+	}
+	persisted := *source
+	// SSH.connect caches the contents of PkFile in PrivateKey. Retain the
+	// reusable path for cleanup without copying that private key into the
+	// deploy ConfigMap and local deploy-config.
+	if persisted.PkFile != "" {
+		persisted.PrivateKey = ""
+	}
+	return &persisted
 }
 
 func (c *JoinOptions) failJoinWithRollbackAndConfig(joinErr error) error {

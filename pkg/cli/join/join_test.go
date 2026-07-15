@@ -90,3 +90,20 @@ func TestCompleteServerSSHConfigFallsBackToDeployTransport(t *testing.T) {
 		t.Fatalf("completed transport = %+v, want fallback %+v", got, fallback)
 	}
 }
+
+func TestAgentSSHConfigForPersistenceDoesNotCopyCachedPrivateKey(t *testing.T) {
+	source := &sshutils.SSH{
+		User:       "root",
+		PkFile:     "/root/agent-key",
+		PrivateKey: "cached-private-key",
+		Port:       22,
+	}
+
+	got := agentSSHConfigForPersistence(source)
+	if got.PkFile != source.PkFile || got.PrivateKey != "" {
+		t.Fatalf("persisted SSH config = %+v, want key path without cached private key", got)
+	}
+	if source.PrivateKey != "cached-private-key" {
+		t.Fatal("source SSH config was mutated")
+	}
+}
