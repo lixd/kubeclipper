@@ -168,8 +168,21 @@ func mergeOnlineAgents(deployConfig *options.DeployConfig, nodes *kc.NodesList) 
 
 func (c *CleanOptions) preCheck() bool {
 	serverOK := sudo.PreCheck("server sudo", c.deployConfig.SSHConfig, c.IOStreams, c.deployConfig.ServerIPs)
-	agentOK := sudo.PreCheck("agent sudo", c.agentSSHConfig(), c.IOStreams, c.deployConfig.Agents.ListIP())
+	_, joinedAgents := c.agentHostsByTransport()
+	agentOK := sudo.PreCheck("agent sudo", c.agentSSHConfig(), c.IOStreams, joinedAgents)
 	return serverOK && agentOK
+}
+
+func (c *CleanOptions) agentHostsByTransport() (serverAgents, joinedAgents []string) {
+	servers := sets.NewString(c.deployConfig.ServerIPs...)
+	for _, ip := range c.deployConfig.Agents.ListIP() {
+		if servers.Has(ip) {
+			serverAgents = append(serverAgents, ip)
+		} else {
+			joinedAgents = append(joinedAgents, ip)
+		}
+	}
+	return serverAgents, joinedAgents
 }
 
 func (c *CleanOptions) agentSSHConfig() *sshutils.SSH {
@@ -205,7 +218,11 @@ func (c *CleanOptions) cleanKcAgent() error {
 		fmt.Sprintf("rm -rf %s", c.deployConfig.OpLog.Dir),
 		"systemctl reset-failed kc-agent || true",
 	}
-	return runRemoteCleanup(c.agentSSHConfig(), c.deployConfig.Agents.ListIP(), "kc agent", cmdList)
+	serverAgents, joinedAgents := c.agentHostsByTransport()
+	return utilerrors.NewAggregate([]error{
+		runRemoteCleanup(c.deployConfig.SSHConfig, serverAgents, "server-local kc agent", cmdList),
+		runRemoteCleanup(c.agentSSHConfig(), joinedAgents, "joined kc agent", cmdList),
+	})
 }
 
 func (c *CleanOptions) cleanKcServer() error {
@@ -251,10 +268,11 @@ func (c *CleanOptions) cleanBinaries() error {
 	cmdList := []string{
 		"rm -rf /usr/local/bin/kubeclipper* && rm -rf /usr/local/bin/etcd*  && rm -rf /usr/local/bin/caddy",
 	}
+	_, joinedAgents := c.agentHostsByTransport()
 
 	return utilerrors.NewAggregate([]error{
 		runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "server binaries", cmdList),
-		runRemoteCleanup(c.agentSSHConfig(), c.deployConfig.Agents.ListIP(), "agent binaries", cmdList),
+		runRemoteCleanup(c.agentSSHConfig(), joinedAgents, "agent binaries", cmdList),
 	})
 }
 

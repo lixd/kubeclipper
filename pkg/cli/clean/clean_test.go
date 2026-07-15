@@ -44,6 +44,20 @@ func TestAgentSSHConfigUsesJoinTransport(t *testing.T) {
 	}
 }
 
+func TestAgentHostsByTransportKeepsAIOServerOnServerSSH(t *testing.T) {
+	o := NewCleanOptions(options.IOStreams{})
+	o.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	o.deployConfig.Agents = options.Agents{
+		"10.0.0.1": {AgentID: "aio"},
+		"10.0.0.2": {AgentID: "joined"},
+	}
+
+	serverAgents, joinedAgents := o.agentHostsByTransport()
+	if !reflect.DeepEqual(serverAgents, []string{"10.0.0.1"}) || !reflect.DeepEqual(joinedAgents, []string{"10.0.0.2"}) {
+		t.Fatalf("server agents = %v, joined agents = %v", serverAgents, joinedAgents)
+	}
+}
+
 func TestMergeOnlineAgentsRejectsNodeWithoutAddress(t *testing.T) {
 	config := options.NewDeployOptions()
 	if err := mergeOnlineAgents(config, &kc.NodesList{Items: []v1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "unknown"}}}}); err == nil {
