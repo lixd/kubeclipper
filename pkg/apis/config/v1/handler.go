@@ -281,7 +281,7 @@ func (h *handler) CreateSSHRSAKey(req *restful.Request, resp *restful.Response) 
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
-	t.PrivateKey, t.PublicKey, err = certs.GetSSHKeyPair(512)
+	t.PrivateKey, t.PublicKey, err = certs.GetSSHKeyPair(2048)
 	if err != nil {
 		restplus.HandleInternalError(resp, req, err)
 		return
@@ -296,7 +296,7 @@ func (h *handler) CreateSSHRSAKey(req *restful.Request, resp *restful.Response) 
 }
 
 func generateWebTerminal() (v1.WebTerminal, error) {
-	priv, pub, err := certs.GetSSHKeyPair(512)
+	priv, pub, err := certs.GetSSHKeyPair(2048)
 	if err != nil {
 		return v1.WebTerminal{}, err
 	}

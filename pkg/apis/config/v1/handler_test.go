@@ -21,7 +21,11 @@ package v1
 import (
 	"bytes"
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -43,6 +47,32 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/watch"
 )
+
+func TestGenerateWebTerminalUsesSecureRSAKeySize(t *testing.T) {
+	terminal, err := generateWebTerminal()
+	if err != nil {
+		t.Fatalf("generateWebTerminal() error: %v", err)
+	}
+	encoded, err := base64.StdEncoding.DecodeString(terminal.PublicKey)
+	if err != nil {
+		t.Fatalf("decode public key: %v", err)
+	}
+	block, _ := pem.Decode(encoded)
+	if block == nil {
+		t.Fatal("public key is not PEM encoded")
+	}
+	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		t.Fatalf("parse public key: %v", err)
+	}
+	publicKey, ok := parsed.(*rsa.PublicKey)
+	if !ok {
+		t.Fatalf("public key type = %T, want *rsa.PublicKey", parsed)
+	}
+	if publicKey.N.BitLen() < 2048 {
+		t.Fatalf("RSA key size = %d, want at least 2048", publicKey.N.BitLen())
+	}
+}
 
 func TestListOfflineResourceFromRegistryInventory(t *testing.T) {
 	ctrl := gomock.NewController(t)
