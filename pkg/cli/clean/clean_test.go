@@ -2,6 +2,7 @@ package clean
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -62,5 +63,16 @@ func TestMergeOnlineAgentsRejectsNodeWithoutAddress(t *testing.T) {
 	config := options.NewDeployOptions()
 	if err := mergeOnlineAgents(config, &kc.NodesList{Items: []v1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "unknown"}}}}); err == nil {
 		t.Fatal("mergeOnlineAgents() unexpectedly accepted node without an address")
+	}
+}
+
+func TestCleanupCommandsRemovePackageRegistryCredentials(t *testing.T) {
+	agentCommands := strings.Join(agentCleanupCommands("/var/log/kc-agent"), "\n")
+	if !strings.Contains(agentCommands, "rm -rf /etc/kubeclipper-agent") {
+		t.Fatal("agent cleanup does not remove package Registry credential directory")
+	}
+	serverCommands := strings.Join(serverCleanupCommands("/var/lib/kc-etcd"), "\n")
+	if !strings.Contains(serverCommands, "rm -rf /etc/kubeclipper-server") {
+		t.Fatal("server cleanup does not remove package Registry credential directory")
 	}
 }

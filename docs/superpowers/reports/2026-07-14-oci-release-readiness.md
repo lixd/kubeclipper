@@ -1,10 +1,89 @@
 # 纯 OCI 发布就绪报告（2026-07-14）
 
-> 2026-07-16 复审结论：本文记录的 `cf2f967` 资格测试仍然是有效的历史证据，
-> 但其验证范围是未启用认证的 HTTP Distribution Registry。该提交不再视为最终
-> 2.0 发布提交。当前仍有 package/image Registry 边界、生产级 package Registry
-> 认证与 TLS、最新 master/Registry API 变更集成以及最终提交重验等发布阻断项，
-> 因此当前结论调整为：**暂不建议正式发布**。
+> 2026-07-22 复审结论：最新 master 的 Registry API、kcctl 和前端模型已经通过
+> `f248da4` 合入 OCI 分支，`--image-registry` 选择镜像 Registry 资源，
+> `packageRegistry` 独立负责 OCI package。生产 package Registry 的认证、TLS、
+> 自定义 CA、凭据安全下发和轮换已经完成本地实现与测试。本文记录的 `cf2f967`
+> 匿名 HTTP 双机资格测试仍是有效历史证据，但当前最终提交尚未形成、未获授权推送，
+> 因而没有当前提交的 Actions 和真实 Harbor 双机证据。当前结论仍是：
+> **暂不建议正式发布**。
+
+## 2026-07-22 最新复审
+
+### 最新 master Registry 模型已完成集成
+
+- 当前已提交基线：`f248da4a8334a0c1238d8207c0682b83162e2f0f`。
+- 合入的 master 提交：`8371495`，包含 Registry API、kcctl 和前端的统一调整。
+- `--image-registry <Registry resource>` 选择 Kubernetes 控制面/CNI 镜像来源；
+  `--cri-registry <Registry resource>[,...]` 配置其他 containerd 镜像来源。
+- `deployConfig.packageRegistry` 仅解析 KubeClipper OCI package 和 Helm Chart。
+  即使两类 Registry 位于同一个 Harbor，它们仍按独立资源、路径和凭据处理。
+- 旧的 `--local-registry` 和镜像侧 `--insecure-registry` 已删除，不再参与新模型。
+
+### package Registry 认证与 TLS 本地实现
+
+当前未提交实现提供统一 Registry 客户端配置，覆盖 indexer、fetcher、运行时 Helm
+OCI Chart、发布工具、验证工具以及 `kcctl resource`：
+
+1. 默认严格 HTTPS；HTTP 必须通过 `--package-registry-scheme http` 显式启用。
+2. 支持用户名/密码、Harbor robot account、自定义 CA 和显式跳过 TLS 校验。
+3. 密码只能通过文件输入，不提供明文密码参数；本地及远端配置权限为 `0600`。
+4. deploy 在服务启动前向全部 server/agent 安全下发配置；配置不会进入 deploy
+   ConfigMap、delivery plan 或普通日志。
+5. join 默认通过独立的 server SSH 继承现有凭据，再通过 agent SSH 下发给新节点。
+6. 显式切换 Registry 或轮换认证/TLS 时，会更新全部现有 server/agent；任一节点
+   更新失败或最终 deploy ConfigMap 提交失败，均反向恢复已经修改的节点。
+7. clean 删除 `/etc/kubeclipper-server` 和 `/etc/kubeclipper-agent`，同时删除其中的
+   Registry 凭据与 CA。
+8. Registry 配置绑定完整 host/project prefix，拒绝向其他 Registry 或项目发送凭据。
+
+本地集成测试使用带 Basic Auth 的自签名 TLS Registry 验证了正确 robot 凭据与
+自定义 CA、错误凭据拒绝、未知 CA 的严格 TLS 拒绝，以及显式 HTTP；还完成了
+amd64/arm64 manifest index 合并和 Helm OCI Chart 按 digest 发布/拉取往返。
+
+### 2026-07-22 本地验证结果
+
+通过：
+
+```text
+go test -race ./pkg/delivery/registry ./pkg/delivery/indexer \
+  ./pkg/delivery/fetcher ./pkg/delivery/publisher ./pkg/component/common \
+  ./pkg/cli/deploy ./pkg/cli/join ./pkg/cli/clean ./pkg/cli/resource \
+  ./pkg/utils/sshutils ./pkg/apis/core/v1 ./pkg/clustermanage/kubeadm
+go vet ./...
+golangci-lint run ./...                         # 0 issues
+bash scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
+bash scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
+go run ./tools/release-policy-verify
+bash -n scripts/open-packaging/*.sh hack/*.sh
+git diff --check
+GOOS=linux GOARCH=amd64/arm64 CGO_ENABLED=0 go build：
+  kcctl、kubeclipper-server、kubeclipper-agent
+```
+
+6 个交叉编译产物均经 `file` 确认为静态 Linux ELF；amd64 为 x86-64，arm64 为
+aarch64。Go 在构建结束时尝试写入只读的全局 module stat cache，产生非致命警告，
+不影响构建退出状态或产物格式。
+
+`go test ./...` 的普通 Go 包全部通过，命令整体仅在以下环境依赖处失败：
+
+- `pkg/utils/systemctl`：macOS 没有 systemd/dbus；
+- `pkg/utils/sysutil`：桌面沙箱拒绝读取宿主系统信息；
+- `test/e2e`：本机没有已部署平台及 `~/.kc/config`。
+
+本机没有 `actionlint`、`shellcheck`、`skopeo`、Docker 和 `yq`。因此本轮不能把
+Actionlint、ShellCheck 或依赖 Skopeo 的真实导入验证记为本地通过；必须由最终提交的
+Linux Actions 和后续 Harbor 资格测试补齐。
+
+### 当前证据边界
+
+- 下文 `cf2f967` 的 Actions、digest、sourceRevision 和双机生命周期结果属于历史
+  匿名 HTTP 资格测试，不能作为当前实现的最终发布证据。
+- 当前未推送，尚无当前最终提交的 Actions run 链接。
+- 当前实现尚未发布到隔离 Harbor 标签，因此没有可记录的最终 OCI digest 和
+  sourceRevision 对。
+- 当前尚未在 `sh-dev-3`、`sh-dev-2` 使用 Harbor robot account、自定义 CA 和严格
+  TLS 重跑 deploy、join、建群、增删节点、删除、clean 以及残留审计。
 
 ## 发布候选版本
 
@@ -170,22 +249,32 @@ sourceRevision: cf2f967e6ddbf2b81354096b88216c44d253021c
 
 ## 剩余缺口
 
-- P0：OCI package resolver 仍会把集群 image Registry 当作 package Registry；本地修复已通过定向 race 测试，但尚待 Registry API PR 完成后整合。
-- P0：生产 package Registry 的认证、自定义 CA、严格 TLS 校验及 server/agent 凭据安全下发尚未实现和验证。
-- P0：最终 release commit 尚未形成。最新 master 和 Registry API/kcctl/前端变更合入后，必须重新运行全部必需 Actions 和双机纯 OCI 生命周期。
-- P1：需要补充 v2.0 Registry 模型、旧配置升级影响、凭据轮换和 Harbor 最小权限 support policy 文档。
+- P0：最终 release commit 尚未形成且未经授权推送。当前提交的 Go tests/coverage、
+  offline-resource-validate、bootstrap、resource package、release manifest/provenance
+  和 OCI AIO 必需 Actions 尚无结果。
+- P0：生产级认证 TLS Harbor 的双机资格测试尚未执行。必须用 robot account、
+  自定义 CA 和项目最小权限验证 deploy、login/version、join、纯 OCI 建群、
+  add/remove node、删除、clean 及残留审计。
+- P1：补齐最终 v2.0 升级说明和 Harbor 最小权限 support policy；当前开发指南已记录
+  Registry 分工、凭据输入、轮换、清理和 GHCR Catalog 限制。
 - P2：测试主机未运行 chronyd/ntpd；现有部署预检已明确报告此情况。由于实测主机时钟偏差小于一秒，验证继续执行。
 - P2：删除 manifest 后回收 Distribution Registry blob，仍属于 Registry 运维方的常规垃圾回收职责。
 
 ## 发布建议
 
-`cf2f967` 已证明匿名 HTTP Registry 下的纯 OCI 主流程可以工作，相关 Actions、双机生命周期和清理证据仍然有效。但是生产级私有 Registry 支持和最终提交资格验证尚未完成，且最终代码还依赖最新 master 与 Registry API PR 的集成。
+`cf2f967` 已证明匿名 HTTP Registry 下的纯 OCI 主流程可以工作。最新 master Registry
+模型已经集成，package/image Registry 混用已关闭，生产 package Registry 认证/TLS
+及凭据传播也已有本地实现和测试。但是当前最终提交的 Actions 和真实 Harbor 双机
+资格测试尚未完成，不能将本地通过等同于正式发布通过。
 
 当前发布结论：**暂不建议正式发布**。
 
 重新达到“可以正式发布”至少需要：
 
-1. 合入 Registry API/kcctl/前端变更并关闭 package/image Registry 混用。
-2. 完成 package Registry 认证、CA/TLS 和凭据安全下发/清理。
-3. 在最终 release commit 上重新执行全仓验证、全部必需 GitHub Actions、双架构构建、manifest/provenance/bundle 校验。
-4. 使用相互独立的认证 TLS package Registry 和 image Registry 重跑双机纯 OCI 部署、join、建群、增删节点、删除和 clean，确认无需人工补救且无测试残留。
+1. 形成并在明确授权后推送最终 release commit。
+2. 在该提交上执行全部必需 GitHub Actions，并记录 run 链接、OCI digest 和
+   sourceRevision。
+3. 使用相互独立的认证 TLS package Registry 和 image Registry 重跑双机纯 OCI
+   部署、join、建群、增删节点、删除和 clean。
+4. 删除测试标签、robot account/授权、临时 CA/密钥、隧道和文件，确认两台主机无
+   KubeClipper、Kubernetes、containerd 或测试凭据残留。

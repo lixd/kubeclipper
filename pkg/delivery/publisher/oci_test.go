@@ -23,16 +23,23 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"encoding/pem"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/crane"
+	containerregistry "github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
 func TestRepositoryRef(t *testing.T) {
@@ -102,6 +109,51 @@ func TestBuildPackageIndexReplacesSameArch(t *testing.T) {
 	}
 	if !archs["amd64"] || !archs["arm64"] {
 		t.Fatalf("archs = %+v, want amd64 and arm64", archs)
+	}
+}
+
+func TestPushPackageIndexAuthenticatedTLSMergesArchitectures(t *testing.T) {
+	server := httptest.NewTLSServer(testBasicAuth("robot$kc", "token", containerregistry.New()))
+	defer server.Close()
+	registry := strings.TrimPrefix(server.URL, "https://") + "/team-a"
+	config := &deliveryregistry.Config{
+		Registry: registry,
+		Scheme:   deliveryregistry.SchemeHTTPS,
+		Username: "robot$kc",
+		Password: "token",
+		CA:       testServerCertificatePEM(t, server),
+	}
+	target := registry + "/kubeclipper/packages/cri/containerd:2.2.4"
+	for _, arch := range []string{"amd64", "arm64"} {
+		if err := pushPackageIndex(t.Context(), target, empty.Image, arch, config); err != nil {
+			t.Fatalf("pushPackageIndex(%s) error = %v", arch, err)
+		}
+	}
+	opts, err := config.CraneOptions(t.Context())
+	if err != nil {
+		t.Fatalf("CraneOptions() error = %v", err)
+	}
+	desc, err := crane.Get(target, opts...)
+	if err != nil {
+		t.Fatalf("crane.Get() error = %v", err)
+	}
+	index, err := desc.ImageIndex()
+	if err != nil {
+		t.Fatalf("ImageIndex() error = %v", err)
+	}
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		t.Fatalf("IndexManifest() error = %v", err)
+	}
+	if len(manifest.Manifests) != 2 {
+		t.Fatalf("manifest count = %d, want 2", len(manifest.Manifests))
+	}
+}
+
+func TestPushPackageIndexRejectsMismatchedRegistryConfig(t *testing.T) {
+	config := &deliveryregistry.Config{Registry: "harbor.example.com/team-a", Scheme: deliveryregistry.SchemeHTTPS}
+	if err := config.ValidateRegistry("harbor.example.com/team-b"); err == nil {
+		t.Fatal("ValidateRegistry() mismatch error = nil")
 	}
 }
 
@@ -413,4 +465,25 @@ func writePayloadArchive(path, payloadName string) error {
 	return writeTestArchive(path, map[string]string{
 		"payload/" + payloadName + ".txt": payloadName,
 	})
+}
+
+func testBasicAuth(username, password string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if !ok || user != username || pass != password {
+			w.Header().Set("WWW-Authenticate", `Basic realm="registry"`)
+			http.Error(w, "authentication required", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func testServerCertificatePEM(t *testing.T, server *httptest.Server) string {
+	t.Helper()
+	certificate := server.Certificate()
+	if certificate == nil {
+		t.Fatal("test TLS server certificate is nil")
+	}
+	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw}))
 }

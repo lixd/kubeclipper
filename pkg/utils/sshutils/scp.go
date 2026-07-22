@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
 	"github.com/vbauerster/mpb/v8"
@@ -35,6 +36,7 @@ import (
 
 const KB = 1024
 const MB = 1024 * 1024
+const privateFileMode os.FileMode = 0600
 
 // CopyForMD5V2 copy and check md5
 func (ss *SSH) CopyForMD5V2(host, localFilePath, remoteFilePath, localMD5 string) (bool, error) {
@@ -75,6 +77,32 @@ func (ss *SSH) CopySudo(host, localFilePath, remoteFilePath string) error {
 		return errors.Wrap(err, "mv")
 	}
 	return errors.Wrap(ret.Error(), "mv")
+}
+
+// CopySudoMode installs a sensitive local file atomically with the requested
+// mode. The transit directory is private to the SSH user.
+func (ss *SSH) CopySudoMode(host, localFilePath, remoteFilePath string, mode os.FileMode) error {
+	transitDir := "/tmp/kc-copy-" + uuid.New().String()
+	transitFile := filepath.Join(transitDir, filepath.Base(remoteFilePath))
+	ret, err := SSHCmd(ss, host, fmt.Sprintf("umask 077 && mkdir -p %s", transitDir))
+	if err != nil {
+		return errors.Wrap(err, "create private transit directory")
+	}
+	if err = ret.Error(); err != nil {
+		return errors.Wrap(err, "create private transit directory")
+	}
+	defer func() {
+		_, _ = SSHCmd(ss, host, fmt.Sprintf("rm -rf %s", transitDir)) //nolint:errcheck // Best-effort remote cleanup.
+	}()
+	if err = ss.Copy(host, localFilePath, transitFile); err != nil {
+		return errors.Wrap(err, "copy through private transit directory")
+	}
+	command := fmt.Sprintf("install -D -m %04o %s %s", mode.Perm(), transitFile, remoteFilePath)
+	ret, err = SSHCmdWithSudo(ss, host, command)
+	if err != nil {
+		return errors.Wrap(err, "install copied file")
+	}
+	return errors.Wrap(ret.Error(), "install copied file")
 }
 
 // Copy is
@@ -142,18 +170,20 @@ func (ss *SSH) DownloadSudo(host, localFilePath, remoteFilePath string) error {
 	if ss.User == "root" { // root user,need not transit
 		return ss.download(host, localFilePath, remoteFilePath)
 	}
-	// 	if not root,first scp to /tmp,then sudo mv to target
-	middle := filepath.Join("/tmp", localFilePath)
-	err := ss.download(host, middle, remoteFilePath)
+	// A non-root SSH user cannot read root-owned configuration directly. Copy it
+	// to a short-lived remote file owned by that user, then download it.
+	middle := "/tmp/kc-download-" + uuid.New().String()
+	ret, err := SSHCmdWithSudo(ss, host, fmt.Sprintf("install -m 0600 -o \"$(id -u)\" %s %s", remoteFilePath, middle))
 	if err != nil {
-		return errors.Wrap(err, "download")
+		return errors.Wrap(err, "prepare remote file for download")
 	}
-
-	ret, err := SSHCmdWithSudo(ss, host, fmt.Sprintf("mkdir -pv %s && mv -f %s %s", filepath.Dir(localFilePath), middle, localFilePath))
-	if err != nil {
-		return errors.Wrap(err, "mv")
+	if err = ret.Error(); err != nil {
+		return errors.Wrap(err, "prepare remote file for download")
 	}
-	return errors.Wrap(ret.Error(), "mv")
+	defer func() {
+		_, _ = SSHCmdWithSudo(ss, host, fmt.Sprintf("rm -f %s", middle)) //nolint:errcheck // Best-effort remote cleanup.
+	}()
+	return errors.Wrap(ss.download(host, localFilePath, middle), "download")
 }
 
 func (ss *SSH) download(host, localFilePath, remoteFilePath string) error {
@@ -185,11 +215,14 @@ func (ss *SSH) download(host, localFilePath, remoteFilePath string) error {
 	}
 	defer srcFile.Close()
 
-	dstFile, err := os.Create(localFilePath)
+	dstFile, err := os.OpenFile(localFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, privateFileMode)
 	if err != nil {
 		return err
 	}
 	defer dstFile.Close()
+	if err := dstFile.Chmod(privateFileMode); err != nil {
+		return err
+	}
 	buf := make([]byte, 100*MB) // 100mb
 	total := 0
 	unit := ""

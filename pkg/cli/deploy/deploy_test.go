@@ -20,12 +20,15 @@ package deploy
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+	"sigs.k8s.io/yaml"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
 func TestDefaultDeliveryPolicyConfigMap(t *testing.T) {
@@ -179,5 +182,30 @@ func TestDeployOptionsValidateArgsDoesNotRequirePackage(t *testing.T) {
 
 	if err := d.ValidateArgs(); err != nil {
 		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
+	}
+}
+
+func TestPackageRegistryCredentialsAreNotSerializedInDeployConfig(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.PackageRegistry = "harbor.example.com/kubeclipper"
+	d.packageRegistryConfig = &deliveryregistry.Config{
+		Registry: "harbor.example.com/kubeclipper",
+		Scheme:   deliveryregistry.SchemeHTTPS,
+		Username: "robot$kc",
+		Password: "super-secret-token",
+		CA:       "private-ca-data",
+	}
+	data, err := yaml.Marshal(d.deployConfig) // #nosec G117 -- the assertion verifies Registry secrets are absent from this serialized config.
+	if err != nil {
+		t.Fatalf("marshal deploy config: %v", err)
+	}
+	serialized := string(data)
+	if !strings.Contains(serialized, "packageRegistry: harbor.example.com/kubeclipper") {
+		t.Fatalf("deploy config lost public registry address: %s", serialized)
+	}
+	for _, secret := range []string{"super-secret-token", "robot$kc", "private-ca-data", "skipTLSVerify"} {
+		if strings.Contains(serialized, secret) {
+			t.Fatalf("deploy config contains package registry secret field %q", secret)
+		}
 	}
 }

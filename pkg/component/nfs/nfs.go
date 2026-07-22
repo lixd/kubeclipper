@@ -165,7 +165,9 @@ func (n *NFSProvisioner) InitSteps(ctx context.Context) error {
 		n.ImageRepoMirror = metadata.ImageRegistry
 	}
 	if metadata.Offline && n.ImageRepoMirror == "" {
-		return fmt.Errorf("offline nfs-provisioner install requires imageRepoMirror or cluster imageRegistry; image tarball loading has been removed")
+		return fmt.Errorf(
+			"offline nfs-provisioner install requires imageRepoMirror or cluster imageRegistry; image tarball loading has been removed",
+		)
 	}
 
 	bytes, err := json.Marshal(n)

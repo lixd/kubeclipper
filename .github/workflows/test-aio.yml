@@ -36,6 +36,12 @@ jobs:
           docker logs kc-e2e-registry
           exit 1
 
+      - name: Configure local Package Registry client
+        run: |
+          umask 077
+          printf '%s\n' '{"registry":"127.0.0.1:5000","scheme":"http"}' > "$RUNNER_TEMP/package-registry.json"
+          echo "KC_PACKAGE_REGISTRY_CONFIG=$RUNNER_TEMP/package-registry.json" >> "$GITHUB_ENV"
+
       - name: Publish bootstrap package images
         env:
           KC_SOURCE_REVISION: ${{ github.sha }}
@@ -54,6 +60,7 @@ jobs:
           sudo cp ./dist/kcctl /usr/local/bin/kcctl
           sudo kcctl deploy \
             --package-registry 127.0.0.1:5000 \
+            --package-registry-scheme http \
             --ip-detect interface=eth0 \
             --node-ip-detect interface=eth0 \
             --assumeyes

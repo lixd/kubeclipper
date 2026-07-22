@@ -21,12 +21,14 @@ package resource
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +54,52 @@ func TestResourceCommandDoesNotExposeTransportFlag(t *testing.T) {
 		if sub.Flags().Lookup("transport") != nil {
 			t.Fatalf("%s should not expose legacy --transport flag", sub.Name())
 		}
+	}
+}
+
+func TestResourceCommandsExposeRegistryClientFlags(t *testing.T) {
+	cmd := NewCmdResource(options.IOStreams{Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}})
+	want := []string{"registry-scheme", "registry-username", "registry-password-file", "registry-ca-file", "registry-skip-tls-verify"}
+	for _, sub := range cmd.Commands() {
+		for _, name := range want {
+			if sub.Flags().Lookup(name) == nil {
+				t.Fatalf("%s does not expose --%s", sub.Name(), name)
+			}
+		}
+	}
+}
+
+func TestResourceCompleteUsesPackageRegistryConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "package-registry.json")
+	config := &deliveryregistry.Config{
+		Registry: "harbor.example.com/team-a", Scheme: deliveryregistry.SchemeHTTPS,
+		Username: "robot$kc", Password: "token",
+	}
+	if err := deliveryregistry.Write(path, config); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	t.Setenv(deliveryregistry.ConfigPathEnv, path)
+	o := NewResourceOptions(options.IOStreams{})
+	o.Registry = config.Registry
+	if err := o.Complete(); err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	if o.indexer == nil {
+		t.Fatal("Complete() did not configure a Registry inventory indexer")
+	}
+}
+
+func TestResourceCompleteRejectsMismatchedPackageRegistryConfig(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "package-registry.json")
+	if err := deliveryregistry.Write(path, &deliveryregistry.Config{Registry: "harbor.example.com/team-a", Scheme: deliveryregistry.SchemeHTTPS}); err != nil {
+		t.Fatalf("Write() error = %v", err)
+	}
+	t.Setenv(deliveryregistry.ConfigPathEnv, path)
+	o := NewResourceOptions(options.IOStreams{})
+	o.Registry = "harbor.example.com/team-b"
+	if err := o.Complete(); err == nil {
+		t.Fatal("Complete() mismatched Registry error = nil")
 	}
 }
 

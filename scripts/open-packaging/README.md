@@ -588,3 +588,33 @@ kcctl deploy \
   --pk-file ~/.ssh/id_rsa \
   --package-registry 10.0.0.10:5000
 ```
+
+For a production Harbor project, package publishers, verifiers, and `kcctl` use
+strict HTTPS by default and accept the same Registry client inputs: username or
+robot account, password/token file, custom CA, and an explicit TLS verification
+override. Keep the token file at mode `0600`; do not place it directly on the
+command line. A typical deployment is:
+
+```bash
+kcctl deploy \
+  --server 10.0.0.20 \
+  --agent 10.0.0.20 \
+  --pk-file ~/.ssh/id_rsa \
+  --package-registry harbor.example.com/kubeclipper \
+  --package-registry-username 'robot$kubeclipper-reader' \
+  --package-registry-password-file harbor-robot-token \
+  --package-registry-ca-file harbor-ca.pem
+
+go run ./tools/oci-verify \
+  --registry harbor.example.com/kubeclipper \
+  --registry-username 'robot$kubeclipper-reader' \
+  --registry-password-file harbor-robot-token \
+  --registry-ca-file harbor-ca.pem
+```
+
+`--registry-scheme http` / `--package-registry-scheme http` are only for an
+explicit plain-HTTP test Registry. `--registry-skip-tls-verify` and
+`--package-registry-skip-tls-verify` are qualification escape hatches, not the
+production policy. Dynamic inventory uses the Registry Catalog API and filters
+repositories to the configured project prefix; use Harbor or another Registry
+that implements `/v2/_catalog` because GHCR does not expose that API.

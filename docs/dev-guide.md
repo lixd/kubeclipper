@@ -359,6 +359,45 @@ caller's source commit recorded in `sourceRevision`, while join pins the agent
 to the running server's commit. Registry tag ordering is never used as a
 compatibility decision.
 
+### Package Registry authentication and TLS
+
+The package Registry is independent from the Registry resources selected by
+`--image-registry` and `--cri-registry`. The former supplies KubeClipper OCI
+packages and charts; the latter two configure containerd sources for Kubernetes
+and workload images. They may point to the same Harbor instance, but their
+credentials and repository paths are configured separately.
+
+Package Registry access uses HTTPS with system trust by default. For a private
+Harbor project, use a read-only robot account and pass the token through a file:
+
+```bash
+chmod 0600 harbor-robot-token
+kcctl deploy \
+  --server <server-ip> \
+  --agent <agent-ip> \
+  --pk-file ~/.ssh/id_rsa \
+  --package-registry harbor.example.com/kubeclipper \
+  --package-registry-username 'robot$kubeclipper-reader' \
+  --package-registry-password-file harbor-robot-token \
+  --package-registry-ca-file harbor-ca.pem
+```
+
+`kcctl` writes a mode `0600` Registry client configuration to each server and
+agent before starting services. Passwords are not stored in the deploy ConfigMap
+or passed as plaintext command-line arguments. `kcctl join` inherits this file
+from an existing server through the independently configured server SSH
+transport. Supplying any package Registry TLS/auth option, or changing
+`--package-registry`, performs an explicit transactional rotation across all
+existing servers and agents before committing the new deploy configuration.
+
+Use `--package-registry-scheme http` only for an explicitly unauthenticated test
+Registry. `--package-registry-skip-tls-verify` is available for qualification,
+but a trusted CA is required for production. `kcctl clean --all` removes the
+server and agent Registry credential directories. Registry-side robot accounts,
+projects, tags, and garbage collection remain operator responsibilities. Harbor
+with Catalog support is required for dynamic inventory of a project prefix;
+GHCR does not provide the `/v2/_catalog` behavior required by that operation.
+
 Pure OCI quick run:
 
 ```bash

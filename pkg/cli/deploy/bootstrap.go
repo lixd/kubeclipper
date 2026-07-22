@@ -32,6 +32,7 @@ import (
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
@@ -64,11 +65,12 @@ var joinBootstrapAssets = []bootstrapAsset{
 }
 
 type BootstrapInstallOptions struct {
-	Registry  string
-	Arch      string
-	SSH       *sshutils.SSH
-	Hosts     []string
-	NeedAgent bool
+	Registry       string
+	RegistryConfig *deliveryregistry.Config
+	Arch           string
+	SSH            *sshutils.SSH
+	Hosts          []string
+	NeedAgent      bool
 	// KubeClipperSourceRevision binds server and agent binaries to the caller's build.
 	KubeClipperSourceRevision string
 	// SSHRunner is injectable so target architecture selection can be tested
@@ -117,7 +119,7 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 		return nil
 	}
 	logger.Infof("refresh bootstrap assets from OCI registry %s", opts.Registry)
-	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexer(nil).Refresh(ctx, opts.Registry)
+	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(opts.RegistryConfig).Refresh(ctx, opts.Registry)
 	if err != nil {
 		return fmt.Errorf("refresh bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
@@ -125,7 +127,7 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if len(missing) > 0 {
 		return fmt.Errorf("package registry %s is missing bootstrap assets for arch %s: %s", opts.Registry, opts.Arch, strings.Join(missing, ", "))
 	}
-	result, err := deliveryfetcher.NewOCIArtifactFetcher(false).Fetch(ctx, &deliveryapis.ResolvedArtifactPlan{
+	result, err := deliveryfetcher.NewOCIArtifactFetcherWithConfig(false, opts.RegistryConfig).Fetch(ctx, &deliveryapis.ResolvedArtifactPlan{
 		OS:         deliveryapis.DefaultPackageOS,
 		Arch:       opts.Arch,
 		Components: components,

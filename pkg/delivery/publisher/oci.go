@@ -21,6 +21,7 @@ package publisher
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -43,6 +44,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
 type PublishRequest struct {
@@ -55,6 +57,7 @@ type PublishRequest struct {
 	ContentProfile   string
 	SourceRevision   string
 	ExternalContents []deliveryapis.ArtifactContent
+	RegistryConfig   *deliveryregistry.Config
 }
 
 type PublishResult struct {
@@ -123,7 +126,17 @@ func (p *OCIArtifactPublisher) Publish(req PublishRequest) (*PublishResult, erro
 	if err != nil {
 		return nil, err
 	}
-	if err = pushPackageIndex(target, img, req.Arch); err != nil {
+	registryConfig := req.RegistryConfig
+	if registryConfig == nil {
+		registryConfig, err = deliveryregistry.Resolve(req.Registry)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := registryConfig.ValidateRegistry(req.Registry); err != nil {
+		return nil, err
+	}
+	if err := pushPackageIndex(context.Background(), target, img, req.Arch, registryConfig); err != nil {
 		return nil, err
 	}
 
@@ -321,8 +334,12 @@ func addFileToRootFSTar(tw *tar.Writer, src, name string, mode int64) error {
 	return err
 }
 
-func pushPackageIndex(target string, img v1.Image, arch string) error {
-	opts := crane.GetOptions(crane.Insecure)
+func pushPackageIndex(ctx context.Context, target string, img v1.Image, arch string, config *deliveryregistry.Config) error {
+	craneOpts, err := config.CraneOptions(ctx)
+	if err != nil {
+		return err
+	}
+	opts := crane.GetOptions(craneOpts...)
 	ref, err := name.ParseReference(target, opts.Name...)
 	if err != nil {
 		return err

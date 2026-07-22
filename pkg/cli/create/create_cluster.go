@@ -640,8 +640,12 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 			Version:    l.CRIVersion,
 			Registries: criRegistry,
 		}
-	case "containerd":
-		fallthrough
+	case "containerd", "":
+		c.ContainerRuntime = v1.ContainerRuntime{
+			Type:       v1.CRIContainerd,
+			Version:    l.CRIVersion,
+			Registries: criRegistry,
+		}
 	default:
 		c.ContainerRuntime = v1.ContainerRuntime{
 			Type:       v1.CRIContainerd,

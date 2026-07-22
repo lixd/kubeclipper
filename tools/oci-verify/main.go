@@ -23,6 +23,7 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -36,6 +37,7 @@ import (
 	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
 	deliverypublisher "github.com/kubeclipper/kubeclipper/pkg/delivery/publisher"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
@@ -54,17 +56,50 @@ type verifier struct {
 }
 
 func main() {
-	if len(os.Args) != 2 || strings.TrimSpace(os.Args[1]) == "" {
-		fmt.Fprintf(os.Stderr, "usage: %s <registry-host:port>\n", filepath.Base(os.Args[0]))
+	registry, registryFiles := parseRegistryFlags()
+	registryConfig, err := resolveRegistryConfig(registry, registryFiles)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "configure package registry failed: %v\n", err)
 		os.Exit(2)
 	}
-	if err := run(context.Background(), strings.TrimSpace(os.Args[1])); err != nil {
+	if err = run(context.Background(), registry, registryConfig); err != nil {
 		fmt.Fprintf(os.Stderr, "oci verification failed: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, registry string) error {
+func parseRegistryFlags() (string, deliveryregistry.FileOptions) {
+	var registry string
+	var opts deliveryregistry.FileOptions
+	flag.StringVar(&registry, "registry", "", "OCI registry host[:port][/project-prefix]")
+	flag.StringVar(&opts.Scheme, "registry-scheme", opts.Scheme, "registry transport scheme: https or http (default https)")
+	flag.StringVar(&opts.Username, "registry-username", opts.Username, "registry username or robot account")
+	flag.StringVar(&opts.PasswordFile, "registry-password-file", opts.PasswordFile, "file containing the registry password or token")
+	flag.StringVar(&opts.CAFile, "registry-ca-file", opts.CAFile, "PEM CA file used to verify the registry")
+	flag.BoolVar(&opts.SkipTLSVerify, "registry-skip-tls-verify", opts.SkipTLSVerify, "skip registry TLS verification (not recommended)")
+	flag.Parse()
+	if registry == "" && flag.NArg() == 1 {
+		registry = flag.Arg(0)
+	}
+	registry = strings.TrimRight(strings.TrimSpace(registry), "/")
+	if registry == "" || flag.NArg() > 1 {
+		fmt.Fprintf(os.Stderr, "usage: %s --registry <host:port[/prefix]> [registry TLS/auth flags]\n", filepath.Base(os.Args[0]))
+		os.Exit(2)
+	}
+	return registry, opts
+}
+
+func resolveRegistryConfig(registry string, opts deliveryregistry.FileOptions) (*deliveryregistry.Config, error) {
+	if opts.Specified() {
+		return opts.Resolve(registry)
+	}
+	return deliveryregistry.Resolve(registry)
+}
+
+// Qualification intentionally exercises the complete OCI lifecycle in order.
+//
+//nolint:gocyclo,funlen // Linear qualification.
+func run(ctx context.Context, registry string, registryConfig *deliveryregistry.Config) error {
 	v := &verifier{}
 	workdir, err := os.MkdirTemp("", "kc-oci-verify-")
 	if err != nil {
@@ -95,6 +130,7 @@ func run(ctx context.Context, registry string) error {
 			Arch:           "amd64",
 			Registry:       registry,
 			ContentProfile: fixture.profile,
+			RegistryConfig: registryConfig,
 		})
 		if err != nil {
 			return fmt.Errorf("publish %s/%s:%s: %w", fixture.kind, fixture.name, fixture.version, err)
@@ -111,6 +147,7 @@ func run(ctx context.Context, registry string) error {
 		Registry:         registry,
 		RepositoryPrefix: deliveryapis.ChartRepositoryPrefix,
 		Name:             "tigera-operator",
+		RegistryConfig:   registryConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("publish calico helm chart: %w", err)
@@ -118,10 +155,14 @@ func run(ctx context.Context, registry string) error {
 	v.check(strings.HasPrefix(chart.Digest, "sha256:"), "publish calico as Helm OCI chart")
 
 	runtimeRef := registry + "/kubeclipper/verify/pause:v1"
-	if err = crane.Push(empty.Image, runtimeRef, crane.Insecure); err != nil {
+	craneOpts, err := registryConfig.CraneOptions(ctx)
+	if err != nil {
+		return err
+	}
+	if err = crane.Push(empty.Image, runtimeRef, craneOpts...); err != nil {
 		return fmt.Errorf("publish runtime image: %w", err)
 	}
-	runtimeImage, err := crane.Pull(runtimeRef, crane.Insecure)
+	runtimeImage, err := crane.Pull(runtimeRef, craneOpts...)
 	if err != nil {
 		return fmt.Errorf("pull runtime image: %w", err)
 	}
@@ -131,7 +172,7 @@ func run(ctx context.Context, registry string) error {
 	}
 	v.check(strings.HasPrefix(runtimeDigest.String(), "sha256:"), "standard runtime image round-trips through Registry")
 
-	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexer(nil).Refresh(ctx, registry)
+	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(registryConfig).Refresh(ctx, registry)
 	if err != nil {
 		return err
 	}
@@ -152,7 +193,7 @@ func run(ctx context.Context, registry string) error {
 	v.check(ok, "inventory maps tigera-operator chart to cni/calico")
 	if ok {
 		v.check(len(calico.Contents) == 1 && calico.Contents[0].Transport.Type == deliveryapis.TransportHelmOCI, "calico resolves charts through Helm OCI transport")
-		chartImage, pullErr := crane.Pull(calico.Transport.Ref+"@"+calico.Transport.Digest, crane.Insecure)
+		chartImage, pullErr := crane.Pull(calico.Transport.Ref+"@"+calico.Transport.Digest, craneOpts...)
 		v.check(pullErr == nil && chartImage != nil, "calico Helm OCI chart is pullable by digest")
 	}
 
@@ -209,7 +250,7 @@ func run(ctx context.Context, registry string) error {
 		}
 	}
 	fullPlan.Components = append(fullPlan.Components, agent, etcdctl)
-	fetcher := deliveryfetcher.NewOCIArtifactFetcher(false)
+	fetcher := deliveryfetcher.NewOCIArtifactFetcherWithConfig(false, registryConfig)
 	fetchResult, err := fetcher.Fetch(ctx, &fullPlan)
 	if err != nil {
 		return err

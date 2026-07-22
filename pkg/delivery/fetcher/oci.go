@@ -37,16 +37,22 @@ import (
 	containerv1 "github.com/google/go-containerregistry/pkg/v1"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
 type OCIArtifactFetcher struct {
-	DryRun    bool
-	PullImage func(ref string) (containerv1.Image, error)
+	DryRun         bool
+	PullImage      func(ref string) (containerv1.Image, error)
+	RegistryConfig *deliveryregistry.Config
 }
 
 func NewOCIArtifactFetcher(dryRun bool) *OCIArtifactFetcher {
 	return &OCIArtifactFetcher{DryRun: dryRun}
+}
+
+func NewOCIArtifactFetcherWithConfig(dryRun bool, config *deliveryregistry.Config) *OCIArtifactFetcher {
+	return &OCIArtifactFetcher{DryRun: dryRun, RegistryConfig: config}
 }
 
 func (f *OCIArtifactFetcher) Fetch(ctx context.Context, plan *deliveryapis.ResolvedArtifactPlan) (*FetchResult, error) {
@@ -97,7 +103,7 @@ func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch st
 		}
 		return componentResult, nil
 	}
-	image, err := f.pullImage(ref)
+	image, err := f.pullImage(ctx, ref)
 	if err != nil {
 		return ComponentFetchResult{}, err
 	}
@@ -144,11 +150,26 @@ func packageLayerContents(contents []deliveryapis.ArtifactContent) []deliveryapi
 	return filtered
 }
 
-func (f *OCIArtifactFetcher) pullImage(ref string) (containerv1.Image, error) {
+func (f *OCIArtifactFetcher) pullImage(ctx context.Context, ref string) (containerv1.Image, error) {
 	if f.PullImage != nil {
 		return f.PullImage(ref)
 	}
-	return crane.Pull(ref, crane.Insecure)
+	config := f.RegistryConfig
+	if config == nil {
+		var err error
+		config, err = deliveryregistry.ResolveReference(ref)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := config.ValidateReference(ref); err != nil {
+		return nil, err
+	}
+	opts, err := config.CraneOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return crane.Pull(ref, opts...)
 }
 
 func validatePulledImageDigest(image containerv1.Image, expectedDigest string) error {

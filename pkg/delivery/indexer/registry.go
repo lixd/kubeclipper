@@ -39,6 +39,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 )
 
@@ -71,6 +72,10 @@ func NewRegistryPackageInventoryIndexer(client RegistryClient) *RegistryPackageI
 		CacheTTL: 5 * time.Minute,
 		cache:    make(map[string]cachedInventory),
 	}
+}
+
+func NewRegistryPackageInventoryIndexerWithConfig(config *deliveryregistry.Config) *RegistryPackageInventoryIndexer {
+	return NewRegistryPackageInventoryIndexer(craneRegistryClient{Config: config})
 }
 
 func (i *RegistryPackageInventoryIndexer) Index(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error) {
@@ -116,13 +121,17 @@ func (i *RegistryPackageInventoryIndexer) index(ctx context.Context, registry st
 		if err = ctx.Err(); err != nil {
 			return nil, err
 		}
-		if _, _, ok := deliveryapis.ParsePackageRepository(repository); ok {
+		logicalRepository, ok := scopedRepository(registry, repository)
+		if !ok {
+			continue
+		}
+		if _, _, ok = deliveryapis.ParsePackageRepository(logicalRepository); ok {
 			if err = i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
 				return nil, err
 			}
 			continue
 		}
-		if component, ok := deliveryapis.ResolveHelmChartComponent(repository); ok {
+		if component, ok := deliveryapis.ResolveHelmChartComponent(logicalRepository); ok {
 			if err = i.indexHelmChartRepository(ctx, inventory, registry, repository, component); err != nil {
 				return nil, err
 			}
@@ -134,7 +143,21 @@ func (i *RegistryPackageInventoryIndexer) index(ctx context.Context, registry st
 	return inventory, nil
 }
 
+func scopedRepository(registry, repository string) (string, bool) {
+	_, prefix := deliveryregistry.SplitPrefix(registry)
+	repository = strings.Trim(repository, "/")
+	if prefix == "" {
+		return repository, true
+	}
+	logical, ok := strings.CutPrefix(repository, prefix+"/")
+	return logical, ok
+}
+
 func (i *RegistryPackageInventoryIndexer) indexPackageRepository(ctx context.Context, inventory *deliveryapis.PackageInventory, registry, repository string) error {
+	logicalRepository, ok := scopedRepository(registry, repository)
+	if !ok {
+		return fmt.Errorf("repository %s is outside package registry prefix %s", repository, registry)
+	}
 	tags, err := i.Client.ListTags(ctx, registry, repository)
 	if err != nil {
 		return err
@@ -161,7 +184,7 @@ func (i *RegistryPackageInventoryIndexer) indexPackageRepository(ctx context.Con
 			}
 			entry, err := deliveryapis.DerivePackageEntryFromManifest(deliveryapis.PackageRef{
 				Registry:   registry,
-				Repository: repository,
+				Repository: logicalRepository,
 				Tag:        tag,
 				Digest:     artifact.Digest,
 			}, manifest)
@@ -176,6 +199,10 @@ func (i *RegistryPackageInventoryIndexer) indexPackageRepository(ctx context.Con
 }
 
 func (i *RegistryPackageInventoryIndexer) indexHelmChartRepository(ctx context.Context, inventory *deliveryapis.PackageInventory, registry, repository string, component deliveryapis.HelmChartComponent) error {
+	logicalRepository, ok := scopedRepository(registry, repository)
+	if !ok {
+		return fmt.Errorf("repository %s is outside package registry prefix %s", repository, registry)
+	}
 	tags, err := i.Client.ListTags(ctx, registry, repository)
 	if err != nil {
 		return err
@@ -193,7 +220,7 @@ func (i *RegistryPackageInventoryIndexer) indexHelmChartRepository(ctx context.C
 		for _, artifact := range artifacts {
 			entries, err := deliveryapis.DerivePackageEntriesFromHelmChart(deliveryapis.PackageRef{
 				Registry:   registry,
-				Repository: repository,
+				Repository: logicalRepository,
 				Tag:        tag,
 				Digest:     artifact.Digest,
 			}, component, []string{"amd64", "arm64"})
@@ -295,30 +322,77 @@ func packageManifestPath() string {
 }
 
 func packageRef(registry, repository, tag string) string {
-	return fmt.Sprintf("%s/%s:%s", strings.TrimRight(registry, "/"), strings.Trim(repository, "/"), tag)
+	return fmt.Sprintf("%s/%s:%s", registryHost(registry), strings.Trim(repository, "/"), tag)
 }
 
-type craneRegistryClient struct{}
+func registryHost(registry string) string {
+	host, _ := deliveryregistry.SplitPrefix(registry)
+	return host
+}
 
-func (craneRegistryClient) Catalog(ctx context.Context, registry string) ([]string, error) {
+type craneRegistryClient struct {
+	Config *deliveryregistry.Config
+}
+
+func (c craneRegistryClient) options(ctx context.Context, registry string) ([]crane.Option, error) {
+	config := c.Config
+	if config == nil {
+		var err error
+		config, err = deliveryregistry.Resolve(registry)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := config.ValidateRegistry(registry); err != nil {
+		return nil, err
+	}
+	return config.CraneOptions(ctx)
+}
+
+func (c craneRegistryClient) Catalog(ctx context.Context, registry string) ([]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return crane.Catalog(registry, crane.Insecure)
+	opts, err := c.options(ctx, registry)
+	if err != nil {
+		return nil, err
+	}
+	host, _ := deliveryregistry.SplitPrefix(registry)
+	return crane.Catalog(host, opts...)
 }
 
-func (craneRegistryClient) ListTags(ctx context.Context, registry, repository string) ([]string, error) {
+func (c craneRegistryClient) ListTags(ctx context.Context, registry, repository string) ([]string, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	return crane.ListTags(fmt.Sprintf("%s/%s", strings.TrimRight(registry, "/"), strings.Trim(repository, "/")), crane.Insecure)
+	opts, err := c.options(ctx, registry)
+	if err != nil {
+		return nil, err
+	}
+	host, _ := deliveryregistry.SplitPrefix(registry)
+	return crane.ListTags(fmt.Sprintf("%s/%s", host, strings.Trim(repository, "/")), opts...)
 }
 
-func (craneRegistryClient) Resolve(ctx context.Context, ref string) ([]RegistryPackageArtifact, error) {
+func (c craneRegistryClient) Resolve(ctx context.Context, ref string) ([]RegistryPackageArtifact, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	desc, err := crane.Get(ref, crane.Insecure)
+	config := c.Config
+	if config == nil {
+		var err error
+		config, err = deliveryregistry.ResolveReference(ref)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := config.ValidateReference(ref); err != nil {
+		return nil, err
+	}
+	opts, err := config.CraneOptions(ctx)
+	if err != nil {
+		return nil, err
+	}
+	desc, err := crane.Get(ref, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -337,7 +411,7 @@ func (craneRegistryClient) Resolve(ctx context.Context, ref string) ([]RegistryP
 			if err = ctx.Err(); err != nil {
 				return nil, err
 			}
-			image, err := crane.Pull(ref+"@"+manifest.Digest.String(), crane.Insecure)
+			image, err := crane.Pull(ref+"@"+manifest.Digest.String(), opts...)
 			if err != nil {
 				return nil, err
 			}

@@ -211,18 +211,22 @@ func (c *CleanOptions) cleanKcAgent() error {
 		return nil
 	}
 
-	cmdList := []string{
-		"systemctl disable kc-agent --now || true",
-		"rm -rf /usr/lib/systemd/system/kc-agent.service",
-		"rm -rf /etc/kubeclipper-agent",
-		fmt.Sprintf("rm -rf %s", c.deployConfig.OpLog.Dir),
-		"systemctl reset-failed kc-agent || true",
-	}
+	cmdList := agentCleanupCommands(c.deployConfig.OpLog.Dir)
 	serverAgents, joinedAgents := c.agentHostsByTransport()
 	return utilerrors.NewAggregate([]error{
 		runRemoteCleanup(c.deployConfig.SSHConfig, serverAgents, "server-local kc agent", cmdList),
 		runRemoteCleanup(c.agentSSHConfig(), joinedAgents, "joined kc agent", cmdList),
 	})
+}
+
+func agentCleanupCommands(opLogDir string) []string {
+	return []string{
+		"systemctl disable kc-agent --now || true",
+		"rm -rf /usr/lib/systemd/system/kc-agent.service",
+		"rm -rf /etc/kubeclipper-agent",
+		fmt.Sprintf("rm -rf %s", opLogDir),
+		"systemctl reset-failed kc-agent || true",
+	}
 }
 
 func (c *CleanOptions) cleanKcServer() error {
@@ -231,17 +235,21 @@ func (c *CleanOptions) cleanKcServer() error {
 		return nil
 	}
 
-	cmdList := []string{
+	cmdList := serverCleanupCommands(c.deployConfig.EtcdConfig.DataDir)
+	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc server", cmdList)
+}
+
+func serverCleanupCommands(etcdDataDir string) []string {
+	return []string{
 		"systemctl disable kc-server --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-server.service",
 		"systemctl disable kc-etcd --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-etcd.service",
 		"rm -rf /etc/kubeclipper-server",
-		fmt.Sprintf("rm -rf %s", c.deployConfig.EtcdConfig.DataDir),
+		fmt.Sprintf("rm -rf %s", etcdDataDir),
 		"systemctl reset-failed kc-etcd || true",
 		"systemctl reset-failed kc-server || true",
 	}
-	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc server", cmdList)
 }
 
 func (c *CleanOptions) cleanKcConsole() error {

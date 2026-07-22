@@ -25,6 +25,7 @@ import (
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 
 	"github.com/kubeclipper/kubeclipper/pkg/scheme"
 
@@ -106,6 +107,8 @@ type ResourceOptions struct {
 	Registry string
 
 	Refresh bool
+
+	registryFiles deliveryregistry.FileOptions
 }
 
 type RegistryPackageInventoryIndexer interface {
@@ -124,7 +127,6 @@ func NewResourceOptions(streams options.IOStreams) *ResourceOptions {
 		PrintFlags:   printer.NewPrintFlags(),
 		deployConfig: options.NewDeployOptions(),
 		Arch:         "",
-		indexer:      deliveryindexer.NewRegistryPackageInventoryIndexer(nil),
 	}
 }
 
@@ -173,6 +175,7 @@ func NewCmdResourceList(o *ResourceOptions) *cobra.Command {
 	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "offline resource arch.")
 	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for offline packages")
 	cmd.Flags().BoolVar(&o.Refresh, "refresh", o.Refresh, "refresh registry-derived offline package inventory")
+	addRegistryFlags(cmd, &o.registryFiles)
 
 	utils.CheckErr(cmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return o.listType(toComplete), cobra.ShellCompDirectiveNoFileComp
@@ -213,6 +216,7 @@ func NewCmdResourceInspect(o *ResourceOptions) *cobra.Command {
 	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "offline resource arch.")
 	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for offline packages")
 	cmd.Flags().BoolVar(&o.Refresh, "refresh", o.Refresh, "refresh registry-derived offline package inventory")
+	addRegistryFlags(cmd, &o.registryFiles)
 
 	utils.CheckErr(cmd.MarkFlagRequired("name"))
 	utils.CheckErr(cmd.MarkFlagRequired("version"))
@@ -236,10 +240,34 @@ func NewCmdResourceRefresh(o *ResourceOptions) *cobra.Command {
 
 	o.cliOpts.AddFlags(cmd.Flags())
 	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for offline packages")
+	addRegistryFlags(cmd, &o.registryFiles)
 	return cmd
 }
 
+func addRegistryFlags(cmd *cobra.Command, opts *deliveryregistry.FileOptions) {
+	cmd.Flags().StringVar(&opts.Scheme, "registry-scheme", opts.Scheme, "registry transport scheme: https or http (default https)")
+	cmd.Flags().StringVar(&opts.Username, "registry-username", opts.Username, "registry username or robot account")
+	cmd.Flags().StringVar(&opts.PasswordFile, "registry-password-file", opts.PasswordFile, "file containing the registry password or token")
+	cmd.Flags().StringVar(&opts.CAFile, "registry-ca-file", opts.CAFile, "PEM CA file used to verify the registry")
+	cmd.Flags().BoolVar(&opts.SkipTLSVerify, "registry-skip-tls-verify", opts.SkipTLSVerify,
+		"skip registry TLS verification (not recommended)")
+}
+
 func (o *ResourceOptions) Complete() error {
+	if o.indexer != nil || o.Registry == "" {
+		return nil
+	}
+	var config *deliveryregistry.Config
+	var err error
+	if o.registryFiles.Specified() {
+		config, err = o.registryFiles.Resolve(o.Registry)
+	} else {
+		config, err = deliveryregistry.Resolve(o.Registry)
+	}
+	if err != nil {
+		return err
+	}
+	o.indexer = deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(config)
 	return nil
 }
 

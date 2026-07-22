@@ -34,6 +34,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/deploy"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/autodetection"
@@ -128,6 +129,16 @@ type JoinOptions struct {
 	joinConfigPath string
 
 	PackageRegistry string `json:"packageRegistry" yaml:"packageRegistry,omitempty"`
+
+	packageRegistryFiles      deliveryregistry.FileOptions
+	packageRegistryConfig     *deliveryregistry.Config
+	packageRegistryConfigPath string
+	rotatePackageRegistry     bool
+	deployedPackageRegistry   string
+	packageRegistryDownload   func(*sshutils.SSH, string, string, string) error
+	packageRegistryCopy       func(*sshutils.SSH, string, string, string) error
+	packageRegistryExists     func(*sshutils.SSH, string, string) (bool, error)
+	packageRegistryRemove     func(*sshutils.SSH, string, string) error
 }
 
 type JoinConfig struct {
@@ -148,7 +159,43 @@ func NewJoinOptions(streams options.IOStreams) *JoinOptions {
 		sshConfig:       sshutils.NewSSH(),
 		serverSSHConfig: &sshutils.SSH{},
 		sshRunner:       sshutils.SSHCmdWithSudo,
+		packageRegistryDownload: func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
+			return sshConfig.DownloadSudo(host, localPath, remotePath)
+		},
+		packageRegistryCopy: func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
+			return sshConfig.CopySudoMode(host, localPath, remotePath, deliveryregistry.PrivateFileMode)
+		},
+		packageRegistryExists: remotePackageRegistryConfigExists,
+		packageRegistryRemove: remotePackageRegistryConfigRemove,
 	}
+}
+
+func remotePackageRegistryConfigExists(sshConfig *sshutils.SSH, host, remotePath string) (bool, error) {
+	result, err := sshutils.SSHCmdWithSudo(sshConfig, host, fmt.Sprintf(
+		"if test -e %s; then echo present; else echo absent; fi", remotePath,
+	))
+	if err != nil {
+		return false, err
+	}
+	if resultErr := result.Error(); resultErr != nil {
+		return false, resultErr
+	}
+	switch strings.TrimSpace(result.Stdout) {
+	case "present":
+		return true, nil
+	case "absent":
+		return false, nil
+	default:
+		return false, fmt.Errorf("unexpected package registry config existence result from %s: %q", host, result.Stdout)
+	}
+}
+
+func remotePackageRegistryConfigRemove(sshConfig *sshutils.SSH, host, remotePath string) error {
+	result, err := sshutils.SSHCmdWithSudo(sshConfig, host, "rm -f "+remotePath)
+	if err != nil {
+		return err
+	}
+	return result.Error()
 }
 
 func NewCmdJoin(streams options.IOStreams) *cobra.Command {
@@ -175,6 +222,7 @@ func NewCmdJoin(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringArrayVar(&o.agents, "agent", o.agents, "join agent node.")
 	cmd.Flags().StringArrayVar(&o.floatIPs, "float-ip", o.floatIPs, "Kc agent ip and float ip.")
 	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", o.PackageRegistry, "OCI registry host:port for KubeClipper offline packages. Default is inherited from the deploy config.")
+	addPackageRegistryClientFlags(cmd, &o.packageRegistryFiles)
 	cmd.Flags().StringVar(&o.joinConfigPath, "join-config", "", "path to the join config file to use for join")
 
 	options.AddFlagsToSSH(o.sshConfig, cmd.Flags())
@@ -184,6 +232,17 @@ func NewCmdJoin(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.serverSSHConfig.PkPassword, "server-ssh-pk-password", "", "SSH private key password for the server node")
 	cmd.Flags().IntVar(&o.serverSSHConfig.Port, "server-ssh-port", 0, "SSH port for the server node (defaults to deploy SSH config)")
 	return cmd
+}
+
+func addPackageRegistryClientFlags(cmd *cobra.Command, opts *deliveryregistry.FileOptions) {
+	cmd.Flags().StringVar(&opts.Scheme, "package-registry-scheme", opts.Scheme,
+		"Package Registry transport scheme: https or http (default inherited from the server)")
+	cmd.Flags().StringVar(&opts.Username, "package-registry-username", opts.Username, "Package Registry username or robot account")
+	cmd.Flags().StringVar(&opts.PasswordFile, "package-registry-password-file", opts.PasswordFile,
+		"File containing the Package Registry password or token")
+	cmd.Flags().StringVar(&opts.CAFile, "package-registry-ca-file", opts.CAFile, "PEM CA file used to verify the Package Registry")
+	cmd.Flags().BoolVar(&opts.SkipTLSVerify, "package-registry-skip-tls-verify", opts.SkipTLSVerify,
+		"Skip Package Registry TLS verification (not recommended)")
 }
 
 func readJoinConfig(path string) (*JoinConfig, error) {
@@ -251,9 +310,14 @@ func (c *JoinOptions) Complete() error {
 	if c.serverSourceRevision == "" {
 		return errors.New("kubeclipper server source revision is empty")
 	}
+	deployedPackageRegistry := strings.TrimRight(strings.TrimSpace(c.deployConfig.PackageRegistry), "/")
 	if strings.TrimSpace(c.PackageRegistry) != "" {
 		c.deployConfig.PackageRegistry = c.PackageRegistry
 	}
+	c.deployConfig.PackageRegistry = strings.TrimRight(strings.TrimSpace(c.deployConfig.PackageRegistry), "/")
+	c.rotatePackageRegistry = c.packageRegistryFiles.Specified() ||
+		c.deployConfig.PackageRegistry != deployedPackageRegistry
+	c.deployedPackageRegistry = deployedPackageRegistry
 	// overwrite by specify
 	if c.ipDetect != "" {
 		c.deployConfig.IPDetect = c.ipDetect
@@ -359,6 +423,11 @@ func (c *JoinOptions) RunJoinFunc() error {
 }
 
 func (c *JoinOptions) RunJoinNode() error {
+	cleanup, err := c.preparePackageRegistryConfig()
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 	if err := c.runJoinServerNode(); err != nil {
 		return fmt.Errorf("join server node failed: %s", err.Error())
 	}
@@ -366,7 +435,186 @@ func (c *JoinOptions) RunJoinNode() error {
 	if err := c.runJoinAgentNode(); err != nil {
 		return fmt.Errorf("join agent node failed: %s", err.Error())
 	}
+	if c.rotatePackageRegistry {
+		if err := c.updateExistingPackageRegistryConfigs(func() error {
+			return deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true)
+		}); err != nil {
+			return c.failJoinWithRollbackAndConfig(errors.Wrap(err, "update existing package registry config"))
+		}
+	}
 
+	return nil
+}
+
+func (c *JoinOptions) preparePackageRegistryConfig() (func(), error) {
+	if c.rotatePackageRegistry {
+		registryConfig, err := c.packageRegistryFiles.Resolve(c.deployConfig.PackageRegistry)
+		if err != nil {
+			return func() {}, err
+		}
+		path, cleanup, err := writeTemporaryPackageRegistryConfig(registryConfig)
+		if err != nil {
+			return func() {}, err
+		}
+		c.packageRegistryConfig, c.packageRegistryConfigPath = registryConfig, path
+		return cleanup, nil
+	}
+
+	file, err := os.CreateTemp("", "kc-package-registry-*.json")
+	if err != nil {
+		return func() {}, err
+	}
+	path := file.Name()
+	if err = file.Close(); err != nil {
+		_ = os.Remove(path)
+		return func() {}, err
+	}
+	cleanup := func() { _ = os.Remove(path) }
+	if err = c.packageRegistryDownload(c.serverSSHConfig, c.deployConfig.ServerIPs[0], path, deliveryregistry.ServerConfigPath); err != nil {
+		cleanup()
+		return func() {}, errors.Wrap(err,
+			"inherit package registry credentials from server; provide package registry TLS/auth flags when joining an older deployment")
+	}
+	if err = os.Chmod(path, deliveryregistry.PrivateFileMode); err != nil {
+		cleanup()
+		return func() {}, err
+	}
+	registryConfig, err := deliveryregistry.Load(path)
+	if err != nil {
+		cleanup()
+		return func() {}, err
+	}
+	if registryConfig.Registry != strings.TrimRight(strings.TrimSpace(c.deployConfig.PackageRegistry), "/") {
+		cleanup()
+		return func() {}, fmt.Errorf(
+			"server package registry credentials are for %s, not %s",
+			registryConfig.Registry, c.deployConfig.PackageRegistry,
+		)
+	}
+	c.packageRegistryConfig, c.packageRegistryConfigPath = registryConfig, path
+	return cleanup, nil
+}
+
+func writeTemporaryPackageRegistryConfig(registryConfig *deliveryregistry.Config) (path string, cleanup func(), err error) {
+	dir, err := os.MkdirTemp("", "kc-package-registry-")
+	if err != nil {
+		return "", func() {}, err
+	}
+	cleanup = func() { _ = os.RemoveAll(dir) }
+	path = filepath.Join(dir, "package-registry.json")
+	if err = deliveryregistry.Write(path, registryConfig); err != nil {
+		cleanup()
+		return "", func() {}, err
+	}
+	return path, cleanup, nil
+}
+
+func (c *JoinOptions) copyPackageRegistryConfig(sshConfig *sshutils.SSH, hosts []string, remotePath string) error {
+	for _, host := range hosts {
+		if err := c.packageRegistryCopy(sshConfig, host, c.packageRegistryConfigPath, remotePath); err != nil {
+			return fmt.Errorf("copy package registry config to %s: %w", host, err)
+		}
+	}
+	return nil
+}
+
+type packageRegistryTarget struct {
+	host       string
+	remotePath string
+	sshConfig  *sshutils.SSH
+}
+
+func (c *JoinOptions) existingPackageRegistryTargets() []packageRegistryTarget {
+	servers := make(map[string]struct{}, len(c.deployConfig.ServerIPs))
+	targets := make([]packageRegistryTarget, 0, len(c.deployConfig.ServerIPs)+len(c.deployConfig.Agents))
+	for _, host := range c.deployConfig.ServerIPs {
+		servers[host] = struct{}{}
+		targets = append(targets, packageRegistryTarget{
+			host: host, remotePath: deliveryregistry.ServerConfigPath, sshConfig: c.serverSSHConfig,
+		})
+	}
+	for _, host := range c.deployConfig.Agents.ListIP() {
+		if c.parseAgent.Exists(host) {
+			continue
+		}
+		sshConfig := c.deployConfig.AgentSSHConfig
+		if _, serverLocal := servers[host]; serverLocal || sshConfig == nil {
+			sshConfig = c.serverSSHConfig
+		}
+		targets = append(targets, packageRegistryTarget{
+			host: host, remotePath: deliveryregistry.AgentConfigPath, sshConfig: sshConfig,
+		})
+	}
+	return targets
+}
+
+func (c *JoinOptions) updateExistingPackageRegistryConfigs(commit func() error) error {
+	backupDir, err := os.MkdirTemp("", "kc-package-registry-backup-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(backupDir)
+
+	targets := c.existingPackageRegistryTargets()
+	backups := make([]string, len(targets))
+	for index, target := range targets {
+		backupPath := filepath.Join(backupDir, fmt.Sprintf("target-%d.json", index))
+		if err = c.packageRegistryDownload(target.sshConfig, target.host, backupPath, target.remotePath); err != nil {
+			exists, existsErr := c.packageRegistryExists(target.sshConfig, target.host, target.remotePath)
+			if existsErr != nil {
+				return fmt.Errorf("backup package registry config %s from %s failed (%s); existence check failed: %w",
+					target.remotePath, target.host, err.Error(), existsErr)
+			}
+			if exists {
+				return fmt.Errorf("backup package registry config %s from %s: %w", target.remotePath, target.host, err)
+			}
+			continue
+		}
+		if chmodErr := os.Chmod(backupPath, deliveryregistry.PrivateFileMode); chmodErr != nil {
+			return chmodErr
+		}
+		backups[index] = backupPath
+	}
+
+	updated := 0
+	for index, target := range targets {
+		if err = c.packageRegistryCopy(target.sshConfig, target.host, c.packageRegistryConfigPath, target.remotePath); err != nil {
+			rollbackErr := c.restorePackageRegistryConfigs(targets[:updated], backups[:updated])
+			if rollbackErr != nil {
+				return fmt.Errorf("update %s on %s failed (%s); rollback failed: %w", target.remotePath, target.host, err.Error(), rollbackErr)
+			}
+			return fmt.Errorf("update %s on %s: %w; earlier targets were restored", target.remotePath, target.host, err)
+		}
+		updated = index + 1
+	}
+	if err = commit(); err != nil {
+		rollbackErr := c.restorePackageRegistryConfigs(targets, backups)
+		if rollbackErr != nil {
+			return fmt.Errorf("persist package registry config failed (%s); rollback failed: %w", err.Error(), rollbackErr)
+		}
+		return fmt.Errorf("persist package registry config: %w; node configs were restored", err)
+	}
+	return nil
+}
+
+func (c *JoinOptions) restorePackageRegistryConfigs(targets []packageRegistryTarget, backups []string) error {
+	var failures []string
+	for index := len(targets); index > 0; {
+		index--
+		target := targets[index]
+		var err error
+		if backups[index] == "" {
+			err = c.packageRegistryRemove(target.sshConfig, target.host, target.remotePath)
+		} else {
+			err = c.packageRegistryCopy(target.sshConfig, target.host, backups[index], target.remotePath)
+		}
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s %s: %v", target.host, target.remotePath, err))
+		}
+	}
+	if len(failures) > 0 {
+		return errors.New(strings.Join(failures, "; "))
+	}
 	return nil
 }
 
@@ -384,9 +632,15 @@ func (c *JoinOptions) runJoinAgentNode() error {
 	// process is interrupted after an agent starts, force-clean still knows
 	// both the host and the transport that were used to reach it.
 	c.deployConfig.AgentSSHConfig = agentSSHConfigForPersistence(c.sshConfig)
+	packageRegistry := c.deployConfig.PackageRegistry
+	if c.rotatePackageRegistry {
+		c.deployConfig.PackageRegistry = c.deployedPackageRegistry
+	}
 	if err := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
+		c.deployConfig.PackageRegistry = packageRegistry
 		return errors.Wrap(err, "persist planned agents in deploy config failed")
 	}
+	c.deployConfig.PackageRegistry = packageRegistry
 
 	for ip, metadata := range c.parseAgent {
 		if err := c.agentNodeFiles(ip, metadata); err != nil {
@@ -418,6 +672,9 @@ func (c *JoinOptions) failJoinWithRollbackAndConfig(joinErr error) error {
 	rollbackErr := c.rollbackJoinedAgents()
 	for ip := range c.parseAgent {
 		delete(c.deployConfig.Agents, ip)
+	}
+	if c.rotatePackageRegistry {
+		c.deployConfig.PackageRegistry = c.deployedPackageRegistry
 	}
 	persistErr := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true)
 	if rollbackErr != nil || persistErr != nil {
@@ -475,12 +732,16 @@ func (c *JoinOptions) preCheckKcAgent(ip string) bool {
 func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata) error {
 	if err := deploy.InstallBootstrapAssetsFromRegistry(context.Background(), deploy.BootstrapInstallOptions{
 		Registry:                  c.deployConfig.PackageRegistry,
+		RegistryConfig:            c.packageRegistryConfig,
 		SSH:                       c.sshConfig,
 		Hosts:                     []string{node},
 		NeedAgent:                 false,
 		KubeClipperSourceRevision: c.serverSourceRevision,
 	}); err != nil {
 		return errors.Wrap(err, "install bootstrap agent from registry")
+	}
+	if err := c.copyPackageRegistryConfig(c.sshConfig, []string{node}, deliveryregistry.AgentConfigPath); err != nil {
+		return err
 	}
 	err := c.sendCerts(node)
 	if err != nil {

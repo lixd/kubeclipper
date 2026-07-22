@@ -105,6 +105,48 @@ func TestRegistryPackageIndexerIndex(t *testing.T) {
 	}
 }
 
+func TestRegistryPackageIndexerScopesProjectPrefix(t *testing.T) {
+	img := testPackageImage(t, deliveryapis.PackageManifest{
+		SchemaVersion:  1,
+		Kind:           "cri",
+		Name:           "containerd",
+		Version:        "2.1.0",
+		ContentProfile: deliveryapis.ContentProfileRuntime,
+		Platform:       deliveryapis.PackageManifestPlatform{OS: "linux", Arch: "amd64"},
+		Contents: []deliveryapis.PackageManifestFile{
+			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
+		},
+	})
+	client := &fakeRegistryClient{
+		repositories: []string{
+			"team-a/kubeclipper/packages/cri/containerd",
+			"team-b/kubeclipper/packages/cri/containerd",
+		},
+		tags: map[string][]string{
+			"team-a/kubeclipper/packages/cri/containerd": {"2.1.0"},
+		},
+		artifacts: map[string][]RegistryPackageArtifact{
+			"harbor.example.com/team-a/kubeclipper/packages/cri/containerd:2.1.0": {{
+				Digest: testDigest,
+				Image:  img,
+			}},
+		},
+	}
+	inventory, err := NewRegistryPackageInventoryIndexer(client).Index(context.Background(), "harbor.example.com/team-a")
+	if err != nil {
+		t.Fatalf("Index() error = %v", err)
+	}
+	if len(inventory.Spec.Packages) != 1 {
+		t.Fatalf("package count = %d, want 1", len(inventory.Spec.Packages))
+	}
+	if got := inventory.Spec.Packages[0].Transport.Ref; got != "harbor.example.com/team-a/kubeclipper/packages/cri/containerd:2.1.0" {
+		t.Fatalf("transport ref = %q", got)
+	}
+	if client.tagCalls != 1 || client.resolveCalls != 1 {
+		t.Fatalf("scoped calls = tags:%d resolve:%d, want 1/1", client.tagCalls, client.resolveCalls)
+	}
+}
+
 func TestRegistryPackageIndexerProjectsMultiArchArtifacts(t *testing.T) {
 	amd64Image := testPackageImage(t, deliveryapis.PackageManifest{
 		SchemaVersion:  1,

@@ -119,6 +119,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Configure Package Registry client
+        env:
+          REGISTRY_PREFIX: ${{ steps.settings.outputs.registry_prefix }}
+          REGISTRY_USERNAME: ${{ github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          umask 077
+          jq -n \
+            --arg registry "$REGISTRY_PREFIX" \
+            --arg username "$REGISTRY_USERNAME" \
+            --arg password "$REGISTRY_PASSWORD" \
+            '{registry: $registry, scheme: "https", username: $username, password: $password}' \
+            > "$RUNNER_TEMP/package-registry.json"
+          echo "KC_PACKAGE_REGISTRY_CONFIG=$RUNNER_TEMP/package-registry.json" >> "$GITHUB_ENV"
+
       - name: Build OCI publishing tools
         run: |
           set -euo pipefail

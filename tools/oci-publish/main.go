@@ -26,6 +26,7 @@ import (
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliverypublisher "github.com/kubeclipper/kubeclipper/pkg/delivery/publisher"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
 type options struct {
@@ -38,6 +39,7 @@ type options struct {
 	Profile          string
 	SourceRevision   string
 	ExternalContents externalContentFlags
+	RegistryFiles    deliveryregistry.FileOptions
 }
 
 type externalContentFlags []deliveryapis.ArtifactContent
@@ -78,6 +80,11 @@ func (f *externalContentFlags) Set(value string) error {
 
 func main() {
 	opts := parseFlags()
+	registryConfig, err := resolveRegistryConfig(opts.Registry, opts.RegistryFiles)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "configure package registry failed: %v\n", err)
+		os.Exit(1)
+	}
 	result, err := deliverypublisher.NewOCIArtifactPublisher().Publish(deliverypublisher.PublishRequest{
 		PackagePath:      opts.PackagePath,
 		Kind:             opts.Kind,
@@ -88,6 +95,7 @@ func main() {
 		ContentProfile:   opts.Profile,
 		SourceRevision:   opts.SourceRevision,
 		ExternalContents: []deliveryapis.ArtifactContent(opts.ExternalContents),
+		RegistryConfig:   registryConfig,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "publish package failed: %v\n", err)
@@ -112,6 +120,7 @@ func parseFlags() options {
 	flag.StringVar(&opts.Registry, "registry", "", "OCI registry host:port")
 	flag.StringVar(&opts.Profile, "profile", "", "optional content profile override")
 	flag.StringVar(&opts.SourceRevision, "source-revision", os.Getenv("KC_SOURCE_REVISION"), "source commit revision recorded in OCI metadata")
+	addRegistryFlags(&opts.RegistryFiles)
 	flag.Var(&opts.ExternalContents, "external-content", "external content descriptor: name=<name>,file=<file>,transport=<oci|helm-oci>,ref=<ref>,digest=<sha256>,mediaType=<type>")
 	flag.Parse()
 
@@ -120,4 +129,19 @@ func parseFlags() options {
 		os.Exit(2)
 	}
 	return opts
+}
+
+func addRegistryFlags(opts *deliveryregistry.FileOptions) {
+	flag.StringVar(&opts.Scheme, "registry-scheme", opts.Scheme, "registry transport scheme: https or http (default https)")
+	flag.StringVar(&opts.Username, "registry-username", opts.Username, "registry username or robot account")
+	flag.StringVar(&opts.PasswordFile, "registry-password-file", opts.PasswordFile, "file containing the registry password or token")
+	flag.StringVar(&opts.CAFile, "registry-ca-file", opts.CAFile, "PEM CA file used to verify the registry")
+	flag.BoolVar(&opts.SkipTLSVerify, "registry-skip-tls-verify", opts.SkipTLSVerify, "skip registry TLS verification (not recommended)")
+}
+
+func resolveRegistryConfig(registry string, opts deliveryregistry.FileOptions) (*deliveryregistry.Config, error) {
+	if opts.Specified() {
+		return opts.Resolve(registry)
+	}
+	return deliveryregistry.Resolve(registry)
 }

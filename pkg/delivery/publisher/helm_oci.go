@@ -22,6 +22,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -37,6 +38,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
 type HelmChartPublishRequest struct {
@@ -44,6 +46,7 @@ type HelmChartPublishRequest struct {
 	Registry         string
 	RepositoryPrefix string
 	Name             string
+	RegistryConfig   *deliveryregistry.Config
 }
 
 type HelmChartPublishResult struct {
@@ -78,8 +81,22 @@ func PublishHelmChart(req HelmChartPublishRequest) (*HelmChartPublishResult, err
 	}
 	ref := fmt.Sprintf("%s/%s/%s:%s", strings.TrimRight(req.Registry, "/"), prefix, metadata.Name, metadata.Version)
 	img := newHelmChartImage(configData, chartData)
-	if err = crane.Push(img, ref, crane.Insecure); err != nil {
+	registryConfig := req.RegistryConfig
+	if registryConfig == nil {
+		registryConfig, err = deliveryregistry.Resolve(req.Registry)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if validationErr := registryConfig.ValidateRegistry(req.Registry); validationErr != nil {
+		return nil, validationErr
+	}
+	craneOpts, err := registryConfig.CraneOptions(context.Background())
+	if err != nil {
 		return nil, err
+	}
+	if pushErr := crane.Push(img, ref, craneOpts...); pushErr != nil {
+		return nil, pushErr
 	}
 	digest, err := img.Digest()
 	if err != nil {

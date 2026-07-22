@@ -39,10 +39,10 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
-	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
 
@@ -122,33 +122,26 @@ func (i *Chart) downloadHelmOCIChart(ctx context.Context, opts component.Options
 	if err := os.MkdirAll(dstDir, 0755); err != nil {
 		return "", err
 	}
-	before, err := chartArchives(dstDir)
-	if err != nil {
-		return "", err
-	}
-	pullRef := "oci://" + ref
-	if _, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "helm", "pull", pullRef, "--version", i.Version, "--destination", dstDir); err != nil {
-		if _, retryErr := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "helm", "pull", pullRef, "--version", i.Version, "--destination", dstDir, "--plain-http"); retryErr != nil {
-			if fallbackErr := pullHelmOCIChartArchive(ref, i.Version, chartPath); fallbackErr != nil {
-				return "", fmt.Errorf("helm pull failed: %v; oci chart pull fallback failed: %w", err, fallbackErr)
-			}
-			return chartPath, nil
-		}
-	}
-	pulled, err := resolvePulledChartArchive(dstDir, ref, i.Version, content.File, before)
-	if err != nil {
-		return "", err
-	}
-	if pulled != chartPath {
-		if err := os.Rename(pulled, chartPath); err != nil {
-			return "", err
-		}
-	}
-	return chartPath, nil
+	return chartPath, pullHelmOCIChartArchive(ctx, ref, i.Version, content.Transport.Digest, chartPath)
 }
 
-func pullHelmOCIChartArchive(ref, version, chartPath string) error {
-	image, err := crane.Pull(ref+":"+version, crane.Insecure)
+func pullHelmOCIChartArchive(ctx context.Context, ref, version, digest, chartPath string) error {
+	config, err := deliveryregistry.ResolveReference(ref)
+	if err != nil {
+		return err
+	}
+	if validationErr := config.ValidateReference(ref); validationErr != nil {
+		return validationErr
+	}
+	opts, err := config.CraneOptions(ctx)
+	if err != nil {
+		return err
+	}
+	pullRef := ref + ":" + version
+	if digest != "" {
+		pullRef = ref + "@" + digest
+	}
+	image, err := crane.Pull(pullRef, opts...)
 	if err != nil {
 		return err
 	}
