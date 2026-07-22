@@ -103,6 +103,10 @@ Linux Actions 和后续 Harbor 资格测试补齐。
 
 ## 2026-07-16 发布复审
 
+> 本节保留当时的审查背景和 `cf2f967` 历史证据。关于 package/image Registry
+> 边界、`--local-registry` 参数和 package Registry 认证/TLS 的结论，均已由
+> 2026-07-22 的“最新复审”更新；请勿将本节中的“尚未实现”表述视为当前状态。
+
 ### 最终发布提交尚未形成
 
 - 本次复审的分支基线为 `6485480c75ced9bf212fa460556fceed32f8db2b`，相对
