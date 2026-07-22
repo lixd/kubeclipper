@@ -54,10 +54,10 @@ func TestWithResolvedArtifactPlan(t *testing.T) {
 		CNI:     "calico",
 	}
 	cluster := &v1.Cluster{
-		KubernetesVersion: "v1.36.0",
-		LocalRegistry:     "registry.local:5000",
-		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
-		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+		KubernetesVersion:     "v1.36.0",
+		ResolvedImageRegistry: "images.example.com/kubernetes",
+		ContainerRuntime:      v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:                   v1.CNI{Type: "calico", Version: "v3.30.0"},
 	}
 
 	ctx, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionInstall)
@@ -89,10 +89,10 @@ func TestWithResolvedArtifactPlanForOnlineCluster(t *testing.T) {
 		CNI:     "calico",
 	}
 	cluster := &v1.Cluster{
-		KubernetesVersion: "v1.36.0",
-		LocalRegistry:     "registry.local:5000",
-		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
-		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+		KubernetesVersion:     "v1.36.0",
+		ResolvedImageRegistry: "images.example.com/kubernetes",
+		ContainerRuntime:      v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:                   v1.CNI{Type: "calico", Version: "v3.30.0"},
 	}
 
 	ctx, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionInstall)
@@ -198,10 +198,10 @@ func TestWithResolvedArtifactPlanUsesRegistryDerivedCatalog(t *testing.T) {
 		Masters: component.NodeList{{ID: "master-1", Arch: "amd64"}},
 	}
 	cluster := &v1.Cluster{
-		KubernetesVersion: "v1.36.0",
-		LocalRegistry:     "registry.local:5000",
-		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
-		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+		KubernetesVersion:     "v1.36.0",
+		ResolvedImageRegistry: "images.example.com/kubernetes",
+		ContainerRuntime:      v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:                   v1.CNI{Type: "calico", Version: "v3.30.0"},
 	}
 
 	ctx, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionInstall)
@@ -250,6 +250,29 @@ func TestResolveDeliverySourceForConfigUsesDeployConfigPackageRegistry(t *testin
 	}
 }
 
+func TestResolveDeliverySourceDoesNotUseClusterImageRegistry(t *testing.T) {
+	coreOperator := newFakeDeliveryCoreOperator(t, deliveryPolicy())
+	indexer := &recordingCatalogIndexer{catalog: registryResolverCatalog()}
+	cluster := &v1.Cluster{
+		ImageRegistry:         "kubernetes-images",
+		ResolvedImageRegistry: "images.example.com/kubernetes",
+	}
+
+	source, err := resolveDeliverySource(context.Background(), nil, coreOperator, cluster, indexer)
+	if err != nil {
+		t.Fatalf("resolveDeliverySource() error: %+v", err)
+	}
+	if source.registry != "packages.example.com" {
+		t.Fatalf("package registry = %q, want packages.example.com", source.registry)
+	}
+	if _, err = source.inventoryStore.Get(context.Background()); err != nil {
+		t.Fatalf("InventoryStore.Get() error: %+v", err)
+	}
+	if indexer.registry != "packages.example.com" {
+		t.Fatalf("indexer registry = %q, want packages.example.com", indexer.registry)
+	}
+}
+
 func TestWithResolvedArtifactPlanReturnsRegistryErrorWhenIndexerFails(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -268,10 +291,10 @@ func TestWithResolvedArtifactPlanReturnsRegistryErrorWhenIndexerFails(t *testing
 		Masters: component.NodeList{{ID: "master-1", Arch: "amd64"}},
 	}
 	cluster := &v1.Cluster{
-		KubernetesVersion: "v1.36.0",
-		LocalRegistry:     "registry.local:5000",
-		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
-		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+		KubernetesVersion:     "v1.36.0",
+		ResolvedImageRegistry: "images.example.com/kubernetes",
+		ContainerRuntime:      v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:                   v1.CNI{Type: "calico", Version: "v3.30.0"},
 	}
 
 	_, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionInstall)
@@ -332,10 +355,10 @@ func TestWithResolvedArtifactPlanUsesUpgradeTargetVersion(t *testing.T) {
 		Masters:     component.NodeList{{ID: "master-1", Arch: "amd64"}},
 	}
 	cluster := &v1.Cluster{
-		KubernetesVersion: "v1.34.0",
-		LocalRegistry:     "registry.local:5000",
-		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
-		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+		KubernetesVersion:     "v1.34.0",
+		ResolvedImageRegistry: "images.example.com/kubernetes",
+		ContainerRuntime:      v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:                   v1.CNI{Type: "calico", Version: "v3.30.0"},
 	}
 
 	ctx, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionUpgrade)
@@ -492,6 +515,12 @@ func newFakeDeliveryCoreOperator(t *testing.T, policy *deliveryapis.SupportPolic
 		configMap: policyConfigMap,
 		configMaps: map[string]*v1.ConfigMap{
 			deliveryapis.DeliveryPolicyConfigMapName: policyConfigMap,
+			constatns.DeployConfigConfigMapName: {
+				ObjectMeta: metav1.ObjectMeta{Name: constatns.DeployConfigConfigMapName},
+				Data: map[string]string{
+					constatns.DeployConfigConfigMapKey: "packageRegistry: packages.example.com\n",
+				},
+			},
 		},
 	}
 }

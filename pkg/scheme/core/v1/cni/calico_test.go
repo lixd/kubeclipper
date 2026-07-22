@@ -49,7 +49,7 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 					PodIPv4CIDR: constatns.ClusterPodSubnet,
 					PodIPv6CIDR: "aaa:bbb",
 					CNI: v1.CNI{
-						LocalRegistry: "172.0.0.1:5000",
+						ImageRegistry: "172.0.0.1:5000",
 						Type:          "calico",
 						Version:       "v3.26.1",
 						Calico: &v1.Calico{
@@ -71,7 +71,7 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 					DualStack:   false,
 					PodIPv4CIDR: "10.244.0.0/16",
 					CNI: v1.CNI{
-						LocalRegistry: "",
+						ImageRegistry: "",
 						Type:          "calico",
 						Version:       "v3.26.1",
 						Calico: &v1.Calico{
@@ -92,7 +92,7 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 					DualStack:   false,
 					PodIPv4CIDR: "10.244.0.0/16",
 					CNI: v1.CNI{
-						LocalRegistry: "",
+						ImageRegistry: "",
 						Type:          "calico",
 						Version:       "v3.26.1",
 						Calico: &v1.Calico{
@@ -110,11 +110,12 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 			stepper: CalicoRunnable{
 				KubeletDataDir: "/var/lib/kubelet",
 				BaseCni: BaseCni{
-					DualStack:   true,
-					PodIPv4CIDR: constatns.ClusterPodSubnet,
-					PodIPv6CIDR: "fd00::/64",
+					ResolvedImageRegistry: "172.0.0.1:5000",
+					DualStack:             true,
+					PodIPv4CIDR:           constatns.ClusterPodSubnet,
+					PodIPv6CIDR:           "fd00::/64",
 					CNI: v1.CNI{
-						LocalRegistry: "172.0.0.1:5000",
+						ImageRegistry: "172.0.0.1:5000",
 						Type:          "calico",
 						Version:       "v3.29.6",
 						Calico: &v1.Calico{
@@ -133,11 +134,12 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 			stepper: CalicoRunnable{
 				KubeletDataDir: "/var/lib/kubelet",
 				BaseCni: BaseCni{
-					DualStack:   true,
-					PodIPv4CIDR: constatns.ClusterPodSubnet,
-					PodIPv6CIDR: "fd00::/64",
+					ResolvedImageRegistry: "172.0.0.1:5000",
+					DualStack:             true,
+					PodIPv4CIDR:           constatns.ClusterPodSubnet,
+					PodIPv6CIDR:           "fd00::/64",
 					CNI: v1.CNI{
-						LocalRegistry: "172.0.0.1:5000",
+						ImageRegistry: "172.0.0.1:5000",
 						Type:          "calico",
 						Version:       "v3.31.5",
 						Calico: &v1.Calico{
@@ -182,6 +184,9 @@ func TestCNI_renderCalicoTo(t *testing.T) {
 				}
 			}
 			if tt.name == "v3.31.5" {
+				if !strings.Contains(output, "registry: 172.0.0.1:5000") {
+					t.Errorf("rendered template should use the resolved Registry address, got: %s", output)
+				}
 				if !strings.Contains(output, "v1.40.8") {
 					t.Errorf("rendered template should contain tigera operator version v1.40.8, got: %s", output)
 				}
@@ -277,11 +282,11 @@ func TestCalicoPrepareImagesSkipsTarballLoadWhenRegistryConfigured(t *testing.T)
 	runnable := &CalicoRunnable{
 		BaseCni: BaseCni{
 			CNI: v1.CNI{
-				Type:          "calico",
-				Version:       "v3.24.5",
-				Offline:       true,
-				LocalRegistry: "registry.local:5000",
+				Type:    "calico",
+				Version: "v3.24.5",
+				Offline: true,
 			},
+			ResolvedImageRegistry: "registry.local:5000",
 		},
 	}
 
@@ -294,18 +299,28 @@ func TestCalicoPrepareImagesSkipsTarballLoadWhenRegistryConfigured(t *testing.T)
 	}
 }
 
-func TestCalicoPrepareImagesRequiresLocalRegistry(t *testing.T) {
+func TestCalicoPrepareImagesRequiresImageRegistry(t *testing.T) {
 	runnable := &CalicoRunnable{
 		BaseCni: BaseCni{
 			CNI: v1.CNI{
-				Type:          "calico",
-				Version:       "v3.24.5",
-				Offline:       true,
-				LocalRegistry: "",
+				Type:    "calico",
+				Version: "v3.24.5",
+				Offline: true,
 			},
 		},
 	}
-	if _, err := runnable.PrepareImages(context.Background(), []v1.StepNode{{ID: "master-1"}}); err == nil || !strings.Contains(err.Error(), "localRegistry") {
-		t.Fatalf("PrepareImages() error = %+v, want localRegistry error", err)
+	if _, err := runnable.PrepareImages(context.Background(), []v1.StepNode{{ID: "master-1"}}); err == nil || !strings.Contains(err.Error(), "imageRegistry") {
+		t.Fatalf("PrepareImages() error = %+v, want imageRegistry error", err)
+	}
+}
+
+func TestCalicoRuntimeImageRegistryIsSerialized(t *testing.T) {
+	runnable := CalicoRunnable{BaseCni: BaseCni{ResolvedImageRegistry: "127.0.0.1:5000"}}
+	data, err := json.Marshal(runnable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"imageRegistry":"127.0.0.1:5000"`) {
+		t.Fatalf("resolved Registry address missing from runtime command: %s", data)
 	}
 }

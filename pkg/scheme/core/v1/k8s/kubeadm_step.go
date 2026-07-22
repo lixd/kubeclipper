@@ -379,7 +379,7 @@ func (stepper *Package) InitStepper(c *v1.Cluster) *Package {
 	stepper.Offline = c.Offline()
 	stepper.Version = c.KubernetesVersion
 	stepper.CriType = c.ContainerRuntime.Type
-	stepper.LocalRegistry = c.LocalRegistry
+	stepper.ImageRegistry = c.ResolvedImageRegistry
 	stepper.KubeletDir = c.Kubelet.RootDir
 	return stepper
 }
@@ -454,7 +454,7 @@ func (stepper *KubeadmConfig) InitStepper(c *v1.Cluster, metadata *component.Ext
 	stepper.KubernetesVersion = c.KubernetesVersion
 	stepper.ControlPlaneEndpoint = cpEndpoint
 	stepper.CertSANs = c.GetAllCertSANs()
-	stepper.LocalRegistry = c.LocalRegistry
+	stepper.ImageRegistry = c.ResolvedImageRegistry
 	stepper.Offline = metadata.Offline
 	stepper.FeatureGates = c.FeatureGates
 	// TODO: No vip is currently introduced as controlPlaneEndpoint
@@ -603,7 +603,7 @@ func (stepper *ClusterNode) InitStepper(c *v1.Cluster, metadata *component.Extra
 	stepper.NodeRole = ""
 	stepper.WorkerNodeVIP = c.Networking.WorkerNodeVip
 	stepper.Masters = metadata.GetMasterNodeIP()
-	stepper.LocalRegistry = c.LocalRegistry
+	stepper.ImageRegistry = c.ResolvedImageRegistry
 	stepper.APIServerDomainName = apiServerDomain
 	// TODO: No vip is currently introduced as controlPlaneEndpoint
 	stepper.JoinMasterIP = metadata.Masters[0].NodeIPv4
@@ -1124,7 +1124,7 @@ func RemoveHostname(c *v1.Cluster, nodes []v1.StepNode) ([]v1.Step, error) {
 }
 
 func (stepper *KubectlTerminal) InitStepper(c *v1.Cluster) *KubectlTerminal {
-	stepper.ImageRegistryAddr = c.LocalRegistry
+	stepper.ImageRegistryAddr = c.ResolvedImageRegistry
 	return stepper
 }
 
@@ -1160,7 +1160,7 @@ func (stepper *KubectlTerminal) InstallSteps(stepMaster0 []v1.StepNode) ([]v1.St
 }
 
 func (stepper *KubectlTerminal) UninstallSteps() ([]v1.Step, error) {
-	return nil, fmt.Errorf("KubectlTerminal dose not support uninstall")
+	return nil, fmt.Errorf("KubectlTerminal does not support uninstall")
 }
 
 func (stepper *SAN) InitStepper() *SAN {

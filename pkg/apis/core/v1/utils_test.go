@@ -71,12 +71,11 @@ var (
 		KubernetesVersion: "v1.18.6",
 		// ControlPlaneEndpoint: "172.18.94.114:6443",
 		CertSANs:      nil,
-		LocalRegistry: "172.18.94.144:5000",
+		ImageRegistry: "172.18.94.144:5000",
 		ContainerRuntime: v1.ContainerRuntime{
-			Type:             v1.CRIDocker,
-			Version:          "19.03.12",
-			DataRootDir:      "/var/lib/docker",
-			InsecureRegistry: []string{"172.18.94.144:5000"},
+			Type:        v1.CRIDocker,
+			Version:     "19.03.12",
+			DataRootDir: "/var/lib/docker",
 		},
 		Networking: v1.Networking{
 			IPFamily:      v1.IPFamilyIPv4,
@@ -92,7 +91,7 @@ var (
 			DataDir: "/var/lib/etcd",
 		},
 		CNI: v1.CNI{
-			LocalRegistry: "172.18.94.144:5000",
+			ImageRegistry: "172.18.94.144:5000",
 			Type:          "calico",
 			Version:       "v3.11.2",
 			Calico: &v1.Calico{
@@ -320,7 +319,7 @@ func Test_parseOperationFromComponent_ResolvesAddonArtifacts(t *testing.T) {
 	meta := *extraMeta
 	meta.Offline = true
 	meta.CRI = v1.CRIDocker
-	meta.LocalRegistry = "registry.local:5000"
+	meta.ImageRegistry = "registry.local:5000"
 	for i := range meta.Masters {
 		meta.Masters[i].Arch = "amd64"
 	}
@@ -328,7 +327,7 @@ func Test_parseOperationFromComponent_ResolvesAddonArtifacts(t *testing.T) {
 		meta.Workers[i].Arch = "amd64"
 	}
 	cluster := *c1
-	cluster.LocalRegistry = "registry.local:5000"
+	cluster.ResolvedImageRegistry = "registry.local:5000"
 
 	lb := metallb.MetalLB{
 		Mode:      "L2",
@@ -391,11 +390,11 @@ func Test_parseOperationFromComponent_DoesNotResolveEmbeddedAddonAsPackage(t *te
 	meta := *extraMeta
 	meta.Offline = true
 	meta.CRI = v1.CRIContainerd
-	meta.LocalRegistry = "registry.local:5000"
+	meta.ImageRegistry = "registry.local:5000"
 	meta.Masters = component.NodeList{{ID: "master-1", Arch: "amd64"}}
 	meta.Workers = component.NodeList{{ID: "worker-1", Arch: "arm64"}}
 	cluster := *c1
-	cluster.LocalRegistry = meta.LocalRegistry
+	cluster.ResolvedImageRegistry = meta.ImageRegistry
 
 	lb := metallb.MetalLB{
 		Mode:      "L2",

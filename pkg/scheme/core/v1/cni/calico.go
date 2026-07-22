@@ -92,7 +92,7 @@ func (runnable *CalicoRunnable) InitStep(metadata *component.ExtraMetadata, cni 
 	}
 	stepper.CNI = *cni
 	stepper.KubeletDataDir = metadata.KubeletDataDir
-	stepper.LocalRegistry = cni.LocalRegistry
+	stepper.ResolvedImageRegistry = metadata.ImageRegistry
 	stepper.BaseCni.Type = "calico"
 	stepper.Version = cni.Version
 	stepper.CriType = metadata.CRI
@@ -109,8 +109,8 @@ func (runnable *CalicoRunnable) InitStep(metadata *component.ExtraMetadata, cni 
 
 func (runnable *CalicoRunnable) PrepareImages(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error) {
 	applyResolvedCNI(ctx, &runnable.BaseCni, "calico")
-	if runnable.Offline && strings.TrimSpace(runnable.LocalRegistry) == "" {
-		return nil, fmt.Errorf("offline calico install requires localRegistry; image tarball loading has been removed")
+	if runnable.Offline && strings.TrimSpace(runnable.ResolvedImageRegistry) == "" {
+		return nil, fmt.Errorf("offline calico install requires imageRegistry; image tarball loading has been removed")
 	}
 	return nil, nil
 }
@@ -186,6 +186,7 @@ func (runnable *CalicoRunnable) Render(ctx context.Context, opts component.Optio
 }
 
 func (runnable *CalicoRunnable) renderCalicoTo(w io.Writer) error {
+	runnable.ImageRegistry = runnable.ResolvedImageRegistry
 	at := tmplutil.New()
 	calicoTemp, err := runnable.CalicoTemplate()
 	if err != nil {
@@ -216,5 +217,5 @@ func (runnable *CalicoRunnable) CalicoTemplate() (string, error) {
 	case "v3.31.5":
 		return calicoV3315, nil
 	}
-	return "", fmt.Errorf("calico dose not support version: %s", runnable.Version)
+	return "", fmt.Errorf("calico does not support version: %s", runnable.Version)
 }

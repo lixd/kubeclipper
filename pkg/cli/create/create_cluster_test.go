@@ -19,12 +19,15 @@
 package create
 
 import (
+	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -33,22 +36,49 @@ import (
 
 func TestUseDeliveryPolicyResolution(t *testing.T) {
 	tests := []struct {
-		name          string
-		offline       bool
-		localRegistry string
-		want          bool
+		name    string
+		offline bool
+		want    bool
 	}{
-		{name: "offline registry", offline: true, localRegistry: "registry.local:5000", want: true},
-		{name: "online registry", offline: false, localRegistry: "registry.local:5000", want: false},
-		{name: "offline without registry", offline: true, want: false},
+		{name: "offline", offline: true, want: true},
+		{name: "online", offline: false, want: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			opts := &CreateClusterOptions{Offline: test.offline, LocalRegistry: test.localRegistry}
+			opts := &CreateClusterOptions{Offline: test.offline}
 			if got := opts.useDeliveryPolicyResolution(); got != test.want {
 				t.Fatalf("useDeliveryPolicyResolution() = %v, want %v", got, test.want)
 			}
 		})
+	}
+}
+
+func TestCreateClusterRegistryFlags(t *testing.T) {
+	out := &bytes.Buffer{}
+	streams := options.IOStreams{In: strings.NewReader(""), Out: out, ErrOut: out}
+	cmd := NewCmdCreateCluster(streams)
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	cmd.SetArgs([]string{"--help"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := out.String()
+	if !strings.Contains(help, "--image-registry string") {
+		t.Fatalf("image registry flag missing from help:\n%s", help)
+	}
+	if strings.Contains(help, "--local-registry") || strings.Contains(help, "--insecure-registry") {
+		t.Fatalf("removed registry flags remain in help:\n%s", help)
+	}
+}
+
+func TestNewClusterLeavesOnlineImageRegistryEmpty(t *testing.T) {
+	opts := NewCreateClusterOptions(options.IOStreams{})
+	opts.Name = "demo"
+	opts.Masters = []string{"node-1"}
+	cluster := opts.newCluster()
+	if cluster.ImageRegistry != "" {
+		t.Fatalf("imageRegistry = %q, want empty", cluster.ImageRegistry)
 	}
 }
 

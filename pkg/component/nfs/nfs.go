@@ -160,12 +160,12 @@ func (n *NFSProvisioner) Validate() error {
 func (n *NFSProvisioner) InitSteps(ctx context.Context) error {
 	metadata := component.GetExtraMetadata(ctx)
 	n.Replicas = len(metadata.Masters.GetNodeIDs())
-	// when the component does not specify an ImageRepoMirror, the cluster LocalRegistry is inherited
+	// when the component does not specify an ImageRepoMirror, the cluster ImageRegistry is inherited
 	if n.ImageRepoMirror == "" {
-		n.ImageRepoMirror = metadata.LocalRegistry
+		n.ImageRepoMirror = metadata.ImageRegistry
 	}
 	if metadata.Offline && n.ImageRepoMirror == "" {
-		return fmt.Errorf("offline nfs-provisioner install requires imageRepoMirror or cluster localRegistry; image tarball loading has been removed")
+		return fmt.Errorf("offline nfs-provisioner install requires imageRepoMirror or cluster imageRegistry; image tarball loading has been removed")
 	}
 
 	bytes, err := json.Marshal(n)
@@ -411,12 +411,12 @@ func (n *NFSProvisioner) GetUpgradeSteps() []v1.Step {
 }
 
 func (n *NFSProvisioner) Install(ctx context.Context) error {
-	// TODO:
+	// Installation is driven by the generated step pipeline, so this hook is intentionally a no-op.
 	return nil
 }
 
 func (n *NFSProvisioner) UnInstall(ctx context.Context) error {
-	// TODO:
+	// Uninstallation is driven by the generated step pipeline, so this hook is intentionally a no-op.
 	return nil
 }
 

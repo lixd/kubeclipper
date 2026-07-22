@@ -112,7 +112,7 @@ type Package struct {
 	Version       string                         `json:"version"`
 	Arch          string                         `json:"arch,omitempty"`
 	CriType       string                         `json:"criType"`
-	LocalRegistry string                         `json:"localRegistry"`
+	ImageRegistry string                         `json:"imageRegistry"`
 	KubeletDir    string                         `json:"kubeletDir"`
 	Transport     deliveryapis.TransportRef      `json:"transport,omitempty"`
 	Contents      []deliveryapis.ArtifactContent `json:"contents,omitempty"`
@@ -131,7 +131,7 @@ type KubeadmConfig struct {
 	KubernetesVersion     string          `json:"kubernetesVersion"`
 	ControlPlaneEndpoint  string          `json:"controlPlaneEndpoint"`
 	CertSANs              []string        `json:"certSANs"`
-	LocalRegistry         string          `json:"localRegistry"`
+	ImageRegistry         string          `json:"imageRegistry"`
 	Offline               bool            `json:"offline"`
 	IsControlPlane        bool            `json:"isControlPlane,omitempty"`
 	CACertHashes          string          `json:"caCertHashes,omitempty"`
@@ -158,7 +158,7 @@ type ClusterNode struct {
 	WorkerNodeVIP string
 	// master ip
 	Masters             map[string]string // for IPVS rules
-	LocalRegistry       string
+	ImageRegistry       string
 	APIServerDomainName string
 	JoinMasterIP        string
 	EtcdDataPath        string
@@ -197,9 +197,6 @@ func (stepper *Package) Install(ctx context.Context, opts component.Options) ([]
 }
 
 func (stepper *Package) installResolved(ctx context.Context, opts component.Options) ([]byte, error) {
-	if stepper.Offline && strings.TrimSpace(stepper.LocalRegistry) == "" {
-		return nil, fmt.Errorf("offline k8s install requires localRegistry; image tarball loading has been removed")
-	}
 	contents := packageConfigContents(stepper.Contents)
 	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
 		Kind:      K8s,
@@ -406,10 +403,11 @@ func (stepper KubeadmConfig) Render(ctx context.Context, opts component.Options)
 	if stepper.Kubelet.RootDir == "" {
 		stepper.Kubelet.RootDir = KubeletDefaultDataDir
 	}
-	// local registry not filled and is in online mode, the default repo mirror proxy will be used
-	if !stepper.Offline && stepper.LocalRegistry == "" {
-		stepper.LocalRegistry = component.GetRepoMirror(ctx)
-		logger.Info("render kubernetes config, the default repo mirror proxy will be used", zap.String("local_registry", stepper.LocalRegistry))
+	// Use the configured online mirror when no image repository is provided.
+	if !stepper.Offline && stepper.ImageRegistry == "" {
+		stepper.ImageRegistry = component.GetRepoMirror(ctx)
+		logger.Info("render kubernetes config, the default repo mirror proxy will be used",
+			zap.String("image_repository", stepper.ImageRegistry))
 	}
 	agentIP, err := stepper.getAgentNodeIP()
 	if err != nil {
@@ -863,7 +861,7 @@ func (stepper *ClusterNode) Install(ctx context.Context, opts component.Options)
 }
 
 func (stepper *ClusterNode) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	return nil, fmt.Errorf("ClusterNode dose not support uninstall")
+	return nil, fmt.Errorf("ClusterNode does not support uninstall")
 }
 
 func (stepper *ClusterNode) generatesIPSOCareStaticPod(ctx context.Context) error {
@@ -998,7 +996,7 @@ func (stepper *Container) NewInstance() component.ObjectMeta {
 }
 
 func (stepper *Container) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	return nil, fmt.Errorf("Container dose not support install")
+	return nil, fmt.Errorf("Container does not support install")
 }
 
 func (stepper *Container) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
@@ -1010,7 +1008,7 @@ func (stepper *Container) Uninstall(ctx context.Context, opts component.Options)
 			logger.Warnf("delete containerd container error: %s", err.Error())
 		}
 	case "docker":
-	// TODO
+		// Docker cleanup is intentionally skipped here because this step only removes containerd-managed containers.
 	default:
 		logger.Errorf("current cri type is '%s', '%s' is not supported clean", stepper.CriType, stepper.CriType)
 	}
@@ -1022,7 +1020,7 @@ func (stepper *Kubectl) NewInstance() component.ObjectMeta {
 }
 
 func (stepper *Kubectl) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	return nil, fmt.Errorf("Kubectl dose not support uninstall")
+	return nil, fmt.Errorf("Kubectl does not support install")
 }
 
 func (stepper *Kubectl) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {

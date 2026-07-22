@@ -31,11 +31,10 @@ import (
 	"testing"
 
 	"github.com/emicklei/go-restful"
-	"github.com/golang/mock/gomock"
 	"k8s.io/component-base/version"
 
+	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	"github.com/kubeclipper/kubeclipper/pkg/models"
-	mockplatform "github.com/kubeclipper/kubeclipper/pkg/models/platform/mock"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	serverconfig "github.com/kubeclipper/kubeclipper/pkg/server/config"
 
@@ -75,20 +74,10 @@ func TestGenerateWebTerminalUsesSecureRSAKeySize(t *testing.T) {
 }
 
 func TestListOfflineResourceFromRegistryInventory(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	platformOperator := mockplatform.NewMockOperator(ctrl)
-	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{
-		Template: v1.DockerRegistry{
-			InsecureRegistry: []v1.InsecureRegistry{{Host: "registry.local:5000"}},
-		},
-	}, nil)
-
 	h := &handler{
-		platformOperator: platformOperator,
-		coreOperator:     newFakeConfigCoreOperator(t, handlerPolicy()),
-		serverConfig:     &serverconfig.Config{},
-		deliveryIndexer:  &fakeConfigCatalogIndexer{catalog: registryHandlerCatalog()},
+		coreOperator:    newFakeConfigCoreOperator(t, handlerPolicy()),
+		serverConfig:    &serverconfig.Config{},
+		deliveryIndexer: &fakeConfigCatalogIndexer{catalog: registryHandlerCatalog()},
 	}
 
 	req := restful.NewRequest(httptest.NewRequest(http.MethodGet, "/componentmeta?arch=amd64", nil))
@@ -121,20 +110,10 @@ func TestListOfflineResourceFromRegistryInventoryRequiresDeliverySource(t *testi
 }
 
 func TestListOfflineResourceFromRegistryInventoryUsesRegistryDerivedInventory(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	platformOperator := mockplatform.NewMockOperator(ctrl)
-	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{
-		Template: v1.DockerRegistry{
-			InsecureRegistry: []v1.InsecureRegistry{{Host: "registry.local:5000"}},
-		},
-	}, nil)
-
 	h := &handler{
-		platformOperator: platformOperator,
-		coreOperator:     newFakeConfigCoreOperator(t, handlerPolicy()),
-		serverConfig:     &serverconfig.Config{},
-		deliveryIndexer:  &fakeConfigCatalogIndexer{catalog: registryHandlerCatalog()},
+		coreOperator:    newFakeConfigCoreOperator(t, handlerPolicy()),
+		serverConfig:    &serverconfig.Config{},
+		deliveryIndexer: &fakeConfigCatalogIndexer{catalog: registryHandlerCatalog()},
 	}
 
 	req := restful.NewRequest(httptest.NewRequest(http.MethodGet, "/componentmeta?arch=amd64", nil))
@@ -148,21 +127,11 @@ func TestListOfflineResourceFromRegistryInventoryUsesRegistryDerivedInventory(t 
 }
 
 func TestListOfflineResourceFromRegistryInventoryRefreshesInventoryWhenRequested(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	platformOperator := mockplatform.NewMockOperator(ctrl)
-	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{
-		Template: v1.DockerRegistry{
-			InsecureRegistry: []v1.InsecureRegistry{{Host: "registry.local:5000"}},
-		},
-	}, nil)
-
 	indexer := &fakeConfigCatalogIndexer{catalog: registryHandlerCatalog()}
 	h := &handler{
-		platformOperator: platformOperator,
-		coreOperator:     newFakeConfigCoreOperator(t, handlerPolicy()),
-		serverConfig:     &serverconfig.Config{},
-		deliveryIndexer:  indexer,
+		coreOperator:    newFakeConfigCoreOperator(t, handlerPolicy()),
+		serverConfig:    &serverconfig.Config{},
+		deliveryIndexer: indexer,
 	}
 
 	req := restful.NewRequest(httptest.NewRequest(http.MethodGet, "/componentmeta?arch=amd64&refresh=true", nil))
@@ -178,15 +147,10 @@ func TestListOfflineResourceFromRegistryInventoryRefreshesInventoryWhenRequested
 }
 
 func TestGetDeliveryPolicy(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	platformOperator := mockplatform.NewMockOperator(ctrl)
-	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{}, nil)
-
 	policy := handlerPolicy()
 	coreOperator := newFakeConfigCoreOperator(t, policy)
 	container := restful.NewContainer()
-	if err := AddToContainer(container, platformOperator, coreOperator, &serverconfig.Config{}); err != nil {
+	if err := AddToContainer(container, nil, coreOperator, &serverconfig.Config{}); err != nil {
 		t.Fatalf("AddToContainer() error: %v", err)
 	}
 
@@ -208,14 +172,9 @@ func TestGetDeliveryPolicy(t *testing.T) {
 }
 
 func TestUpdateDeliveryPolicy(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	platformOperator := mockplatform.NewMockOperator(ctrl)
-	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{}, nil)
-
 	coreOperator := newFakeConfigCoreOperator(t, handlerPolicy())
 	container := restful.NewContainer()
-	if err := AddToContainer(container, platformOperator, coreOperator, &serverconfig.Config{}); err != nil {
+	if err := AddToContainer(container, nil, coreOperator, &serverconfig.Config{}); err != nil {
 		t.Fatalf("AddToContainer() error: %v", err)
 	}
 	updated := deliveryapis.NewSupportPolicy("custom")
@@ -259,15 +218,10 @@ func TestUpdateDeliveryPolicy(t *testing.T) {
 }
 
 func TestUpdateDeliveryPolicyRejectsLegacyResourceFields(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-	platformOperator := mockplatform.NewMockOperator(ctrl)
-	platformOperator.EXPECT().GetPlatformSetting(gomock.Any()).Return(&v1.PlatformSetting{}, nil)
-
 	original := handlerPolicy()
 	coreOperator := newFakeConfigCoreOperator(t, original)
 	container := restful.NewContainer()
-	if err := AddToContainer(container, platformOperator, coreOperator, &serverconfig.Config{}); err != nil {
+	if err := AddToContainer(container, nil, coreOperator, &serverconfig.Config{}); err != nil {
 		t.Fatalf("AddToContainer() error: %v", err)
 	}
 
@@ -441,7 +395,7 @@ func registryHandlerPackage(name, kind, version, arch, profile string) deliverya
 }
 
 type fakeConfigCoreOperator struct {
-	configMap *v1.ConfigMap
+	configMaps map[string]*v1.ConfigMap
 }
 
 func newFakeConfigCoreOperator(t *testing.T, policy *deliveryapis.SupportPolicy) *fakeConfigCoreOperator {
@@ -450,14 +404,21 @@ func newFakeConfigCoreOperator(t *testing.T, policy *deliveryapis.SupportPolicy)
 	if err != nil {
 		t.Fatalf("marshal policy: %v", err)
 	}
-	return &fakeConfigCoreOperator{
-		configMap: &v1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{Name: deliverycore.DeliveryPolicyConfigMapNameForTest()},
-			Data: map[string]string{
-				deliverycore.DeliveryPolicyConfigMapKeyForTest(): string(data),
-			},
+	policyConfigMap := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: deliverycore.DeliveryPolicyConfigMapNameForTest()},
+		Data: map[string]string{
+			deliverycore.DeliveryPolicyConfigMapKeyForTest(): string(data),
 		},
 	}
+	return &fakeConfigCoreOperator{configMaps: map[string]*v1.ConfigMap{
+		deliverycore.DeliveryPolicyConfigMapNameForTest(): policyConfigMap,
+		constatns.DeployConfigConfigMapName: {
+			ObjectMeta: metav1.ObjectMeta{Name: constatns.DeployConfigConfigMapName},
+			Data: map[string]string{
+				constatns.DeployConfigConfigMapKey: "packageRegistry: registry.local:5000\n",
+			},
+		},
+	}}
 }
 
 func (f *fakeConfigCoreOperator) ListConfigMaps(ctx context.Context, q *query.Query) (*v1.ConfigMapList, error) {
@@ -473,10 +434,11 @@ func (f *fakeConfigCoreOperator) GetConfigMap(ctx context.Context, name string) 
 }
 
 func (f *fakeConfigCoreOperator) GetConfigMapEx(ctx context.Context, name string, resourceVersion string) (*v1.ConfigMap, error) {
-	if f.configMap == nil || f.configMap.Name != name {
+	configMap, ok := f.configMaps[name]
+	if !ok {
 		return nil, apierrors.NewNotFound(schema.GroupResource{Group: "core.kubeclipper.io", Resource: "configmaps"}, name)
 	}
-	return f.configMap, nil
+	return configMap, nil
 }
 
 func (f *fakeConfigCoreOperator) ListConfigMapsEx(ctx context.Context, q *query.Query) (*models.PageableResponse, error) {
@@ -484,16 +446,16 @@ func (f *fakeConfigCoreOperator) ListConfigMapsEx(ctx context.Context, q *query.
 }
 
 func (f *fakeConfigCoreOperator) CreateConfigMap(ctx context.Context, configmap *v1.ConfigMap) (*v1.ConfigMap, error) {
-	f.configMap = configmap
+	f.configMaps[configmap.Name] = configmap
 	return configmap, nil
 }
 
 func (f *fakeConfigCoreOperator) UpdateConfigMap(ctx context.Context, configmap *v1.ConfigMap) (*v1.ConfigMap, error) {
-	f.configMap = configmap
+	f.configMaps[configmap.Name] = configmap
 	return configmap, nil
 }
 
 func (f *fakeConfigCoreOperator) DeleteConfigMap(ctx context.Context, name string) error {
-	f.configMap = nil
+	delete(f.configMaps, name)
 	return nil
 }

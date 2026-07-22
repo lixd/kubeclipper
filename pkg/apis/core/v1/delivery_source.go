@@ -110,19 +110,8 @@ func ResolveDeliverySourceForConfig(ctx context.Context, platformOperator platfo
 }
 
 func resolveOfflineRegistry(ctx context.Context, platformOperator platform.Operator, coreOperator modelscore.Operator, cluster *corev1.Cluster) string {
-	if cluster != nil && strings.TrimSpace(cluster.LocalRegistry) != "" {
-		return strings.TrimSpace(cluster.LocalRegistry)
-	}
-	if platformOperator != nil {
-		setting, err := platformOperator.GetPlatformSetting(ctx)
-		if err == nil && setting != nil {
-			for _, registry := range setting.Template.InsecureRegistry {
-				if host := strings.TrimSpace(registry.Host); host != "" {
-					return host
-				}
-			}
-		}
-	}
+	// Package artifacts are independent from Kubernetes and CRI image registries.
+	// The deploy configuration is the single source of truth for package delivery.
 	return resolveDeployConfigPackageRegistry(ctx, coreOperator)
 }
 

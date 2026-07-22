@@ -962,11 +962,11 @@ func (r *Kubeadm) kubectlTerminal(ctx context.Context, node KubeNode, action v1.
 		if err != nil {
 			return err
 		}
-		if cluster.LocalRegistry == "" {
-			return fmt.Errorf("kubectl terminal extension requires cluster localRegistry; image tarball loading has been removed")
+		if cluster.ResolvedImageRegistry == "" {
+			return fmt.Errorf("kubectl terminal extension requires cluster imageRegistry; image tarball loading has been removed")
 		}
 
-		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{ImageRegistryAddr: cluster.LocalRegistry})
+		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{ImageRegistryAddr: cluster.ResolvedImageRegistry})
 		if err != nil {
 			return err
 		}

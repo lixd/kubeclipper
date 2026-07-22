@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
@@ -61,7 +60,7 @@ type Extension struct {
 	Version       string                         `json:"version"`
 	Arch          string                         `json:"arch,omitempty"`
 	CriType       string                         `json:"criType"`
-	LocalRegistry string                         `json:"localRegistry"`
+	ImageRegistry string                         `json:"imageRegistry"`
 	Transport     deliveryapis.TransportRef      `json:"transport,omitempty"`
 	Contents      []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
@@ -92,9 +91,6 @@ func (stepper *Extension) Install(ctx context.Context, opts component.Options) (
 }
 
 func (stepper *Extension) installResolved(ctx context.Context, opts component.Options) error {
-	if stepper.Offline && strings.TrimSpace(stepper.LocalRegistry) == "" {
-		return fmt.Errorf("offline k8s extension install requires localRegistry; image tarball loading has been removed")
-	}
 	contents := packageConfigContents(stepper.Contents)
 	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
 		Kind:      k8sExtension,
@@ -127,7 +123,7 @@ func (stepper *Extension) InitStepper(c *v1.Cluster) *Extension {
 	stepper.Offline = c.Offline()
 	stepper.Version = extensionVersion
 	stepper.CriType = c.ContainerRuntime.Type
-	stepper.LocalRegistry = c.LocalRegistry
+	stepper.ImageRegistry = c.ResolvedImageRegistry
 	return stepper
 }
 

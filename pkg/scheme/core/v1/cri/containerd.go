@@ -53,7 +53,7 @@ const (
 type ContainerdRunnable struct {
 	Base
 	RegistryConfigDir   string `json:"registryConfigDir"`
-	LocalRegistry       string `json:"localRegistry"`
+	ImageRegistry       string `json:"imageRegistry"`
 	KubeVersion         string `json:"kubeVersion"`
 	PauseVersion        string `json:"pauseVersion"`
 	PauseRegistry       string `json:"pauseRegistry"`
@@ -70,7 +70,7 @@ func (runnable *ContainerdRunnable) InitStep(ctx context.Context, cluster *v1.Cl
 	runnable.Offline = metadata.Offline
 	runnable.DataRootDir = strutil.StringDefaultIfEmpty(containerdDefaultConfigDir, cluster.ContainerRuntime.DataRootDir)
 	applyResolvedRuntime(ctx, &runnable.Base, criContainerd)
-	runnable.LocalRegistry = metadata.LocalRegistry
+	runnable.ImageRegistry = metadata.ImageRegistry
 	runnable.Registies = registries
 	runnable.RegistryWithAuth = FilterRegistryWithAuth(runnable.Registies)
 	if runnable.RegistryConfigDir == "" {
@@ -217,7 +217,7 @@ func (runnable ContainerdRunnable) Uninstall(ctx context.Context, opts component
 }
 
 func (runnable *ContainerdRunnable) OfflineUpgrade(ctx context.Context, dryRun bool) ([]byte, error) {
-	return nil, fmt.Errorf("ContainerdRunnable dose not support offlineUpgrade")
+	return nil, fmt.Errorf("ContainerdRunnable does not support offlineUpgrade")
 }
 
 func (runnable *ContainerdRunnable) OnlineUpgrade(ctx context.Context, dryRun bool) ([]byte, error) {
@@ -269,10 +269,11 @@ func containerdConfigVersion(configPath string) int {
 }
 
 func (runnable *ContainerdRunnable) setupContainerdConfig(ctx context.Context, dryRun bool) error {
-	// local registry not filled and is in online mode, the default repo mirror proxy will be used
-	if !runnable.Offline && runnable.LocalRegistry == "" {
-		runnable.LocalRegistry = component.GetRepoMirror(ctx)
-		logger.Info("render containerd config, the default repo mirror proxy will be used", zap.String("local_registry", runnable.LocalRegistry))
+	// Use the configured online mirror when no image repository is provided.
+	if !runnable.Offline && runnable.ImageRegistry == "" {
+		runnable.ImageRegistry = component.GetRepoMirror(ctx)
+		logger.Info("render containerd config, the default repo mirror proxy will be used",
+			zap.String("image_repository", runnable.ImageRegistry))
 	}
 	if runnable.RegistryConfigDir == "" {
 		runnable.RegistryConfigDir = ContainerdDefaultRegistryConfigDir

@@ -155,12 +155,12 @@ func (n *MetalLB) Validate() error {
 
 func (n *MetalLB) InitSteps(ctx context.Context) error {
 	metadata := component.GetExtraMetadata(ctx)
-	// when the component does not specify an ImageRepoMirror, the cluster LocalRegistry is inherited
+	// when the component does not specify an ImageRepoMirror, the cluster ImageRegistry is inherited
 	if n.ImageRepoMirror == "" {
-		n.ImageRepoMirror = metadata.LocalRegistry
+		n.ImageRepoMirror = metadata.ImageRegistry
 	}
 	if metadata.Offline && n.ImageRepoMirror == "" {
-		return fmt.Errorf("offline metallb install requires imageRepoMirror or cluster localRegistry; image tarball loading has been removed")
+		return fmt.Errorf("offline metallb install requires imageRepoMirror or cluster imageRegistry; image tarball loading has been removed")
 	}
 
 	master := utils.UnwrapNodeList(metadata.Masters[:1])

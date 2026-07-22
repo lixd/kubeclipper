@@ -246,8 +246,10 @@ Then create a k8s cluster with the following command:
 ```bash
 NODE=$(kcctl get node -o yaml|grep ipv4DefaultIP:|sed 's/ipv4DefaultIP: //')
 
+kcctl create registry --name kubernetes-images \
+  --host 192.168.10.10:5000 --scheme http --skip-tls-verify
 kcctl create cluster --master $NODE --name demo --untaint-master \
-  --local-registry 192.168.10.10:5000
+  --image-registry kubernetes-images
 ```
 
 The cluster creation will be completed in about 3 minutes, or you can use the following command to

@@ -21,9 +21,7 @@ package cni
 import (
 	"context"
 	"errors"
-	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
@@ -57,12 +55,13 @@ const (
 
 type BaseCni struct {
 	v1.CNI
-	DualStack   bool                           `json:"dualStack"`
-	PodIPv4CIDR string                         `json:"podIPv4CIDR"`
-	PodIPv6CIDR string                         `json:"podIPv6CIDR"`
-	Arch        string                         `json:"arch,omitempty"`
-	Transport   deliveryapis.TransportRef      `json:"transport,omitempty"`
-	Contents    []deliveryapis.ArtifactContent `json:"contents,omitempty"`
+	ResolvedImageRegistry string                         `json:"imageRegistry,omitempty"`
+	DualStack             bool                           `json:"dualStack"`
+	PodIPv4CIDR           string                         `json:"podIPv4CIDR"`
+	PodIPv6CIDR           string                         `json:"podIPv6CIDR"`
+	Arch                  string                         `json:"arch,omitempty"`
+	Transport             deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents              []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
 
 type Stepper interface {
@@ -78,9 +77,6 @@ func (runnable *BaseCni) NewInstance() component.ObjectMeta {
 }
 
 func (runnable *BaseCni) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	if runnable.Offline && strings.TrimSpace(runnable.LocalRegistry) == "" {
-		return nil, fmt.Errorf("offline %s install requires localRegistry; image tarball loading has been removed", runnable.Type)
-	}
 	return nil, nil
 }
 

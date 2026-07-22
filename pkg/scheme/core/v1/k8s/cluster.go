@@ -80,7 +80,7 @@ type Upgrade struct {
 	Kubeadm       *KubeadmConfig `json:"kubeadm"`
 	Offline       bool           `json:"offline"`
 	Version       string         `json:"version"`
-	LocalRegistry string         `json:"localRegistry"`
+	ImageRegistry string         `json:"imageRegistry"`
 	installSteps  []v1.Step
 }
 
@@ -153,13 +153,14 @@ func (stepper *Upgrade) InitStepper(metadata *component.ExtraMetadata, c *v1.Clu
 		KubernetesVersion:       c.KubernetesVersion,
 		ControlPlaneEndpoint:    cpEndpoint,
 		CertSANs:                c.GetAllCertSANs(),
-		LocalRegistry:           c.LocalRegistry,
+		ImageRegistry:           c.ResolvedImageRegistry,
 		FeatureGates:            c.FeatureGates,
 		IgnorePreflightErrors:   parseIgnorePreflightErrors(c.Annotations[common.AnnotationOnlyIgnorePreflightErrors]),
 	}
 	stepper.Offline = metadata.Offline
 	stepper.Version = metadata.KubeVersion
-	stepper.LocalRegistry = metadata.LocalRegistry
+	stepper.ImageRegistry = metadata.ImageRegistry
+	stepper.Kubeadm.ImageRegistry = metadata.ImageRegistry
 }
 
 func (stepper *Upgrade) Validate() error {
@@ -200,8 +201,8 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 	// When the mirror repository used for the upgrade is valid and not equal to the one used for the cluster creation,
 	// the kubeadm configuration file is rendered with the new mirror repository.
 	// TODO: During the upgrade, if the image repository changes, synchronize the changes to the docker and containerd configurations
-	if stepper.LocalRegistry != "" && stepper.Kubeadm.LocalRegistry != stepper.LocalRegistry {
-		stepper.Kubeadm.LocalRegistry = stepper.LocalRegistry
+	if stepper.ImageRegistry != "" && stepper.Kubeadm.ImageRegistry != stepper.ImageRegistry {
+		stepper.Kubeadm.ImageRegistry = stepper.ImageRegistry
 	}
 	download, err := json.Marshal(packageDownload)
 	if err != nil {
@@ -387,7 +388,7 @@ func (stepper *UpgradePackage) Install(ctx context.Context, opts component.Optio
 
 func (stepper *UpgradePackage) installResolved(ctx context.Context, opts component.Options) ([]byte, error) {
 	if stepper.DownloadImage {
-		return nil, fmt.Errorf("k8s upgrade image tarball loading has been removed; pre-populate localRegistry instead")
+		return nil, fmt.Errorf("k8s upgrade image tarball loading has been removed; pre-populate imageRegistry instead")
 	}
 	contents := packageConfigContents(stepper.Contents)
 	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
@@ -813,7 +814,7 @@ func (stepper *Recovery) Install(ctx context.Context, opts component.Options) ([
 }
 
 func (stepper *Recovery) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	return nil, fmt.Errorf("recovery dose not support uninstall")
+	return nil, fmt.Errorf("recovery does not support uninstall")
 }
 
 func (stepper *Recovery) NewInstance() component.ObjectMeta {

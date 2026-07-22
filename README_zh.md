@@ -230,8 +230,10 @@ _   __      _          _____ _ _
 ```bash
 NODE=$(kcctl get node -o yaml|grep ipv4DefaultIP:|sed 's/ipv4DefaultIP: //')
 
+kcctl create registry --name kubernetes-images \
+  --host 192.168.10.10:5000 --scheme http --skip-tls-verify
 kcctl create cluster --master $NODE --name demo --untaint-master \
-  --local-registry 192.168.10.10:5000
+  --image-registry kubernetes-images
 ```
 
 大概 3 分钟左右即可完成集群创建,也可以使用以下命令查看集群状态

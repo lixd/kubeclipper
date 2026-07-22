@@ -62,8 +62,8 @@ const (
   Create cluster using command line`
 	createClusterExample = `
   # Create cluster offline. The default value of offline is true, so it can be omitted.
-  # Runtime images must already exist in --local-registry.
-  kcctl create cluster --name demo --master 192.168.10.123 --local-registry 192.168.10.123:5000
+  # Runtime images must already exist in the selected Registry resource.
+  kcctl create cluster --name demo --master 192.168.10.123 --image-registry kubernetes-images
 
   # Create a cluster whose runtime images are pulled from upstream registries.
   # Kubernetes and containerd packages are still resolved from the OCI package Registry.
@@ -151,8 +151,7 @@ type CreateClusterOptions struct {
 	Workers                          []string
 	UntaintMaster                    bool
 	Offline                          bool
-	LocalRegistry                    string
-	InsecureRegistries               []string
+	ImageRegistry                    string
 	CRIRegistries                    []string
 	CRI                              string
 	CRIVersion                       string
@@ -227,8 +226,9 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringSliceVar(&o.Workers, "worker", o.Workers, "k8s worker node id or ip")
 	cmd.Flags().BoolVar(&o.UntaintMaster, "untaint-master", o.UntaintMaster, "untaint master node after cluster create")
 	cmd.Flags().BoolVar(&o.Offline, "offline", o.Offline, "create cluster online(false) or offline(true)")
-	cmd.Flags().StringVar(&o.LocalRegistry, "local-registry", o.LocalRegistry, "use local registry address to pull image for create cluster")
-	cmd.Flags().StringSliceVar(&o.InsecureRegistries, "insecure-registry", o.InsecureRegistries, "use remote registry address to pull image")
+	cmd.Flags().StringVar(
+		&o.ImageRegistry, "image-registry", o.ImageRegistry,
+		"Choose a Registry resource to pull Kubernetes images from")
 	cmd.Flags().StringSliceVar(&o.CRIRegistries, "cri-registry", o.CRIRegistries, "specify internal cri registry name to add registry config to containerd,run command [kcctl get registry] to show internal cri registry")
 	cmd.Flags().StringVar(&o.CRI, "cri", o.CRI, "k8s cri type. OCI delivery currently supports containerd")
 	cmd.Flags().StringVar(&o.CRIVersion, "cri-version", o.CRIVersion, "k8s cri version")
@@ -259,12 +259,10 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	utils.CheckErr(cmd.RegisterFlagCompletionFunc("worker", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return o.listNode(toComplete, append(o.Masters, o.Workers...)), cobra.ShellCompDirectiveNoFileComp
 	}))
-	utils.CheckErr(cmd.RegisterFlagCompletionFunc("local-registry", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return o.listRegistry(toComplete), cobra.ShellCompDirectiveNoFileComp
-	}))
-	utils.CheckErr(cmd.RegisterFlagCompletionFunc("insecure-registry", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return o.registry(toComplete), cobra.ShellCompDirectiveNoFileComp
-	}))
+	imageRegistryCompletion := func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		return o.listImageRegistry(toComplete), cobra.ShellCompDirectiveNoFileComp
+	}
+	utils.CheckErr(cmd.RegisterFlagCompletionFunc("image-registry", imageRegistryCompletion))
 	utils.CheckErr(cmd.RegisterFlagCompletionFunc("cri", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return allowedCRI.List(), cobra.ShellCompDirectiveNoFileComp
 	}))
@@ -355,9 +353,6 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	if l.Name == "" {
 		return utils.UsageErrorf(cmd, "cluster name must be specified")
 	}
-	if l.Offline && strings.TrimSpace(l.LocalRegistry) == "" {
-		return utils.UsageErrorf(cmd, "offline cluster requires --local-registry; runtime image tarball loading has been removed")
-	}
 	if !l.useDeliveryPolicyResolution() {
 		k8sVersions := l.listK8s("")
 		if !sliceutil.HasString(k8sVersions, l.K8sVersion) {
@@ -373,8 +368,17 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 		}
 	}
 
-	if err := l.validateCRIRegistries(cmd); err != nil {
-		return err
+	if l.Offline && (!cmd.Flags().Changed("image-registry") || strings.TrimSpace(l.ImageRegistry) == "") {
+		return utils.UsageErrorf(cmd, "--image-registry must be explicitly specified in offline mode")
+	}
+	criRegistries := l.listCRIRegistry()
+	if l.ImageRegistry != "" && !sliceutil.HasString(criRegistries, l.ImageRegistry) {
+		return utils.UsageErrorf(cmd, "image registry [%s] not found,has %v now,use [kcctl get registry] to show", l.ImageRegistry, criRegistries)
+	}
+	for _, registry := range l.CRIRegistries {
+		if !sliceutil.HasString(criRegistries, registry) {
+			return utils.UsageErrorf(cmd, "cri registry [%s] not found,has %v now,use [kcctl get registry] to show", registry, criRegistries)
+		}
 	}
 
 	nodes := make([]string, 0)
@@ -459,17 +463,7 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 }
 
 func (l *CreateClusterOptions) useDeliveryPolicyResolution() bool {
-	return l.Offline && strings.TrimSpace(l.LocalRegistry) != ""
-}
-
-func (l *CreateClusterOptions) validateCRIRegistries(cmd *cobra.Command) error {
-	criRegistries := l.listCRIRegistry()
-	for _, registry := range l.CRIRegistries {
-		if !sliceutil.HasString(criRegistries, registry) {
-			return utils.UsageErrorf(cmd, "cri registry [%s] not found,has %v now,use [kcctl get registry] to show", registry, criRegistries)
-		}
-	}
-	return nil
+	return l.Offline
 }
 
 func (l *CreateClusterOptions) RunCreate() error {
@@ -557,7 +551,7 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 		CertSANs:          l.CertSans,
 		ExternalCaCert:    l.CaCertFile,
 		ExternalCaKey:     l.CaKeyFile,
-		LocalRegistry:     l.LocalRegistry,
+		ImageRegistry:     l.ImageRegistry,
 		ContainerRuntime:  v1.ContainerRuntime{},
 		Networking: v1.Networking{
 			IPFamily:      v1.IPFamilyIPv4,
@@ -571,9 +565,8 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 		KubeProxy: v1.KubeProxy{},
 		Etcd:      v1.Etcd{},
 		CNI: v1.CNI{
-			LocalRegistry: l.LocalRegistry,
-			Type:          l.CNI,
-			Version:       l.CNIVersion,
+			Type:    l.CNI,
+			Version: l.CNIVersion,
 			Calico: &v1.Calico{
 				IPv4AutoDetection: l.IPv4AutoDetection,
 				IPv6AutoDetection: "first-found",
@@ -632,10 +625,6 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 	}
 	c.Masters = masters
 	c.Workers = workers
-	var insecureRegistry []string
-	if l.LocalRegistry != "" {
-		insecureRegistry = []string{l.LocalRegistry}
-	}
 	var criRegistry []v1.CRIRegistry
 	for _, registry := range l.CRIRegistries {
 		r := registry
@@ -644,11 +633,21 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 		})
 	}
 
-	c.ContainerRuntime = v1.ContainerRuntime{
-		Type:             v1.CRIContainerd,
-		Version:          l.CRIVersion,
-		InsecureRegistry: append(insecureRegistry, l.InsecureRegistries...),
-		Registries:       criRegistry,
+	switch l.CRI {
+	case "docker":
+		c.ContainerRuntime = v1.ContainerRuntime{
+			Type:       v1.CRIDocker,
+			Version:    l.CRIVersion,
+			Registries: criRegistry,
+		}
+	case "containerd":
+		fallthrough
+	default:
+		c.ContainerRuntime = v1.ContainerRuntime{
+			Type:       v1.CRIContainerd,
+			Version:    l.CRIVersion,
+			Registries: criRegistry,
+		}
 	}
 	return c
 }
@@ -686,10 +685,28 @@ func (l *CreateClusterOptions) listCRIRegistry() []string {
 		return nil
 	}
 	names := make([]string, 0)
-	for _, registry := range registries.Items {
+	for i := range registries.Items {
+		registry := &registries.Items[i]
 		names = append(names, registry.Name)
 	}
 	return names
+}
+
+func (l *CreateClusterOptions) listImageRegistry(toComplete string) []string {
+	utils.CheckErr(l.Complete(l.CliOpts))
+	registries, err := l.Client.ListRegistries(context.Background(), kc.Queries{})
+	if err != nil {
+		logger.Errorf("list image registry failed: %s.", err)
+		return nil
+	}
+	completions := make([]string, 0, len(registries.Items))
+	for i := range registries.Items {
+		registry := &registries.Items[i]
+		if strings.HasPrefix(registry.Name, toComplete) {
+			completions = append(completions, fmt.Sprintf("%s\t%s://%s", registry.Name, registry.Scheme, registry.Host))
+		}
+	}
+	return completions
 }
 
 func (l *CreateClusterOptions) componentVersions(slot, component, toComplete string) []string {
@@ -894,26 +911,6 @@ func (l *CreateClusterOptions) listNode(toComplete string, exclude []string) []s
 		return sliceutil.HasString(exclude, item)
 	})
 	return completions
-}
-
-func (l *CreateClusterOptions) listRegistry(toComplete string) []string {
-	utils.CheckErr(l.Complete(l.CliOpts))
-
-	return l.registry(toComplete)
-}
-
-func (l *CreateClusterOptions) registry(toComplete string) []string {
-	list := make([]string, 0)
-	template, err := l.Client.GetPlatformSetting(context.TODO())
-	if err != nil {
-		return nil
-	}
-	for _, v := range template.InsecureRegistry {
-		if strings.HasPrefix(v.Host, toComplete) {
-			list = append(list, v.Host)
-		}
-	}
-	return list
 }
 
 func (l *CreateClusterOptions) nodes(toComplete string) []string {

@@ -323,10 +323,11 @@ The current offline-package workflow is:
 6. Use `kcctl resource list|inspect|refresh --registry <registry>` to inspect Registry-derived package/chart inventory.
 7. Let install/join resolve packages from policy + inventory and fetch them by digest.
 
-When `--local-registry` is set for an offline Kubernetes cluster, KubeClipper assumes the
-Registry already contains the container images required by kubeadm and the selected CNI.
-Package OCI artifacts and runtime container images share a Registry, but they are prepared by
-separate steps.
+For an offline Kubernetes cluster, `--image-registry` selects a KubeClipper Registry resource.
+KubeClipper assumes that Registry already contains the container images required by kubeadm
+and the selected CNI. The package Registry remains independently configured by
+`deployConfig.packageRegistry`; the two registries may use the same host but are resolved and
+configured separately.
 
 Runtime image lists are release-side metadata only. The build scripts generate `images.lock`
 and aggregate it into `release-manifest.yaml` for publishing, mirroring, offline bundle
@@ -380,6 +381,14 @@ kcctl registry deploy \
 # If the Registry is already running, this health check should return an empty JSON
 # object or HTTP 200-compatible /v2/ response.
 curl -f "http://${REGISTRY}/v2/"
+
+# Register the Kubernetes image Registry with KubeClipper. The cluster command
+# references this resource by name, not by its raw host.
+kcctl create registry \
+  --name kubernetes-images \
+  --host "${REGISTRY}" \
+  --scheme http \
+  --skip-tls-verify
 
 # 2. Build from public sources and publish package images, Helm charts, and
 # standard runtime images directly to the local Registry.
@@ -472,8 +481,7 @@ kcctl create cluster \
   --k8s-version ${K8S_VERSION} \
   --cni calico \
   --cni-version ${CNI_VERSION} \
-  --local-registry ${REGISTRY} \
-  --insecure-registry ${REGISTRY}
+  --image-registry kubernetes-images
 
 # 9. Add or remove Kubernetes worker nodes after the cluster is running.
 # The worker value may be a KubeClipper node ID or its primary IPv4 address.
