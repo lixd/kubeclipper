@@ -23,6 +23,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
@@ -54,6 +55,27 @@ func TestFinalizeRemovedNodeState(t *testing.T) {
 		if !strings.Contains(got, path) {
 			t.Errorf("cleanup command %q does not contain %q", got, path)
 		}
+	}
+}
+
+func TestClusterUninstallIncludesFinalCleanup(t *testing.T) {
+	runnable := Runnable(v1.Cluster{ContainerRuntime: v1.ContainerRuntime{Type: "containerd"}})
+	metadata := &component.ExtraMetadata{
+		Masters: component.NodeList{{ID: "master-1", Hostname: "master-1"}},
+	}
+
+	steps, err := runnable.makeUninstallSteps(metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) < 2 {
+		t.Fatalf("expected uninstall steps, got %d", len(steps))
+	}
+	if got := steps[len(steps)-2].Name; got != "unmountCalicoRuntimeState" {
+		t.Fatalf("expected penultimate finalizer step, got %q", got)
+	}
+	if got := steps[len(steps)-1].Name; got != "finalizeRemovedNodeState" {
+		t.Fatalf("expected final cleanup step, got %q", got)
 	}
 }
 
