@@ -33,6 +33,21 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
+func TestCalicoUninstallStepsCleanNetwork(t *testing.T) {
+	runnable := &CalicoRunnable{BaseCni: BaseCni{CNI: v1.CNI{Calico: &v1.Calico{Mode: CalicoNetworkVXLANAll}}}}
+	nodes := []v1.StepNode{{ID: "worker-1"}}
+	steps, err := runnable.UninstallSteps(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) != 1 || steps[0].Name != "cleanCalicoNetwork" || steps[0].Action != v1.ActionUninstall {
+		t.Fatalf("unexpected uninstall steps: %+v", steps)
+	}
+	if len(steps[0].Commands) != 1 || steps[0].Commands[0].Type != v1.CommandCustom {
+		t.Fatalf("unexpected cleanup command: %+v", steps[0].Commands)
+	}
+}
+
 func TestCNI_renderCalicoTo(t *testing.T) {
 	tests := []struct {
 		name    string

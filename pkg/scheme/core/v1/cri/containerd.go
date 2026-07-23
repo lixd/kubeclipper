@@ -548,6 +548,9 @@ type ContainerdHost struct {
 }
 
 type ContainerdRegistry struct {
+	// Server is the Registry authority used for certs.d directory names. The
+	// generated hosts.toml adds each host's scheme because containerd expects
+	// the top-level server value to be a URL.
 	Server string // not contain scheme, example: docker.io
 	Hosts  []ContainerdHost
 }
@@ -561,8 +564,10 @@ func (h *ContainerdRegistry) renderConfigs(dir string) error {
 	}
 
 	c := HostFile{
-		Server:      h.Server,
 		HostConfigs: make(map[string]HostFileConfig),
+	}
+	if len(h.Hosts) > 0 {
+		c.Server = fmt.Sprintf("%s://%s", h.Hosts[0].Scheme, h.Server)
 	}
 	for _, host := range h.Hosts {
 		var (

@@ -40,6 +40,23 @@ func Test_kubectlTerminal_renderTo(t *testing.T) {
 	t.Log(w.String())
 }
 
+func TestFinalizeRemovedNodeState(t *testing.T) {
+	cluster := &v1.Cluster{ContainerRuntime: v1.ContainerRuntime{DataRootDir: "/data/containerd"}}
+	steps := FinalizeRemovedNodeState(cluster, []v1.StepNode{{ID: "worker-1"}})
+	if len(steps) != 2 || steps[0].Name != "unmountCalicoRuntimeState" || steps[1].Name != "finalizeRemovedNodeState" {
+		t.Fatalf("unexpected final cleanup steps: %+v", steps)
+	}
+	if len(steps[1].Commands) != 1 {
+		t.Fatalf("unexpected cleanup commands: %+v", steps[1].Commands)
+	}
+	got := strings.Join(steps[1].Commands[0].ShellCommand, " ")
+	for _, path := range []string{"/etc/containerd", "/data/containerd", "/etc/cni", "/var/lib/cni", "/var/run/calico"} {
+		if !strings.Contains(got, path) {
+			t.Errorf("cleanup command %q does not contain %q", got, path)
+		}
+	}
+}
+
 func TestKubeadmConfig_renderTo(t *testing.T) {
 	type fields struct {
 		ClusterConfigAPIVersion string

@@ -29,6 +29,8 @@ const (
 
 	KubeConfigDir            = ".kube"
 	CniDefaultConfigDir      = "/etc/cni"
+	CniDefaultDataDir        = "/var/lib/cni"
+	CniDefaultRunDataDir     = "/var/run/calico"
 	K8SDefaultConfigDir      = "/etc/kubernetes"
 	ManifestDir              = "/tmp/.k8s"
 	DockershimDefaultDataDir = "/var/lib/dockershim"

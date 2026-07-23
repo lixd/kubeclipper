@@ -160,7 +160,7 @@ func TestContainerdRegistryRender(t *testing.T) {
 	ca, err := os.ReadFile(cafile)
 	require.NoError(t, err)
 	assert.Equal(t, "ca data", string(ca))
-	exp := fmt.Sprintf(`server = "docker.io"
+	exp := fmt.Sprintf(`server = "https://docker.io"
 
 [host]
 

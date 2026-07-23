@@ -250,6 +250,7 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 			return nil, err
 		}
 		op.Steps = append(op.Steps, steps...)
+		op.Steps = append(op.Steps, k8s.FinalizeRemovedNodeState(cluster, stepNodes)...)
 	default:
 		return nil, ErrInvalidNodesOperation
 	}

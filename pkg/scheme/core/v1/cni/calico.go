@@ -26,12 +26,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/fileutil"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 	tmplutil "github.com/kubeclipper/kubeclipper/pkg/utils/template"
 )
 
@@ -164,7 +168,28 @@ func (runnable *CalicoRunnable) Uninstall(ctx context.Context, opts component.Op
 }
 
 func (runnable *CalicoRunnable) UninstallSteps(nodes []v1.StepNode) (steps []v1.Step, err error) {
-	return
+	data, err := json.Marshal(runnable)
+	if err != nil {
+		return nil, err
+	}
+	return []v1.Step{
+		{
+			ID:         strutil.GetUUID(),
+			Name:       "cleanCalicoNetwork",
+			Timeout:    metav1.Duration{Duration: time.Minute},
+			ErrIgnore:  true,
+			RetryTimes: 1,
+			Nodes:      nodes,
+			Action:     v1.ActionUninstall,
+			Commands: []v1.Command{
+				{
+					Type:          v1.CommandCustom,
+					Identity:      fmt.Sprintf(component.RegisterStepKeyFormat, cniInfo+"-calico", version, component.TypeStep),
+					CustomCommand: data,
+				},
+			},
+		},
+	}, nil
 }
 
 // CmdList cni kubectl cmd list

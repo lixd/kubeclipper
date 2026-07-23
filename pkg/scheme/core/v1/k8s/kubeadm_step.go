@@ -1055,8 +1055,8 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 	// clean CNI config
 	steps = append(steps,
 		doCommandRemoveStep("cleanCNIConfig", nodes, CniDefaultConfigDir),
-		doCommandRemoveStep("removeCNIData", nodes, CniDefaultConfigDir),
-		doCommandRemoveStep("removeCNIRunData", nodes, CniDefaultConfigDir))
+		doCommandRemoveStep("removeCNIData", nodes, CniDefaultDataDir),
+		doCommandRemoveStep("removeCNIRunData", nodes, CniDefaultRunDataDir))
 
 	// clean Kubernetes config
 	steps = append(steps,
@@ -1085,6 +1085,52 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 	}
 
 	return steps, nil
+}
+
+// FinalizeRemovedNodeState removes credentials and network state that may be
+// recreated while component uninstall steps are still converging.
+func FinalizeRemovedNodeState(c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
+	dataRoot := strutil.StringDefaultIfEmpty("/var/lib/containerd", c.ContainerRuntime.DataRootDir)
+	return []v1.Step{
+		{
+			ID:         strutil.GetUUID(),
+			Name:       "unmountCalicoRuntimeState",
+			Timeout:    metav1.Duration{Duration: 30 * time.Second},
+			ErrIgnore:  true,
+			RetryTimes: 1,
+			Nodes:      nodes,
+			Action:     v1.ActionUninstall,
+			Commands: []v1.Command{{
+				Type:         v1.CommandShell,
+				ShellCommand: []string{"bash", "-c", "mountpoint -q /var/run/calico/cgroup && umount /var/run/calico/cgroup || true"},
+			}},
+		},
+		{
+			ID:         strutil.GetUUID(),
+			Name:       "finalizeRemovedNodeState",
+			Timeout:    metav1.Duration{Duration: 10 * time.Minute},
+			ErrIgnore:  false,
+			RetryTimes: 1,
+			Nodes:      nodes,
+			Action:     v1.ActionUninstall,
+			Commands: []v1.Command{{
+				Type: v1.CommandShell,
+				ShellCommand: []string{
+					"rm", "-rf",
+					K8SDefaultConfigDir,
+					KubeletDefaultDataDir,
+					CniDefaultConfigDir,
+					CniDefaultDataDir,
+					CniDefaultRunDataDir,
+					"/var/lib/calico",
+					"/var/log/calico",
+					"/etc/containerd",
+					"/run/containerd",
+					dataRoot,
+				},
+			}},
+		},
+	}
 }
 
 // CleanCNI clean cni image and cni network veth
