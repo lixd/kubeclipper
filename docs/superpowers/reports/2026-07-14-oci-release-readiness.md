@@ -8,8 +8,10 @@
 ## 2026-07-23 最终复审
 
 - 分支：`codex/oci-static-server-replacement`。
-- 资格代码提交：`2224c551862b0c087fe8ce71533568581c6f383a`；本报告提交位于其后，
-  仅修改文档，不改变已验证代码。
+- 双机资格代码提交：`2224c551862b0c087fe8ce71533568581c6f383a`；当前 HEAD 为
+  `b1991d0`，在该提交之后增加了单节点默认取消 control-plane taint 的 CLI 行为。
+  因此下方双机 OCI digest 和生命周期证据严格对应 `2224c55`，不能替代当前 HEAD
+  重新生成工件后的资格验证。
 - 关键提交：`8262a7d`（认证 package Registry）、`30c7a69`（运行时/CNI 清理）、
   `fc97039`（控制面 finalizer）、`2224c55`（CRI 卸载后执行控制面 finalizer）。
 - 工作区在验证结束时 clean；没有推送、强推或覆盖已有 stash。
@@ -25,6 +27,9 @@
 7. package/image Registry 模型已分离：`packageRegistry` 只负责 OCI artifact；
    `--image-registry` 选择 Kubernetes/CNI 镜像来源；`--cri-registry` 选择写入
    containerd 的其他镜像来源；两类镜像 Registry 都写入 containerd 配置。
+8. 单 master 且无 worker 的集群会默认取消 control-plane taint，使单节点集群能够
+   调度普通工作负载；单 master 带 worker、多 master 拓扑仍保留 taint，显式
+   `--untaint-master` 保持兼容。该行为由 `b1991d0` 实现并通过 CLI race 单元测试。
 
 ### 认证 TLS Registry 与 provenance
 
@@ -71,7 +76,11 @@ Registry 测试服务、标签和临时文件已在验证后删除；以上 dige
 
 资格代码提交及其后的报告提交都没有 GitHub Actions run 链接，因为本轮明确不推送远端；Go tests/coverage、offline-resource-validate、bootstrap、resource package、release manifest/provenance 和 OCI AIO 的当前分支证据仍缺。正式 Harbor 的生产 robot account、最小权限项目、正式 CA/TLS 组合也尚未重跑。
 
-剩余 P1：单节点默认自动 `untaint-master` 尚未实现，本轮资格命令显式使用了 `--untaint-master`。剩余 P2：测试主机未运行 chronyd/ntpd（时钟偏差实测小于一秒），以及 Registry blob 垃圾回收由运维方负责。
+单节点默认自动取消 taint 的代码缺口已关闭；但本轮双机资格工件来自 `2224c55`，
+建群命令也显式使用了 `--untaint-master`。正式发布前仍需基于当前 HEAD 重新生成带
+`sourceRevision` 的 OCI 工件，并在不传 `--untaint-master` 的情况下验证单节点系统 Pod
+和普通工作负载均能正常调度。剩余 P2：测试主机未运行 chronyd/ntpd（时钟偏差实测
+小于一秒），以及 Registry blob 垃圾回收由运维方负责。
 
 ### 发布建议
 
