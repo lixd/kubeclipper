@@ -67,7 +67,7 @@ Registry 测试服务、标签和临时文件已在验证后删除；以上 dige
 
 通过：定向 race 测试、`go vet ./...`、`golangci-lint run ./...`（0 issues）、两个 open-packaging 测试、open-packaging source check、Bash 语法检查、`go run ./tools/release-policy-verify --manifest packaging/resources.yaml`、Actionlint、Linux amd64/arm64 静态构建和 `git diff --check`。
 
-全仓 `go test ./...` 的环境相关失败已单独区分：macOS 无 system D-Bus 导致 `pkg/utils/systemctl` 失败；本机无 `~/.kc/config` 和已部署平台，`test/e2e` 的 17 个 setup 失败。ShellCheck 因当前 macOS 预发布环境没有可用 bottle、源码安装又缺 `pkg-config` bottle，未记为通过。
+全仓 `go test ./...` 的环境相关失败已单独区分：macOS 无 system D-Bus 导致 `pkg/utils/systemctl` 失败；本机无 `~/.kc/config` 和已部署平台，`test/e2e` 的 17 个 setup 失败。排除这两个明确环境依赖包后，其余 `go list ./... | rg -v 'pkg/utils/systemctl|test/e2e' | xargs go test` 全部通过。ShellCheck 因当前 macOS 预发布环境没有可用 bottle，源码构建其依赖 `pkg-config` 时又遇到旧 GLib/Clang 编译错误，未记为通过。
 
 资格代码提交及其后的报告提交都没有 GitHub Actions run 链接，因为本轮明确不推送远端；Go tests/coverage、offline-resource-validate、bootstrap、resource package、release manifest/provenance 和 OCI AIO 的当前分支证据仍缺。正式 Harbor 的生产 robot account、最小权限项目、正式 CA/TLS 组合也尚未重跑。
 
