@@ -82,6 +82,34 @@ func TestNewClusterLeavesOnlineImageRegistryEmpty(t *testing.T) {
 	}
 }
 
+func TestNewClusterMasterTaintPolicy(t *testing.T) {
+	tests := []struct {
+		name       string
+		masters    []string
+		workers    []string
+		untaint    bool
+		wantTaints int
+	}{
+		{name: "single master defaults untainted", masters: []string{"master-1"}, wantTaints: 0},
+		{name: "single master with worker remains tainted", masters: []string{"master-1"}, workers: []string{"worker-1"}, wantTaints: 1},
+		{name: "ha master remains tainted", masters: []string{"master-1", "master-2", "master-3"}, wantTaints: 1},
+		{name: "explicit untaint overrides ha default", masters: []string{"master-1", "master-2", "master-3"}, untaint: true, wantTaints: 0},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			opts := NewCreateClusterOptions(options.IOStreams{})
+			opts.Name = "demo"
+			opts.Masters = test.masters
+			opts.Workers = test.workers
+			opts.UntaintMaster = test.untaint
+			cluster := opts.newCluster()
+			if got := len(cluster.Masters[0].Taints); got != test.wantTaints {
+				t.Fatalf("master taints = %d, want %d", got, test.wantTaints)
+			}
+		})
+	}
+}
+
 func TestRuleComponentVersionsUsesSelectedKubernetesRule(t *testing.T) {
 	metas := decodedComponentMeta(t)
 

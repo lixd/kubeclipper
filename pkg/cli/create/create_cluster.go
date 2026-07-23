@@ -224,7 +224,7 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.Name, "name", "", "k8s cluster name")
 	cmd.Flags().StringSliceVarP(&o.Masters, "master", "m", o.Masters, "k8s master node id or ip")
 	cmd.Flags().StringSliceVar(&o.Workers, "worker", o.Workers, "k8s worker node id or ip")
-	cmd.Flags().BoolVar(&o.UntaintMaster, "untaint-master", o.UntaintMaster, "untaint master node after cluster create")
+	cmd.Flags().BoolVar(&o.UntaintMaster, "untaint-master", o.UntaintMaster, "untaint master node after cluster create (automatic for a single-master cluster without workers)")
 	cmd.Flags().BoolVar(&o.Offline, "offline", o.Offline, "create cluster online(false) or offline(true)")
 	cmd.Flags().StringVar(
 		&o.ImageRegistry, "image-registry", o.ImageRegistry,
@@ -594,8 +594,9 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 	}
 
 	masters := make([]v1.WorkerNode, 0)
+	autoUntaintMaster := len(l.Masters) == 1 && len(l.Workers) == 0
 	for _, n := range l.Masters {
-		if l.UntaintMaster {
+		if l.UntaintMaster || autoUntaintMaster {
 			masters = append(masters, v1.WorkerNode{
 				ID:     n,
 				Labels: nil,
