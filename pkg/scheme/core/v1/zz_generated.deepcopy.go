@@ -408,6 +408,11 @@ func (in *Cluster) DeepCopyInto(out *Cluster) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.UntaintMaster != nil {
+		in, out := &in.UntaintMaster, &out.UntaintMaster
+		*out = new(bool)
+		**out = **in
+	}
 	if in.CertSANs != nil {
 		in, out := &in.CertSANs, &out.CertSANs
 		*out = make([]string, len(*in))

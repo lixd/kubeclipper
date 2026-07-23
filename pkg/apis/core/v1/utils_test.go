@@ -21,6 +21,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -150,6 +151,53 @@ var (
 		},
 	}
 )
+
+func TestApplyClusterCreateDefaults(t *testing.T) {
+	masterTaint := []v1.Taint{{
+		Key:    "node-role.kubernetes.io/master",
+		Effect: v1.TaintEffectNoSchedule,
+	}}
+	tests := []struct {
+		name              string
+		masters           int
+		workers           int
+		untaintMaster     *bool
+		wantUntaintMaster *bool
+		wantTaints        int
+	}{
+		{name: "standalone defaults untainted", masters: 1, wantUntaintMaster: boolPointer(true), wantTaints: 0},
+		{name: "worker topology keeps default taint", masters: 1, workers: 1, wantTaints: 1},
+		{name: "ha topology keeps default taint", masters: 3, wantTaints: 1},
+		{name: "explicit false keeps standalone taint", masters: 1, untaintMaster: boolPointer(false), wantUntaintMaster: boolPointer(false), wantTaints: 1},
+		{name: "explicit true untaints ha", masters: 3, untaintMaster: boolPointer(true), wantUntaintMaster: boolPointer(true), wantTaints: 0},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cluster := &v1.Cluster{UntaintMaster: test.untaintMaster}
+			for range test.masters {
+				cluster.Masters = append(cluster.Masters, v1.WorkerNode{ID: "master", Taints: append([]v1.Taint(nil), masterTaint...)})
+			}
+			for range test.workers {
+				cluster.Workers = append(cluster.Workers, v1.WorkerNode{ID: "worker"})
+			}
+
+			applyClusterCreateDefaults(cluster)
+
+			if !reflect.DeepEqual(cluster.UntaintMaster, test.wantUntaintMaster) {
+				t.Fatalf("untaintMaster = %v, want %v", cluster.UntaintMaster, test.wantUntaintMaster)
+			}
+			for _, master := range cluster.Masters {
+				if got := len(master.Taints); got != test.wantTaints {
+					t.Fatalf("master taints = %d, want %d", got, test.wantTaints)
+				}
+			}
+		})
+	}
+}
+
+func boolPointer(value bool) *bool {
+	return &value
+}
 
 //const fakeKubeConfig = `
 //apiVersion: v1

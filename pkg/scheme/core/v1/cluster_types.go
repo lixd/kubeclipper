@@ -39,11 +39,15 @@ type Cluster struct {
 	// move offline to metadata annotation
 	// Offline           bool   `json:"offline" optional:"true"`
 	// ImageRegistry references the Registry resource used for Kubernetes and CNI images.
-	ImageRegistry         string         `json:"imageRegistry,omitempty" optional:"true"`
-	ResolvedImageRegistry string         `json:"-"`
-	Masters               WorkerNodeList `json:"masters"`
-	Workers               WorkerNodeList `json:"workers" optional:"true"`
-	KubernetesVersion     string         `json:"kubernetesVersion" enum:"v1.20.13"`
+	ImageRegistry         string `json:"imageRegistry,omitempty" optional:"true"`
+	ResolvedImageRegistry string `json:"-"`
+	// UntaintMaster controls whether control-plane taints are removed after
+	// cluster creation. When omitted, the API defaults it to true only for a
+	// standalone control plane (one master and no workers).
+	UntaintMaster     *bool          `json:"untaintMaster,omitempty" optional:"true"`
+	Masters           WorkerNodeList `json:"masters"`
+	Workers           WorkerNodeList `json:"workers" optional:"true"`
+	KubernetesVersion string         `json:"kubernetesVersion" enum:"v1.20.13"`
 	// when generate cert,use GetAllCertSANs
 	CertSANs          []string           `json:"certSANs,omitempty" optional:"true"`
 	ExternalCaCert    string             `json:"externalCaCert,omitempty" optional:"true"`

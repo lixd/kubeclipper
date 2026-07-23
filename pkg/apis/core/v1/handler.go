@@ -447,6 +447,7 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 		restplus.HandleBadRequest(response, request, errors.New("imageRegistry must be specified in offline mode"))
 		return
 	}
+	applyClusterCreateDefaults(&c)
 	c.Complete()
 	// validate node exist
 	extraMeta, err := h.getClusterMetadata(request.Request.Context(), &c, false)

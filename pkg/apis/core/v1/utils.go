@@ -58,6 +58,21 @@ func getK8sSteps(ctx context.Context, c *v1.Cluster, action v1.StepAction) ([]v1
 	return runnable.GetStep(ctx, action)
 }
 
+// applyClusterCreateDefaults centralizes create-time behavior that must also
+// apply to API and front-end clients which do not use kcctl.
+func applyClusterCreateDefaults(c *v1.Cluster) {
+	if c.UntaintMaster == nil && len(c.Masters) == 1 && len(c.Workers) == 0 {
+		untaint := true
+		c.UntaintMaster = &untaint
+	}
+	if c.UntaintMaster == nil || !*c.UntaintMaster {
+		return
+	}
+	for i := range c.Masters {
+		c.Masters[i].Taints = nil
+	}
+}
+
 func appendClusterFinalCleanup(steps []v1.Step, c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
 	return append(steps, k8s.FinalizeRemovedNodeState(c, nodes)...)
 }

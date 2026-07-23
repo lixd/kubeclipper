@@ -150,6 +150,7 @@ type CreateClusterOptions struct {
 	Masters                          []string
 	Workers                          []string
 	UntaintMaster                    bool
+	untaintMasterSet                 bool
 	Offline                          bool
 	ImageRegistry                    string
 	CRIRegistries                    []string
@@ -215,6 +216,7 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 		Example:               createClusterExample,
 		Args:                  cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
+			o.untaintMasterSet = cmd.Flags().Changed("untaint-master")
 			utils.CheckErr(o.Complete(o.CliOpts))
 			utils.CheckErr(o.PreRun())
 			utils.CheckErr(o.ValidateArgs(cmd))
@@ -579,6 +581,10 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 
 		Status: v1.ClusterStatus{},
 	}
+	if l.untaintMasterSet {
+		untaint := l.UntaintMaster
+		c.UntaintMaster = &untaint
+	}
 
 	if l.ExternalIP != "" {
 		c.Labels[common.LabelExternalIP] = l.ExternalIP
@@ -594,9 +600,8 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 	}
 
 	masters := make([]v1.WorkerNode, 0)
-	autoUntaintMaster := len(l.Masters) == 1 && len(l.Workers) == 0
 	for _, n := range l.Masters {
-		if l.UntaintMaster || autoUntaintMaster {
+		if l.UntaintMaster {
 			masters = append(masters, v1.WorkerNode{
 				ID:     n,
 				Labels: nil,
