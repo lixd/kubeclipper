@@ -7,7 +7,7 @@
 ## 2026-07-24 当前 HEAD 复审
 
 - 分支：`codex/oci-static-server-replacement`。
-- 代码候选 revision：`b44d9b6dc3f2ad78dff614c62c9bb6a098dab64d`；本地 `master` 已包含在该提交中。
+- 代码候选 revision：`a01dfd4be3104a4884e30d3b999a6614c6f61a37`；本地 `master` 已包含在该提交中。
   本报告后续提交只修改文档，不改变二进制代码；工作区 clean，未推送、未强推。
 - `packageRegistry` 仅用于 OCI artifact；`--image-registry` 选择 Kubernetes/CNI 镜像来源；
   `--cri-registry` 选择额外 containerd Registry；镜像侧两个资源均写入 containerd 配置。
@@ -21,44 +21,42 @@ kcctl/server/agent 静态构建。全仓 `go test ./...` 仅有环境失败：ma
 `pkg/utils/systemctl` 失败；本机无 `~/.kc/config` 和已部署平台导致 `test/e2e` 的 17 个 setup 失败。
 ShellCheck 0.11.0（`-x -P SCRIPTDIR`）和 Actionlint 1.7.7 均通过。
 
-上述代码 revision 的隔离 package 工件（测试 tag 已删除）为：
+上述代码 revision 的隔离 package 工件（验证完成后测试 tag 已删除）为：
 
 ```text
-sourceRevision: b44d9b6dc3f2ad78dff614c62c9bb6a098dab64d
-ref: 172.16.131.146:5000/qualification-b44d9b6/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0-qualification-b44d9b6
-package digest: sha256:c1c766269611d253ec95f2a7241b488ec4bdd5a8f3801153ae6762236a900ba7
-kubeclipper-agent layer: sha256:3d8742b8a3aa236b6d0279abcc80c504423c259553a760466f8fe57e7d0ce62e
-kubeclipper-server layer: sha256:b510f7fccc7beb1b9dcd4eaeaa62a94025684415ca71a907e28bd541726f394f
+sourceRevision: a01dfd4be3104a4884e30d3b999a6614c6f61a37
+ref: 172.16.131.146:5000/qualification-a01dfd4/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0-qualification-a01dfd4
+package digest: sha256:6580319f5a8c2a10dac7c353ab8bb7ea3c3693584b20225351b14fc770412356
+kubeclipper-agent layer: sha256:128495a24b0ae1faf4dee7465fca42ace9a68c901610f4017ef63c5c4b3303e5
+kubeclipper-server layer: sha256:783b26e27077cff186dc355f9856e38f8b089b443b91a2366dcd55a7435acd19
 ```
 
 ### 双机纯 OCI 生命周期
 
 测试主机为 sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`），使用隔离前缀
-`qualification-b44d9b6`。本轮采用 HTTP 测试 Registry，不是正式 Harbor 认证 TLS 证据。
+`qualification-a01dfd4`。本轮采用 HTTP 测试 Registry，不是正式 Harbor 认证 TLS 证据。
 
-1. 当前 HEAD 的 Linux amd64 kcctl/server/agent 完成 AIO deploy，登录成功，packageRegistry 指向隔离 OCI 前缀。
+1. 当前 revision 的 Linux amd64 kcctl/server/agent 完成 AIO deploy，登录成功，packageRegistry 指向隔离 OCI 前缀。
 2. 使用独立 server SSH key 和 agent SSH key 完成 sh-dev-2 join；节点注册为 amd64、`ens3` 地址并 Ready。
 3. 创建单 master 集群时未传 `--untaint-master`。API 持久化 `untaintMaster: true`，操作日志生成
-   `master-` 和 `control-plane-` 两条幂等 taint 删除命令；控制面、CoreDNS、Calico 从 image/CRI Registry 拉取并 Ready。
-4. `kcctl cluster add-node` 添加 sh-dev-2 后节点 Ready；使用隔离标签命名空间和
-   `nicolaka/netshoot:v0.13` 在 worker 上运行 workload，验证调度和 containerd 拉取。
-5. 删除 workload 后执行 `kcctl cluster remove-node`；sh-dev-2 的 kubelet/containerd 停止，kc-agent 保留。
-6. 删除集群后 sh-dev-3 的 kubelet/containerd 停止，Kubernetes、etcd、CNI、containerd 配置路径均不存在。
-7. 执行 `kcctl clean --all --force --assumeyes` 后，两台机器的 KubeClipper/Kubernetes/runtime 服务和配置均清理。
-
-建群中的可选 `applyKubectlPod` 步骤因固定 10 秒超时、且标记 `errIgnore: true`，在 API server 尚未稳定时失败；
-核心控制面和 CNI Ready，但不能据此声称 `kc-kubectl` 辅助 Pod 已部署。
+   `master-` 和 `control-plane-` 两条幂等 taint 删除命令；控制面、CoreDNS、Calico 从 image/CRI Registry 拉取并 Ready，
+   master 节点最终无 taint。
+4. `kcctl cluster add-node` 添加 sh-dev-2 后两台节点 Ready；`nicolaka/netshoot:v0.13` 从 image Registry
+   拉取并分别在 master、worker 上运行隔离 workload，验证调度和 containerd 配置。
+5. 删除 workload 后执行 `kcctl cluster remove-node`；worker 节点从集群移除，kubelet/containerd 停止，kc-agent 保留。
+6. 删除集群后两台节点的 kubelet/containerd 停止，Kubernetes、etcd、CNI、Calico 和 containerd 配置路径均不存在。
+7. 执行 `kcctl clean --all --force --assumeyes` 后，两台机器的 KubeClipper 服务、配置和凭据均清理。
+8. `applyKubectlPod` 在当前 revision 的 2 分钟超时、3 次重试实现下成功，`kube-system/kc-kubectl` 为 Running。
 
 ### 清理和剩余缺口
 
-- 两台机器 authorized_keys 中的测试公钥、临时私钥、CA、密码、二进制和日志均已删除；KubeClipper 配置路径不存在。
-- 当前 qualification 前缀的 Registry tags 已逐一按 digest 删除，查询结果为 `tags: null`；catalog 名称和未引用 blob
+- 两台机器 authorized_keys 中的测试公钥、临时私钥、CA、密码、二进制和配置均已删除；KubeClipper 配置路径不存在。
+- 当前 `qualification-a01dfd4` 前缀的所有 Registry tags 已逐一按 digest 删除，查询结果为 `tags: null`；catalog 名称和未引用 blob
   仍需运维窗口执行垃圾回收，未对共享 Registry 执行 GC。
 - 未停止或修改无关 Docker、`kc-registry.service`、`sprout-postgres-v2` 等服务。
 - **P0：** 没有当前 HEAD 的 GitHub Actions run。Go tests/coverage、offline-resource-validate、bootstrap、resource package、
   release manifest/provenance、OCI AIO 等真实 workflow 尚未执行，原因是本轮明确禁止推送。
 - **P0：** 正式 Harbor robot account、正式 CA/TLS、最小权限和凭据轮换尚未在当前 HEAD 重跑；历史认证证据不能替代当前 HEAD。
-- **P1：** `kc-kubectl` 的 10 秒 apply 超时和 `errIgnore` 语义需要单独修复或明确为非发布门禁。
 - **P2：** Registry 未引用 blob 的 GC 由运维负责。
 
 因此当前结论是：**本地代码和匿名 HTTP 双机生命周期通过，但尚不满足“可以正式发布”的完整门禁，不建议现在发布 2.0.0。**
