@@ -122,36 +122,9 @@ func TestSendCertsAlwaysDownloadsCurrentServerCertificates(t *testing.T) {
 	o.sshConfig = &sshutils.SSH{User: "agent"}
 
 	var downloadedPaths []string
-	o.certDownload = func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
-		if sshConfig != o.serverSSHConfig || host != "10.0.0.1" {
-			t.Fatalf("download transport = %+v host = %s", sshConfig, host)
-		}
-		if localPath == remotePath || filepath.Dir(localPath) == filepath.Dir(remotePath) {
-			t.Fatalf("certificate download reused server path %q", remotePath)
-		}
-		downloadedPaths = append(downloadedPaths, localPath)
-		return os.WriteFile(localPath, []byte("current:"+remotePath), 0600)
-	}
-
+	o.certDownload = recordCertificateDownload(t, o, &downloadedPaths)
 	var copied int
-	o.certCopy = func(sshConfig *sshutils.SSH, localPath string, hosts []string, _ string) error {
-		if sshConfig != o.sshConfig || !reflect.DeepEqual(hosts, []string{"10.0.0.2"}) {
-			t.Fatalf("copy transport = %+v hosts = %v", sshConfig, hosts)
-		}
-		data, err := os.ReadFile(localPath)
-		if err != nil || !strings.HasPrefix(string(data), "current:") {
-			t.Fatalf("copied certificate = %q, error = %v", data, err)
-		}
-		info, err := os.Stat(localPath)
-		if err != nil {
-			t.Fatalf("stat copied certificate: %v", err)
-		}
-		if info.Mode().Perm() != 0600 {
-			t.Fatalf("certificate mode = %v, want 0600", info.Mode().Perm())
-		}
-		copied++
-		return nil
-	}
+	o.certCopy = recordCertificateCopy(t, o, &copied)
 
 	if err := o.sendCerts("10.0.0.2"); err != nil {
 		t.Fatalf("sendCerts() error = %v", err)
@@ -163,6 +136,42 @@ func TestSendCertsAlwaysDownloadsCurrentServerCertificates(t *testing.T) {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Fatalf("temporary certificate still exists at %s: %v", path, err)
 		}
+	}
+}
+
+func recordCertificateDownload(t *testing.T, o *JoinOptions, downloadedPaths *[]string) func(*sshutils.SSH, string, string, string) error {
+	t.Helper()
+	return func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
+		if sshConfig != o.serverSSHConfig || host != "10.0.0.1" {
+			t.Fatalf("download transport = %+v host = %s", sshConfig, host)
+		}
+		if localPath == remotePath || filepath.Dir(localPath) == filepath.Dir(remotePath) {
+			t.Fatalf("certificate download reused server path %q", remotePath)
+		}
+		*downloadedPaths = append(*downloadedPaths, localPath)
+		return os.WriteFile(localPath, []byte("current:"+remotePath), deliveryregistry.PrivateFileMode)
+	}
+}
+
+func recordCertificateCopy(t *testing.T, o *JoinOptions, copied *int) func(*sshutils.SSH, string, []string, string) error {
+	t.Helper()
+	return func(sshConfig *sshutils.SSH, localPath string, hosts []string, _ string) error {
+		if sshConfig != o.sshConfig || !reflect.DeepEqual(hosts, []string{"10.0.0.2"}) {
+			t.Fatalf("copy transport = %+v hosts = %v", sshConfig, hosts)
+		}
+		data, err := os.ReadFile(localPath)
+		if err != nil || !strings.HasPrefix(string(data), "current:") {
+			t.Fatalf("copied certificate = %q, error = %v", data, err)
+		}
+		info, err := os.Stat(localPath)
+		if err != nil {
+			t.Fatalf("stat copied certificate: %v", err)
+		}
+		if info.Mode().Perm() != deliveryregistry.PrivateFileMode {
+			t.Fatalf("certificate mode = %v, want %v", info.Mode().Perm(), deliveryregistry.PrivateFileMode)
+		}
+		*copied++
+		return nil
 	}
 }
 

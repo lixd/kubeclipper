@@ -873,14 +873,14 @@ func (c *JoinOptions) sendCerts(ip string) error {
 			return errors.New("MQ TLS certificate path must not be empty")
 		}
 		fileDir := filepath.Join(dir, fmt.Sprintf("%d", i))
-		if err = os.Mkdir(fileDir, 0700); err != nil {
+		if err = os.Mkdir(fileDir, deliveryregistry.PrivateDirMode); err != nil {
 			return errors.WithMessage(err, "create temporary certificate file directory")
 		}
 		localPath := filepath.Join(fileDir, filepath.Base(remotePath))
 		if err = c.certDownload(c.serverSSHConfig, c.deployConfig.ServerIPs[0], localPath, remotePath); err != nil {
 			return errors.WithMessagef(err, "download certificate %s from server", remotePath)
 		}
-		if err = os.Chmod(localPath, 0600); err != nil {
+		if err = os.Chmod(localPath, deliveryregistry.PrivateFileMode); err != nil {
 			return errors.WithMessagef(err, "secure downloaded certificate %s", remotePath)
 		}
 		localFiles = append(localFiles, localPath)
@@ -896,7 +896,7 @@ func (c *JoinOptions) sendCerts(ip string) error {
 	}
 
 	for i, destDir := range []string{destCa, destCert, destKey} {
-		if err = c.certCopy(c.sshConfig, localFiles[i], []string{ip}, destDir); err != nil {
+		if err := c.certCopy(c.sshConfig, localFiles[i], []string{ip}, destDir); err != nil {
 			return err
 		}
 	}
