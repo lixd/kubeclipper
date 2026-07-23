@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -37,7 +38,30 @@ func Test_kubectlTerminal_renderTo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(w.String())
+	rendered := w.String()
+	if strings.Count(rendered, "requiredDuringSchedulingIgnoredDuringExecution:") != 1 {
+		t.Fatalf("expected one node affinity requirement, got manifest:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "node-role.kubernetes.io/master") ||
+		!strings.Contains(rendered, "node-role.kubernetes.io/control-plane") {
+		t.Fatalf("manifest must allow both control-plane label forms:\n%s", rendered)
+	}
+}
+
+func TestKubectlTerminalInstallStepsWaitForApiConvergence(t *testing.T) {
+	steps, err := (&KubectlTerminal{}).InstallSteps([]v1.StepNode{{ID: "master-1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) != 1 {
+		t.Fatalf("got %d steps, want 1", len(steps))
+	}
+	if got, want := steps[0].Timeout.Duration, 2*time.Minute; got != want {
+		t.Fatalf("timeout = %s, want %s", got, want)
+	}
+	if got, want := steps[0].RetryTimes, int32(3); got != want {
+		t.Fatalf("retryTimes = %d, want %d", got, want)
+	}
 }
 
 func TestFinalizeRemovedNodeState(t *testing.T) {

@@ -256,8 +256,6 @@ spec:
                 operator: In
                 values:
                 - ""
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
             - matchExpressions:
               - key: node-role.kubernetes.io/control-plane
                 operator: In

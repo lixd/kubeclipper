@@ -1183,9 +1183,11 @@ func (stepper *KubectlTerminal) InstallSteps(stepMaster0 []v1.StepNode) ([]v1.St
 	installSteps = append(installSteps, v1.Step{
 		ID:         strutil.GetUUID(),
 		Name:       "applyKubectlPod",
-		Timeout:    metav1.Duration{Duration: 10 * time.Second},
+		// The API server may still be converging when the terminal manifest is
+		// applied, especially while the image registry is being initialized.
+		Timeout:    metav1.Duration{Duration: 2 * time.Minute},
 		ErrIgnore:  true,
-		RetryTimes: 1,
+		RetryTimes: 3,
 		Nodes:      stepMaster0,
 		Action:     v1.ActionInstall,
 		Commands: []v1.Command{
