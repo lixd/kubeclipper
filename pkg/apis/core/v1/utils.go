@@ -58,6 +58,10 @@ func getK8sSteps(ctx context.Context, c *v1.Cluster, action v1.StepAction) ([]v1
 	return runnable.GetStep(ctx, action)
 }
 
+func appendClusterFinalCleanup(steps []v1.Step, c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
+	return append(steps, k8s.FinalizeRemovedNodeState(c, nodes)...)
+}
+
 func getSteps(c component.Interface, action v1.StepAction) ([]v1.Step, error) {
 	switch action {
 	case v1.ActionInstall:
@@ -125,6 +129,7 @@ func (h *handler) parseOperationFromCluster(extraMetadata *component.ExtraMetada
 	if action == v1.ActionUninstall {
 		steps = append(steps, k8sSteps...)
 		steps = append(steps, cSteps...)
+		steps = appendClusterFinalCleanup(steps, c, stepNodes)
 	}
 
 	op.Steps = steps

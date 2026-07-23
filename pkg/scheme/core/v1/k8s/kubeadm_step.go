@@ -372,10 +372,6 @@ func (runnable *Runnable) makeUninstallSteps(metadata *component.ExtraMetadata) 
 	}
 	uninstallSteps = append(uninstallSteps, steps...)
 
-	// Run last because component uninstall steps can recreate runtime state while
-	// they are still converging.
-	uninstallSteps = append(uninstallSteps, FinalizeRemovedNodeState(&c, nodes)...)
-
 	return uninstallSteps, nil
 }
 

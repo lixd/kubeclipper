@@ -664,3 +664,13 @@ const (
 func IgnoreError(err error) bool {
 	return strings.Contains(err.Error(), availableMasterError) || strings.Contains(err.Error(), allAvailableMasterError)
 }
+
+func TestAppendClusterFinalCleanup(t *testing.T) {
+	steps := appendClusterFinalCleanup(nil, &v1.Cluster{}, []v1.StepNode{{ID: "master-1"}})
+	if len(steps) != 2 {
+		t.Fatalf("expected two final cleanup steps, got %d", len(steps))
+	}
+	if steps[0].Name != "unmountCalicoRuntimeState" || steps[1].Name != "finalizeRemovedNodeState" {
+		t.Fatalf("unexpected final cleanup steps: %+v", steps)
+	}
+}
