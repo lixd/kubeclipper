@@ -78,6 +78,8 @@ mkdir -p "$(dirname "$manifest_output")"
 cp -f "$bundle_root/release-manifest.yaml" "$manifest_output"
 
 count=0
+# All manifest columns must be consumed so storage and path keep their positions.
+# shellcheck disable=SC2034
 while IFS=$'\t' read -r id type target source source_digest digest platforms storage path; do
   [[ "$id" != "id" ]] || continue
   [[ -n "$id" && -n "$target" && -n "$storage" && -n "$path" ]] || die "invalid bundle artifact index entry"

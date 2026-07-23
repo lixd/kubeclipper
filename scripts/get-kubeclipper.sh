@@ -1,4 +1,4 @@
-#!/bin/env bash
+#!/usr/bin/env bash
 set -e
 
 # Usage:
@@ -40,7 +40,7 @@ fatal() {
 }
 
 SUDO=sudo
-if [ $(id -u) -eq 0 ]; then
+if [ "$(id -u)" -eq 0 ]; then
   SUDO=
 fi
 
@@ -74,19 +74,15 @@ verify_arch() {
   case $ARCH in
   amd64)
     ARCH=amd64
-    STRIP=0
     ;;
   x86_64)
     ARCH=amd64
-    STRIP=0
     ;;
   arm64)
     ARCH=arm64
-    STRIP=1
     ;;
   aarch64)
     ARCH=arm64
-    STRIP=1
     ;;
   *)
     fatal "Unsupported architecture $ARCH"
@@ -101,7 +97,7 @@ verify_downloader() {
 }
 
 set_env() {
-  if [ "x${KC_REGION}" == "xcn" ]; then
+  if [ "${KC_REGION}" == "cn" ]; then
     info "KC_REGION is assigned cn, kc.env file will be created"
 
     mirror='registry.aliyuncs.com/google_containers'
@@ -114,7 +110,7 @@ set_env() {
   if [ -n "${KC_BIN_DIR}" ]; then
     BIN_DIR=${KC_BIN_DIR}
   else
-    IFS=":" read -ra dirs <<<"$(echo "${PATH}")"
+    IFS=":" read -ra dirs <<<"${PATH}"
     for dirx in "${dirs[@]}"; do
       if [ "$dirx" == "/usr/local/bin" ] || [ "$dirx" == "/usr/bin" ]; then
         BIN_DIR=$dirx
@@ -126,16 +122,13 @@ set_env() {
 
 create_env_file() {
   file_path="/etc/kc/kc.env"
-  info "env: Creating environment file $file_path}"
-  $SUDO mkdir -pv "$(dirname $file_path)"
-  $SUDO touch $file_path
-
-  echo "KC_IMAGE_REPO_MIRROR=\"$1\"" >$file_path
+  info "env: Creating environment file $file_path"
+  $SUDO mkdir -pv "$(dirname "$file_path")"
+  printf 'KC_IMAGE_REPO_MIRROR="%s"\n' "$1" | $SUDO tee "$file_path" >/dev/null
 }
 
 install_pkg() {
-  TMP_DIR=$(mktemp -d -t kcctl.XXXXXXXX)
-  if [ $? -ne 0 ] || [ -z "$TMP_DIR" ]; then
+  if ! TMP_DIR=$(mktemp -d -t kcctl.XXXXXXXX) || [ -z "$TMP_DIR" ]; then
     fatal 'Failed to create a temporary directory!'
   fi
   if [[ "$KC_VERSION" == "latest" ]]; then
@@ -159,21 +152,20 @@ download() {
   info "Downloading package $2"
   case $DOWNLOADER in
   curl)
-    curl -o "$1" "$2"
+    curl -fL -o "$1" "$2" || fatal 'Download package failed'
     ;;
   wget)
-    wget -O "$1" "$2"
+    wget -O "$1" "$2" || fatal 'Download package failed'
     ;;
   *)
     fatal "Incorrect executable '$DOWNLOADER'"
     ;;
   esac
 
-  [ $? -eq 0 ] || fatal 'Download package failed'
 }
 
 verify_install() {
-  [ -x "$(command -v kcctl)" ] || fatal "Kcctl installation failed, please try again!"
+  [ -x "${BIN_DIR}/kcctl" ] || fatal "Kcctl installation failed, please try again!"
 
   printf "%40s\n" "$(tput setaf 4)
   Kcctl has been installed successfully!

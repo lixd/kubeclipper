@@ -239,9 +239,11 @@ PY
 
 (
   cd "$bundle_root"
+  checksum_tmp="$workdir/SHA256SUMS.tmp"
   find . -type f ! -name SHA256SUMS -print | LC_ALL=C sort | while IFS= read -r file; do
     printf '%s  %s\n' "$(sha256_file "$file")" "${file#./}"
-  done > SHA256SUMS
+  done > "$checksum_tmp"
+  mv "$checksum_tmp" SHA256SUMS
 )
 
 tar -C "$workdir" -zcf "$output" kubeclipper-offline-registry-bundle

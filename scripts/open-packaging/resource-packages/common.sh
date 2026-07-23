@@ -21,8 +21,9 @@ init_resource_publish_workspace() {
   [[ -n "${version:-}" ]] || die "--version is required"
   [[ "${arch:-}" == "amd64" || "${arch:-}" == "arm64" ]] || die "--arch must be amd64 or arm64"
 
+  resource_dir_cleanup="${resource_dir_cleanup:-}"
   workdir="$(mktemp -d -t kc-resource-oci.XXXXXX)"
-  trap 'rm -rf "$workdir" "${resource_dir_cleanup:-}"' EXIT
+  trap 'rm -rf "$workdir" "$resource_dir_cleanup"' EXIT
 
   artifact_dir="${output_dir:-$workdir/artifacts}"
   mkdir -p "$artifact_dir"
@@ -118,11 +119,13 @@ chart_digest() {
 push_chart() {
   local source_name=$1
   local chart_archive=$2
+  local repository_prefix="${chart_repository_prefix:-}"
   local resolved_chart_name repository ref digest descriptor bin
 
+  [[ -n "$repository_prefix" ]] || die "chart_repository_prefix must be set"
   resolved_chart_name="${chart_name:-$(helm_chart_name "$source_name")}"
-  repository="$registry/$chart_repository_prefix/$resolved_chart_name"
-  ref="oci://$registry/$chart_repository_prefix"
+  repository="$registry/$repository_prefix/$resolved_chart_name"
+  ref="oci://$registry/$repository_prefix"
   echo "pushing helm chart: $chart_archive -> $ref" >&2
   if [[ "${dry_run:-false}" != true ]]; then
     bin="${helm_oci_publish_bin:-}"
@@ -133,7 +136,7 @@ push_chart() {
       bin="$(command -v helm-oci-publish)"
     fi
     if [[ -n "$bin" ]]; then
-      "$bin" --chart "$chart_archive" --registry "$registry" --repository-prefix "$chart_repository_prefix" --name "$resolved_chart_name" >&2
+      "$bin" --chart "$chart_archive" --registry "$registry" --repository-prefix "$repository_prefix" --name "$resolved_chart_name" >&2
     else
       command -v helm >/dev/null 2>&1 || die "helm or helm-oci-publish is required to push chart"
       if ! helm push "$chart_archive" "$ref" >&2; then

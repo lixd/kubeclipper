@@ -145,11 +145,14 @@ build_core_binaries() {
   [[ -n "$engine" ]] || die "go is not installed and docker/podman is not available for containerized build"
   local image="${KC_GO_BUILDER_IMAGE:-golang:1.24.2}"
   echo "go not found; building with $image"
+  local docker_args=()
+  local arg
+  while IFS= read -r arg; do
+    docker_args+=("$arg")
+  done < <({ docker_network_args; docker_proxy_args; docker_go_cache_args; docker_go_env_args; })
+  # shellcheck disable=SC2016 # Expanded by sh inside the build container.
   "$engine" run --rm \
-    $(docker_network_args) \
-    $(docker_proxy_args) \
-    $(docker_go_cache_args) \
-    $(docker_go_env_args) \
+    "${docker_args[@]}" \
     -v "$ROOT:/workspace" \
     -v "$build_dir:/out" \
     -w /workspace \
@@ -173,10 +176,12 @@ download_etcd_binaries() {
 }
 
 download_caddy_binary() {
-  echo "downloading caddy $caddy_version for linux/$arch"
+  local version="${caddy_version:-}"
+  [[ -n "$version" ]] || die "caddy_version must be set"
+  echo "downloading caddy $version for linux/$arch"
   local archive="$workdir/caddy.tar.gz"
   local caddy_arch="$arch"
-  local url="https://github.com/caddyserver/caddy/releases/download/v$caddy_version/caddy_${caddy_version}_linux_${caddy_arch}.tar.gz"
+  local url="https://github.com/caddyserver/caddy/releases/download/v$version/caddy_${version}_linux_${caddy_arch}.tar.gz"
   download "$url" "$archive"
   mkdir -p "$workdir/caddy"
   tar -xzf "$archive" -C "$workdir/caddy"

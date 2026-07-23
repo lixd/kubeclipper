@@ -177,11 +177,13 @@ if [[ "$skip_core" != true ]]; then
     [[ -n "$engine" ]] || die "go is not installed and docker/podman is not available for containerized build"
     image="${KC_GO_BUILDER_IMAGE:-golang:1.24.2}"
     echo "==> go not found; building with $image"
+    docker_args=()
+    while IFS= read -r arg; do
+      docker_args+=("$arg")
+    done < <({ docker_network_args; docker_proxy_args; docker_go_cache_args; docker_go_env_args; })
+    # shellcheck disable=SC2016 # Expanded by sh inside the build container.
     "$engine" run --rm \
-      $(docker_network_args) \
-      $(docker_proxy_args) \
-      $(docker_go_cache_args) \
-      $(docker_go_env_args) \
+      "${docker_args[@]}" \
       -v "$ROOT:/workspace" \
       -v "$output_dir:/out" \
       -w /workspace \
