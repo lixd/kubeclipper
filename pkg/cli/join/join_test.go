@@ -111,6 +111,78 @@ func TestAgentSSHConfigForPersistenceDoesNotCopyCachedPrivateKey(t *testing.T) {
 	}
 }
 
+func TestSendCertsAlwaysDownloadsCurrentServerCertificates(t *testing.T) {
+	o := NewJoinOptions(options.IOStreams{})
+	o.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	o.deployConfig.MQ.TLS = true
+	o.deployConfig.MQ.CA = "/etc/kubeclipper-server/pki/ca.crt"
+	o.deployConfig.MQ.ClientCert = "/etc/kubeclipper-server/pki/nats/kc-server-nats-client.crt"
+	o.deployConfig.MQ.ClientKey = "/etc/kubeclipper-server/pki/nats/kc-server-nats-client.key"
+	o.serverSSHConfig = &sshutils.SSH{User: "server"}
+	o.sshConfig = &sshutils.SSH{User: "agent"}
+
+	var downloadedPaths []string
+	o.certDownload = func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
+		if sshConfig != o.serverSSHConfig || host != "10.0.0.1" {
+			t.Fatalf("download transport = %+v host = %s", sshConfig, host)
+		}
+		if localPath == remotePath || filepath.Dir(localPath) == filepath.Dir(remotePath) {
+			t.Fatalf("certificate download reused server path %q", remotePath)
+		}
+		downloadedPaths = append(downloadedPaths, localPath)
+		return os.WriteFile(localPath, []byte("current:"+remotePath), 0600)
+	}
+
+	var copied int
+	o.certCopy = func(sshConfig *sshutils.SSH, localPath string, hosts []string, _ string) error {
+		if sshConfig != o.sshConfig || !reflect.DeepEqual(hosts, []string{"10.0.0.2"}) {
+			t.Fatalf("copy transport = %+v hosts = %v", sshConfig, hosts)
+		}
+		data, err := os.ReadFile(localPath)
+		if err != nil || !strings.HasPrefix(string(data), "current:") {
+			t.Fatalf("copied certificate = %q, error = %v", data, err)
+		}
+		info, err := os.Stat(localPath)
+		if err != nil {
+			t.Fatalf("stat copied certificate: %v", err)
+		}
+		if info.Mode().Perm() != 0600 {
+			t.Fatalf("certificate mode = %v, want 0600", info.Mode().Perm())
+		}
+		copied++
+		return nil
+	}
+
+	if err := o.sendCerts("10.0.0.2"); err != nil {
+		t.Fatalf("sendCerts() error = %v", err)
+	}
+	if len(downloadedPaths) != 3 || copied != 3 {
+		t.Fatalf("downloads = %d, copies = %d, want 3 each", len(downloadedPaths), copied)
+	}
+	for _, path := range downloadedPaths {
+		if _, err := os.Stat(path); !os.IsNotExist(err) {
+			t.Fatalf("temporary certificate still exists at %s: %v", path, err)
+		}
+	}
+}
+
+func TestSendCertsSkipsTransferWhenMQTLSIsDisabled(t *testing.T) {
+	o := NewJoinOptions(options.IOStreams{})
+	o.deployConfig.MQ.TLS = false
+	o.certDownload = func(*sshutils.SSH, string, string, string) error {
+		t.Fatal("certificate download called with MQ TLS disabled")
+		return nil
+	}
+	o.certCopy = func(*sshutils.SSH, string, []string, string) error {
+		t.Fatal("certificate copy called with MQ TLS disabled")
+		return nil
+	}
+
+	if err := o.sendCerts("10.0.0.2"); err != nil {
+		t.Fatalf("sendCerts() error = %v", err)
+	}
+}
+
 func TestPreparePackageRegistryConfigUsesServerTransportAndAgentCopy(t *testing.T) {
 	o := NewJoinOptions(options.IOStreams{})
 	o.deployConfig.PackageRegistry = "harbor.example.com/kubeclipper"

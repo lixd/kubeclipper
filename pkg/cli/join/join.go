@@ -139,6 +139,8 @@ type JoinOptions struct {
 	packageRegistryCopy       func(*sshutils.SSH, string, string, string) error
 	packageRegistryExists     func(*sshutils.SSH, string, string) (bool, error)
 	packageRegistryRemove     func(*sshutils.SSH, string, string) error
+	certDownload              func(*sshutils.SSH, string, string, string) error
+	certCopy                  func(*sshutils.SSH, string, []string, string) error
 }
 
 type JoinConfig struct {
@@ -167,6 +169,12 @@ func NewJoinOptions(streams options.IOStreams) *JoinOptions {
 		},
 		packageRegistryExists: remotePackageRegistryConfigExists,
 		packageRegistryRemove: remotePackageRegistryConfigRemove,
+		certDownload: func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
+			return sshConfig.DownloadSudo(host, localPath, remotePath)
+		},
+		certCopy: func(sshConfig *sshutils.SSH, localPath string, hosts []string, remoteDir string) error {
+			return utils.SendPackageV2(sshConfig, localPath, hosts, remoteDir, nil, nil)
+		},
 	}
 }
 
@@ -844,46 +852,53 @@ func (c *JoinOptions) getKcAgentConfigTemplateContent(metadata options.Metadata)
 }
 
 func (c *JoinOptions) sendCerts(ip string) error {
-	// download cert from server
-	files := []string{
+	if !c.deployConfig.MQ.TLS {
+		return nil
+	}
+
+	dir, err := os.MkdirTemp("", "kc-join-certs-*")
+	if err != nil {
+		return errors.WithMessage(err, "create temporary certificate directory")
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	remoteFiles := []string{
 		c.deployConfig.MQ.CA,
 		c.deployConfig.MQ.ClientCert,
 		c.deployConfig.MQ.ClientKey,
 	}
-
-	for _, file := range files {
-		exist, err := sshutils.IsFileExist(file)
-		if err != nil {
-			return errors.WithMessage(err, "check file exist")
+	localFiles := make([]string, 0, len(remoteFiles))
+	for i, remotePath := range remoteFiles {
+		if strings.TrimSpace(remotePath) == "" {
+			return errors.New("MQ TLS certificate path must not be empty")
 		}
-		if !exist {
-			if err = c.serverSSHConfig.DownloadSudo(c.deployConfig.ServerIPs[0], file, file); err != nil {
-				return errors.WithMessage(err, "download cert from server")
-			}
+		fileDir := filepath.Join(dir, fmt.Sprintf("%d", i))
+		if err = os.Mkdir(fileDir, 0700); err != nil {
+			return errors.WithMessage(err, "create temporary certificate file directory")
 		}
+		localPath := filepath.Join(fileDir, filepath.Base(remotePath))
+		if err = c.certDownload(c.serverSSHConfig, c.deployConfig.ServerIPs[0], localPath, remotePath); err != nil {
+			return errors.WithMessagef(err, "download certificate %s from server", remotePath)
+		}
+		if err = os.Chmod(localPath, 0600); err != nil {
+			return errors.WithMessagef(err, "secure downloaded certificate %s", remotePath)
+		}
+		localFiles = append(localFiles, localPath)
 	}
 
-	if c.deployConfig.MQ.TLS {
-		destCa := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultCaPath)
-		destCert := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath)
-		destKey := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath)
-		if c.deployConfig.MQ.External {
-			destCa = filepath.Dir(c.deployConfig.MQ.CA)
-			destCert = filepath.Dir(c.deployConfig.MQ.ClientCert)
-			destKey = filepath.Dir(c.deployConfig.MQ.ClientKey)
-		}
-
-		err := utils.SendPackageV2(c.sshConfig, c.deployConfig.MQ.CA, []string{ip}, destCa, nil, nil)
-		if err != nil {
-			return err
-		}
-		err = utils.SendPackageV2(c.sshConfig, c.deployConfig.MQ.ClientCert, []string{ip}, destCert, nil, nil)
-		if err != nil {
-			return err
-		}
-		err = utils.SendPackageV2(c.sshConfig, c.deployConfig.MQ.ClientKey, []string{ip}, destKey, nil, nil)
-		return err
+	destCa := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultCaPath)
+	destCert := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath)
+	destKey := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath)
+	if c.deployConfig.MQ.External {
+		destCa = filepath.Dir(c.deployConfig.MQ.CA)
+		destCert = filepath.Dir(c.deployConfig.MQ.ClientCert)
+		destKey = filepath.Dir(c.deployConfig.MQ.ClientKey)
 	}
 
+	for i, destDir := range []string{destCa, destCert, destKey} {
+		if err = c.certCopy(c.sshConfig, localFiles[i], []string{ip}, destDir); err != nil {
+			return err
+		}
+	}
 	return nil
 }
