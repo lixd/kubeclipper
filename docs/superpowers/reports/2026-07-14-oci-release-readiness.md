@@ -1,14 +1,87 @@
-# 纯 OCI 发布就绪报告（2026-07-14）
+# 纯 OCI 发布就绪报告（2026-07-23）
 
-> 2026-07-22 复审结论：最新 master 的 Registry API、kcctl 和前端模型已经通过
-> `f248da4` 合入 OCI 分支，`--image-registry` 选择镜像 Registry 资源，
-> `packageRegistry` 独立负责 OCI package。生产 package Registry 的认证、TLS、
-> 自定义 CA、凭据安全下发和轮换已经完成本地实现与测试。本文记录的 `cf2f967`
-> 匿名 HTTP 双机资格测试仍是有效历史证据，但当前最终提交尚未形成、未获授权推送，
-> 因而没有当前提交的 Actions 和真实 Harbor 双机证据。当前结论仍是：
-> **暂不建议正式发布**。
+> **当前结论：** 本地和双机认证 TLS 纯 OCI 资格验证通过；由于用户明确要求不推送远端，
+> 当前 release commit 没有真实 GitHub Actions 结果，也尚未在正式 Harbor 上验证生产
+> 权限策略组合，因此暂不建议正式发布。下方“2026-07-23 最终复审”是当前权威记录；
+> 其余旧章节仅保留历史背景。
 
-## 2026-07-22 最新复审
+## 2026-07-23 最终复审
+
+- 分支：`codex/oci-static-server-replacement`。
+- 资格代码提交：`2224c551862b0c087fe8ce71533568581c6f383a`；本报告提交位于其后，
+  仅修改文档，不改变已验证代码。
+- 关键提交：`8262a7d`（认证 package Registry）、`30c7a69`（运行时/CNI 清理）、
+  `fc97039`（控制面 finalizer）、`2224c55`（CRI 卸载后执行控制面 finalizer）。
+- 工作区在验证结束时 clean；没有推送、强推或覆盖已有 stash。
+
+### 已关闭阻断项
+
+1. `kcctl clean` 追踪并清理所有通过 join 加入的 agent，删除 server/agent 的凭据和 CA。
+2. 架构检测支持可注入 SSH runner，覆盖 amd64、arm64 和混合架构测试。
+3. join 的 agent SSH 与读取 server 证书的 server SSH 独立；双机使用两把不同密钥验证。
+4. 多网卡 `first-found` 排除 Docker/CNI/Podman/nerdctl bridge；实机使用 `ens3`。
+5. `tools/release-policy-verify` 对发布产物和 support policy 做双向一致性校验。
+6. GitHub Actions 已使用升级后的 action 版本，消除 Node.js 20 runtime 弃用配置。
+7. package/image Registry 模型已分离：`packageRegistry` 只负责 OCI artifact；
+   `--image-registry` 选择 Kubernetes/CNI 镜像来源；`--cri-registry` 选择写入
+   containerd 的其他镜像来源；两类镜像 Registry 都写入 containerd 配置。
+
+### 认证 TLS Registry 与 provenance
+
+隔离 package Registry 为 `https://172.16.131.146:5001`（Basic Auth 用户 `kcrobot`、自签名
+CA），隔离 image Registry 为 `https://172.16.131.146:5002`（用户 `kcimage`、独立 CA）。
+deploy/join 使用 CA、用户名和密码文件，server/agent package 配置权限实测为 `0600`；
+错误凭据和未知 CA 会被拒绝。image Registry 资源 `qualification-2224c55-images` 的
+scheme 为 `https`、CA/auth 均存在、skip TLS verify 为 false；Kubernetes、Calico 和
+`kubeclipper/kubectl` 均实际由 containerd 从该 Registry 拉取。
+
+```text
+sourceRevision: 2224c551862b0c087fe8ce71533568581c6f383a
+ref: 172.16.131.146:5001/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0-qualification-2224c55
+digest: sha256:50b6ae687067d9a2b2b81df486e3926a7dce4aff3c19b2ba6a762a67f2dac5f0
+kubeclipper-agent: sha256:01b1228c3d052634a984efd19a48a34e07fbb701d1a61fefe6998faf921b84d2
+kubeclipper-server: sha256:e36725bb57c17f158ea96132907b74c01d9398941e62f54463e5a021dff7c80b
+```
+
+Registry 测试服务、标签和临时文件已在验证后删除；以上 digest 是发布时记录的不可变证据。
+
+### 双机纯 OCI 生命周期
+
+测试主机为 sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`），测试对象均使用
+`qualification-2224c55` 前缀。
+
+1. 使用当前 commit 的 Linux amd64 kcctl/server/agent，从认证 HTTPS package Registry 完成 deploy；server/agent commit 和 sourceRevision 一致且 tree clean。
+2. 用独立 server/agent SSH 配置完成 sh-dev-2 join；package 配置权限为 `0600`。
+3. 使用 Kubernetes `v1.35.0`、containerd `1.7.29`、Calico `v3.29.6` 建立纯 OCI 集群；image Registry 和 cri Registry 均选用 `qualification-2224c55-images`，集群和系统 Pod 达到 Running/Ready。
+4. `kcctl cluster add-node` 后 sh-dev-2 Ready；containerd 成功拉取认证 image Registry 中的 Calico 和 `kc-kubectl` 镜像。
+5. `kcctl cluster remove-node` 后 sh-dev-2 的 kubelet/containerd inactive、kc-agent 保留；Kubernetes、containerd、CNI、Calico 配置和数据路径均不存在，且无 `cali*`/`vxlan.calico` 设备。
+6. 删除集群后 sh-dev-3 的 kubelet/containerd inactive，Kubernetes、containerd、CNI、Calico、etcd 路径全部不存在；`2224c55` 的 finalizer 已在 CRI 卸载之后执行，未再出现 image-volume `Device or resource busy`。
+7. 执行 `kcctl clean --all --force --assumeyes` 后两台机器的 kc-server、kc-agent、kc-etcd、kc-console、kubelet、containerd 均 inactive，平台配置和测试凭据均不存在。
+
+### 清理与保留项
+
+- 两套隔离 Registry systemd 服务已停止、禁用并删除临时目录；两台机器 authorized_keys 中的测试公钥、临时 CA、密码、私钥、二进制和归档均已删除。
+- `kc-registry.service` 保持 active；`sprout-postgres-v2` 保持运行；未触碰无关服务或容器。
+
+### 本地验证与剩余缺口
+
+通过：定向 race 测试、`go vet ./...`、`golangci-lint run ./...`（0 issues）、两个 open-packaging 测试、open-packaging source check、Bash 语法检查、`go run ./tools/release-policy-verify --manifest packaging/resources.yaml`、Actionlint、Linux amd64/arm64 静态构建和 `git diff --check`。
+
+全仓 `go test ./...` 的环境相关失败已单独区分：macOS 无 system D-Bus 导致 `pkg/utils/systemctl` 失败；本机无 `~/.kc/config` 和已部署平台，`test/e2e` 的 17 个 setup 失败。ShellCheck 因当前 macOS 预发布环境没有可用 bottle、源码安装又缺 `pkg-config` bottle，未记为通过。
+
+资格代码提交及其后的报告提交都没有 GitHub Actions run 链接，因为本轮明确不推送远端；Go tests/coverage、offline-resource-validate、bootstrap、resource package、release manifest/provenance 和 OCI AIO 的当前分支证据仍缺。正式 Harbor 的生产 robot account、最小权限项目、正式 CA/TLS 组合也尚未重跑。
+
+剩余 P1：单节点默认自动 `untaint-master` 尚未实现，本轮资格命令显式使用了 `--untaint-master`。剩余 P2：测试主机未运行 chronyd/ntpd（时钟偏差实测小于一秒），以及 Registry blob 垃圾回收由运维方负责。
+
+### 发布建议
+
+本地代码、认证 TLS package/image Registry 分离、双机 deploy/join/create/add/remove/delete/clean 和残留清理均已通过；在没有当前 release commit 的 Actions 与正式 Harbor 权限策略证据前，不能宣称正式发布就绪。建议授权推送后在该 commit 上完成所有 Actions，并用正式 Harbor 重跑同一套双机证据，再决定发布 2.0.0。
+
+## 历史记录（2026-07-22 及更早）
+
+以下内容保留旧提交的审查和 Actions 证据，不代表当前 `2224c55` 的发布状态。
+
+### 2026-07-22 复审
 
 ### 最新 master Registry 模型已完成集成
 
@@ -85,7 +158,7 @@ Linux Actions 和后续 Harbor 资格测试补齐。
 - 当前尚未在 `sh-dev-3`、`sh-dev-2` 使用 Harbor robot account、自定义 CA 和严格
   TLS 重跑 deploy、join、建群、增删节点、删除、clean 以及残留审计。
 
-## 发布候选版本
+### 历史发布候选版本
 
 - 分支：`codex/oci-static-server-replacement`
 - 发布提交：`cf2f967e6ddbf2b81354096b88216c44d253021c`
@@ -101,7 +174,7 @@ Linux Actions 和后续 Harbor 资格测试补齐。
 可行性，不代表私有 Harbor、Registry 认证、自定义 CA 或严格 TLS 校验已经通过
 生产发布验证。
 
-## 2026-07-16 发布复审
+### 2026-07-16 发布复审
 
 > 本节保留当时的审查背景和 `cf2f967` 历史证据。关于 package/image Registry
 > 边界、`--local-registry` 参数和 package Registry 认证/TLS 的结论，均已由
@@ -148,7 +221,7 @@ Registry API PR 产生不必要冲突，源码修改已单独保存，未包含�
 6. 使用 Harbor robot account 和最小权限策略验证 bootstrap、建群、增删节点、
    删除集群和 clean 全生命周期。
 
-## 已关闭的阻断项
+### 历史已关闭阻断项
 
 1. join 节点的 agent 清理
    - 通过 API 执行 `kcctl clean` 时，会合并在线节点清单。
@@ -173,7 +246,7 @@ Registry API PR 产生不必要冲突，源码修改已单独保存，未包含�
    - 软件包 config label 和 release manifest 条目均包含 `sourceRevision`。
    - manifest 生成流程会在提升产物前校验平台 bootstrap 的 revision。
 
-## 本地验证
+### 历史本地验证
 
 在发布分支上，以下验证均已通过：
 
@@ -199,7 +272,7 @@ git diff --check
 - 桌面沙箱阻止了 `pkg/utils/sysutil` 使用的宿主机信息调用；
 - 本地 E2E 需要可用的 `~/.kc/config`。
 
-## 发布提交对应的 GitHub Actions
+### 历史发布提交对应的 GitHub Actions
 
 - Go 测试/覆盖率：[run 29388107973](https://github.com/lixd/kubeclipper/actions/runs/29388107973) — 成功
 - 离线资源/来源追溯校验：[run 29388107992](https://github.com/lixd/kubeclipper/actions/runs/29388107992) — 成功
@@ -219,7 +292,7 @@ bootstrap/kubeclipper OCI digest: sha256:39bdc402f35dd2ac440556f11fa83fb5ca3f650
 已验证产物：12；失败：0
 ```
 
-## OCI 证据
+### 历史 OCI 证据
 
 隔离的双机 bootstrap 产物如下：
 
@@ -231,7 +304,7 @@ sourceRevision: cf2f967e6ddbf2b81354096b88216c44d253021c
 
 验证完成后已删除该标签；宿主机 Registry 中仅保留原有的 `v1.8.0` 标签。
 
-## 双机纯 OCI 生命周期验证
+### 历史双机纯 OCI 生命周期验证
 
 1. 使用 OCI 在 `sh-dev-3` 部署平台，并显式指定 `ens3` 进行地址检测。
 2. 登录成功。客户端与服务端报告的 Git commit 均为 `cf2f967e6ddbf2b81354096b88216c44d253021c`，且工作树状态均为 clean。
@@ -244,14 +317,14 @@ sourceRevision: cf2f967e6ddbf2b81354096b88216c44d253021c
 
 首次发布验证有意暴露并随后修复了两个清理边界问题（join 中断时的节点清单，以及 AIO server/agent 的传输配置选择）。上述完整生命周期是基于当时的资格测试提交执行的干净重测结果。由于最终 2.0 release commit 尚未形成，合并 master、Registry API 和认证/TLS 改造后必须重新执行。
 
-## 最终清理证据
+### 历史最终清理证据
 
 最终 clean 成功后，两台主机上的下列项目均已不存在或处于 inactive 状态：`kc-server`、`kc-agent`、`kc-etcd`、`kc-console`、`kubelet`、Kubernetes static-pod 进程、KubeClipper server/agent 配置目录和二进制文件、`/etc/kubernetes`、`/var/lib/kubelet`、`/var/lib/etcd`、`/etc/containerd` 以及 `/var/lib/containerd`。
 
 临时 SSH 授权和密钥、Registry 标签、发布验证 Git 标签、源码副本、二进制文件及软件包归档均已删除。所有 216 个带临时 `qualification-*` 前缀的 GHCR 软件包均已通过已登录的软件包页面删除；重新扫描九页软件包列表后，确认剩余验证软件包数量为零。宿主机原生的 `kc-registry.service` 保持运行。
 未修改无关的 `sprout-postgres-v2` 容器。
 
-## 剩余缺口
+### 历史剩余缺口
 
 - P0：最终 release commit 尚未形成且未经授权推送。当前提交的 Go tests/coverage、
   offline-resource-validate、bootstrap、resource package、release manifest/provenance
@@ -264,7 +337,7 @@ sourceRevision: cf2f967e6ddbf2b81354096b88216c44d253021c
 - P2：测试主机未运行 chronyd/ntpd；现有部署预检已明确报告此情况。由于实测主机时钟偏差小于一秒，验证继续执行。
 - P2：删除 manifest 后回收 Distribution Registry blob，仍属于 Registry 运维方的常规垃圾回收职责。
 
-## 发布建议
+### 历史发布建议
 
 `cf2f967` 已证明匿名 HTTP Registry 下的纯 OCI 主流程可以工作。最新 master Registry
 模型已经集成，package/image Registry 混用已关闭，生产 package Registry 认证/TLS
