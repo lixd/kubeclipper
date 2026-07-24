@@ -118,10 +118,11 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 		}
 		return nil
 	}
-	logger.Infof("refresh bootstrap assets from OCI registry %s", opts.Registry)
-	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(opts.RegistryConfig).Refresh(ctx, opts.Registry)
+	logger.Infof("resolve bootstrap assets from OCI registry %s", opts.Registry)
+	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(opts.RegistryConfig).
+		IndexPackageRepositories(ctx, opts.Registry, bootstrapPackageRepositories(assets))
 	if err != nil {
-		return fmt.Errorf("refresh bootstrap assets from registry %s: %w", opts.Registry, err)
+		return fmt.Errorf("resolve bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
 	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch, opts.KubeClipperSourceRevision)
 	if len(missing) > 0 {
@@ -153,6 +154,20 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 		}
 	}
 	return nil
+}
+
+func bootstrapPackageRepositories(assets []bootstrapAsset) []string {
+	repositories := make([]string, 0, len(assets))
+	seen := make(map[string]struct{}, len(assets))
+	for _, asset := range assets {
+		repository := strings.Join([]string{deliveryapis.PackageRepositoryPrefix, bootstrapKind, asset.packageName()}, "/")
+		if _, ok := seen[repository]; ok {
+			continue
+		}
+		seen[repository] = struct{}{}
+		repositories = append(repositories, repository)
+	}
+	return repositories
 }
 
 func groupBootstrapHostsByArchitecture(runner BootstrapSSHRunner, sshConfig *sshutils.SSH, hosts []string) (map[string][]string, error) {

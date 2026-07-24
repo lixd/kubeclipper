@@ -105,6 +105,59 @@ func TestRegistryPackageIndexerIndex(t *testing.T) {
 	}
 }
 
+func TestRegistryPackageIndexerIndexesKnownRepositoriesWithoutCatalog(t *testing.T) {
+	img := testPackageImage(t, deliveryapis.PackageManifest{
+		SchemaVersion:  1,
+		Kind:           "bootstrap",
+		Name:           "kubeclipper",
+		Version:        "v2.0.0",
+		SourceRevision: "revision",
+		ContentProfile: deliveryapis.ContentProfileBinary,
+		Platform:       deliveryapis.PackageManifestPlatform{OS: "linux", Arch: "amd64"},
+		Contents: []deliveryapis.PackageManifestFile{
+			{Name: "kubeclipper-agent", File: "kubeclipper-agent", Digest: testDigest},
+		},
+	})
+	repository := "team-a/kubeclipper/packages/bootstrap/kubeclipper"
+	client := &fakeRegistryClient{
+		tags: map[string][]string{repository: {"v2.0.0"}},
+		artifacts: map[string][]RegistryPackageArtifact{
+			"harbor.example.com/team-a/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0": {{
+				Digest:   testDigest,
+				Platform: &v1.Platform{OS: "linux", Architecture: "amd64"},
+				Image:    img,
+			}},
+		},
+	}
+
+	inventory, err := NewRegistryPackageInventoryIndexer(client).IndexPackageRepositories(
+		context.Background(),
+		"harbor.example.com/team-a",
+		[]string{"kubeclipper/packages/bootstrap/kubeclipper", "kubeclipper/packages/bootstrap/kubeclipper"},
+	)
+	if err != nil {
+		t.Fatalf("IndexPackageRepositories() error: %+v", err)
+	}
+	if client.catalogCalls != 0 {
+		t.Fatalf("Catalog() calls = %d, want 0", client.catalogCalls)
+	}
+	if client.tagCalls != 1 || client.resolveCalls != 1 {
+		t.Fatalf("client calls = tags:%d resolve:%d, want 1/1", client.tagCalls, client.resolveCalls)
+	}
+	if len(inventory.Spec.Packages) != 1 {
+		t.Fatalf("package count = %d, want 1", len(inventory.Spec.Packages))
+	}
+}
+
+func TestRegistryPackageIndexerRejectsUnknownExplicitRepository(t *testing.T) {
+	_, err := NewRegistryPackageInventoryIndexer(&fakeRegistryClient{}).IndexPackageRepositories(
+		context.Background(), "registry.local", []string{"library/nginx"},
+	)
+	if err == nil {
+		t.Fatal("IndexPackageRepositories() error = nil, want invalid package repository")
+	}
+}
+
 func TestRegistryPackageIndexerScopesProjectPrefix(t *testing.T) {
 	img := testPackageImage(t, deliveryapis.PackageManifest{
 		SchemaVersion:  1,

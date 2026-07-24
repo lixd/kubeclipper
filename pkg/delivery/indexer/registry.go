@@ -110,6 +110,40 @@ func (i *RegistryPackageInventoryIndexer) Refresh(ctx context.Context, registry 
 	return inventory, nil
 }
 
+// IndexPackageRepositories indexes known package repositories without requiring
+// registry-wide catalog access. Project-scoped Registry credentials commonly
+// permit pull and tag listing while denying GET /v2/_catalog.
+func (i *RegistryPackageInventoryIndexer) IndexPackageRepositories(ctx context.Context, registry string, logicalRepositories []string) (*deliveryapis.PackageInventory, error) {
+	if registry == "" {
+		return nil, fmt.Errorf("registry is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	inventory := deliveryapis.NewPackageInventory("registry")
+	inventory.Spec.Registry = registry
+	_, prefix := deliveryregistry.SplitPrefix(registry)
+	seen := make(map[string]struct{}, len(logicalRepositories))
+	for _, logicalRepository := range logicalRepositories {
+		logicalRepository = strings.Trim(logicalRepository, "/")
+		if _, _, ok := deliveryapis.ParsePackageRepository(logicalRepository); !ok {
+			return nil, fmt.Errorf("repository %q is not under %s/{kind}/{name}", logicalRepository, deliveryapis.PackageRepositoryPrefix)
+		}
+		if _, ok := seen[logicalRepository]; ok {
+			continue
+		}
+		seen[logicalRepository] = struct{}{}
+		repository := path.Join(prefix, logicalRepository)
+		if err := i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
+			return nil, err
+		}
+	}
+	if err := inventory.Validate(); err != nil {
+		return nil, err
+	}
+	return inventory, nil
+}
+
 func (i *RegistryPackageInventoryIndexer) index(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error) {
 	repositories, err := i.Client.Catalog(ctx, registry)
 	if err != nil {

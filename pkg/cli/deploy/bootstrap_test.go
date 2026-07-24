@@ -101,6 +101,18 @@ func TestDeployBootstrapAssetsExcludeRegistry(t *testing.T) {
 	}
 }
 
+func TestBootstrapPackageRepositoriesAreExplicitAndDeduplicated(t *testing.T) {
+	got := bootstrapPackageRepositories(deployBootstrapAssets)
+	want := []string{
+		"kubeclipper/packages/bootstrap/kubeclipper",
+		"kubeclipper/packages/bootstrap/etcd",
+		"kubeclipper/packages/bootstrap/console",
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("bootstrapPackageRepositories() = %#v, want %#v", got, want)
+	}
+}
+
 func TestNormalizeBootstrapArchitecture(t *testing.T) {
 	for input, want := range map[string]string{
 		"x86_64\n": "amd64",
