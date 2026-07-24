@@ -18,6 +18,10 @@ on:
         required: false
         default: ""
         type: string
+      upload_release_input:
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -246,3 +250,12 @@ jobs:
             echo "- Architectures: \`$ARCHITECTURES\`"
             echo "- Registry prefix: \`$REGISTRY_PREFIX\`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload release assembly input
+        if: inputs.upload_release_input && !startsWith(steps.settings.outputs.component, 'bootstrap-')
+        uses: actions/upload-artifact@v6
+        with:
+          name: oci-release-input-${{ github.run_id }}-${{ steps.settings.outputs.component }}-${{ steps.settings.outputs.version }}
+          path: ${{ runner.temp }}/kc-resource
+          if-no-files-found: error
+          retention-days: 2

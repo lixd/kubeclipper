@@ -61,7 +61,7 @@ import (
 )
 
 const (
-	defaultRegistryPackageRegistry = "ghcr.io/lixd/kubeclipper"
+	defaultRegistryPackageRegistry = "ghcr.io/kubeclipper/kubeclipper"
 	defaultRegistryVersion         = "3.1.1"
 	packageRegistryBinaryPath      = "/opt/kubeclipper/resource/registry"
 	standardRegistryBinaryPath     = "/bin/registry"
@@ -71,15 +71,15 @@ const (
 	longDescription = `
   Docker registry operation.
 
-  Currently, you can deploy, clean, push, list and delete docker registry.
+  Deploy and manage a local Registry, or sync KubeClipper release OCI artifacts.
   Use docker engine API V2, visit the website(https://docs.docker.com/registry/spec/api/) for more information.`
 	registryExample = `
   # Deploy docker registry from a package registry
   kcctl registry deploy --pk-file key --node 10.0.0.111
   # Deploy docker registry from an offline image archive
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v2.0.0-linux-amd64.tar.gz
   # Deploy docker registry directly from a self-bootstrapping offline Registry bundle
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --offline-bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
   # Clean docker registry
   kcctl registry clean --pk-file key --node 10.0.0.111
   # Push docker image to registry
@@ -92,6 +92,10 @@ const (
   kcctl registry list --type image --name etcd
   # Delete docker image
   kcctl registry delete --node 10.0.0.111 --name etcd --tag 1.5.1-0
+  # Sync the current KubeClipper release to a private Registry
+  kcctl registry sync --registry harbor.example.com/kubeclipper \
+    --registry-username 'robot$kubeclipper-writer' \
+    --registry-password-file harbor-token
 
   Please read 'kcctl registry -h' get more registry flags.`
 	deployLongDescription = `
@@ -105,9 +109,9 @@ const (
   # If you used custom port,then must specify it in push、list、delete cmd.
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-port 6666
   # Deploy docker registry from an offline image archive
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v1.8.0-linux-amd64.tar.gz
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-image-archive registry-v2.0.0-linux-amd64.tar.gz
   # Deploy docker registry from a self-bootstrapping offline Registry bundle
-  kcctl registry deploy --pk-file key --node 10.0.0.111 --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+  kcctl registry deploy --pk-file key --node 10.0.0.111 --offline-bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
   # Deploy docker registry from a local binary
   kcctl registry deploy --pk-file key --node 10.0.0.111 --registry-binary registry-linux-amd64
 
@@ -231,6 +235,7 @@ func NewCmdRegistry(streams options.IOStreams) *cobra.Command {
 	cmd.AddCommand(NewCmdRegistryPush(o))
 	cmd.AddCommand(NewCmdRegistryList(o))
 	cmd.AddCommand(NewCmdRegistryDelete(o))
+	cmd.AddCommand(NewCmdRegistrySync(streams))
 
 	return cmd
 }
@@ -260,7 +265,10 @@ func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 	cmd.Flags().StringVar(&o.RegistryImageArchive, "registry-image-archive", o.RegistryImageArchive, "local docker image archive containing the registry binary.")
 	cmd.Flags().StringVar(&o.RegistryBinary, "registry-binary", o.RegistryBinary, "local registry binary path.")
 	cmd.Flags().StringVar(&o.OfflineBundle, "offline-bundle", o.OfflineBundle, "self-bootstrapping KubeClipper offline Registry bundle.")
-	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", o.PackageRegistry, "OCI registry prefix containing kubeclipper/packages/bootstrap/registry. Default: ghcr.io/lixd/kubeclipper.")
+	cmd.Flags().StringVar(
+		&o.PackageRegistry, "package-registry", o.PackageRegistry,
+		"OCI registry prefix containing kubeclipper/packages/bootstrap/registry. Default: ghcr.io/kubeclipper/kubeclipper.",
+	)
 	cmd.Flags().StringVar(&o.Version, "version", o.Version, "registry bootstrap image version. Default: 3.1.1.")
 	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "registry bootstrap image architecture. Default: detected from the target node.")
 	cmd.Flags().StringVar(&o.DataRoot, "data-root", o.DataRoot, "set registry data root directory.")

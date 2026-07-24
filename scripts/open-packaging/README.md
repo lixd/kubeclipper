@@ -97,7 +97,7 @@ Verification is optional and does not block `kcctl create cluster`:
 
 ```bash
 scripts/open-packaging/verify-release-manifest.sh \
-  --manifest kubeclipper-offline-registry-bundle-v1.8.0-amd64-release-manifest.yaml \
+  --manifest kubeclipper-offline-registry-bundle-v2.0.0-amd64-release-manifest.yaml \
   --registry 10.0.0.10:5000 \
   --arch amd64 \
   --insecure
@@ -131,7 +131,7 @@ not run an aggregate release build:
 The automatic KubeClipper workflow derives its package tag from the Git ref:
 
 ```text
-Git tag v1.8.0       -> v1.8.0
+Git tag v2.0.0       -> v2.0.0
 main or master       -> latest
 release-1.8          -> release-1.8
 ```
@@ -236,7 +236,7 @@ everything into one large static-server package:
 /data/kc-resource/
   k8s/v1.36.1/amd64/configs.tar.gz
   k8s/v1.36.1/amd64/images.txt
-  kc-runtime/v1.8.0/amd64/images.txt
+  kc-runtime/v2.0.0/amd64/images.txt
   nfs/v4.1.0/amd64/images.txt
   metallb/v0.13.7/amd64/images.txt
   containerd/2.2.4/amd64/configs.tar.gz
@@ -306,18 +306,18 @@ Kubernetes images and are still mirrored as normal runtime images.
 Build and publish the four standard OCI package images independently. Each
 script prepares its own inputs from source or public release assets, then pushes
 the resulting package image. `--registry-prefix` defaults to
-`ghcr.io/lixd/kubeclipper`.
+`ghcr.io/kubeclipper/kubeclipper`.
 
 ```bash
 scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
-  --version v1.8.0 \
+  --version v2.0.0 \
   --arch amd64
 
 scripts/open-packaging/publish-bootstrap-etcd.sh \
   --arch amd64
 
 scripts/open-packaging/publish-bootstrap-console.sh \
-  --version v1.8.0 \
+  --version v2.0.0 \
   --arch amd64
 
 scripts/open-packaging/publish-bootstrap-registry.sh \
@@ -325,7 +325,7 @@ scripts/open-packaging/publish-bootstrap-registry.sh \
 ```
 
 Use `--registry-prefix 10.0.0.10:5000` when publishing to a private Registry
-instead of the default `ghcr.io/lixd/kubeclipper`.
+instead of the default `ghcr.io/kubeclipper/kubeclipper`.
 
 Default inputs:
 
@@ -378,7 +378,7 @@ scripts/open-packaging/publish-resource-calico.sh \
 
 scripts/open-packaging/publish-resource-kc-runtime.sh \
   --image-registry-prefix 10.0.0.10:5000 \
-  --version v1.8.0
+  --version v2.0.0
 
 scripts/open-packaging/publish-resource-nfs.sh \
   --image-registry-prefix 10.0.0.10:5000 \
@@ -410,7 +410,7 @@ scripts/open-packaging/push-runtime-images.sh \
   --image-registry 10.0.0.10:5000 \
   --component kc-runtime \
   --arch amd64 \
-  --version v1.8.0
+  --version v2.0.0
 
 scripts/open-packaging/push-runtime-images.sh \
   --images-lock /opt/kubeclipper-server/resource/images.lock \
@@ -463,7 +463,7 @@ Registry implementation, including Harbor:
 skopeo sync \
   --src docker \
   --dest docker \
-  ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s/k8s \
+  ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s \
   harbor.local/kubeclipper/packages/k8s
 ```
 
@@ -471,24 +471,39 @@ Or copy one package image by digest/tag:
 
 ```bash
 skopeo copy --all \
-  docker://ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+  docker://ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
   docker://harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 ```
 
 For fully offline environments, users can also use native image archives:
 
 ```bash
-docker pull ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
-docker save ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+docker pull ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
+docker save ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
   -o kubeclipper-package-images.tar
 docker load -i kubeclipper-package-images.tar
-docker tag ghcr.io/lixd/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+docker tag ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
   harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 ```
 
 Helm charts remain Helm OCI artifacts, but they were verified with
 `skopeo copy/sync` and can be mirrored with the same Registry tooling.
+
+For an official release, the preferred connected-site mirror command is:
+
+```bash
+kcctl registry sync \
+  --registry harbor.example.com/kubeclipper \
+  --registry-username 'robot$kubeclipper-writer' \
+  --registry-password-file harbor-token \
+  --registry-ca-file harbor-ca.pem
+```
+
+The command downloads the release manifest matching the `kcctl` version and
+verifies its SHA256 file, source digests, and package `sourceRevision`.
+`--manifest <file>` selects a local manifest. A matching target digest is
+skipped; an existing tag with a different digest is not overwritten.
 
 ### 3.2 Offline Registry Bundle
 
@@ -500,7 +515,7 @@ architecture into a portable bundle:
 scripts/open-packaging/export-offline-registry-bundle.sh \
   --manifest /data/kc-resource/release-manifest.yaml \
   --arch amd64 \
-  --output kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+  --output kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
 ```
 
 When the release manifest includes `bootstrap/registry`, the exported bundle is
@@ -511,7 +526,7 @@ Registry can start the first Registry directly:
 ```bash
 kcctl registry deploy \
   --node 10.0.0.10 \
-  --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+  --offline-bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
 ```
 
 After the Registry is healthy, import the same bundle with the command below.
@@ -532,7 +547,7 @@ repository path, tag, media type, and digest:
 
 ```bash
 scripts/open-packaging/import-offline-registry-bundle.sh \
-  --bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz \
+  --bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz \
   --registry registry.local:5000 \
   --insecure-destination
 
@@ -554,7 +569,7 @@ containers-auth configuration (`skopeo login`, Docker config, or an authfile).
 kcctl registry deploy \
   --node 10.0.0.10 \
   --registry-port 5000 \
-  --package-registry ghcr.io/lixd/kubeclipper
+  --package-registry ghcr.io/kubeclipper/kubeclipper
 
 # 2. Build and push Kubernetes/CRI/CNI package images, Helm charts, and runtime images.
 scripts/open-packaging/build-offline-resources.sh \
@@ -568,14 +583,14 @@ scripts/open-packaging/build-offline-resources.sh \
 # 3. Publish bootstrap package images.
 scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
   --registry-prefix 10.0.0.10:5000 \
-  --version v1.8.0 \
+  --version v2.0.0 \
   --arch amd64
 scripts/open-packaging/publish-bootstrap-etcd.sh \
   --registry-prefix 10.0.0.10:5000 \
   --arch amd64
 scripts/open-packaging/publish-bootstrap-console.sh \
   --registry-prefix 10.0.0.10:5000 \
-  --version v1.8.0 \
+  --version v2.0.0 \
   --arch amd64
 scripts/open-packaging/publish-bootstrap-registry.sh \
   --registry-prefix 10.0.0.10:5000 \

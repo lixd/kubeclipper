@@ -13,6 +13,8 @@ mkdir -p \
 touch "$workdir/resource/k8s/v1.36.1/amd64/configs.tar.gz"
 touch "$workdir/resource/k8s/v1.36.1/arm64/configs.tar.gz"
 printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > "$workdir/resource/images.lock"
+printf 'k8s\tv1.36.1\tamd64\tregistry.k8s.io/pause:3.10\tregistry.example.com/kubeclipper/pause:3.10\n' >> "$workdir/resource/images.lock"
+printf 'k8s\tv1.36.1\tamd64\tregistry.k8s.io/pause:3.10\tregistry.example.com/kubeclipper/pause:3.10\n' >> "$workdir/resource/images.lock"
 
 cat > "$workdir/build.yaml" <<'EOF'
 apiVersion: packaging.kubeclipper.io/v1alpha1
@@ -87,6 +89,8 @@ assert packages[("bootstrap", "kubeclipper")]["sourceRevision"] == "abc123"
 assert packages[("bootstrap", "kubeclipper")]["platforms"] == ["linux/amd64", "linux/arm64"]
 assert packages[("k8s", "k8s")]["sourceRevision"] == "dependency-rev"
 assert packages[("k8s", "k8s")]["platforms"] == ["linux/amd64", "linux/arm64"]
+runtime_images = [item for item in document["artifacts"] if item["type"] == "runtime-image"]
+assert len(runtime_images) == 1
 PY
 
 if FAKE_REVISION=abc123 FAKE_STALE_PLATFORM=linux/arm64 PATH="$workdir/bin:$PATH" \
@@ -103,4 +107,16 @@ if FAKE_REVISION=abc123 FAKE_STALE_PLATFORM=linux/arm64 PATH="$workdir/bin:$PATH
 fi
 grep -q 'mixed platform source revisions' "$workdir/stale.err"
 grep -q 'linux/arm64=stale' "$workdir/stale.err"
+
+printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > "$workdir/resource/images.lock"
+printf 'k8s\tv1.36.1\tamd64\tregistry-one.example/pause:3.10\t\n' >> "$workdir/resource/images.lock"
+printf 'k8s\tv1.36.1\tamd64\tregistry-two.example/pause:3.10\t\n' >> "$workdir/resource/images.lock"
+if "$ROOT/scripts/open-packaging/generate-release-manifest.sh" \
+  --build-manifest "$workdir/build.yaml" \
+  --resource-dir "$workdir/resource" \
+  --output "$workdir/conflict.yaml" >"$workdir/conflict.out" 2>"$workdir/conflict.err"; then
+  echo "expected conflicting runtime image sources to be rejected" >&2
+  exit 1
+fi
+grep -q 'conflicting runtime image source' "$workdir/conflict.err"
 echo "release manifest provenance test passed"

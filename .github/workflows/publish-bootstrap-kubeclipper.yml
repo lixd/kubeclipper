@@ -6,8 +6,6 @@ on:
       - main
       - master
       - "release-*"
-    tags:
-      - "v*"
   workflow_dispatch:
     inputs:
       version:

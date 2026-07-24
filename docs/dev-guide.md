@@ -407,13 +407,13 @@ export KC_SERVER=https://127.0.0.1:8080
 export K8S_VERSION=v1.36.1
 export CRI_VERSION=2.2.4
 export CNI_VERSION=v3.31.5
-export KUBECLIPPER_VERSION=v1.8.0
+export KUBECLIPPER_VERSION=v2.0.0
 
 # 1. Deploy a local Registry with KubeClipper's built-in registry command.
 kcctl registry deploy \
   --node <registry-node-ip> \
   --pk-file ~/.ssh/id_rsa \
-  --package-registry ghcr.io/lixd/kubeclipper \
+  --package-registry ghcr.io/kubeclipper/kubeclipper \
   --version 3.1.1 \
   --registry-port 5000
 
@@ -429,6 +429,14 @@ kcctl create registry \
   --scheme http \
   --skip-tls-verify
 
+# For a published release, mirror its complete OCI BOM without requiring
+# Docker, containerd, crane, or skopeo. The default manifest matches kcctl.
+kcctl registry sync \
+  --registry harbor.example.com/kubeclipper \
+  --registry-username 'robot$kubeclipper-writer' \
+  --registry-password-file harbor-token \
+  --registry-ca-file harbor-ca.pem
+
 # 2. Build from public sources and publish package images, Helm charts, and
 # standard runtime images directly to the local Registry.
 scripts/open-packaging/build-offline-resources.sh \
@@ -439,6 +447,9 @@ scripts/open-packaging/build-offline-resources.sh \
   --arch amd64 \
   --include-bootstrap \
   --push
+
+# If GitHub Release assets cannot be downloaded directly, use a local file:
+# kcctl registry sync --manifest release-manifest-v2.0.0.yaml ...
 
 # 3. The release manifest is for mirroring/offline delivery validation only.
 # It is not uploaded to the KubeClipper control plane.
@@ -462,15 +473,15 @@ scripts/open-packaging/verify-release-manifest.sh \
 scripts/open-packaging/export-offline-registry-bundle.sh \
   --manifest "${RESOURCE_DIR}/release-manifest.yaml" \
   --arch amd64 \
-  --output kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+  --output kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
 
 # On an air-gapped host with no existing Registry, bootstrap from this same bundle.
 kcctl registry deploy \
   --node 10.0.0.10 \
-  --offline-bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz
+  --offline-bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
 
 scripts/open-packaging/import-offline-registry-bundle.sh \
-  --bundle kubeclipper-offline-registry-bundle-v1.8.0-amd64.tar.gz \
+  --bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz \
   --registry "${REGISTRY}" \
   --insecure-destination
 

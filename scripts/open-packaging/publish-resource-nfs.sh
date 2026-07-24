@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/resource-packages/common.sh"
 
-image_registry_prefix="ghcr.io/lixd/kubeclipper"
+image_registry_prefix="ghcr.io/kubeclipper/kubeclipper"
 version="v4.1.0"
 arch="amd64"
 images_file=""
@@ -19,7 +19,7 @@ Builds and publishes the standard runtime images used by the embedded NFS
 provisioner (v4.0.2) or NFS CSI (v4.1.0) manifests.
 
 Flags:
-  --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/lixd/kubeclipper.
+  --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --version <version>           v4.0.2 or v4.1.0. Default: v4.1.0.
   --arch <amd64|arm64>          Target architecture. Default: amd64.
   -h, --help                    Show this help.

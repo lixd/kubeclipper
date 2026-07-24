@@ -65,6 +65,38 @@ func TestNewCmdRegistryPushDoesNotExposePackageFlag(t *testing.T) {
 	}
 }
 
+func TestNewCmdRegistrySyncFlags(t *testing.T) {
+	cmd := NewCmdRegistrySync(options.IOStreams{})
+	for _, flag := range []string{
+		"manifest", "registry", "registry-username", "registry-password-file",
+		"registry-ca-file", "registry-scheme", "registry-skip-tls-verify", "arch",
+	} {
+		if cmd.Flags().Lookup(flag) == nil {
+			t.Fatalf("registry sync missing --%s flag", flag)
+		}
+	}
+	for _, flag := range []string{"version", "manifest-sha256", "insecure"} {
+		if cmd.Flags().Lookup(flag) != nil {
+			t.Fatalf("registry sync must not expose --%s", flag)
+		}
+	}
+	if got := cmd.Flags().Lookup("arch").DefValue; got != "all" {
+		t.Fatalf("--arch default = %q, want all", got)
+	}
+	if got := cmd.Flags().Lookup("registry-scheme").DefValue; got != "https" {
+		t.Fatalf("--registry-scheme default = %q, want https", got)
+	}
+}
+
+func TestRegistrySyncOptionsRejectsInvalidArchitecture(t *testing.T) {
+	o := NewRegistrySyncOptions(options.IOStreams{})
+	o.Registry = "registry.example.com/project"
+	o.Arch = "ppc64le"
+	if err := o.Run(t.Context()); err == nil || !strings.Contains(err.Error(), "--arch") {
+		t.Fatalf("Run() error = %v", err)
+	}
+}
+
 func TestValidateArgsPushRequiresImageArchive(t *testing.T) {
 	o := NewRegistryOptions(options.IOStreams{})
 	o.Node = "10.0.0.1"
@@ -99,7 +131,7 @@ func TestValidateArgsDeployRejectsMultipleSources(t *testing.T) {
 	o.Node = "10.0.0.1"
 	o.SSHConfig.PkFile = "/tmp/id_rsa"
 	o.Arch = "amd64"
-	o.RegistryImage = "ghcr.io/lixd/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1"
+	o.RegistryImage = "ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1"
 	o.RegistryBinary = "./registry"
 
 	err := o.ValidateArgsDeploy()
@@ -117,7 +149,7 @@ func TestResolveRegistryImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolveRegistryImage() error = %+v", err)
 	}
-	if ref != "ghcr.io/lixd/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1" {
+	if ref != "ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1" {
 		t.Fatalf("resolveRegistryImage() = %q", ref)
 	}
 

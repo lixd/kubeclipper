@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/resource-packages/common.sh"
 
-image_registry_prefix="ghcr.io/lixd/kubeclipper"
+image_registry_prefix="ghcr.io/kubeclipper/kubeclipper"
 version="v0.13.7"
 arch="amd64"
 images_file=""
@@ -19,7 +19,7 @@ Builds and publishes the standard runtime images used by the embedded MetalLB
 manifest.
 
 Flags:
-  --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/lixd/kubeclipper.
+  --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --version <version>           MetalLB image version. Default: v0.13.7.
   --arch <amd64|arm64>          Target architecture. Default: amd64.
   -h, --help                    Show this help.

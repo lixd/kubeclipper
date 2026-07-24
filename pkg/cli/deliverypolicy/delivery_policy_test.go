@@ -261,7 +261,7 @@ func assertTemplatePolicy(t *testing.T, policy *deliveryapis.SupportPolicy, poli
 	assertTemplateSlot(t, k8sPolicy, "cri", "cri", "containerd", containerdVersion)
 	assertTemplateSlot(t, k8sPolicy, "cni", "cni", "calico", calicoVersion)
 	assertTemplateSlot(t, k8sPolicy, "k8s-extension", "k8s-extension", "k8s-extension", "v1")
-	assertTemplateSlot(t, k8sPolicy, "bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v1.8.0")
+	assertTemplateSlot(t, k8sPolicy, "bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v2.0.0")
 	assertTemplateSlot(t, k8sPolicy, "bootstrap-etcd", "bootstrap", "etcd", "3.5.21")
 }
 

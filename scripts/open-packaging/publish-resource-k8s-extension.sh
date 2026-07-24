@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/resource-packages/common.sh"
 
-registry_prefix="ghcr.io/lixd/kubeclipper"
+registry_prefix="ghcr.io/kubeclipper/kubeclipper"
 image_registry_prefix=""
 version="v1"
 arch="amd64"
@@ -27,7 +27,7 @@ Builds and publishes:
   k8s-extension runtime images from the bundled image list, when present.
 
 Flags:
-  --registry-prefix <ref>       Package Registry prefix. Default: ghcr.io/lixd/kubeclipper.
+  --registry-prefix <ref>       Package Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --image-registry-prefix <ref> Runtime image Registry prefix. Default: --registry-prefix.
   --version <version>           Package version. Default: v1.
   --arch <amd64|arm64>          Target architecture. Default: amd64.

@@ -4,7 +4,7 @@ set -euo pipefail
 
 KC_BOOTSTRAP_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$KC_BOOTSTRAP_COMMON_DIR/../../.." && pwd)"
-DEFAULT_REGISTRY_PREFIX="ghcr.io/lixd/kubeclipper"
+DEFAULT_REGISTRY_PREFIX="ghcr.io/kubeclipper/kubeclipper"
 
 # Keep package archives clean when scripts are run from macOS developer
 # machines. BSD tar otherwise may add AppleDouble files such as ._etcd.

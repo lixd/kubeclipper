@@ -23,7 +23,7 @@ Contents:
   etcdutl
 
 Flags:
-  --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/lixd/kubeclipper.
+  --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/kubeclipper/kubeclipper.
   --version <version>      etcd version. Default: 3.5.21.
   --arch <arch>            Target architecture. Default: go env GOARCH.
   -h, --help               Show this help.

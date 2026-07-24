@@ -8,6 +8,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -23,6 +24,8 @@ type buildManifest struct {
 	Bootstrap struct {
 		KubeClipperVersion string `json:"kubeclipperVersion"`
 		EtcdVersion        string `json:"etcdVersion"`
+		ConsoleVersion     string `json:"consoleVersion"`
+		RegistryVersion    string `json:"registryVersion"`
 	} `json:"bootstrap"`
 	Resources struct {
 		K8s struct {
@@ -31,6 +34,12 @@ type buildManifest struct {
 		K8sExtension struct {
 			Versions []string `json:"versions"`
 		} `json:"k8sExtension"`
+		KCRuntime struct {
+			Versions []string `json:"versions"`
+		} `json:"kcRuntime"`
+		RuntimeImageSets map[string]struct {
+			Versions []string `json:"versions"`
+		} `json:"runtimeImageSets"`
 		CRI struct {
 			Containerd struct {
 				Versions []string `json:"versions"`
@@ -46,6 +55,7 @@ type buildManifest struct {
 
 func main() {
 	manifestPath := flag.String("manifest", "packaging/resources.yaml", "offline resource build manifest")
+	publishMatrix := flag.Bool("publish-matrix", false, "print the GitHub Actions OCI publish matrix as JSON")
 	flag.Parse()
 	data, err := os.ReadFile(*manifestPath)
 	if err != nil {
@@ -58,7 +68,43 @@ func main() {
 	if err := verifyPolicyCoverage(manifest, deliveryapis.DefaultSupportPolicy()); err != nil {
 		fatal(err)
 	}
+	if *publishMatrix {
+		data, err := json.Marshal(buildPublishMatrix(&manifest))
+		if err != nil {
+			fatal(err)
+		}
+		fmt.Println(string(data))
+		return
+	}
 	fmt.Printf("release artifact/support policy consistency verified: %s\n", *manifestPath)
+}
+
+type publishMatrixEntry struct {
+	Component string `json:"component"`
+	Version   string `json:"version"`
+}
+
+func buildPublishMatrix(manifest *buildManifest) []publishMatrixEntry {
+	entries := []publishMatrixEntry{
+		{Component: "bootstrap-kubeclipper", Version: manifest.Bootstrap.KubeClipperVersion},
+		{Component: "bootstrap-etcd", Version: manifest.Bootstrap.EtcdVersion},
+		{Component: "bootstrap-console", Version: manifest.Bootstrap.ConsoleVersion},
+		{Component: "bootstrap-registry", Version: manifest.Bootstrap.RegistryVersion},
+	}
+	appendVersions := func(component string, versions []string) {
+		for _, version := range versions {
+			entries = append(entries, publishMatrixEntry{Component: component, Version: version})
+		}
+	}
+	appendVersions("resource-k8s", manifest.Resources.K8s.Versions)
+	appendVersions("resource-containerd", manifest.Resources.CRI.Containerd.Versions)
+	appendVersions("resource-k8s-extension", manifest.Resources.K8sExtension.Versions)
+	appendVersions("resource-calico", manifest.Resources.CNI.Calico.Versions)
+	appendVersions("resource-kc-runtime", manifest.Resources.KCRuntime.Versions)
+	for _, component := range []string{"nfs", "metallb"} {
+		appendVersions("resource-"+component, manifest.Resources.RuntimeImageSets[component].Versions)
+	}
+	return entries
 }
 
 func fatal(err error) {

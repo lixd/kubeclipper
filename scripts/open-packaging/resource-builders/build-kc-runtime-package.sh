@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 arch="amd64"
-version="v1.8.0"
+version="v2.0.0"
 output="./resource"
 images_file=""
 
@@ -17,7 +17,7 @@ Usage:
   build-kc-runtime-package.sh [flags]
 
 Flags:
-  --version <version>       Package version. Default: v1.8.0.
+  --version <version>       Package version. Default: v2.0.0.
   --arch <amd64|arm64|all>  Target architecture. Default: amd64.
   --output <dir>            Resource output root. Default: ./resource.
   --images-file <file>      Override the bundled image list.

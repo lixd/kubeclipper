@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/resource-packages/common.sh"
 
-registry_prefix="ghcr.io/lixd/kubeclipper"
+registry_prefix="ghcr.io/kubeclipper/kubeclipper"
 version="2.2.4"
 arch="amd64"
 runc_version="1.3.3"
@@ -20,7 +20,7 @@ Builds and publishes:
   <registry-prefix>/kubeclipper/packages/cri/containerd:<version>
 
 Flags:
-  --registry-prefix <ref>  Package Registry prefix. Default: ghcr.io/lixd/kubeclipper.
+  --registry-prefix <ref>  Package Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --version <version>      containerd version. Default: 2.2.4.
   --arch <amd64|arm64>     Target architecture. Default: amd64.
   --runc-version <version> runc version. Default: 1.3.3.

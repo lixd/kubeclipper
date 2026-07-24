@@ -22,8 +22,8 @@ Contents:
   kc-console
 
 Flags:
-  --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/lixd/kubeclipper.
-  --version <version>      KubeClipper/console version, e.g. v1.8.0.
+  --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/kubeclipper/kubeclipper.
+  --version <version>      KubeClipper/console version, e.g. v2.0.0.
   --arch <arch>            Target architecture. Default: go env GOARCH.
   -h, --help               Show this help.
 EOF

@@ -5,8 +5,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/resource-packages/common.sh"
 
-image_registry_prefix="ghcr.io/lixd/kubeclipper"
-version="v1.8.0"
+image_registry_prefix="ghcr.io/kubeclipper/kubeclipper"
+version="v2.0.0"
 arch="amd64"
 images_file=""
 
@@ -19,8 +19,8 @@ Builds and publishes:
   KubeClipper runtime helper images such as lvscare and kubectl.
 
 Flags:
-  --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/lixd/kubeclipper.
-  --version <version>           Runtime image-list version. Default: v1.8.0.
+  --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
+  --version <version>           Runtime image-list version. Default: v2.0.0.
   --arch <amd64|arm64>          Target architecture. Default: amd64.
   -h, --help                    Show this help.
 EOF

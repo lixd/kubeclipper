@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {component: bootstrap-kubeclipper, version: v1.8.0}
+          - {component: bootstrap-kubeclipper, version: v2.0.0}
           - {component: bootstrap-etcd, version: "3.5.21"}
           - {component: bootstrap-console, version: v1.6.0}
           - {component: bootstrap-registry, version: "3.1.1"}
@@ -27,7 +27,7 @@ jobs:
           - {component: resource-k8s-extension, version: v1}
           - {component: resource-calico, version: v3.31.5}
           - {component: resource-calico, version: v3.29.6}
-          - {component: resource-kc-runtime, version: v1.8.0}
+          - {component: resource-kc-runtime, version: v2.0.0}
           - {component: resource-nfs, version: v4.0.2}
           - {component: resource-nfs, version: v4.1.0}
           - {component: resource-metallb, version: v0.13.7}
@@ -37,6 +37,7 @@ jobs:
       version: ${{ matrix.version }}
       architecture: all
       registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
+      upload_release_input: true
     secrets: inherit
 
   manifest:
@@ -60,30 +61,19 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-yaml
 
-      - name: Create release assembly inputs
+      - name: Download release assembly inputs
+        uses: actions/download-artifact@v7
+        with:
+          pattern: oci-release-input-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/kc-release
+          merge-multiple: true
+
+      - name: Rebuild merged release metadata
         run: |
-          set -euo pipefail
-          resource_dir="$RUNNER_TEMP/kc-release"
-          for arch in amd64 arm64; do
-            for version in v1.36.1 v1.35.0 v1.34.2; do
-              mkdir -p "$resource_dir/k8s/$version/$arch"
-              touch "$resource_dir/k8s/$version/$arch/configs.tar.gz"
-            done
-            for version in 2.2.4 1.7.29; do
-              mkdir -p "$resource_dir/containerd/$version/$arch"
-              touch "$resource_dir/containerd/$version/$arch/configs.tar.gz"
-            done
-            mkdir -p "$resource_dir/k8s-extension/v1/$arch"
-            touch "$resource_dir/k8s-extension/v1/$arch/configs.tar.gz"
-            for version in v3.31.5 v3.29.6; do
-              chart_dir="$RUNNER_TEMP/chart-$version/tigera-operator"
-              mkdir -p "$chart_dir" "$resource_dir/calico/$version/$arch"
-              printf 'apiVersion: v2\nname: tigera-operator\nversion: %s\n' "$version" > "$chart_dir/Chart.yaml"
-              tar -czf "$resource_dir/calico/$version/$arch/charts.tgz" -C "$(dirname "$chart_dir")" tigera-operator
-            done
-          done
-          printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > "$resource_dir/images.lock"
-          echo "RESOURCE_DIR=$resource_dir" >> "$GITHUB_ENV"
+          scripts/open-packaging/generate-resource-metadata.sh \
+            --resource-dir "$RUNNER_TEMP/kc-release" \
+            --image-registry "$REGISTRY_PREFIX"
+          echo "RESOURCE_DIR=$RUNNER_TEMP/kc-release" >> "$GITHUB_ENV"
 
       - name: Resolve release digests and provenance
         run: |

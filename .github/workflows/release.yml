@@ -1,4 +1,4 @@
-# Push a v* tag to publish kcctl-only GitHub Release artifacts.
+# Publish the complete OCI release and kcctl assets for a stable v* tag.
 
 name: release
 
@@ -9,26 +9,66 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  build:
-    name: Release
-    runs-on: ubuntu-latest
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Set up Golang with cache
-        uses: magnetikonline/action-golang-cache@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - name: Build
-        run:
-          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
-
-      - name: Package kcctl-only artifacts
+          cache: true
+      - name: Validate release tag and build publish matrix
+        id: matrix
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          set -euo pipefail
+          manifest_version="$(awk '$1 == "release:" {print $2}' packaging/resources.yaml)"
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "release tag must be a stable vX.Y.Z version: $RELEASE_TAG" >&2
+            exit 1
+          }
+          [[ "$manifest_version" == "$RELEASE_TAG" ]] || {
+            echo "release tag $RELEASE_TAG does not match packaging release $manifest_version" >&2
+            exit 1
+          }
+          matrix="$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: ${{ matrix.component }}
+      version: ${{ matrix.version }}
+      architecture: all
+      registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper
+      upload_release_input: true
+    secrets: inherit
+
+  build-cli:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: magnetikonline/action-golang-cache@v5
+        with:
+          go-version-file: go.mod
+      - name: Build kcctl
+        run: KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
+      - name: Package kcctl artifacts
+        run: |
+          set -euo pipefail
           pushd dist
           cp kcctl kcctl-linux-amd64
           cp linux_arm64/kcctl kcctl-linux-arm64
@@ -36,13 +76,85 @@ jobs:
           cp darwin_arm64/kcctl kcctl-darwin-arm64
           sha256sum kcctl-* > kcctl-checksums.txt
           popd
-      - name: Release
-        uses: softprops/action-gh-release@v3
+      - uses: actions/upload-artifact@v6
         with:
-          files: |
-            dist/kcctl-linux-arm64
+          name: kcctl-release-${{ github.run_id }}
+          path: |
             dist/kcctl-linux-amd64
+            dist/kcctl-linux-arm64
             dist/kcctl-darwin-amd64
             dist/kcctl-darwin-arm64
             dist/kcctl-checksums.txt
+          retention-days: 2
+
+  manifest:
+    needs: publish
+    runs-on: ubuntu-24.04
+    env:
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: imjasonh/setup-crane@v0.4
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: oci-release-input-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/kc-release
+          merge-multiple: true
+      - name: Generate and verify release manifest
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          resource_dir="$RUNNER_TEMP/kc-release"
+          output="$resource_dir/release-manifest-$RELEASE_TAG.yaml"
+          scripts/open-packaging/generate-resource-metadata.sh \
+            --resource-dir "$resource_dir" \
+            --image-registry "$REGISTRY_PREFIX"
+          scripts/open-packaging/generate-release-manifest.sh \
+            --build-manifest packaging/resources.yaml \
+            --resource-dir "$resource_dir" \
+            --output "$output" \
+            --package-registry "$REGISTRY_PREFIX" \
+            --image-registry "$REGISTRY_PREFIX" \
+            --include-bootstrap \
+            --arch all \
+            --resolve-digests \
+            --source-revision "$GITHUB_SHA"
+          scripts/open-packaging/verify-release-manifest.sh \
+            --manifest "$output" \
+            --registry "$REGISTRY_PREFIX"
+          sha256sum "$output" > "$output.sha256"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/kc-release/release-manifest-${{ github.ref_name }}.yaml
+            ${{ runner.temp }}/kc-release/release-manifest-${{ github.ref_name }}.yaml.sha256
+          retention-days: 2
+
+  github-release:
+    needs: [build-cli, manifest]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: kcctl-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: ${{ runner.temp }}/release/*
           generate_release_notes: true

@@ -6,7 +6,7 @@ on:
       version:
         description: KubeClipper runtime image-list version.
         required: true
-        default: v1.8.0
+        default: v2.0.0
         type: string
       architecture:
         description: Target architecture.

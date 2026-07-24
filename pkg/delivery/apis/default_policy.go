@@ -36,7 +36,7 @@ func defaultKubernetesSupportPolicy(name, kubernetesVersion, containerdVersion, 
 			defaultSupportComponentSlot("cri", "cri", "containerd", containerdVersion),
 			defaultSupportComponentSlot("cni", "cni", "calico", calicoVersion),
 			defaultSupportComponentSlot("k8s-extension", "k8s-extension", "k8s-extension", "v1"),
-			defaultSupportComponentSlot("bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v1.8.0"),
+			defaultSupportComponentSlot("bootstrap-kubeclipper", "bootstrap", "kubeclipper", "v2.0.0"),
 			defaultSupportComponentSlot("bootstrap-etcd", "bootstrap", "etcd", "3.5.21"),
 		},
 	}

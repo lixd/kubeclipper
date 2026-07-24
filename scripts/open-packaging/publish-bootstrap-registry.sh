@@ -21,7 +21,7 @@ Contents:
   registry
 
 Flags:
-  --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/lixd/kubeclipper.
+  --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/kubeclipper/kubeclipper.
   --version <version>      distribution registry version. Default: 3.1.1.
   --arch <arch>            Target architecture. Default: go env GOARCH.
   -h, --help               Show this help.

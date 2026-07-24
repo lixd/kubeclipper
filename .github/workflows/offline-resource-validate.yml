@@ -103,7 +103,7 @@ jobs:
             --name metallb --version v0.13.7 --arch amd64 --output /tmp/kc-release-manifest
           scripts/open-packaging/generate-resource-metadata.sh \
             --resource-dir /tmp/kc-release-manifest \
-            --image-registry ghcr.io/lixd/kubeclipper
+            --image-registry ghcr.io/kubeclipper/kubeclipper
           scripts/open-packaging/generate-release-manifest.sh \
             --build-manifest packaging/resources.yaml \
             --resource-dir /tmp/kc-release-manifest \

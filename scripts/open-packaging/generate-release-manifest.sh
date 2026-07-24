@@ -198,6 +198,7 @@ for component_kind, name, version, ref in sorted(chart_groups):
 images_lock = os.path.join(resource_dir, "images.lock")
 if not os.path.isfile(images_lock):
     raise SystemExit(f"images lock not found: {images_lock}")
+runtime_targets = {}
 with open(images_lock, "r", encoding="utf-8") as stream:
     header = stream.readline().rstrip("\n").split("\t")
     expected = ["resource", "version", "arch", "sourceImage", "targetImage"]
@@ -225,9 +226,20 @@ with open(images_lock, "r", encoding="utf-8") as stream:
             "kc-runtime": "kc-runtime",
         }.get(resource, "addon")
         component_name = "calico" if resource == "calico" else resource
+        platform = f"linux/{arch}"
+        key = (target, platform)
+        previous = runtime_targets.get(key)
+        if previous:
+            if previous != source:
+                raise SystemExit(
+                    f"conflicting runtime image source for {target} {platform}: "
+                    f"{previous} != {source}"
+                )
+            continue
+        runtime_targets[key] = source
         add_artifact(
             "runtime-image", component_kind, component_name, version,
-            source, target, [f"linux/{arch}"], upstream,
+            source, target, [platform], upstream,
         )
 
 if include_bootstrap:

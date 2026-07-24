@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/resource-packages/common.sh"
 
-registry_prefix="ghcr.io/lixd/kubeclipper"
+registry_prefix="ghcr.io/kubeclipper/kubeclipper"
 image_registry_prefix=""
 version="v3.31.5"
 arch="amd64"
@@ -26,7 +26,7 @@ Builds and publishes:
   Calico runtime images from the bundled image list.
 
 Flags:
-  --registry-prefix <ref>       Chart Registry prefix. Default: ghcr.io/lixd/kubeclipper.
+  --registry-prefix <ref>       Chart Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --image-registry-prefix <ref> Runtime image Registry prefix. Default: --registry-prefix.
   --version <vX.Y.Z>            Calico version. Default: v3.31.5.
   --arch <amd64|arm64>          Target architecture. Default: amd64.

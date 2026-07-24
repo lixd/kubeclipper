@@ -42,8 +42,8 @@ Examples:
   scripts/open-packaging/build-offline-resources.sh \
     --manifest packaging/resources.yaml \
     --output /tmp/kc-resource \
-    --registry ghcr.io/lixd/kubeclipper \
-    --image-registry ghcr.io/lixd/kubeclipper \
+    --registry ghcr.io/kubeclipper/kubeclipper \
+    --image-registry ghcr.io/kubeclipper/kubeclipper \
     --push
 EOF
 }
