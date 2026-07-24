@@ -152,7 +152,11 @@ func loadCachedComponent(result ComponentFetchResult, contents []deliveryapis.Ar
 	if err = json.Unmarshal(data, &cached); err != nil {
 		return ComponentFetchResult{}, false
 	}
-	if cached.Slot != result.Slot || cached.Kind != result.Kind || cached.Name != result.Name ||
+	// Slot identifies the resolver choice, not the artifact. Runtime component
+	// commands intentionally reconstruct the resolved component without it, so
+	// a slot difference must not invalidate otherwise identical digest-pinned
+	// content.
+	if cached.Kind != result.Kind || cached.Name != result.Name ||
 		cached.Version != result.Version || cached.OS != result.OS || cached.Arch != result.Arch ||
 		!reflect.DeepEqual(cached.Transport, result.Transport) || !reflect.DeepEqual(cached.Contents, contents) {
 		return ComponentFetchResult{}, false
