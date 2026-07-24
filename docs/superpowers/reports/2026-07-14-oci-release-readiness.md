@@ -30,12 +30,15 @@
 go test -race ./pkg/delivery/releasemanifest ./pkg/cli/registry \
   ./pkg/cli/deliverypolicy ./pkg/delivery/registry ./pkg/delivery/apis \
   ./tools/release-policy-verify                              PASS
+go list ./pkg/... | 排除 pkg/utils/systemctl 后执行 go test -race
+                                                               PASS
 go list ./... | 排除 pkg/utils/systemctl、test/e2e 后执行 go test
                                                                PASS
 go test ./...                                                  环境失败，分类见下文
 go vet ./...                                                   PASS
 golangci-lint run ./...                                        PASS，0 issues
 actionlint .github/workflows/*.yml                              PASS（1.7.7）
+ShellCheck 0.11.0（本提交修改的全部 shell 脚本）               PASS
 bash scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
                                                                PASS
 bash scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
@@ -52,8 +55,8 @@ amd64/arm64 index、单架构选择、package provenance、runtime child digest�
 凭据拒绝和冲突 tag 拒绝。测试 Registry、证书和凭据均随测试进程销毁。
 
 全仓测试的环境失败与原报告一致，不是本轮回归：macOS 没有 system D-Bus，`test/e2e` 在已清理
-qualification 环境中没有 `~/.kc/config` 和运行中的平台。ShellCheck 当前本机没有安装，因此本轮
-没有重跑；修改过的 shell 脚本均通过 `bash -n`、对应 open-packaging 测试和 Actionlint。
+qualification 环境中没有 `~/.kc/config` 和运行中的平台。修改过的 shell 脚本均通过 ShellCheck、
+`bash -n` 和对应 open-packaging 测试。
 
 ### 当前发布门禁
 
@@ -66,7 +69,7 @@ qualification 环境中没有 `~/.kc/config` 和运行中的平台。ShellCheck 
   SSH 授权、隧道或双机资源。
 
 剩余分级：**P0** 为当前提交尚未完成真实 Actions、正式 manifest/digest/provenance 和真实 Harbor
-同步验收；**P1 无**；**P2** 为本机缺少 ShellCheck，远端 `offline-resource-validate` 会执行对应门禁。
+同步验收；**P1 无**；**P2 无**。
 在获得推送授权并关闭这些 P0 前，结论为：**暂不建议直接正式发布 2.0.0**。
 
 ## 2026-07-24 最终发布候选复审
