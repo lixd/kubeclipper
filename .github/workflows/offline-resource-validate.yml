@@ -131,5 +131,8 @@ jobs:
       - name: Release manifest provenance test
         run: scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
 
+      - name: Complete release assembly test
+        run: scripts/open-packaging/tests/release-assembly-test.sh
+
       - name: Internal dependency scan
         run: scripts/open-packaging/check-open-packaging-sources.sh
