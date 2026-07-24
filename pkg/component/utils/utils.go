@@ -120,7 +120,11 @@ func GetClusterCRIRegistriesWithContext(ctx context.Context, c *v1.Cluster, op c
 		return nil, err
 	}
 	c.ResolvedImageRegistry = imageRegistry.Host
-	registries := []v1.RegistrySpec{imageRegistry}
+	imageRegistryAuthority, err := registryAuthoritySpec(imageRegistry)
+	if err != nil {
+		return nil, fmt.Errorf("image registry %s: %w", c.ImageRegistry, err)
+	}
+	registries := []v1.RegistrySpec{imageRegistryAuthority}
 	explicitHosts := make(map[string]v1.RegistrySpec)
 	for _, ref := range c.ContainerRuntime.Registries {
 		if ref.RegistryRef == nil || strings.TrimSpace(*ref.RegistryRef) == "" {
@@ -130,7 +134,7 @@ func GetClusterCRIRegistriesWithContext(ctx context.Context, c *v1.Cluster, op c
 		if err != nil {
 			return nil, fmt.Errorf("get cri registry %s: %w", *ref.RegistryRef, err)
 		}
-		spec, err := normalizeRegistrySpec(registry.RegistrySpec)
+		spec, err := registryAuthoritySpec(registry.RegistrySpec)
 		if err != nil {
 			return nil, fmt.Errorf("cri registry %s: %w", *ref.RegistryRef, err)
 		}
@@ -181,9 +185,30 @@ func normalizeRegistrySpec(item v1.RegistrySpec) (v1.RegistrySpec, error) {
 	if item.Host == "" {
 		return v1.RegistrySpec{}, fmt.Errorf("registry host must not be empty")
 	}
-	if strings.Contains(item.Host, "://") || strings.Contains(item.Host, "/") {
-		return v1.RegistrySpec{}, fmt.Errorf("registry host %q must not include a scheme or path", item.Host)
+	if strings.Contains(item.Host, "://") {
+		return v1.RegistrySpec{}, fmt.Errorf("registry host %q must not include a scheme", item.Host)
 	}
+	parts := strings.Split(item.Host, "/")
+	if strings.TrimSpace(parts[0]) == "" {
+		return v1.RegistrySpec{}, fmt.Errorf("registry host must not be empty")
+	}
+	for _, part := range parts[1:] {
+		if strings.TrimSpace(part) == "" || part == "." || part == ".." {
+			return v1.RegistrySpec{}, fmt.Errorf("registry repository %q contains an invalid path segment", item.Host)
+		}
+	}
+	return item, nil
+}
+
+// registryAuthoritySpec converts a Registry resource, whose Host may include
+// an image repository prefix, into the authority-only form required by CRI
+// authentication and containerd's certs.d directory layout.
+func registryAuthoritySpec(item v1.RegistrySpec) (v1.RegistrySpec, error) {
+	item, err := normalizeRegistrySpec(item)
+	if err != nil {
+		return v1.RegistrySpec{}, err
+	}
+	item.Host = strings.SplitN(item.Host, "/", 2)[0]
 	return item, nil
 }
 

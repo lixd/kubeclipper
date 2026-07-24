@@ -40,7 +40,7 @@ func TestGetClusterCRIRegistries(t *testing.T) {
 	}, nil)
 	op.EXPECT().GetRegistry(gomock.Any(), "image-auth").Return(&v1.Registry{
 		ObjectMeta:   metav1.ObjectMeta{Name: "image-auth"},
-		RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "harbor.example.com", SkipVerify: true, RegistryAuth: auth},
+		RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "harbor.example.com/kubeclipper", SkipVerify: true, RegistryAuth: auth},
 	}, nil)
 	business := "business"
 	cluster := &v1.Cluster{
@@ -60,8 +60,54 @@ func TestGetClusterCRIRegistries(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("registries = %#v, want %#v", got, want)
 	}
-	if cluster.ResolvedImageRegistry != "harbor.example.com" {
-		t.Fatalf("resolved image registry = %q", cluster.ResolvedImageRegistry)
+	if cluster.ResolvedImageRegistry != "harbor.example.com/kubeclipper" {
+		t.Fatalf("resolved image registry = %q, want repository prefix preserved", cluster.ResolvedImageRegistry)
+	}
+}
+
+func TestGetClusterCRIRegistriesDeduplicatesRepositoryPrefixesByAuthority(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	op := mockcluster.NewMockOperator(ctrl)
+	auth := &v1.RegistryAuth{Username: "user", Password: "secret"}
+	spec := v1.RegistrySpec{Scheme: "https", Host: "harbor.example.com/kubeclipper", CA: "ca", RegistryAuth: auth}
+	op.EXPECT().GetRegistry(gomock.Any(), "images").Return(&v1.Registry{RegistrySpec: spec}, nil)
+	op.EXPECT().GetRegistry(gomock.Any(), "business").Return(&v1.Registry{
+		RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "harbor.example.com/business", CA: "ca", RegistryAuth: auth},
+	}, nil)
+	business := "business"
+	cluster := &v1.Cluster{
+		ImageRegistry: "images",
+		ContainerRuntime: v1.ContainerRuntime{Registries: []v1.CRIRegistry{
+			{RegistryRef: &business},
+		}},
+	}
+	got, err := GetClusterCRIRegistriesWithContext(context.Background(), cluster, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []v1.RegistrySpec{{Scheme: "https", Host: "harbor.example.com", CA: "ca", RegistryAuth: auth}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("registries = %#v, want authority-only config %#v", got, want)
+	}
+	if cluster.ResolvedImageRegistry != "harbor.example.com/kubeclipper" {
+		t.Fatalf("resolved image registry = %q, want repository prefix preserved", cluster.ResolvedImageRegistry)
+	}
+}
+
+func TestResolveImageRegistryRejectsInvalidRepositoryPath(t *testing.T) {
+	for _, host := range []string{
+		"harbor.example.com//kubeclipper",
+		"harbor.example.com/../kubeclipper",
+		"https://harbor.example.com/kubeclipper",
+	} {
+		t.Run(host, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			op := mockcluster.NewMockOperator(ctrl)
+			op.EXPECT().GetRegistry(gomock.Any(), "images").Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Host: host}}, nil)
+			if _, err := ResolveImageRegistry(context.Background(), "images", op); err == nil {
+				t.Fatalf("expected host %q to be rejected", host)
+			}
+		})
 	}
 }
 
