@@ -1694,7 +1694,7 @@ func (h *handler) RetryCluster(request *restful.Request, response *restful.Respo
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
-		c.Status.Phase = v1.ClusterUpdating
+		c.Status.Phase = retryClusterPhase(op)
 		if _, err = h.clusterOperator.UpdateCluster(context.TODO(), c); err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
@@ -1705,6 +1705,10 @@ func (h *handler) RetryCluster(request *restful.Request, response *restful.Respo
 
 	go h.doOperation(ctx, op, &service.Options{DryRun: dryRun})
 	_ = response.WriteHeaderAndEntity(http.StatusOK, nil)
+}
+
+func retryClusterPhase(op *v1.Operation) v1.ClusterPhase {
+	return clusteroperation.GetClusterPhase(op.Labels[common.LabelOperationAction])
 }
 
 func (h *handler) CreateRecovery(request *restful.Request, response *restful.Response) {
