@@ -33,25 +33,34 @@ import (
 
 const (
 	defaultVTEPDeviceName = "vxlan.calico"
+	defaultIPIPDeviceName = "tunl0"
 	ipipKernelModuleName  = "ipip"
 )
 
 // clearCalicoNICs cleans up all the NICs created by calico
 func clearCalicoNICs(mode string) {
+	clearCalicoNICsWithOps(mode, netutil.DeleteLink, unix.DeleteModule, netlink.LinkList)
+}
+
+func clearCalicoNICsWithOps(mode string, deleteLink func(string) error, deleteModule func(string, int) error, listLinks func() ([]netlink.Link, error)) {
 	switch mode {
 	case CalicoNetworkIPIPAll, CalicoNetworkIPIPSubnet:
+		logger.Infof("remove IPIP tunnel device: %s", defaultIPIPDeviceName)
+		if err := deleteLink(defaultIPIPDeviceName); err != nil {
+			logger.Errorf("failed to remove IPIP tunnel device: %v", err)
+		}
 		logger.Info("disable IPIP kernel module")
-		if err := unix.DeleteModule(ipipKernelModuleName, 0); err != nil {
+		if err := deleteModule(ipipKernelModuleName, 0); err != nil {
 			logger.Errorf("failed to disable IPIP kernel module: %v", err)
 		}
 	case CalicoNetworkVXLANAll, CalicoNetworkVXLANSubnet:
 		logger.Infof("remove VTEP device: %s", defaultVTEPDeviceName)
-		if err := netutil.DeleteLink(defaultVTEPDeviceName); err != nil {
+		if err := deleteLink(defaultVTEPDeviceName); err != nil {
 			logger.Errorf("failed to remove VTEP device: %v", err)
 		}
 	}
 
-	links, err := netlink.LinkList()
+	links, err := listLinks()
 	if err != nil {
 		logger.Errorf("failed to list links: %v", err)
 		return
@@ -62,7 +71,7 @@ func clearCalicoNICs(mode string) {
 		if !(strings.Contains(name, "cali") && netutil.IsLinkVeth(link)) {
 			continue
 		}
-		if err := netutil.DeleteLink(name); err != nil {
+		if err := deleteLink(name); err != nil {
 			logger.Errorf("failed to remove link %s: %v", name, err)
 		}
 	}
