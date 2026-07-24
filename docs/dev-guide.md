@@ -382,6 +382,20 @@ kcctl deploy \
   --package-registry-ca-file harbor-ca.pem
 ```
 
+Use separate project robot accounts for mirroring and runtime access. The
+minimum Harbor repository permissions are:
+
+| Robot account | Repository permissions | Used by |
+| --- | --- | --- |
+| Release mirror writer | Pull, Push | `kcctl registry sync`; Pull is required for destination digest checks and Push writes missing tags. |
+| KubeClipper runtime reader | Pull | `kcctl deploy`, `kcctl join`, server inventory refresh, and agent package/chart fetches. |
+
+Do not grant Delete, project administration, scanner, replication, or system
+administration permissions to either account. Scope both robots to the exact
+Harbor project appended to `--registry` / `--package-registry`. After mirroring,
+deploy with the read-only robot instead of distributing the writer token to
+server and agent nodes.
+
 `kcctl` writes a mode `0600` Registry client configuration to each server and
 agent before starting services. Passwords are not stored in the deploy ConfigMap
 or passed as plaintext command-line arguments. `kcctl join` inherits this file

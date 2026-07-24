@@ -627,6 +627,14 @@ go run ./tools/oci-verify \
   --registry-ca-file harbor-ca.pem
 ```
 
+For `kcctl registry sync`, grant a project-scoped writer robot only repository
+Pull and Push. Pull is needed for the pre-copy digest/conflict check; Push is
+needed to upload missing manifests and blobs. Use a different project-scoped
+runtime robot with repository Pull only for `kcctl deploy`, `kcctl join`,
+inventory refresh, and server/agent artifact fetches. Neither robot needs
+Delete, project administration, scanner, replication, or system administration
+permissions.
+
 `--registry-scheme http` / `--package-registry-scheme http` are only for an
 explicit plain-HTTP test Registry. `--registry-skip-tls-verify` and
 `--package-registry-skip-tls-verify` are qualification escape hatches, not the
