@@ -2,8 +2,9 @@
 
 > **当前结论：最新候选 `d1fe0c7b` 已完成本地实现和验证，但暂不建议直接正式发布。**
 > `kcctl registry sync`、2.0.0 发布矩阵、正式 release manifest 资产和官方 GHCR 默认值已经落地；
-> 按要求本轮没有推送，因此该提交还没有真实 GitHub Actions、正式 GHCR digest 和远端 Harbor
-> 同步证据。下方 `7332bac` 的双机纯 OCI 资格结果仍然有效，但不能替代新提交的发布验证。
+> 远程认证 TLS Registry 的真实同步 E2E 已通过。按要求本轮没有推送，因此该提交还没有真实
+> GitHub Actions、正式 GHCR digest 和生产 Harbor 最小权限证据。下方 `7332bac` 的双机纯 OCI
+> 资格结果仍然有效，但不能替代新提交的发布验证。
 
 ## 2026-07-24 `kcctl registry sync` 与 2.0.0 发布增量
 
@@ -54,6 +55,58 @@ git diff --check                                               PASS
 amd64/arm64 index、单架构选择、package provenance、runtime child digest、第二次同步跳过、错误
 凭据拒绝和冲突 tag 拒绝。测试 Registry、证书和凭据均随测试进程销毁。
 
+### sh-dev-3 真实 Registry 同步 E2E
+
+在 sh-dev-3 上直接运行 Linux amd64 `kcctl`，不依赖 Docker、containerd、crane 或 skopeo 执行
+同步。测试源、目标和 GitHub Release mock 分别只监听 `127.0.0.2:443`、`127.0.0.3:443` 和
+`127.0.0.4:443`；`kcctl` 在独立 chroot 中使用测试 hosts 映射，因此没有修改宿主
+`/etc/hosts`，也没有触碰现有 `kc-registry.service`。目标端启用 Basic Auth 和独立自签名 CA。
+
+测试 `kcctl` 版本为 `v2.0.0`，Git commit 和 package provenance 均为：
+
+```text
+d1fe0c7b794e4b58806cbca2ad921cad16d5afc4
+```
+
+默认模式没有传 `--manifest`，成功从下列正式格式 URL 下载 manifest 和 SHA256 文件并在解析前
+完成校验：
+
+```text
+https://github.com/kubeclipper/kubeclipper/releases/download/v2.0.0/release-manifest-v2.0.0.yaml
+manifest sha256: 20b17ab8daf623314c6dec4635172e019e3350e3263e8de1f13110ef1572187f
+```
+
+源端和目标端 digest 证据：
+
+```text
+package platform sourceRevision:
+  amd64 = d1fe0c7b794e4b58806cbca2ad921cad16d5afc4
+  arm64 = d1fe0c7b794e4b58806cbca2ad921cad16d5afc4
+
+package index: sha256:6644ad8d60e15d37e4c906c8a30757c5258e9ff4615238fccac120f488614dfa
+package amd64: sha256:aebe8ef8d7d981a278a706402b6715f874f03c90f3919d18836da3f3896ede2d
+package arm64: sha256:babaa8f37a5c27a1557706ae40065c23e1e9fd46050bc0300ac53f273c8bf350
+Helm chart:     sha256:827131eaac575b0caa713eef40df9a986655345d415ded3b38148d3947914e7a
+```
+
+验收结果：
+
+1. `--arch all` 首次同步 package、runtime image 和 Helm chart 共 3 个 target，全部为 `copy`；
+   package/runtime 保留完整 index，两个 child digest 与源端逐平台一致。
+2. 对同一目标再次执行，3 个 target 全部为 `skip`，统计为 `synced 0; skipped 3`。
+3. `--arch amd64` 向独立项目同步成功；package/runtime tag digest 均为 amd64 child digest，
+   Helm chart digest 不变。
+4. 错误密码以 HTTP 401 失败，没有写入目标。
+5. 预先写入不同 digest 后，同步返回 `target tag conflict`；冲突前后实际 digest 一致，确认没有覆盖。
+6. 停止 GitHub Release mock 后，显式 `--manifest /manifest.yaml` 仍同步成功，证明受限网络下本地
+   manifest 路径不依赖 Release 下载。
+
+测试完成后删除了所有测试项目/tag、Registry 数据、CA、证书、密码、crane 临时认证文件、chroot、
+日志和本机/远端 `/tmp/kc-sync-e2e-d1fe0c7`。三个隔离监听端口均为 0；sh-dev-3 原有
+`kc-registry.service` 和 Docker 保持 active，system containerd 保持 inactive。sh-dev-2 的
+kc-agent、kubelet、containerd 均保持 inactive；残留审计发现并删除了 2026-07-09 旧资格测试的
+`oci-current` kubeconfig，随后 KubeClipper/Kubernetes 测试路径复查全部为空。
+
 全仓测试的环境失败与原报告一致，不是本轮回归：macOS 没有 system D-Bus，`test/e2e` 在已清理
 qualification 环境中没有 `~/.kc/config` 和运行中的平台。修改过的 shell 脚本均通过 ShellCheck、
 `bash -n` 和对应 open-packaging 测试。
@@ -64,12 +117,13 @@ qualification 环境中没有 `~/.kc/config` 和运行中的平台。修改过�
 - OCI digest / sourceRevision：尚无正式 v2.0.0 产物；必须由该提交发布后记录，不能复用
   `7332bac` qualification digest。
 - 双机生命周期：已有 `7332bac` 的完整通过证据；`d1fe0c7` 未改变 server/agent 生命周期逻辑，
-  但仍需对最终 release commit 重跑必需 Actions 和至少一次真实 manifest 到认证 Harbor 的 sync。
-- 清理：本轮只使用进程内临时 Registry 和 `/tmp` 交叉构建目录，没有创建远端标签、GHCR package、
-  SSH 授权、隧道或双机资源。
+  但仍需对最终 release commit 重跑必需 Actions。认证 TLS Registry sync 已在 sh-dev-3 通过，
+  正式发布时仍需用生产 Harbor robot account 和最小权限项目确认厂商权限策略。
+- 清理：本轮远程隔离 Registry、tag、证书、密码、chroot 和日志已全部删除，没有创建 GHCR package、
+  SSH 授权、隧道或双机平台资源；两台测试机的相关残留复查通过。
 
-剩余分级：**P0** 为当前提交尚未完成真实 Actions、正式 manifest/digest/provenance 和真实 Harbor
-同步验收；**P1 无**；**P2 无**。
+剩余分级：**P0** 为当前提交尚未完成真实 Actions、正式 manifest/digest/provenance，以及生产
+Harbor robot account/最小权限策略验收；**P1 无**；**P2 无**。
 在获得推送授权并关闭这些 P0 前，结论为：**暂不建议直接正式发布 2.0.0**。
 
 ## 2026-07-24 最终发布候选复审
