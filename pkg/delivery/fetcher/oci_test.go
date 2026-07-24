@@ -207,6 +207,90 @@ func TestOCIArtifactFetcherValidatesPackageManifest(t *testing.T) {
 	}
 }
 
+func TestOCIArtifactFetcherReusesDigestValidatedCache(t *testing.T) {
+	payload := testGzipPayload(t, "cached chart payload")
+	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
+	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
+	image := fetcherPackageImage(t, manifest, newStubLayer(payload, deliveryapis.MediaTypeChartsLayer))
+	manifestDigest := imageDigestString(t, image)
+	plan := fetcherPlanWithTransportDigest("calico", "v3.31.5", payloadDigest, manifestDigest)
+	defer os.RemoveAll(downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64"))
+
+	pulls := 0
+	fetcher := NewOCIArtifactFetcher(false)
+	fetcher.PullImage = func(string) (containerv1.Image, error) {
+		pulls++
+		return image, nil
+	}
+	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+		t.Fatalf("initial Fetch() error: %+v", err)
+	}
+	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+		t.Fatalf("cached Fetch() error: %+v", err)
+	}
+	if pulls != 1 {
+		t.Fatalf("PullImage() calls = %d, want 1", pulls)
+	}
+}
+
+func TestOCIArtifactFetcherRejectsTamperedCache(t *testing.T) {
+	payload := testGzipPayload(t, "cached chart payload")
+	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
+	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
+	image := fetcherPackageImage(t, manifest, newStubLayer(payload, deliveryapis.MediaTypeChartsLayer))
+	manifestDigest := imageDigestString(t, image)
+	plan := fetcherPlanWithTransportDigest("calico", "v3.31.5", payloadDigest, manifestDigest)
+	packageDir := downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64")
+	defer os.RemoveAll(packageDir)
+
+	pulls := 0
+	fetcher := NewOCIArtifactFetcher(false)
+	fetcher.PullImage = func(string) (containerv1.Image, error) {
+		pulls++
+		return image, nil
+	}
+	result, err := fetcher.Fetch(context.Background(), plan)
+	if err != nil {
+		t.Fatalf("initial Fetch() error: %+v", err)
+	}
+	if err = os.WriteFile(result.Components[0].Files[deliveryapis.ContentCharts], []byte("tampered"), 0644); err != nil {
+		t.Fatalf("tamper cached payload: %+v", err)
+	}
+	if _, err = fetcher.Fetch(context.Background(), plan); err != nil {
+		t.Fatalf("refetch after cache tamper: %+v", err)
+	}
+	if pulls != 2 {
+		t.Fatalf("PullImage() calls = %d, want 2", pulls)
+	}
+}
+
+func TestOCIArtifactFetcherRejectsCacheFromDifferentReference(t *testing.T) {
+	payload := testGzipPayload(t, "cached chart payload")
+	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
+	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
+	image := fetcherPackageImage(t, manifest, newStubLayer(payload, deliveryapis.MediaTypeChartsLayer))
+	manifestDigest := imageDigestString(t, image)
+	plan := fetcherPlanWithTransportDigest("calico", "v3.31.5", payloadDigest, manifestDigest)
+	defer os.RemoveAll(downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64"))
+
+	pulls := 0
+	fetcher := NewOCIArtifactFetcher(false)
+	fetcher.PullImage = func(string) (containerv1.Image, error) {
+		pulls++
+		return image, nil
+	}
+	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+		t.Fatalf("initial Fetch() error: %+v", err)
+	}
+	plan.Components[0].Transport.Ref = "mirror.local:5000/kubeclipper/packages/cni/calico:v3.31.5"
+	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+		t.Fatalf("Fetch() with changed reference error: %+v", err)
+	}
+	if pulls != 2 {
+		t.Fatalf("PullImage() calls = %d, want 2", pulls)
+	}
+}
+
 func TestOCIArtifactFetcherRejectsPulledDigestMismatch(t *testing.T) {
 	payload := testGzipPayload(t, "chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)

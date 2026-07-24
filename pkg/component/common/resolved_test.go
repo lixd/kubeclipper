@@ -155,6 +155,33 @@ func TestResolvePulledChartArchiveUsesNewArchiveWhenNameIsNotPredictable(t *test
 	}
 }
 
+func TestValidCachedHelmChartValidatesSourceAndPayload(t *testing.T) {
+	chartPath := filepath.Join(t.TempDir(), "charts.tgz")
+	if err := os.WriteFile(chartPath, []byte("chart payload"), 0644); err != nil {
+		t.Fatalf("write chart: %+v", err)
+	}
+	const (
+		ref     = "registry.local/kubeclipper/charts/tigera-operator"
+		version = "v3.31.5"
+		digest  = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+	)
+	if err := writeHelmChartSource(chartPath, ref, version, digest); err != nil {
+		t.Fatalf("writeHelmChartSource() error: %+v", err)
+	}
+	if !validCachedHelmChart(chartPath, ref, version, digest) {
+		t.Fatalf("validCachedHelmChart() = false, want true")
+	}
+	if validCachedHelmChart(chartPath, "mirror.local/charts/tigera-operator", version, digest) {
+		t.Fatalf("cache with changed reference was accepted")
+	}
+	if err := os.WriteFile(chartPath, []byte("tampered chart payload"), 0644); err != nil {
+		t.Fatalf("tamper chart: %+v", err)
+	}
+	if validCachedHelmChart(chartPath, ref, version, digest) {
+		t.Fatalf("cache with tampered payload was accepted")
+	}
+}
+
 func resolvedTestComponent(kind, name, version, contentName string) deliveryapis.ResolvedComponent {
 	return deliveryapis.ResolvedComponent{
 		Kind:    kind,

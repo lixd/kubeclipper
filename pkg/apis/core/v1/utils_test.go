@@ -722,3 +722,25 @@ func TestAppendClusterFinalCleanup(t *testing.T) {
 		t.Fatalf("unexpected final cleanup steps: %+v", steps)
 	}
 }
+
+func TestArtifactPrefetchPrecedesCRIForClusterInstallAndUpgrade(t *testing.T) {
+	cluster := &v1.Cluster{ContainerRuntime: v1.ContainerRuntime{Type: v1.CRIDocker}}
+	plan := &deliveryapis.ResolvedArtifactPlan{Components: []deliveryapis.ResolvedComponent{{
+		Kind: "cri", Name: "containerd", Version: "2.2.4",
+	}}}
+	ctx := component.WithResolvedArtifactPlan(context.Background(), plan)
+	steps, err := artifactPrefetchAndCRISteps(ctx, cluster, nil, v1.ActionInstall, []v1.StepNode{{ID: "node-1"}})
+	if err != nil {
+		t.Fatalf("artifactPrefetchAndCRISteps(install) error: %+v", err)
+	}
+	if len(steps) < 2 || steps[0].Name != "prefetchOCIArtifacts" || steps[1].Name != "installRuntime" {
+		t.Fatalf("artifactPrefetchAndCRISteps(install) = %+v", steps)
+	}
+	steps, err = artifactPrefetchAndCRISteps(ctx, cluster, nil, v1.ActionUpgrade, []v1.StepNode{{ID: "node-1"}})
+	if err != nil {
+		t.Fatalf("artifactPrefetchAndCRISteps(upgrade) error: %+v", err)
+	}
+	if len(steps) == 0 || steps[0].Name != "prefetchOCIArtifacts" {
+		t.Fatalf("artifactPrefetchAndCRISteps(upgrade) = %+v", steps)
+	}
+}

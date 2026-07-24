@@ -21,6 +21,7 @@ package clusteroperation
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"strings"
 	"testing"
 
@@ -243,6 +244,67 @@ func TestAddWorkerPackageStepPreservesResolvedTransport(t *testing.T) {
 	}
 	if pack.Transport != resolved.Transport || pack.Arch != resolved.Arch {
 		t.Fatalf("resolved package transport was not preserved: %+v", pack)
+	}
+}
+
+func TestAddWorkerPrefetchesArtifactsBeforeContainerRuntime(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:6443")
+	if err != nil {
+		t.Skipf("local kube-apiserver test port is unavailable: %v", err)
+	}
+	defer listener.Close()
+
+	cluster := c2.DeepCopy()
+	cluster.KubernetesVersion = "v1.34.2"
+	plan := &deliveryapis.ResolvedArtifactPlan{
+		OS:   deliveryapis.DefaultPackageOS,
+		Arch: "amd64",
+		Components: []deliveryapis.ResolvedComponent{{
+			Slot:    "k8s",
+			Kind:    "k8s",
+			Name:    k8s.K8s,
+			Version: cluster.KubernetesVersion,
+			Arch:    "amd64",
+			Transport: deliveryapis.TransportRef{
+				Type:   deliveryapis.TransportOCI,
+				Ref:    "registry.example/kubeclipper/packages/k8s/k8s:v1.34.2",
+				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+			},
+		}},
+	}
+	extra := component.ExtraMetadata{
+		OperationID: "operation-1",
+		Masters: []component.Node{{
+			ID:       "master-1",
+			IPv4:     "127.0.0.1",
+			NodeIPv4: "127.0.0.1",
+			Hostname: "master-1",
+		}},
+		Workers: []component.Node{{
+			ID:       "worker-1",
+			IPv4:     "192.0.2.11",
+			NodeIPv4: "192.0.2.11",
+			Hostname: "worker-1",
+		}},
+	}
+	patch := &PatchNodes{
+		Operation:    NodesOperationAdd,
+		Nodes:        v1.WorkerNodeList{{ID: "worker-1"}},
+		Role:         "worker",
+		ResolvedPlan: plan,
+	}
+	op, err := patch.makeWorkerOperation(extra, cluster, nil)
+	if err != nil {
+		t.Fatalf("makeWorkerOperation() error: %+v", err)
+	}
+	if len(op.Steps) < 2 {
+		t.Fatalf("steps = %+v", op.Steps)
+	}
+	if op.Steps[0].Name != "prefetchOCIArtifacts" {
+		t.Fatalf("first step = %q, want prefetchOCIArtifacts", op.Steps[0].Name)
+	}
+	if op.Steps[1].Name != "installRuntime" {
+		t.Fatalf("second step = %q, want container runtime installation", op.Steps[1].Name)
 	}
 }
 

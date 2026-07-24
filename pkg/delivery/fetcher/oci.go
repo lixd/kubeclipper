@@ -31,6 +31,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/crane"
@@ -103,6 +104,9 @@ func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch st
 		}
 		return componentResult, nil
 	}
+	if cached, ok := loadCachedComponent(componentResult, fetchContents); ok {
+		return cached, nil
+	}
 	image, err := f.pullImage(ctx, ref)
 	if err != nil {
 		return ComponentFetchResult{}, err
@@ -137,6 +141,41 @@ func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch st
 		return ComponentFetchResult{}, err
 	}
 	return componentResult, nil
+}
+
+func loadCachedComponent(result ComponentFetchResult, contents []deliveryapis.ArtifactContent) (ComponentFetchResult, bool) {
+	data, err := os.ReadFile(result.ManifestPath)
+	if err != nil {
+		return ComponentFetchResult{}, false
+	}
+	var cached fetchedComponentManifest
+	if err = json.Unmarshal(data, &cached); err != nil {
+		return ComponentFetchResult{}, false
+	}
+	if cached.Slot != result.Slot || cached.Kind != result.Kind || cached.Name != result.Name ||
+		cached.Version != result.Version || cached.OS != result.OS || cached.Arch != result.Arch ||
+		!reflect.DeepEqual(cached.Transport, result.Transport) || !reflect.DeepEqual(cached.Contents, contents) {
+		return ComponentFetchResult{}, false
+	}
+	expectedDir := downloader.PackageContentsDir(result.Kind, result.Name, result.Version, platformDir(result.OS, result.Arch))
+	files := make(map[string]string, len(contents))
+	for _, content := range contents {
+		expectedPath := filepath.Join(expectedDir, contentFile(content))
+		if filepath.Clean(cached.Files[content.Name]) != filepath.Clean(expectedPath) {
+			return ComponentFetchResult{}, false
+		}
+		payload, readErr := os.ReadFile(expectedPath)
+		if readErr != nil {
+			return ComponentFetchResult{}, false
+		}
+		digest, digestErr := packageFilePayloadDigest(payload, content.Name)
+		if digestErr != nil || digest != content.Digest {
+			return ComponentFetchResult{}, false
+		}
+		files[content.Name] = expectedPath
+	}
+	result.Files = files
+	return result, true
 }
 
 func packageLayerContents(contents []deliveryapis.ArtifactContent) []deliveryapis.ArtifactContent {

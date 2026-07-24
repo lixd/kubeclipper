@@ -187,6 +187,11 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 	case NodesOperationAdd:
 		action = corev1.ActionInstall
 		op.Labels[common.LabelOperationAction] = corev1.OperationAddNodes
+		prefetchSteps, err := componentcommon.ArtifactPrefetchSteps(p.ResolvedPlan, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, prefetchSteps...)
 
 		// container runtime
 		steps, err := GetCriStep(ctx, cluster, operator, action, stepNodes)

@@ -38,7 +38,9 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
@@ -112,7 +114,7 @@ func (h *handler) parseOperationFromCluster(extraMetadata *component.ExtraMetada
 		return nil, err
 	}
 	stepNodes := utils.UnwrapNodeList(extraMetadata.GetAllNodes())
-	cSteps, err := clusteroperation.GetCriStep(ctx, c, operator, action, stepNodes)
+	cSteps, err := artifactPrefetchAndCRISteps(ctx, c, operator, action, stepNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +151,23 @@ func (h *handler) parseOperationFromCluster(extraMetadata *component.ExtraMetada
 
 	op.Steps = steps
 	return op, nil
+}
+
+func artifactPrefetchAndCRISteps(ctx context.Context, c *v1.Cluster, operator cluster.Operator, action v1.StepAction, nodes []v1.StepNode) ([]v1.Step, error) {
+	var steps []v1.Step
+	if action == v1.ActionInstall || action == v1.ActionUpgrade {
+		plan, _ := component.GetResolvedArtifactPlan(ctx).(*deliveryapis.ResolvedArtifactPlan)
+		prefetchSteps, err := componentcommon.ArtifactPrefetchSteps(plan, nodes)
+		if err != nil {
+			return nil, err
+		}
+		steps = append(steps, prefetchSteps...)
+	}
+	criSteps, err := clusteroperation.GetCriStep(ctx, c, operator, action, nodes)
+	if err != nil {
+		return nil, err
+	}
+	return append(steps, criSteps...), nil
 }
 
 func (h *handler) initComponentExtraCluster(ctx context.Context, p component.Interface) error {

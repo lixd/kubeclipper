@@ -20,6 +20,7 @@ package common
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -126,6 +127,9 @@ func (i *Chart) downloadHelmOCIChart(ctx context.Context, opts component.Options
 }
 
 func pullHelmOCIChartArchive(ctx context.Context, ref, version, digest, chartPath string) error {
+	if validCachedHelmChart(chartPath, ref, version, digest) {
+		return nil
+	}
 	config, err := deliveryregistry.ResolveReference(ref)
 	if err != nil {
 		return err
@@ -173,9 +177,68 @@ func pullHelmOCIChartArchive(ctx context.Context, ref, version, digest, chartPat
 			writer.Close()
 			return err
 		}
-		return writer.Close()
+		if err = writer.Close(); err != nil {
+			return err
+		}
+		return writeHelmChartSource(chartPath, ref, version, digest)
 	}
 	return fmt.Errorf("helm chart layer %q not found in %s:%s", deliveryapis.MediaTypeHelmChartLayer, ref, version)
+}
+
+type helmChartSource struct {
+	Ref           string `json:"ref"`
+	Version       string `json:"version"`
+	Digest        string `json:"digest,omitempty"`
+	PayloadDigest string `json:"payloadDigest"`
+}
+
+func helmChartSourcePath(chartPath string) string {
+	return chartPath + ".source.json"
+}
+
+func validCachedHelmChart(chartPath, ref, version, digest string) bool {
+	info, err := os.Stat(chartPath)
+	if err != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+		return false
+	}
+	data, err := os.ReadFile(helmChartSourcePath(chartPath))
+	if err != nil {
+		return false
+	}
+	var source helmChartSource
+	if err = json.Unmarshal(data, &source); err != nil {
+		return false
+	}
+	payloadDigest, err := fileSHA256(chartPath)
+	if err != nil {
+		return false
+	}
+	return source == (helmChartSource{Ref: ref, Version: version, Digest: digest, PayloadDigest: payloadDigest})
+}
+
+func writeHelmChartSource(chartPath, ref, version, digest string) error {
+	payloadDigest, err := fileSHA256(chartPath)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(helmChartSource{Ref: ref, Version: version, Digest: digest, PayloadDigest: payloadDigest})
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(helmChartSourcePath(chartPath), data, 0644)
+}
+
+func fileSHA256(path string) (string, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	hash := sha256.New()
+	if _, err = io.Copy(hash, file); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("sha256:%x", hash.Sum(nil)), nil
 }
 
 func chartArchives(dir string) (map[string]os.FileInfo, error) {

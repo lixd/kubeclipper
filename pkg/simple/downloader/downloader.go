@@ -57,7 +57,11 @@ func CleanupConfigs(kind, name, version, arch string, dryRun bool) error {
 }
 
 func CleanupCharts(kind, name, version, arch string, dryRun bool) error {
-	return cleanupPath(ChartPath(kind, name, version, arch), dryRun)
+	chartPath := ChartPath(kind, name, version, arch)
+	if err := cleanupPath(chartPath, dryRun); err != nil {
+		return err
+	}
+	return cleanupPath(chartPath+".source.json", dryRun)
 }
 
 func CleanupPackage(kind, name, version, arch string, dryRun bool) error {
