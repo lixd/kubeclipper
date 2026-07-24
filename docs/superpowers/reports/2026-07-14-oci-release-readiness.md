@@ -1,9 +1,73 @@
 # 纯 OCI 发布就绪报告（2026-07-24）
 
-> **当前结论：发布候选 `7332bac5a34cb0379cc74680b6e44b33beea59be` 已达到正式发布的技术标准。**
-> 所有代码级 P0 已关闭；当前 release commit 的必需 GitHub Actions 全绿；认证 HTTPS Harbor、
-> 双机纯 OCI 生命周期、预取后 Registry 断网、离线 bundle 往返和最终残留审计均通过。
-> 隔离 Git 标签、GHCR qualification packages、临时凭据和双机测试资源均已清理。
+> **当前结论：最新候选 `d1fe0c7b` 已完成本地实现和验证，但暂不建议直接正式发布。**
+> `kcctl registry sync`、2.0.0 发布矩阵、正式 release manifest 资产和官方 GHCR 默认值已经落地；
+> 按要求本轮没有推送，因此该提交还没有真实 GitHub Actions、正式 GHCR digest 和远端 Harbor
+> 同步证据。下方 `7332bac` 的双机纯 OCI 资格结果仍然有效，但不能替代新提交的发布验证。
+
+## 2026-07-24 `kcctl registry sync` 与 2.0.0 发布增量
+
+### 已完成实现
+
+- 功能提交：`d1fe0c7 feat(registry): sync release artifacts from OCI manifest`。
+- 新命令支持默认下载当前 `kcctl` 版本对应的 GitHub Release manifest 和 `.sha256`，或使用
+  `--manifest` 指定本地文件；没有增加 `--version`、`--manifest-sha256` 和源端认证参数。
+- 目标 Registry 支持 Basic Auth、密码文件、HTTPS、自定义 CA、skip TLS verify 和显式 HTTP。
+- manifest 使用严格 schema，拒绝未知字段、非官方源、非法相对路径、非 SHA256 digest、重复或
+  冲突 target，并校验 package 每个平台的 OCI `sourceRevision`。
+- `--arch all` 保留 OCI index；`amd64`/`arm64` 写入单平台 manifest；相同 digest 跳过，冲突
+  tag 失败且不覆盖。runtime image 会按 source/target 分组，生成阶段对重复引用去重并拒绝歧义。
+- 正式 `release.yml` 从 `packaging/resources.yaml` 和 SupportPolicy 生成 16 项发布矩阵，发布完成后
+  合并真实 assembly metadata，生成并上传 `release-manifest-v2.0.0.yaml` 及其 SHA256 文件。
+- qualification workflow 使用同一 assembly 路径，不再使用缺失 runtime image 的空 `images.lock`；
+  standalone bootstrap workflow 不再重复响应 `v*` tag。
+- 正式默认值已切换为 `v2.0.0` 和 `ghcr.io/kubeclipper/kubeclipper`，默认 SupportPolicy 同步选择
+  `bootstrap/kubeclipper:v2.0.0`。
+
+### 本地验证证据
+
+```text
+go test -race ./pkg/delivery/releasemanifest ./pkg/cli/registry \
+  ./pkg/cli/deliverypolicy ./pkg/delivery/registry ./pkg/delivery/apis \
+  ./tools/release-policy-verify                              PASS
+go list ./... | 排除 pkg/utils/systemctl、test/e2e 后执行 go test
+                                                               PASS
+go test ./...                                                  环境失败，分类见下文
+go vet ./...                                                   PASS
+golangci-lint run ./...                                        PASS，0 issues
+actionlint .github/workflows/*.yml                              PASS（1.7.7）
+bash scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
+                                                               PASS
+bash scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
+                                                               PASS
+go run ./tools/release-policy-verify --manifest packaging/resources.yaml
+                                                               PASS，16 项发布矩阵
+linux/amd64、linux/arm64 的 kcctl/server/agent 六个交叉构建
+                                                               PASS，file 架构检查正确
+git diff --check                                               PASS
+```
+
+进程内真实 OCI Registry 集成测试覆盖：公开匿名源、Basic Auth 目标、HTTPS 自定义 CA、完整
+amd64/arm64 index、单架构选择、package provenance、runtime child digest、第二次同步跳过、错误
+凭据拒绝和冲突 tag 拒绝。测试 Registry、证书和凭据均随测试进程销毁。
+
+全仓测试的环境失败与原报告一致，不是本轮回归：macOS 没有 system D-Bus，`test/e2e` 在已清理
+qualification 环境中没有 `~/.kc/config` 和运行中的平台。ShellCheck 当前本机没有安装，因此本轮
+没有重跑；修改过的 shell 脚本均通过 `bash -n`、对应 open-packaging 测试和 Actionlint。
+
+### 当前发布门禁
+
+- Actions run：无。本轮遵守“不推送”要求，没有为 `d1fe0c7` 触发远端工作流。
+- OCI digest / sourceRevision：尚无正式 v2.0.0 产物；必须由该提交发布后记录，不能复用
+  `7332bac` qualification digest。
+- 双机生命周期：已有 `7332bac` 的完整通过证据；`d1fe0c7` 未改变 server/agent 生命周期逻辑，
+  但仍需对最终 release commit 重跑必需 Actions 和至少一次真实 manifest 到认证 Harbor 的 sync。
+- 清理：本轮只使用进程内临时 Registry 和 `/tmp` 交叉构建目录，没有创建远端标签、GHCR package、
+  SSH 授权、隧道或双机资源。
+
+剩余分级：**P0** 为当前提交尚未完成真实 Actions、正式 manifest/digest/provenance 和真实 Harbor
+同步验收；**P1 无**；**P2** 为本机缺少 ShellCheck，远端 `offline-resource-validate` 会执行对应门禁。
+在获得推送授权并关闭这些 P0 前，结论为：**暂不建议直接正式发布 2.0.0**。
 
 ## 2026-07-24 最终发布候选复审
 
