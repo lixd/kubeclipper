@@ -359,7 +359,7 @@ func NewDeployOptions() *DeployConfig {
 		},
 		AuthenticationOpts:         options.NewAuthenticateOptions(),
 		Agents:                     make(Agents),
-		KCServerHealthCheckTimeout: time.Second * 30,
+		KCServerHealthCheckTimeout: 2 * time.Minute,
 	}
 }
 
@@ -470,7 +470,7 @@ func (c *DeployConfig) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&c.OpLog.Dir, "oplog-dir", c.OpLog.Dir, "kc agent operation log dir")
 	flags.IntVar(&c.OpLog.Threshold, "oplog-threshold", c.OpLog.Threshold, "kc agent operation log single threshold")
 	flags.StringVar(&c.ImageProxy.KcImageRepoMirror, "kc-image-repo-mirror", c.ImageProxy.KcImageRepoMirror, "K8s image repository mirror")
-	flags.DurationVar(&c.KCServerHealthCheckTimeout, "kc-server-health-check-timeout", c.KCServerHealthCheckTimeout, "kc server health check timeout, default is 30s")
+	flags.DurationVar(&c.KCServerHealthCheckTimeout, "kc-server-health-check-timeout", c.KCServerHealthCheckTimeout, "kc server health check timeout")
 
 	AddFlagsToSSH(c.SSHConfig, flags)
 }
