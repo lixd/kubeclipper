@@ -1,6 +1,6 @@
 # 纯 OCI 发布就绪报告（2026-07-24）
 
-> **当前结论：最新候选 `d1fe0c7b` 已完成本地实现和验证，但暂不建议直接正式发布。**
+> **当前结论：最新候选 `146f5713` 已完成本地实现和验证，但暂不建议直接正式发布。**
 > `kcctl registry sync`、2.0.0 发布矩阵、正式 release manifest 资产和官方 GHCR 默认值已经落地；
 > 远程认证 TLS Registry 的真实同步 E2E 已通过。按要求本轮没有推送，因此该提交还没有真实
 > GitHub Actions、正式 GHCR digest 和生产 Harbor 最小权限证据。下方 `7332bac` 的双机纯 OCI
@@ -11,6 +11,7 @@
 ### 已完成实现
 
 - 功能提交：`d1fe0c7 feat(registry): sync release artifacts from OCI manifest`。
+- 发布架构门禁提交：`146f571 fix(release): derive architectures from release manifest`。
 - 新命令支持默认下载当前 `kcctl` 版本对应的 GitHub Release manifest 和 `.sha256`，或使用
   `--manifest` 指定本地文件；没有增加 `--version`、`--manifest-sha256` 和源端认证参数。
 - 目标 Registry 支持 Basic Auth、密码文件、HTTPS、自定义 CA、skip TLS verify 和显式 HTTP。
@@ -24,6 +25,9 @@
   standalone bootstrap workflow 不再重复响应 `v*` tag。
 - 正式默认值已切换为 `v2.0.0` 和 `ghcr.io/kubeclipper/kubeclipper`，默认 SupportPolicy 同步选择
   `bootstrap/kubeclipper:v2.0.0`。
+- `packaging/resources.yaml` 现在明确声明 amd64 和 arm64；发布矩阵的 `architecture` 由该清单生成，
+  `release.yml` 不再在清单外硬编码 `all`。verifier 会拒绝缺少任一正式架构、重复架构和不支持的
+  架构，避免发布清单、workflow 和正式产物的平台集合漂移。
 
 ### 本地验证证据
 
@@ -46,6 +50,8 @@ bash scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
                                                                PASS
 go run ./tools/release-policy-verify --manifest packaging/resources.yaml
                                                                PASS，16 项发布矩阵
+go test -race ./tools/release-policy-verify                    PASS
+发布矩阵 16 项均由 resources.yaml 生成 architecture=all       PASS
 linux/amd64、linux/arm64 的 kcctl/server/agent 六个交叉构建
                                                                PASS，file 架构检查正确
 git diff --check                                               PASS
@@ -113,10 +119,10 @@ qualification 环境中没有 `~/.kc/config` 和运行中的平台。修改过�
 
 ### 当前发布门禁
 
-- Actions run：无。本轮遵守“不推送”要求，没有为 `d1fe0c7` 触发远端工作流。
+- Actions run：无。本轮遵守“不推送”要求，没有为最新候选 `146f5713` 触发远端工作流。
 - OCI digest / sourceRevision：尚无正式 v2.0.0 产物；必须由该提交发布后记录，不能复用
   `7332bac` qualification digest。
-- 双机生命周期：已有 `7332bac` 的完整通过证据；`d1fe0c7` 未改变 server/agent 生命周期逻辑，
+- 双机生命周期：已有 `7332bac` 的完整通过证据；`d1fe0c7` 和 `146f571` 未改变 server/agent 生命周期逻辑，
   但仍需对最终 release commit 重跑必需 Actions。认证 TLS Registry sync 已在 sh-dev-3 通过，
   正式发布时仍需用生产 Harbor robot account 和最小权限项目确认厂商权限策略。
 - 清理：本轮远程隔离 Registry、tag、证书、密码、chroot 和日志已全部删除，没有创建 GHCR package、
