@@ -1,14 +1,15 @@
 # 纯 OCI 发布就绪报告（2026-07-24）
 
-> **当前结论：暂不建议正式发布。** 当前分支的本地验证和双机 HTTP OCI 生命周期已经完成，
-> 但用户明确要求不推送远端，因此没有当前 release commit 的真实 GitHub Actions；本轮也没有
-> 在正式 Harbor 上重跑生产 robot/TLS/最小权限组合。发布门禁尚未全部满足。
+> **当前结论：代码候选的自动化发布门禁已通过，但暂不批准正式生产发布。** 当前精确提交的
+> GitHub Actions、OCI qualification、release manifest/provenance、AIO 和双机 HTTP OCI
+> 生命周期均已成功；正式 Harbor 的生产 robot/TLS/最小权限组合仍未在本轮重跑，保留为 P0。
 
 ## 2026-07-24 当前 HEAD 复审
 
 - 分支：`codex/oci-static-server-replacement`。
-- 代码候选 revision：`a01dfd4be3104a4884e30d3b999a6614c6f61a37`；本地 `master` 已包含在该提交中。
-  本报告后续提交只修改文档，不改变二进制代码；工作区 clean，未推送、未强推。
+- 代码候选 revision：`43219b4a78acbf4b2b249cc80cc780d40c29d030`；本地 `master` 已包含在该提交中。
+  分支已无强推地推送到用户 fork `lixd/kubeclipper`，qualification 标签为
+  `oci-qualification-43219b4`。
 - `packageRegistry` 仅用于 OCI artifact；`--image-registry` 选择 Kubernetes/CNI 镜像来源；
   `--cri-registry` 选择额外 containerd Registry；镜像侧两个资源均写入 containerd 配置。
 
@@ -21,7 +22,7 @@ kcctl/server/agent 静态构建。全仓 `go test ./...` 仅有环境失败：ma
 `pkg/utils/systemctl` 失败；本机无 `~/.kc/config` 和已部署平台导致 `test/e2e` 的 17 个 setup 失败。
 ShellCheck 0.11.0（`-x -P SCRIPTDIR`）和 Actionlint 1.7.7 均通过。
 
-上述代码 revision 的隔离 package 工件（验证完成后测试 tag 已删除）为：
+此前本地双机 HTTP 验证使用的隔离 package 工件（对应 revision `a01dfd4`，验证完成后测试 tag 已删除）为：
 
 ```text
 sourceRevision: a01dfd4be3104a4884e30d3b999a6614c6f61a37
@@ -48,19 +49,43 @@ kubeclipper-server layer: sha256:783b26e27077cff186dc355f9856e38f8b089b443b91a23
 7. 执行 `kcctl clean --all --force --assumeyes` 后，两台机器的 KubeClipper 服务、配置和凭据均清理。
 8. `applyKubectlPod` 在当前 revision 的 2 分钟超时、3 次重试实现下成功，`kube-system/kc-kubectl` 为 Running。
 
+### 当前提交 GitHub Actions 证据
+
+| 工作流 | 结果 |
+|---|---|
+| [go-test-coverage](https://github.com/lixd/kubeclipper/actions/runs/30058157466) | success |
+| [offline-resource-validate](https://github.com/lixd/kubeclipper/actions/runs/30058157515) | success |
+| [e2e-aio-test](https://github.com/lixd/kubeclipper/actions/runs/30058157545) | success |
+| [publish-oci-qualification](https://github.com/lixd/kubeclipper/actions/runs/30058157637) | success |
+
+OCI qualification manifest 使用 `ghcr.io/lixd/kubeclipper/qualification-43219b4a78acbf4b2b249cc80cc780d40c29d030`，所有组件的 `sourceRevision` 均为
+`43219b4a78acbf4b2b249cc80cc780d40c29d030`。关键 package-image digest：
+
+```text
+bootstrap/kubeclipper:v1.8.0  sha256:9510719d064a2fd193ef4e8863d5414d319165c0a9ea31b83cca5a21c0b7652d
+bootstrap/etcd:3.5.21          sha256:7ca1186038f768586f173a7350276dbc3b30027ab1ac66482fcec6f621145563
+bootstrap/console:v1.6.0       sha256:921043b4570da7a45b5340e3a31af548287826333e149bcb4ae71cbfe8a40682
+bootstrap/registry:3.1.1       sha256:b4ff06b8a76e266b0dc1940a9d085c7ab9bf4964d981077f3456ea8a74645cf8
+cri/containerd:1.7.29          sha256:1781493dd53326aa5a37aafc5a8cc14e7fede19d289f071db0ed9d5b27b6bb69
+cri/containerd:2.2.4           sha256:9605e4f516b243d9b5a040d4822aa5ea2dce0e4ad49c84209ae35dafdc5a6cc5
+k8s:v1.34.2                    sha256:555d854b6d565debee2c03e16271a4fba847c8e94f14afd16a54a56568975f83
+k8s:v1.35.0                    sha256:3da2d345e0f7256c379fc7cd94772ae7d0938fc9b745df8931b0b6d6b452c4b2
+k8s:v1.36.1                    sha256:d7bc2d989614dcbb0fed74d1fdd9aa29f22055b4a8235d40dcb8d418fe190321
+k8s-extension:v1               sha256:2b2afe1ccfa905fa774f79e2b7f50e0dd7a7a4ed91edd6be1b4c18d51af3f57d
+calico:v3.29.6                 sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+calico:v3.31.5                 sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+```
+
 ### 清理和剩余缺口
 
 - 两台机器 authorized_keys 中的测试公钥、临时私钥、CA、密码、二进制和配置均已删除；KubeClipper 配置路径不存在。
 - 当前 `qualification-a01dfd4` 前缀的所有 Registry tags 已逐一按 digest 删除，查询结果为 `tags: null`；catalog 名称和未引用 blob
   仍需运维窗口执行垃圾回收，未对共享 Registry 执行 GC。
 - 未停止或修改无关 Docker、`kc-registry.service`、`sprout-postgres-v2` 等服务。
-- **P0：** 没有当前 HEAD 的 GitHub Actions run。Go tests/coverage、offline-resource-validate、bootstrap、resource package、
-  release manifest/provenance、OCI AIO 等真实 workflow 尚未执行，原因是本轮明确禁止推送。
-- **P0：** 正式 Harbor robot account、正式 CA/TLS、最小权限和凭据轮换尚未在当前 HEAD 重跑；历史认证证据不能替代当前 HEAD。
+- **P0：** 正式 Harbor robot account、正式 CA/TLS、最小权限和凭据轮换尚未在当前 HEAD 重跑；GHCR qualification 和历史认证证据不能替代生产 Harbor 证据。
 - **P2：** Registry 未引用 blob 的 GC 由运维负责。
 
-因此当前结论是：**本地代码和匿名 HTTP 双机生命周期通过，但尚不满足“可以正式发布”的完整门禁，不建议现在发布 2.0.0。**
-授权推送后，应在该精确 commit 上等待必需 Actions 全绿，再用正式 Harbor 重跑同一套生命周期和残留审计。
+因此当前结论是：**自动化门禁和双机 HTTP qualification 通过，但在正式 Harbor 认证/TLS/权限组合完成前，不建议正式发布 2.0.0。**
 
 ## 历史复审（2026-07-23 及更早）
 
