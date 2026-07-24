@@ -20,6 +20,8 @@ package apis
 
 import (
 	"fmt"
+	"path"
+	"sort"
 	"strings"
 )
 
@@ -105,6 +107,51 @@ func ResolveHelmChartComponent(repository string) (HelmChartComponent, bool) {
 		}
 	}
 	return HelmChartComponent{}, false
+}
+
+// SupportPolicyRepositories returns the fixed OCI repositories needed to
+// resolve artifacts allowed by a support policy. This avoids requiring
+// registry-wide catalog permission for normal cluster operations.
+func SupportPolicyRepositories(policy *SupportPolicy) []string {
+	repositories := map[string]struct{}{
+		path.Join(PackageRepositoryPrefix, "k8s", "k8s"): {},
+	}
+	if policy == nil {
+		return sortedRepositoryKeys(repositories)
+	}
+	for _, supported := range policy.Spec.Policies {
+		for _, slot := range supported.ComponentSlots {
+			for _, option := range slot.Options {
+				if option.Kind == "" || option.Name == "" {
+					continue
+				}
+				if chartRepository, ok := helmChartRepositoryForComponent(option.Kind, option.Name); ok {
+					repositories[chartRepository] = struct{}{}
+					continue
+				}
+				repositories[path.Join(PackageRepositoryPrefix, option.Kind, option.Name)] = struct{}{}
+			}
+		}
+	}
+	return sortedRepositoryKeys(repositories)
+}
+
+func helmChartRepositoryForComponent(kind, name string) (string, bool) {
+	for _, component := range helmChartComponents {
+		if component.Kind == kind && component.Name == name {
+			return path.Join(ChartRepositoryPrefix, component.ChartName), true
+		}
+	}
+	return "", false
+}
+
+func sortedRepositoryKeys(repositories map[string]struct{}) []string {
+	result := make([]string, 0, len(repositories))
+	for repository := range repositories {
+		result = append(result, repository)
+	}
+	sort.Strings(result)
+	return result
 }
 
 func DerivePackageEntriesFromHelmChart(ref PackageRef, component HelmChartComponent, archs []string) ([]PackageEntry, error) {

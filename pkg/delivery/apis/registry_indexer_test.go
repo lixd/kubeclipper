@@ -18,7 +18,10 @@
 
 package apis
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 const testDigest = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 
@@ -35,6 +38,25 @@ func TestParsePackageRepository(t *testing.T) {
 	}
 	if _, _, ok = ParsePackageRepository("kubeclipper/packages/cri"); ok {
 		t.Fatalf("ParsePackageRepository() accepted incomplete repository")
+	}
+}
+
+func TestSupportPolicyRepositories(t *testing.T) {
+	policy := NewSupportPolicy("default")
+	policy.Spec.Policies = []KubernetesSupportPolicy{{
+		ComponentSlots: []ComponentSlotRule{
+			{Options: []ComponentOption{{Kind: "cri", Name: "containerd"}, {Kind: "cni", Name: "calico"}}},
+			{Options: []ComponentOption{{Kind: "cri", Name: "containerd"}, {Kind: "extension", Name: "kubectl-terminal"}}},
+		},
+	}}
+	want := []string{
+		"kubeclipper/charts/tigera-operator",
+		"kubeclipper/packages/cri/containerd",
+		"kubeclipper/packages/extension/kubectl-terminal",
+		"kubeclipper/packages/k8s/k8s",
+	}
+	if got := SupportPolicyRepositories(policy); !reflect.DeepEqual(got, want) {
+		t.Fatalf("SupportPolicyRepositories() = %v, want %v", got, want)
 	}
 }
 

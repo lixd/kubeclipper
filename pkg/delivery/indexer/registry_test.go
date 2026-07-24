@@ -158,6 +158,39 @@ func TestRegistryPackageIndexerRejectsUnknownExplicitRepository(t *testing.T) {
 	}
 }
 
+func TestRegistryPackageIndexerIndexesKnownHelmRepositoryWithoutCatalog(t *testing.T) {
+	repository := "team-a/kubeclipper/charts/tigera-operator"
+	client := &fakeRegistryClient{
+		tags: map[string][]string{repository: {"v3.31.5"}},
+		artifacts: map[string][]RegistryPackageArtifact{
+			"harbor.example.com/team-a/kubeclipper/charts/tigera-operator:v3.31.5": {{
+				Digest: testDigest,
+				Image:  empty.Image,
+			}},
+		},
+	}
+
+	inventory, err := NewRegistryPackageInventoryIndexer(client).IndexRepositories(
+		context.Background(),
+		"harbor.example.com/team-a",
+		[]string{"kubeclipper/charts/tigera-operator"},
+	)
+	if err != nil {
+		t.Fatalf("IndexRepositories() error: %+v", err)
+	}
+	if client.catalogCalls != 0 {
+		t.Fatalf("Catalog() calls = %d, want 0", client.catalogCalls)
+	}
+	if len(inventory.Spec.Packages) != 2 {
+		t.Fatalf("package count = %d, want amd64 and arm64", len(inventory.Spec.Packages))
+	}
+	for _, pkg := range inventory.Spec.Packages {
+		if pkg.Kind != "cni" || pkg.Name != "calico" || pkg.Version != "v3.31.5" {
+			t.Fatalf("package identity = %+v", pkg)
+		}
+	}
+}
+
 func TestRegistryPackageIndexerScopesProjectPrefix(t *testing.T) {
 	img := testPackageImage(t, deliveryapis.PackageManifest{
 		SchemaVersion:  1,

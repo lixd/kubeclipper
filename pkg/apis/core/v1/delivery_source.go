@@ -43,14 +43,23 @@ type RefreshingRegistryPackageInventoryIndexer interface {
 	Refresh(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error)
 }
 
+type RepositoryRegistryPackageInventoryIndexer interface {
+	RegistryPackageInventoryIndexer
+	IndexRepositories(ctx context.Context, registry string, repositories []string) (*deliveryapis.PackageInventory, error)
+}
+
 type indexedInventoryStore struct {
 	registry string
 	indexer  RegistryPackageInventoryIndexer
+	policy   deliveryapis.PolicyStore
 }
 
 func (s indexedInventoryStore) Get(ctx context.Context) (*deliveryapis.PackageInventory, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
+	}
+	if inventory, handled, err := s.indexPolicyRepositories(ctx); handled {
+		return inventory, err
 	}
 	inventory, err := s.indexer.Index(ctx, s.registry)
 	if err == nil {
@@ -63,10 +72,26 @@ func (s indexedInventoryStore) Refresh(ctx context.Context) (*deliveryapis.Packa
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if inventory, handled, err := s.indexPolicyRepositories(ctx); handled {
+		return inventory, err
+	}
 	if refresher, ok := s.indexer.(RefreshingRegistryPackageInventoryIndexer); ok {
 		return refresher.Refresh(ctx, s.registry)
 	}
 	return s.Get(ctx)
+}
+
+func (s indexedInventoryStore) indexPolicyRepositories(ctx context.Context) (*deliveryapis.PackageInventory, bool, error) {
+	repositoryIndexer, ok := s.indexer.(RepositoryRegistryPackageInventoryIndexer)
+	if !ok || s.policy == nil {
+		return nil, false, nil
+	}
+	policy, err := s.policy.Get(ctx)
+	if err != nil {
+		return nil, true, err
+	}
+	inventory, err := repositoryIndexer.IndexRepositories(ctx, s.registry, deliveryapis.SupportPolicyRepositories(policy))
+	return inventory, true, err
 }
 
 type deliverySource struct {
@@ -82,7 +107,7 @@ type DeliverySource struct {
 }
 
 func resolveDeliverySource(ctx context.Context, platformOperator platform.Operator, coreOperator modelscore.Operator, cluster *corev1.Cluster, indexer RegistryPackageInventoryIndexer) (deliverySource, error) {
-	source := deliverySource{}
+	source := deliverySource{policyStore: newConfigMapPolicyStore(coreOperator)}
 	if registry := resolveOfflineRegistry(ctx, platformOperator, coreOperator, cluster); registry != "" {
 		if indexer == nil {
 			indexer = defaultRegistryPackageInventoryIndexer
@@ -91,9 +116,9 @@ func resolveDeliverySource(ctx context.Context, platformOperator platform.Operat
 		source.inventoryStore = indexedInventoryStore{
 			registry: registry,
 			indexer:  indexer,
+			policy:   source.policyStore,
 		}
 	}
-	source.policyStore = newConfigMapPolicyStore(coreOperator)
 	return source, nil
 }
 

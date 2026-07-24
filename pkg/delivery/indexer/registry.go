@@ -114,6 +114,17 @@ func (i *RegistryPackageInventoryIndexer) Refresh(ctx context.Context, registry 
 // registry-wide catalog access. Project-scoped Registry credentials commonly
 // permit pull and tag listing while denying GET /v2/_catalog.
 func (i *RegistryPackageInventoryIndexer) IndexPackageRepositories(ctx context.Context, registry string, logicalRepositories []string) (*deliveryapis.PackageInventory, error) {
+	for _, repository := range logicalRepositories {
+		if _, _, ok := deliveryapis.ParsePackageRepository(strings.Trim(repository, "/")); !ok {
+			return nil, fmt.Errorf("repository %q is not under %s/{kind}/{name}", repository, deliveryapis.PackageRepositoryPrefix)
+		}
+	}
+	return i.IndexRepositories(ctx, registry, logicalRepositories)
+}
+
+// IndexRepositories indexes known package and Helm chart repositories without
+// requiring registry-wide catalog access.
+func (i *RegistryPackageInventoryIndexer) IndexRepositories(ctx context.Context, registry string, logicalRepositories []string) (*deliveryapis.PackageInventory, error) {
 	if registry == "" {
 		return nil, fmt.Errorf("registry is required")
 	}
@@ -126,17 +137,24 @@ func (i *RegistryPackageInventoryIndexer) IndexPackageRepositories(ctx context.C
 	seen := make(map[string]struct{}, len(logicalRepositories))
 	for _, logicalRepository := range logicalRepositories {
 		logicalRepository = strings.Trim(logicalRepository, "/")
-		if _, _, ok := deliveryapis.ParsePackageRepository(logicalRepository); !ok {
-			return nil, fmt.Errorf("repository %q is not under %s/{kind}/{name}", logicalRepository, deliveryapis.PackageRepositoryPrefix)
-		}
 		if _, ok := seen[logicalRepository]; ok {
 			continue
 		}
 		seen[logicalRepository] = struct{}{}
 		repository := path.Join(prefix, logicalRepository)
-		if err := i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
-			return nil, err
+		if _, _, ok := deliveryapis.ParsePackageRepository(logicalRepository); ok {
+			if err := i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
+				return nil, err
+			}
+			continue
 		}
+		if component, ok := deliveryapis.ResolveHelmChartComponent(logicalRepository); ok {
+			if err := i.indexHelmChartRepository(ctx, inventory, registry, repository, component); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		return nil, fmt.Errorf("repository %q is not a supported package or Helm chart repository", logicalRepository)
 	}
 	if err := inventory.Validate(); err != nil {
 		return nil, err

@@ -403,6 +403,55 @@ func TestIndexedInventoryStoreUsesRequestContext(t *testing.T) {
 	}
 }
 
+func TestWithResolvedArtifactPlanIndexesPolicyRepositoriesWithoutCatalog(t *testing.T) {
+	indexer := &recordingRepositoryIndexer{catalog: registryResolverCatalog()}
+	h := &handler{
+		serverConfig:    &serverconfig.Config{},
+		coreOperator:    newFakeDeliveryCoreOperator(t, deliveryPolicy()),
+		deliveryIndexer: indexer,
+	}
+	extra := &component.ExtraMetadata{
+		Offline: true,
+		Masters: component.NodeList{{ID: "master-1", Arch: "amd64"}},
+		CRI:     "containerd",
+		CNI:     "calico",
+	}
+	cluster := &v1.Cluster{
+		KubernetesVersion: "v1.36.0",
+		ContainerRuntime:  v1.ContainerRuntime{Type: "containerd", Version: "2.1.0"},
+		CNI:               v1.CNI{Type: "calico", Version: "v3.30.0"},
+	}
+
+	if _, err := h.withResolvedArtifactPlan(context.Background(), extra, cluster, v1.ActionInstall); err != nil {
+		t.Fatalf("withResolvedArtifactPlan() error: %+v", err)
+	}
+	if indexer.indexCalls != 0 {
+		t.Fatalf("Index() calls = %d, want 0", indexer.indexCalls)
+	}
+	want := []string{
+		"kubeclipper/charts/tigera-operator",
+		"kubeclipper/packages/cri/containerd",
+		"kubeclipper/packages/k8s/k8s",
+	}
+	if strings.Join(indexer.repositories, ",") != strings.Join(want, ",") {
+		t.Fatalf("repositories = %v, want %v", indexer.repositories, want)
+	}
+	source, err := resolveDeliverySource(context.Background(), nil, h.coreOperator, cluster, indexer)
+	if err != nil {
+		t.Fatalf("resolveDeliverySource() error: %+v", err)
+	}
+	store, ok := source.inventoryStore.(indexedInventoryStore)
+	if !ok {
+		t.Fatalf("inventory store type = %T, want indexedInventoryStore", source.inventoryStore)
+	}
+	if _, err = store.Refresh(context.Background()); err != nil {
+		t.Fatalf("Refresh() error: %+v", err)
+	}
+	if indexer.indexCalls != 0 {
+		t.Fatalf("Index() calls after Refresh = %d, want 0", indexer.indexCalls)
+	}
+}
+
 func deliveryPolicy() *deliveryapis.SupportPolicy {
 	policy := deliveryapis.NewSupportPolicy("default")
 	policy.Spec.Policies = []deliveryapis.KubernetesSupportPolicy{{
@@ -458,6 +507,22 @@ type contextRecordingIndexer struct {
 	catalog    *deliveryapis.PackageInventory
 	indexCtx   context.Context
 	refreshCtx context.Context
+}
+
+type recordingRepositoryIndexer struct {
+	catalog      *deliveryapis.PackageInventory
+	indexCalls   int
+	repositories []string
+}
+
+func (f *recordingRepositoryIndexer) Index(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error) {
+	f.indexCalls++
+	return f.catalog, nil
+}
+
+func (f *recordingRepositoryIndexer) IndexRepositories(ctx context.Context, registry string, repositories []string) (*deliveryapis.PackageInventory, error) {
+	f.repositories = append([]string(nil), repositories...)
+	return f.catalog, nil
 }
 
 func (f *contextRecordingIndexer) Index(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error) {
