@@ -3,7 +3,7 @@
 > **当前结论：发布候选 `7332bac5a34cb0379cc74680b6e44b33beea59be` 已达到正式发布的技术标准。**
 > 所有代码级 P0 已关闭；当前 release commit 的必需 GitHub Actions 全绿；认证 HTTPS Harbor、
 > 双机纯 OCI 生命周期、预取后 Registry 断网、离线 bundle 往返和最终残留审计均通过。
-> 当前仅剩不影响发布内容的 GHCR qualification 包清理权限问题，列为 P2 运维清理项。
+> 隔离 Git 标签、GHCR qualification packages、临时凭据和双机测试资源均已清理。
 
 ## 2026-07-24 最终发布候选复审
 
@@ -161,16 +161,16 @@ digest；`bundle-artifacts.tsv` 同时保留源 index digest，避免把平台�
 - sh-dev-3 的 `kc-registry.service` 和 Docker 保持 active；`sprout-postgres-v2` 保持 running，
   `StartedAt` 仍为 `2026-07-14T03:17:33.452118082Z`，未触碰无关服务。
 - qualification Git 标签已从 fork 和本地删除；本地工作区测试产物和交叉构建目录已删除。
-- GHCR qualification 包位于独立的 `qualification-7332bac...` 命名空间，不会覆盖正式版本；当前
-  `gh` token 只有 `repo/workflow` 等 scope，缺少 `read:packages` 和 `delete:packages`，因此不能删除
-  远端 package versions。未擅自扩大账号授权。
+- GHCR 中完整匹配 `qualification-7332bac5a34cb0379cc74680b6e44b33beea59be` 命名空间的
+  36 个 container packages 已通过 GitHub Packages API 删除；再次分页查询结果为 0，抽查
+  bootstrap/console package 返回 HTTP 404 `Package not found`。清理时临时增加的
+  `read:packages`、`delete:packages` scopes 已撤销，`gh` token 恢复为原始权限集合。
 
 ## P0/P1/P2 与发布建议
 
 - **P0：无。** 所有发布阻断逻辑、当前提交 Actions、认证 Harbor、双机生命周期、离线交付和主机清理均有直接证据。
 - **P1：无。** 未发现需要在 2.0.0 发布前修复的功能或可靠性缺口。
-- **P2：** 使用具备 `delete:packages` 的维护者凭据删除 GHCR qualification package versions；共享
-  Registry 的未引用 blob GC 继续按运维窗口执行。这两项不改变发布 artifact、digest 或运行时行为。
+- **P2：无。** qualification Git/OCI 标签、packages、临时认证材料、Registry 服务和主机文件均已清理。
 
 最终建议：**可以正式发布 2.0.0。** 正式发布必须从代码 revision
 `7332bac5a34cb0379cc74680b6e44b33beea59be` 构建，并保持 release manifest、OCI digest 和
