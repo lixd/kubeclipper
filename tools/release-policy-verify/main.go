@@ -21,7 +21,8 @@ import (
 )
 
 type buildManifest struct {
-	Bootstrap struct {
+	Architectures []string `json:"architectures"`
+	Bootstrap     struct {
 		KubeClipperVersion string `json:"kubeclipperVersion"`
 		EtcdVersion        string `json:"etcdVersion"`
 		ConsoleVersion     string `json:"consoleVersion"`
@@ -80,20 +81,22 @@ func main() {
 }
 
 type publishMatrixEntry struct {
-	Component string `json:"component"`
-	Version   string `json:"version"`
+	Component    string `json:"component"`
+	Version      string `json:"version"`
+	Architecture string `json:"architecture"`
 }
 
 func buildPublishMatrix(manifest *buildManifest) []publishMatrixEntry {
+	architecture := releaseArchitecture(manifest.Architectures)
 	entries := []publishMatrixEntry{
-		{Component: "bootstrap-kubeclipper", Version: manifest.Bootstrap.KubeClipperVersion},
-		{Component: "bootstrap-etcd", Version: manifest.Bootstrap.EtcdVersion},
-		{Component: "bootstrap-console", Version: manifest.Bootstrap.ConsoleVersion},
-		{Component: "bootstrap-registry", Version: manifest.Bootstrap.RegistryVersion},
+		{Component: "bootstrap-kubeclipper", Version: manifest.Bootstrap.KubeClipperVersion, Architecture: architecture},
+		{Component: "bootstrap-etcd", Version: manifest.Bootstrap.EtcdVersion, Architecture: architecture},
+		{Component: "bootstrap-console", Version: manifest.Bootstrap.ConsoleVersion, Architecture: architecture},
+		{Component: "bootstrap-registry", Version: manifest.Bootstrap.RegistryVersion, Architecture: architecture},
 	}
 	appendVersions := func(component string, versions []string) {
 		for _, version := range versions {
-			entries = append(entries, publishMatrixEntry{Component: component, Version: version})
+			entries = append(entries, publishMatrixEntry{Component: component, Version: version, Architecture: architecture})
 		}
 	}
 	appendVersions("resource-k8s", manifest.Resources.K8s.Versions)
@@ -113,6 +116,9 @@ func fatal(err error) {
 }
 
 func verifyPolicyCoverage(manifest buildManifest, policy *deliveryapis.SupportPolicy) error {
+	if err := verifyReleaseArchitectures(manifest.Architectures); err != nil {
+		return err
+	}
 	if err := policy.Validate(); err != nil {
 		return err
 	}
@@ -154,6 +160,33 @@ func verifyPolicyCoverage(manifest buildManifest, policy *deliveryapis.SupportPo
 		}
 	}
 	return nil
+}
+
+func verifyReleaseArchitectures(architectures []string) error {
+	seen := make(map[string]struct{}, len(architectures))
+	for _, architecture := range architectures {
+		if architecture != "amd64" && architecture != "arm64" {
+			return fmt.Errorf("release architecture %q is unsupported", architecture)
+		}
+		if _, exists := seen[architecture]; exists {
+			return fmt.Errorf("release architecture %q is duplicated", architecture)
+		}
+		seen[architecture] = struct{}{}
+	}
+	if len(seen) != 2 {
+		return fmt.Errorf("release architectures must include amd64 and arm64")
+	}
+	return nil
+}
+
+func releaseArchitecture(architectures []string) string {
+	if contains(architectures, "amd64") && contains(architectures, "arm64") {
+		return "all"
+	}
+	if len(architectures) == 1 {
+		return architectures[0]
+	}
+	return ""
 }
 
 func slotKey(slot deliveryapis.ComponentSlotRule) string {

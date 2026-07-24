@@ -3,6 +3,7 @@ kind: OfflineResourceBuild
 release: v2.0.0
 architectures:
   - amd64
+  - arm64
 registries:
   package: ghcr.io/kubeclipper/kubeclipper
   image: ghcr.io/kubeclipper/kubeclipper
