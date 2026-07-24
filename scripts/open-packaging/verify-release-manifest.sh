@@ -89,20 +89,26 @@ for index, artifact in enumerate(document.get("artifacts") or []):
     if arch and platforms and f"linux/{arch}" not in platforms:
         continue
     digest = str(artifact.get("digest") or "")
-    print(f"{artifact.get('type', '')}\t{registry}/{target}\t{digest}")
+    artifact_type = str(artifact.get("type") or "")
+    platform = "-"
+    if artifact_type == "runtime-image":
+        if len(platforms) != 1:
+            raise SystemExit(f"artifact[{index}] runtime-image must declare exactly one platform")
+        platform = platforms[0]
+    print(f"{artifact_type}\t{registry}/{target}\t{digest}\t{platform}")
 PY
 
 checked=0
 failed=0
-while IFS=$'\t' read -r type ref expected_digest; do
+while IFS=$'\t' read -r type ref expected_digest platform; do
   [[ -n "$ref" ]] || continue
   actual_digest=""
   case "$tool" in
   crane)
     args=(digest)
     [[ "$insecure" == false ]] || args+=(--insecure)
-    if [[ "$type" == "runtime-image" && -n "$arch" ]]; then
-      args+=(--platform "linux/$arch")
+    if [[ "$type" == "runtime-image" ]]; then
+      args+=(--platform "$platform")
     fi
     if ! actual_digest="$(crane "${args[@]}" "$ref" 2>/dev/null)"; then
       echo "missing: $type $ref" >&2
@@ -135,8 +141,8 @@ while IFS=$'\t' read -r type ref expected_digest; do
     fi
     args=(inspect --format '{{.Digest}}')
     [[ "$insecure" == false ]] || args+=(--tls-verify=false)
-    if [[ "$type" == "runtime-image" && -n "$arch" ]]; then
-      args+=(--override-os linux --override-arch "$arch")
+    if [[ "$type" == "runtime-image" ]]; then
+      args+=(--override-os "${platform%%/*}" --override-arch "${platform#*/}")
     fi
     if ! actual_digest="$(skopeo "${args[@]}" "docker://$ref" 2>/dev/null)"; then
       echo "missing: $type $ref" >&2

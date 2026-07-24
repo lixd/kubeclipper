@@ -63,7 +63,11 @@ cat > "$workdir/bin/crane" <<'EOF'
 set -euo pipefail
 case "$1" in
 digest)
-  printf 'sha256:%064d\n' 1
+  if [[ " $* " == *" --platform "* ]]; then
+    printf 'sha256:%064d\n' 2
+  else
+    printf 'sha256:%064d\n' 1
+  fi
   ;;
 config)
   revision=dependency-revision
