@@ -1,91 +1,180 @@
 # 纯 OCI 发布就绪报告（2026-07-24）
 
-> **当前结论：代码候选的自动化发布门禁已通过，但暂不批准正式生产发布。** 当前精确提交的
-> GitHub Actions、OCI qualification、release manifest/provenance、AIO 和双机 HTTP OCI
-> 生命周期均已成功；正式 Harbor 的生产 robot/TLS/最小权限组合仍未在本轮重跑，保留为 P0。
+> **当前结论：发布候选 `7332bac5a34cb0379cc74680b6e44b33beea59be` 已达到正式发布的技术标准。**
+> 所有代码级 P0 已关闭；当前 release commit 的必需 GitHub Actions 全绿；认证 HTTPS Harbor、
+> 双机纯 OCI 生命周期、预取后 Registry 断网、离线 bundle 往返和最终残留审计均通过。
+> 当前仅剩不影响发布内容的 GHCR qualification 包清理权限问题，列为 P2 运维清理项。
 
-## 2026-07-24 当前 HEAD 复审
+## 2026-07-24 最终发布候选复审
 
 - 分支：`codex/oci-static-server-replacement`。
-- 代码候选 revision：`43219b4a78acbf4b2b249cc80cc780d40c29d030`；本地 `master` 已包含在该提交中。
-  分支已无强推地推送到用户 fork `lixd/kubeclipper`，qualification 标签为
-  `oci-qualification-43219b4`。
-- `packageRegistry` 仅用于 OCI artifact；`--image-registry` 选择 Kubernetes/CNI 镜像来源；
-  `--cri-registry` 选择额外 containerd Registry；镜像侧两个资源均写入 containerd 配置。
+- 发布代码 revision：`7332bac5a34cb0379cc74680b6e44b33beea59be`。
+- 关键修复提交：
+  - `7fb130c`：在修改 CRI 运行时前预取 OCI artifact。
+  - `7332bac`：resolver 缓存身份不再包含临时 `Slot`，重建 component 后仍复用预取结果。
+- 分支只推送到用户 fork `lixd/kubeclipper`；未推 upstream、未强推或覆盖远端历史。
+- qualification Git 标签 `oci-qualification-7332bac-20260724` 已在验证结束后从 fork 和本地删除。
+- `packageRegistry` 只负责 KubeClipper OCI package/Helm Chart；`--image-registry` 选择
+  Kubernetes/CNI 镜像来源；`--cri-registry` 选择其他业务镜像 Registry。后两类 Registry
+  都会写入 containerd，API、kcctl 和前端模型保持一致。
 
-### 当前 HEAD 本地验证
+## 发布阻断项关闭情况
 
-通过：定向 `go test -race`（delivery、deploy/join/clean/resource、SSH、API、kubeadm）、`go vet ./...`、
-排除环境依赖包后的全仓 Go 测试、`golangci-lint run ./...`（0 issues）、Bash 语法检查、两个
-open-packaging 测试、`release-policy-verify`、`git diff --check`，以及 Linux amd64/arm64 的
-kcctl/server/agent 静态构建。全仓 `go test ./...` 仅有环境失败：macOS 无 system D-Bus 导致
-`pkg/utils/systemctl` 失败；本机无 `~/.kc/config` 和已部署平台导致 `test/e2e` 的 17 个 setup 失败。
-ShellCheck 0.11.0（`-x -P SCRIPTDIR`）和 Actionlint 1.7.7 均通过。
-
-此前本地双机 HTTP 验证使用的隔离 package 工件（对应 revision `a01dfd4`，验证完成后测试 tag 已删除）为：
-
-```text
-sourceRevision: a01dfd4be3104a4884e30d3b999a6614c6f61a37
-ref: 172.16.131.146:5000/qualification-a01dfd4/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0-qualification-a01dfd4
-package digest: sha256:6580319f5a8c2a10dac7c353ab8bb7ea3c3693584b20225351b14fc770412356
-kubeclipper-agent layer: sha256:128495a24b0ae1faf4dee7465fca42ace9a68c901610f4017ef63c5c4b3303e5
-kubeclipper-server layer: sha256:783b26e27077cff186dc355f9856e38f8b089b443b91a2366dcd55a7435acd19
-```
-
-### 双机纯 OCI 生命周期
-
-测试主机为 sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`），使用隔离前缀
-`qualification-a01dfd4`。本轮采用 HTTP 测试 Registry，不是正式 Harbor 认证 TLS 证据。
-
-1. 当前 revision 的 Linux amd64 kcctl/server/agent 完成 AIO deploy，登录成功，packageRegistry 指向隔离 OCI 前缀。
-2. 使用独立 server SSH key 和 agent SSH key 完成 sh-dev-2 join；节点注册为 amd64、`ens3` 地址并 Ready。
-3. 创建单 master 集群时未传 `--untaint-master`。API 持久化 `untaintMaster: true`，操作日志生成
-   `master-` 和 `control-plane-` 两条幂等 taint 删除命令；控制面、CoreDNS、Calico 从 image/CRI Registry 拉取并 Ready，
-   master 节点最终无 taint。
-4. `kcctl cluster add-node` 添加 sh-dev-2 后两台节点 Ready；`nicolaka/netshoot:v0.13` 从 image Registry
-   拉取并分别在 master、worker 上运行隔离 workload，验证调度和 containerd 配置。
-5. 删除 workload 后执行 `kcctl cluster remove-node`；worker 节点从集群移除，kubelet/containerd 停止，kc-agent 保留。
-6. 删除集群后两台节点的 kubelet/containerd 停止，Kubernetes、etcd、CNI、Calico 和 containerd 配置路径均不存在。
-7. 执行 `kcctl clean --all --force --assumeyes` 后，两台机器的 KubeClipper 服务、配置和凭据均清理。
-8. `applyKubectlPod` 在当前 revision 的 2 分钟超时、3 次重试实现下成功，`kube-system/kc-kubectl` 为 Running。
-
-### 当前提交 GitHub Actions 证据
-
-| 工作流 | 结果 |
+| 阻断项 | 结论和证据 |
 |---|---|
-| [go-test-coverage](https://github.com/lixd/kubeclipper/actions/runs/30058157466) | success |
-| [offline-resource-validate](https://github.com/lixd/kubeclipper/actions/runs/30058157515) | success |
-| [e2e-aio-test](https://github.com/lixd/kubeclipper/actions/runs/30058157545) | success |
-| [publish-oci-qualification](https://github.com/lixd/kubeclipper/actions/runs/30058157637) | success |
+| `kcctl clean` 未覆盖 join agent | 已关闭；一次 `kcctl -y clean -A -f` 同时清理 server 和 join agent，双机残留审计通过。 |
+| 目标节点架构检测缺少可注入 runner 测试 | 已关闭；SSH runner 可注入，amd64、arm64 和混合架构单元测试通过。 |
+| join 共用 server/agent SSH 配置 | 已关闭；双机使用独立 server SSH key 和 agent SSH key 完成 join。 |
+| 多网卡可能选择 Docker/CNI bridge | 已关闭；默认地址发现排除 Docker、CNI、Podman、nerdctl bridge，实机选择 `ens3`。 |
+| 发布产物与 support policy 可能漂移 | 已关闭；`tools/release-policy-verify` 对 manifest 和 support policy 做双向一致性校验。 |
+| GitHub Actions Node.js 20 弃用警告 | 已关闭；相关 Actions 已升级，当前 workflow 运行无该阻断。 |
+| Registry 认证/TLS/凭据下发 | 已关闭；认证 HTTPS Harbor、robot account、自定义 CA、最小项目权限和读写路径均实测通过。 |
+| CRI 变更后无法再从 Registry 拉取 package | 已关闭；create/install/upgrade/add-node 在运行时变更前预取，缓存按 artifact 身份跨 resolver slot 复用。 |
+| 单 master 默认无法调度普通工作负载 | 已关闭；API 在单 master 且无 worker、用户未显式设置时持久化 `untaintMaster: true`。 |
 
-OCI qualification manifest 使用 `ghcr.io/lixd/kubeclipper/qualification-43219b4a78acbf4b2b249cc80cc780d40c29d030`，所有组件的 `sourceRevision` 均为
-`43219b4a78acbf4b2b249cc80cc780d40c29d030`。关键 package-image digest：
+## 本地代码和构建验证
+
+以下验证对应 release commit `7332bac`：
 
 ```text
-bootstrap/kubeclipper:v1.8.0  sha256:9510719d064a2fd193ef4e8863d5414d319165c0a9ea31b83cca5a21c0b7652d
-bootstrap/etcd:3.5.21          sha256:7ca1186038f768586f173a7350276dbc3b30027ab1ac66482fcec6f621145563
-bootstrap/console:v1.6.0       sha256:921043b4570da7a45b5340e3a31af548287826333e149bcb4ae71cbfe8a40682
-bootstrap/registry:3.1.1       sha256:b4ff06b8a76e266b0dc1940a9d085c7ab9bf4964d981077f3456ea8a74645cf8
-cri/containerd:1.7.29          sha256:1781493dd53326aa5a37aafc5a8cc14e7fede19d289f071db0ed9d5b27b6bb69
-cri/containerd:2.2.4           sha256:9605e4f516b243d9b5a040d4822aa5ea2dce0e4ad49c84209ae35dafdc5a6cc5
-k8s:v1.34.2                    sha256:555d854b6d565debee2c03e16271a4fba847c8e94f14afd16a54a56568975f83
-k8s:v1.35.0                    sha256:3da2d345e0f7256c379fc7cd94772ae7d0938fc9b745df8931b0b6d6b452c4b2
-k8s:v1.36.1                    sha256:d7bc2d989614dcbb0fed74d1fdd9aa29f22055b4a8235d40dcb8d418fe190321
-k8s-extension:v1               sha256:2b2afe1ccfa905fa774f79e2b7f50e0dd7a7a4ed91edd6be1b4c18d51af3f57d
-calico:v3.29.6                 sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
-calico:v3.31.5                 sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+go list ./pkg/... | rg -v 'pkg/utils/systemctl$' | xargs go test -race
+                                                              PASS
+go vet ./...                                                  PASS
+golangci-lint run ./...                                       PASS（0 issues）
+go test ./...                                                 仅环境依赖失败，见下文
+git ls-files '*.sh' | xargs -n1 bash -n                       PASS
+bash scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
+                                                              PASS
+bash scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
+                                                              PASS
+go run ./tools/release-policy-verify --manifest packaging/resources.yaml
+                                                              PASS
+actionlint 1.7.7                                              PASS
+git diff --name-only master...HEAD -- '*.sh' | xargs shellcheck -x -P SCRIPTDIR
+                                                              PASS
+git diff --check                                              PASS
 ```
 
-### 清理和剩余缺口
+全仓 `go test ./...` 的失败已复现并按环境分类，不是产品回归：
 
-- 两台机器 authorized_keys 中的测试公钥、临时私钥、CA、密码、二进制和配置均已删除；KubeClipper 配置路径不存在。
-- 当前 `qualification-a01dfd4` 前缀的所有 Registry tags 已逐一按 digest 删除，查询结果为 `tags: null`；catalog 名称和未引用 blob
-  仍需运维窗口执行垃圾回收，未对共享 Registry 执行 GC。
-- 未停止或修改无关 Docker、`kc-registry.service`、`sprout-postgres-v2` 等服务。
-- **P0：** 正式 Harbor robot account、正式 CA/TLS、最小权限和凭据轮换尚未在当前 HEAD 重跑；GHCR qualification 和历史认证证据不能替代生产 Harbor 证据。
-- **P2：** Registry 未引用 blob 的 GC 由运维负责。
+- `pkg/utils/systemctl`：本机为 macOS，没有 system D-Bus。
+- `test/e2e`：本机在 qualification 清理后没有 `~/.kc/config` 和正在运行的平台，17 个 setup 失败。
+- 排除上述明确依赖宿主环境的包后，其余 Go 包及 `./pkg/...` race 测试全部通过。
 
-因此当前结论是：**自动化门禁和双机 HTTP qualification 通过，但在正式 Harbor 认证/TLS/权限组合完成前，不建议正式发布 2.0.0。**
+Linux 交叉构建完成：kcctl、kubeclipper-server、kubeclipper-agent 分别构建 linux/amd64 和
+linux/arm64，共六个产物；`file` 确认均为对应架构的 statically linked ELF。构建临时目录已删除。
+
+## 当前 release commit 的 GitHub Actions
+
+| 必需工作流 | Run | 结果 |
+|---|---|---|
+| Go tests/coverage | [30075941260](https://github.com/lixd/kubeclipper/actions/runs/30075941260) | success |
+| offline-resource-validate | [30075941258](https://github.com/lixd/kubeclipper/actions/runs/30075941258) | success |
+| OCI AIO deploy + Fast E2E | [30075941272](https://github.com/lixd/kubeclipper/actions/runs/30075941272) | success；7 passed，0 failed；web terminal SSH 通过；最终 clean successful |
+| 16 组件发布 + release manifest/provenance | [30075941457](https://github.com/lixd/kubeclipper/actions/runs/30075941457) | success |
+
+release manifest job ID 为 `89429042238`：
+
+```text
+release manifest sha256: c3a773bb77422e9004b76d87bdbf10cbd900d326980b8559acbd0a53945b5253
+sourceRevision:             7332bac5a34cb0379cc74680b6e44b33beea59be
+```
+
+关键发布 digest：
+
+```text
+bootstrap/kubeclipper:v1.8.0  sha256:18c184bcffe9e3ec7d1a83183b876dcc9fff0459e1b6d4ad3f5c6b6a5f9e92bb
+bootstrap/etcd:3.5.21          sha256:e274ae3a81df8bf88dee5083dd074554b9b199ef93c8c77f6f2f713841a1d0b9
+bootstrap/console:v1.6.0       sha256:5c38d1aa11d0f10d04fb1263db385f33cbd0d3c694a181a57ef5c959522c81a2
+bootstrap/registry:3.1.1       sha256:1a0f2bef6491085184a9e7d8fbcfd07bc548e607d73dc29f7005c5d68daacd69
+cri/containerd:1.7.29          sha256:1e454cb4e46bbf4a60ce4f00e3d335c90d7393130127f6feaa6dd31533499345
+cri/containerd:2.2.4           sha256:6f750ebe2a8f26a995caf2ee818d33dc7c22f7113ab5d45540ef7eb8e54c119e
+k8s:v1.34.2                    sha256:f898b3e98eb5900729be01fe06fd65308a811f8497d01de312d7587ff36d36e8
+k8s:v1.35.0                    sha256:15e343aa81f227613185a846a4591e9100fafdf83e66ce3309c13b8547423e69
+k8s:v1.36.1                    sha256:5b1b1b849fdc3656cc9f20b959a5502b041b7924a1f42116c1f4ac41d0a0993e
+k8s-extension:v1               sha256:e621bc3bbac015b15db6d796597e8fa7e98f5da3bf6336288df037b8626d5f48
+tigera chart v3.29.6           sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+tigera chart v3.31.5           sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+```
+
+## 认证 Harbor 和 provenance
+
+本轮在 sh-dev-3 使用隔离 HTTPS Harbor，采用 robot account、自定义 CA 和隔离项目权限完成
+发布及读取；错误凭据、未知 CA 和越权项目均不会被当作有效来源。bootstrap/kubeclipper 的
+本地多架构 index 证据为：
+
+```text
+index: sha256:fdd2b3b4cd9d73204d95595be026cc24cd9490baa2d5ec3e6d3d054e8f093232
+amd64: sha256:0ba6d4f62ffc76b53c5b940a2828e82e5ccae40809a8d48f612dd31a95d226f0
+arm64: sha256:ccbda4374d1ea9df095170b8ff4dc7021fcd4a39aa4bef43be5b5e505611e178
+```
+
+两个平台的 package metadata `sourceRevision` 均为 `7332bac5a34cb0379cc74680b6e44b33beea59be`。
+Registry 配置和凭据以 `0600` 下发到 server/agent，clean 后已删除。
+
+## 双机纯 OCI 生命周期
+
+测试主机：sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`）；集群
+`oci-qualification-7332bac`；Kubernetes `v1.34.2`、containerd `1.7.29`、Calico `v3.29.6`。
+
+1. sh-dev-3 使用 release commit 的 Linux amd64 产物完成 AIO deploy，登录和版本一致性通过。
+2. 使用独立 server SSH key 和 agent SSH key 将 sh-dev-2 join 到平台。
+3. 未传 `--untaint-master` 创建单 master 集群，API 自动持久化 `untaintMaster: true`；master
+   taint 为空。创建操作 `0c9a4259-8d4f-4e8c-994f-29f3a44fd6d0` 成功。
+4. add-node 操作 `aca8c0e4-0b8d-47c1-97b8-015fa1a05ac0`：
+   `prefetchOCIArtifacts` 成功后主动停止隔离 Harbor，确认 5443 不可达；随后
+   `installRuntime`、`installExtension`、`installPackages`、`joinNode` 仍全部成功，证明运行时
+   变更后没有隐式回源依赖。
+5. 两节点均 Ready；`worker-check` Pod 明确调度到 sh-dev-2（节点 `lixd-dev-2`），日志为
+   `worker-check-ok`。
+6. remove-node 操作 `c21391a4-57d1-4add-9873-b68427bd0468` 的 14 个清理步骤全部成功。
+7. 删除集群操作 `97fb153f-2b81-4c7b-bbc9-7f0ba826c354` 成功。
+8. 一次执行 `kcctl -y clean -A -f` 返回 `clean successful`，server 和所有通过 join 加入的
+   agent 同时被完整清理，无人工补救。
+
+## 真实离线 bundle 往返
+
+从 GHCR qualification 的 digest-pinned bootstrap/console 工件执行：导出 amd64 bundle、
+校验 bundle 及内部所有文件 SHA256、导入临时 Registry、校验导入 manifest digest 和
+`sourceRevision`。结果：
+
+```text
+源多架构 index digest:  sha256:5c38d1aa11d0f10d04fb1263db385f33cbd0d3c694a181a57ef5c959522c81a2
+bundle amd64 digest:     sha256:d8b4a2f858386cd47bcdee91d03304c91b0f9973f1b7ad040e6ba82beb8e1a6b
+导入后 Registry digest: sha256:d8b4a2f858386cd47bcdee91d03304c91b0f9973f1b7ad040e6ba82beb8e1a6b
+sourceRevision:          7332bac5a34cb0379cc74680b6e44b33beea59be
+结果:                    OFFLINE_ROUNDTRIP_VERIFIED
+```
+
+多架构 index 按 `--arch amd64` 导出后，release manifest 正确改写为 amd64 平台 manifest
+digest；`bundle-artifacts.tsv` 同时保留源 index digest，避免把平台选择误判为 digest 漂移。
+
+## 清理结果
+
+- 两台机器的 kc-server、kc-agent、kubelet、containerd 均为 inactive。
+- 两台机器均无 Kubernetes、etcd、kubelet、containerd、CNI、Calico 和 KubeClipper 配置/数据路径，
+  无 `cali*`、`vxlan.calico`、`kube-ipvs0` 网络设备。
+- 本轮及历史 qualification 测试公钥、临时私钥、CA、密码、授权、隧道、unit、Registry 容器、
+  bundle 和临时文件均已删除。
+- sh-dev-2 的 `/root/.kc` 时间为 2026-07-08/09，早于本轮测试，作为用户既有内容保留。
+- 两机已有 `/usr/local/bin/kcctl` 时间早于本轮 qualification，不属于本轮运行时或集群残留，未擅自删除。
+- sh-dev-3 的 `kc-registry.service` 和 Docker 保持 active；`sprout-postgres-v2` 保持 running，
+  `StartedAt` 仍为 `2026-07-14T03:17:33.452118082Z`，未触碰无关服务。
+- qualification Git 标签已从 fork 和本地删除；本地工作区测试产物和交叉构建目录已删除。
+- GHCR qualification 包位于独立的 `qualification-7332bac...` 命名空间，不会覆盖正式版本；当前
+  `gh` token 只有 `repo/workflow` 等 scope，缺少 `read:packages` 和 `delete:packages`，因此不能删除
+  远端 package versions。未擅自扩大账号授权。
+
+## P0/P1/P2 与发布建议
+
+- **P0：无。** 所有发布阻断逻辑、当前提交 Actions、认证 Harbor、双机生命周期、离线交付和主机清理均有直接证据。
+- **P1：无。** 未发现需要在 2.0.0 发布前修复的功能或可靠性缺口。
+- **P2：** 使用具备 `delete:packages` 的维护者凭据删除 GHCR qualification package versions；共享
+  Registry 的未引用 blob GC 继续按运维窗口执行。这两项不改变发布 artifact、digest 或运行时行为。
+
+最终建议：**可以正式发布 2.0.0。** 正式发布必须从代码 revision
+`7332bac5a34cb0379cc74680b6e44b33beea59be` 构建，并保持 release manifest、OCI digest 和
+`sourceRevision` 校验；不要把后续仅更新报告的文档提交误当成新的二进制 sourceRevision。
 
 ## 历史复审（2026-07-23 及更早）
 
