@@ -20,9 +20,15 @@ import (
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 )
 
+const officialRegistryPrefix = "ghcr.io/kubeclipper/kubeclipper"
+
 type buildManifest struct {
 	Architectures []string `json:"architectures"`
-	Bootstrap     struct {
+	Registries    struct {
+		Package string `json:"package"`
+		Image   string `json:"image"`
+	} `json:"registries"`
+	Bootstrap struct {
 		KubeClipperVersion string `json:"kubeclipperVersion"`
 		EtcdVersion        string `json:"etcdVersion"`
 		ConsoleVersion     string `json:"consoleVersion"`
@@ -119,6 +125,9 @@ func verifyPolicyCoverage(manifest buildManifest, policy *deliveryapis.SupportPo
 	if err := verifyReleaseArchitectures(manifest.Architectures); err != nil {
 		return err
 	}
+	if err := verifyReleaseRegistries(&manifest); err != nil {
+		return err
+	}
 	if err := policy.Validate(); err != nil {
 		return err
 	}
@@ -158,6 +167,16 @@ func verifyPolicyCoverage(manifest buildManifest, policy *deliveryapis.SupportPo
 		if !kubernetesVersionReferenced(version, policy) {
 			return fmt.Errorf("release artifact k8s/k8s:%s is not referenced by the default support policy", version)
 		}
+	}
+	return nil
+}
+
+func verifyReleaseRegistries(manifest *buildManifest) error {
+	if manifest.Registries.Package != officialRegistryPrefix {
+		return fmt.Errorf("release package Registry must be %s", officialRegistryPrefix)
+	}
+	if manifest.Registries.Image != officialRegistryPrefix {
+		return fmt.Errorf("release image Registry must be %s", officialRegistryPrefix)
 	}
 	return nil
 }

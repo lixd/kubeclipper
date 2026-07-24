@@ -51,7 +51,7 @@ jobs:
       component: ${{ matrix.component }}
       version: ${{ matrix.version }}
       architecture: ${{ matrix.architecture }}
-      registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper
+      registry_prefix: ghcr.io/kubeclipper/kubeclipper
       upload_release_input: true
     secrets: inherit
 
@@ -91,7 +91,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-24.04
     env:
-      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper
+      REGISTRY_PREFIX: ghcr.io/kubeclipper/kubeclipper
     steps:
       - uses: actions/checkout@v7
       - uses: docker/login-action@v4

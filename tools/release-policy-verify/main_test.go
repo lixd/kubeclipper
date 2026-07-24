@@ -10,6 +10,8 @@ import (
 func supportedManifest() buildManifest {
 	var manifest buildManifest
 	manifest.Architectures = []string{"amd64", "arm64"}
+	manifest.Registries.Package = officialRegistryPrefix
+	manifest.Registries.Image = officialRegistryPrefix
 	manifest.Bootstrap.KubeClipperVersion = "v2.0.0"
 	manifest.Bootstrap.ConsoleVersion = "v1.6.0"
 	manifest.Bootstrap.RegistryVersion = "3.1.1"
@@ -89,6 +91,15 @@ func TestVerifyPolicyCoverageRejectsUnsupportedReleaseArchitecture(t *testing.T)
 	manifest.Architectures = []string{"amd64", "s390x"}
 	err := verifyPolicyCoverage(manifest, deliveryapis.DefaultSupportPolicy())
 	if err == nil || !strings.Contains(err.Error(), "s390x") {
+		t.Fatalf("verifyPolicyCoverage() error = %v", err)
+	}
+}
+
+func TestVerifyPolicyCoverageRejectsNonOfficialReleaseRegistry(t *testing.T) {
+	manifest := supportedManifest()
+	manifest.Registries.Package = "ghcr.io/example/kubeclipper"
+	err := verifyPolicyCoverage(manifest, deliveryapis.DefaultSupportPolicy())
+	if err == nil || !strings.Contains(err.Error(), officialRegistryPrefix) {
 		t.Fatalf("verifyPolicyCoverage() error = %v", err)
 	}
 }
