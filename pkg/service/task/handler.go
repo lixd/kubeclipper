@@ -146,15 +146,16 @@ func (s *Service) msgHandler(msg *nats.Msg) {
 
 func (s *Service) taskHandler(msg *nats.Msg) {
 	// TODO: recovery from panic
-	logger.Debugf("Got incoming msg subject %s", msg.Subject)
-	logger.Debugf("Got incoming msg content %s", string(msg.Data))
+	logger.Debug("got incoming task message", zap.String("subject", msg.Subject), zap.Int("payloadBytes", len(msg.Data)))
 	payload := &service.MsgPayload{}
 	if err := json.Unmarshal(msg.Data, payload); err != nil {
 		logger.Error("unmarshal task payload error", zap.Error(err))
 		return
 	}
 	logger.Debug("in coming task payload", zap.Int("operation", int(payload.Op)),
-		zap.String("step", payload.Step.Name), zap.ByteString("lastResponse", payload.LastTaskReply), zap.Duration("timeout", payload.Step.Timeout.Duration))
+		zap.String("step", payload.Step.Name),
+		zap.Int("lastResponseBytes", len(payload.LastTaskReply)),
+		zap.Duration("timeout", payload.Step.Timeout.Duration))
 	ctx, cancel := context.WithTimeout(context.TODO(), payload.Step.Timeout.Duration)
 	defer cancel()
 	var statusError *errors.StatusError
@@ -173,7 +174,7 @@ func (s *Service) taskHandler(msg *nats.Msg) {
 	case service.OperationStepLog:
 		var replyData []byte
 		defer func() {
-			logger.Debugf("reply data: %s", string(replyData))
+			logger.Debug("reply step log", zap.Int("responseBytes", len(replyData)))
 			responseMessage(msg, replyData, statusError)
 		}()
 		errMsg := "handle step log error"

@@ -48,6 +48,7 @@ import (
 
 const (
 	containerdSystemdUnitName = "containerd.service"
+	containerdConfigFileMode  = 0600
 )
 
 type ContainerdRunnable struct {
@@ -76,8 +77,8 @@ func (runnable *ContainerdRunnable) InitStep(ctx context.Context, cluster *v1.Cl
 	if runnable.RegistryConfigDir == "" {
 		runnable.RegistryConfigDir = ContainerdDefaultRegistryConfigDir
 	}
-	logger.Infof("[InitStep] Containerd Registry:%v", runnable.Registies)
-	logger.Infof("[InitStep] Containerd RegistryWithAuth:%v", runnable.RegistryWithAuth)
+	logger.Infof("[InitStep] Containerd registries configured: total=%d authenticated=%d",
+		len(runnable.Registies), len(runnable.RegistryWithAuth))
 
 	// When systemd is the init system of Linux,
 	// it generates and consumes a root cgroup and acts as a cgroup manager.
@@ -282,9 +283,20 @@ func (runnable *ContainerdRunnable) setupContainerdConfig(ctx context.Context, d
 	if err := os.MkdirAll(containerdDefaultConfigDir, 0755); err != nil {
 		return err
 	}
+	if !dryRun {
+		if err := os.Chmod(cf, containerdConfigFileMode); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("failed to protect containerd config: %w", err)
+		}
+	}
 	// First-time install: full template rendering to generate complete config.toml
-	if err := fileutil.WriteFileWithContext(ctx, cf, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644, runnable.renderTo, dryRun); err != nil {
+	if err := fileutil.WriteFileWithContext(ctx, cf, os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+		containerdConfigFileMode, runnable.renderTo, dryRun); err != nil {
 		return err
+	}
+	if !dryRun {
+		if err := os.Chmod(cf, containerdConfigFileMode); err != nil {
+			return fmt.Errorf("failed to protect containerd config: %w", err)
+		}
 	}
 
 	// render certs.d
@@ -300,6 +312,12 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		return nil
 	}
 
+	// Existing installations may have created config.toml as world-readable.
+	// Restrict it before loading or writing Registry credentials.
+	if err := os.Chmod(configPath, containerdConfigFileMode); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to protect containerd config: %w", err)
+	}
+
 	configVer := containerdConfigVersion(configPath)
 	pluginPrefix := "io.containerd.grpc.v1.cri"
 	if configVer >= 3 {
@@ -312,7 +330,14 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		if os.IsNotExist(err) {
 			// File doesn't exist: fallback to full template rendering
 			logger.Infof("containerd config not found, generating full config")
-			return fileutil.WriteFileWithContext(ctx, configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644, runnable.renderTo, dryRun)
+			if writeErr := fileutil.WriteFileWithContext(ctx, configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
+				containerdConfigFileMode, runnable.renderTo, dryRun); writeErr != nil {
+				return writeErr
+			}
+			if chmodErr := os.Chmod(configPath, containerdConfigFileMode); chmodErr != nil {
+				return fmt.Errorf("failed to protect containerd config: %w", chmodErr)
+			}
+			return nil
 		}
 		return fmt.Errorf("failed to load containerd config: %w", err)
 	}
@@ -391,19 +416,17 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		logger.Infof("updated registry auth config for %s", reg.Host)
 	}
 
-	// Serialize and write back, preserving file mode
+	// Serialize and write back with credentials readable only by root.
 	data, err := conf.ToTomlString()
 	if err != nil {
 		return fmt.Errorf("failed to serialize containerd config: %w", err)
 	}
 
-	info, err := os.Stat(configPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat containerd config: %w", err)
-	}
-
-	if err = os.WriteFile(configPath, []byte(data), info.Mode()); err != nil {
+	if err = os.WriteFile(configPath, []byte(data), containerdConfigFileMode); err != nil {
 		return fmt.Errorf("failed to write containerd config: %w", err)
+	}
+	if err = os.Chmod(configPath, containerdConfigFileMode); err != nil {
+		return fmt.Errorf("failed to protect containerd config: %w", err)
 	}
 
 	return nil

@@ -342,6 +342,7 @@ root = "/var/lib/containerd"
 
 			err = runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
 			require.NoError(t, err)
+			assertFileMode(t, configPath, containerdConfigFileMode)
 
 			result, err := toml.LoadFile(configPath)
 			require.NoError(t, err)
@@ -402,6 +403,7 @@ func TestMergeRegistryAuthIntoConfig_NoAuthEntries(t *testing.T) {
 
 	err = runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
 	require.NoError(t, err)
+	assertFileMode(t, configPath, containerdConfigFileMode)
 
 	result, err := toml.LoadFile(configPath)
 	require.NoError(t, err)
@@ -441,8 +443,7 @@ func TestMergeRegistryAuthIntoConfig_FileNotExist(t *testing.T) {
 	err := runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
 	require.NoError(t, err)
 
-	_, err = os.Stat(configPath)
-	assert.NoError(t, err, "config file should be created when it doesn't exist")
+	assertFileMode(t, configPath, containerdConfigFileMode)
 }
 
 func TestMergeRegistryAuthIntoConfig_RemoveStaleAuth(t *testing.T) {
@@ -498,6 +499,7 @@ func TestMergeRegistryAuthIntoConfig_RemoveStaleAuth(t *testing.T) {
 
 	err = runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
 	require.NoError(t, err)
+	assertFileMode(t, configPath, containerdConfigFileMode)
 
 	result, err := toml.LoadFile(configPath)
 	require.NoError(t, err)
@@ -737,6 +739,7 @@ root = "/var/lib/containerd"
 
 	err := runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
 	require.NoError(t, err)
+	assertFileMode(t, configPath, containerdConfigFileMode)
 
 	result, err := toml.LoadFile(configPath)
 	require.NoError(t, err)
@@ -782,4 +785,12 @@ func TestMergeRegistryAuthIntoConfig_DryRun(t *testing.T) {
 	data, err := os.ReadFile(configPath)
 	require.NoError(t, err)
 	assert.Equal(t, originalContent, string(data))
+	assertFileMode(t, configPath, 0644)
+}
+
+func assertFileMode(t *testing.T, path string, want os.FileMode) {
+	t.Helper()
+	info, err := os.Stat(path)
+	require.NoError(t, err)
+	assert.Equal(t, want, info.Mode().Perm())
 }

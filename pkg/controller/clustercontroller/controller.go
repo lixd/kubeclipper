@@ -745,7 +745,10 @@ func (r *ClusterReconciler) processPendingOperations(ctx context.Context, log lo
 	clean := true
 
 	for _, pendingOperation := range c.PendingOperations {
-		log.Debugf("pending operation info is %+v, extraData is %+v", pendingOperation, string(pendingOperation.ExtraData))
+		log.Debug("process pending operation",
+			zap.String("operation-id", pendingOperation.OperationID),
+			zap.String("operation-type", pendingOperation.OperationType),
+			zap.Int("extra-data-bytes", len(pendingOperation.ExtraData)))
 		// the operation has been processed ?
 		op, err := r.OperationOperator.GetOperationEx(ctx, pendingOperation.OperationID, "0")
 		// ignore IsNotFound error

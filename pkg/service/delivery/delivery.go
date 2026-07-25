@@ -476,7 +476,8 @@ func (s *Service) DeliverTaskOperation(ctx context.Context, operation *v1.Operat
 				err = s.deliveryTaskStep(stepCtx, operation.Name, &operation.Steps[i],
 					nil, &operation.Status.Conditions[i], opts.DryRun)
 			} else {
-				logger.Info("last response", zap.ByteString("response", operation.Status.Conditions[i-1].Status[0].Response))
+				logger.Debug("forwarding previous step response",
+					zap.Int("responseBytes", len(operation.Status.Conditions[i-1].Status[0].Response)))
 				err = s.deliveryTaskStep(stepCtx, operation.Name, &operation.Steps[i],
 					operation.Status.Conditions[i-1].Status[0].Response, &operation.Status.Conditions[i], opts.DryRun)
 			}
