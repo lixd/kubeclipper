@@ -37,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v7
@@ -142,9 +144,12 @@ jobs:
       - name: Build OCI publishing tools
         run: |
           set -euo pipefail
-          mkdir -p bin
-          go build -o bin/oci-publish ./tools/oci-publish
-          go build -o bin/helm-oci-publish ./tools/helm-oci-publish
+          tools_dir="$RUNNER_TEMP/kc-publish-tools"
+          mkdir -p "$tools_dir"
+          go build -o "$tools_dir/oci-publish" ./tools/oci-publish
+          go build -o "$tools_dir/helm-oci-publish" ./tools/helm-oci-publish
+          echo "KC_OCI_PUBLISH_BIN=$tools_dir/oci-publish" >> "$GITHUB_ENV"
+          echo "HELM_OCI_PUBLISH_BIN=$tools_dir/helm-oci-publish" >> "$GITHUB_ENV"
 
       - name: Build and publish component
         env:

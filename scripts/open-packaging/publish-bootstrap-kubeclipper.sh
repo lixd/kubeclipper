@@ -46,6 +46,9 @@ build_core_binaries
 server_path="$(find_asset kubeclipper-server)" || die "missing kubeclipper-server after build"
 agent_path="$(find_asset kubeclipper-agent)" || die "missing kubeclipper-agent after build"
 
+verify_core_binary_metadata "$server_path"
+verify_core_binary_metadata "$agent_path"
+
 publish_bootstrap_package "kubeclipper" \
   "$server_path" "kubeclipper-server" \
   "$agent_path" "kubeclipper-agent"

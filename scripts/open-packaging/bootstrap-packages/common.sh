@@ -20,6 +20,10 @@ need_value() {
   [[ $# -ge 2 && -n "$2" ]] || die "$1 requires a value"
 }
 
+is_semver_package_version() {
+  [[ "${version:-}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
+}
+
 download() {
   local url=$1
   local dst=$2
@@ -60,6 +64,13 @@ init_bootstrap_publish_workspace() {
   [[ -n "${version:-}" ]] || die "--version is required"
   [[ "${arch:-}" == "amd64" || "${arch:-}" == "arm64" ]] || die "--arch must be amd64 or arm64"
   registry_prefix="${registry_prefix:-$DEFAULT_REGISTRY_PREFIX}"
+
+  if [[ -z "${KC_SOURCE_REVISION:-}" ]]; then
+    if ! command -v git >/dev/null 2>&1 || ! KC_SOURCE_REVISION="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)"; then
+      die "KC_SOURCE_REVISION is required when publishing outside a Git checkout"
+    fi
+    export KC_SOURCE_REVISION
+  fi
 
   workdir="$(mktemp -d -t kc-bootstrap-oci.XXXXXX)"
   trap 'rm -rf "$workdir"' EXIT
@@ -116,9 +127,31 @@ docker_go_env_args() {
 
 kubeclipper_build_ldflags() (
   export KUBE_ROOT="$ROOT"
+  export KUBE_GIT_COMMIT="${KC_SOURCE_REVISION:-}"
+  if is_semver_package_version; then
+    export KUBE_GIT_VERSION="$version"
+  fi
   source "$ROOT/hack/lib/version.sh"
   kube::version::ldflags
 )
+
+verify_core_binary_metadata() {
+  local binary=$1
+  local metadata
+  metadata="$("$binary" version -o yaml)"
+
+  if [[ -n "${KC_SOURCE_REVISION:-}" ]]; then
+    grep -Fqx "gitCommit: $KC_SOURCE_REVISION" <<<"$metadata" ||
+      die "$(basename "$binary") gitCommit does not match KC_SOURCE_REVISION"
+    grep -Fqx "gitTreeState: clean" <<<"$metadata" ||
+      die "$(basename "$binary") was built from a dirty source tree"
+  fi
+  if is_semver_package_version; then
+    grep -Fqx "gitVersion: $version" <<<"$metadata" ||
+      die "$(basename "$binary") gitVersion does not match package version $version"
+  fi
+  echo "verified $(basename "$binary") version metadata: version=${version:-derived} revision=${KC_SOURCE_REVISION:-derived} tree=clean"
+}
 
 build_core_binaries() {
   local ldflags

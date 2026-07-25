@@ -46,8 +46,10 @@ jobs:
         env:
           KC_SOURCE_REVISION: ${{ github.sha }}
         run: |
-          mkdir -p bin
-          go build -o bin/oci-publish ./tools/oci-publish
+          tools_dir="$RUNNER_TEMP/kc-publish-tools"
+          mkdir -p "$tools_dir"
+          go build -o "$tools_dir/oci-publish" ./tools/oci-publish
+          export KC_OCI_PUBLISH_BIN="$tools_dir/oci-publish"
           scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
             --registry-prefix 127.0.0.1:5000 --version pr-e2e --arch amd64
           scripts/open-packaging/publish-bootstrap-etcd.sh \
