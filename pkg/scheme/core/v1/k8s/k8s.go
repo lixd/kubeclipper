@@ -28,6 +28,7 @@ const (
 	APIServerDomainPrefix = "apiserver."
 
 	KubeConfigDir            = ".kube"
+	CniDefaultBinaryDir      = "/opt/cni"
 	CniDefaultConfigDir      = "/etc/cni"
 	CniDefaultDataDir        = "/var/lib/cni"
 	CniDefaultRunDataDir     = "/var/run/calico"

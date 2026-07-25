@@ -1054,6 +1054,7 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 
 	// clean CNI config
 	steps = append(steps,
+		doCommandRemoveStep("removeCNIBinaries", nodes, CniDefaultBinaryDir),
 		doCommandRemoveStep("cleanCNIConfig", nodes, CniDefaultConfigDir),
 		doCommandRemoveStep("removeCNIData", nodes, CniDefaultDataDir),
 		doCommandRemoveStep("removeCNIRunData", nodes, CniDefaultRunDataDir))
@@ -1119,6 +1120,7 @@ func FinalizeRemovedNodeState(c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
 					"rm", "-rf",
 					K8SDefaultConfigDir,
 					KubeletDefaultDataDir,
+					CniDefaultBinaryDir,
 					CniDefaultConfigDir,
 					CniDefaultDataDir,
 					CniDefaultRunDataDir,

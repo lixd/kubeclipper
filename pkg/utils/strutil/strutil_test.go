@@ -20,7 +20,37 @@ package strutil
 
 import (
 	"testing"
+
+	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
+
+func TestHiddenPasswordDoesNotMutateRegistry(t *testing.T) {
+	registry := v1.Registry{RegistrySpec: v1.RegistrySpec{
+		RegistryAuth: &v1.RegistryAuth{Username: "robot", Password: "secret"},
+	}}
+
+	clean := HiddenPassword(&registry)
+	if clean.RegistryAuth.Password != SensitiveData {
+		t.Fatalf("clean password = %q, want redacted", clean.RegistryAuth.Password)
+	}
+	if registry.RegistryAuth.Password != "secret" {
+		t.Fatalf("source password mutated to %q", registry.RegistryAuth.Password)
+	}
+}
+
+func TestHiddenClusterRegistryPasswordsDoesNotMutateCluster(t *testing.T) {
+	cluster := v1.Cluster{Status: v1.ClusterStatus{Registries: []v1.RegistrySpec{{
+		RegistryAuth: &v1.RegistryAuth{Username: "robot", Password: "secret"},
+	}}}}
+
+	clean := HiddenClusterRegistryPasswords(&cluster)
+	if clean.Status.Registries[0].RegistryAuth.Password != SensitiveData {
+		t.Fatalf("clean password = %q, want redacted", clean.Status.Registries[0].RegistryAuth.Password)
+	}
+	if cluster.Status.Registries[0].RegistryAuth.Password != "secret" {
+		t.Fatalf("source password mutated to %q", cluster.Status.Registries[0].RegistryAuth.Password)
+	}
+}
 
 func TestBase64Encode(t *testing.T) {
 	src := "aRMIwp3NJC3G324a"

@@ -541,15 +541,16 @@ func (c *clusterOperator) clusterFuzzyFilter(obj runtime.Object, q *query.Query)
 		return nil
 	}
 	objs := make([]runtime.Object, 0, len(clus.Items))
-	for index, clu := range clus.Items {
+	for i := range clus.Items {
+		clean := strutil.HiddenClusterRegistryPasswords(&clus.Items[i])
 		selected := true
 		for k, v := range q.FuzzySearch {
-			if !models.ObjectMetaFilter(clu.ObjectMeta, k, v) {
+			if !models.ObjectMetaFilter(clus.Items[i].ObjectMeta, k, v) {
 				selected = false
 			}
 		}
 		if selected {
-			objs = append(objs, &clus.Items[index])
+			objs = append(objs, clean)
 		}
 	}
 	return objs
@@ -935,16 +936,16 @@ func RegistryFuzzyFilter(obj runtime.Object, q *query.Query) []runtime.Object {
 		return nil
 	}
 	objs := make([]runtime.Object, 0, len(registries.Items))
-	for index, template := range registries.Items {
-		template = strutil.HiddenPassword(template)
+	for i := range registries.Items {
+		clean := strutil.HiddenPassword(&registries.Items[i])
 		selected := true
 		for k, v := range q.FuzzySearch {
-			if !models.ObjectMetaFilter(template.ObjectMeta, k, v) {
+			if !models.ObjectMetaFilter(registries.Items[i].ObjectMeta, k, v) {
 				selected = false
 			}
 		}
 		if selected {
-			objs = append(objs, &registries.Items[index])
+			objs = append(objs, clean)
 		}
 	}
 	return objs

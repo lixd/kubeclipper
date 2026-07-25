@@ -74,7 +74,7 @@ func TestFinalizeRemovedNodeState(t *testing.T) {
 		t.Fatalf("unexpected cleanup commands: %+v", steps[1].Commands)
 	}
 	got := strings.Join(steps[1].Commands[0].ShellCommand, " ")
-	for _, path := range []string{"/etc/containerd", "/data/containerd", "/etc/cni", "/var/lib/cni", "/var/run/calico"} {
+	for _, path := range []string{"/etc/containerd", "/data/containerd", "/opt/cni", "/etc/cni", "/var/lib/cni", "/var/run/calico"} {
 		if !strings.Contains(got, path) {
 			t.Errorf("cleanup command %q does not contain %q", got, path)
 		}

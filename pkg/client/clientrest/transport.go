@@ -34,10 +34,11 @@ import (
 )
 
 const (
-	KcUserHeader    = "Kc-User"
-	KcTokenHeader   = "Kc-Token"
-	QueryTypeHeader = "Kc-Query-Type"
-	InformerQuery   = "kc-informer"
+	KcUserHeader         = "Kc-User"
+	KcTokenHeader        = "Kc-Token"
+	QueryTypeHeader      = "Kc-Query-Type"
+	InformerQuery        = "kc-informer"
+	InternalInformerUser = "system:kc-server"
 )
 
 func TransportFor(config *rest.Config) (http.RoundTripper, error) {

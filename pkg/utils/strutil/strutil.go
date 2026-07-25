@@ -62,12 +62,22 @@ func StealKubernetesMajorVersionNumber(version string) (int, error) {
 
 const SensitiveData = "******"
 
-func HiddenPassword(registry v1.Registry) v1.Registry {
-	// hidden sensitive data
-	if registry.RegistryAuth != nil {
-		if registry.RegistryAuth.Password != "" {
-			registry.RegistryAuth.Password = SensitiveData
+func HiddenPassword(registry *v1.Registry) *v1.Registry {
+	clean := registry.DeepCopy()
+	if clean.RegistryAuth != nil {
+		if clean.RegistryAuth.Password != "" {
+			clean.RegistryAuth.Password = SensitiveData
 		}
 	}
-	return registry
+	return clean
+}
+
+func HiddenClusterRegistryPasswords(cluster *v1.Cluster) *v1.Cluster {
+	clean := cluster.DeepCopy()
+	for i := range clean.Status.Registries {
+		if clean.Status.Registries[i].RegistryAuth != nil && clean.Status.Registries[i].RegistryAuth.Password != "" {
+			clean.Status.Registries[i].RegistryAuth.Password = SensitiveData
+		}
+	}
+	return clean
 }

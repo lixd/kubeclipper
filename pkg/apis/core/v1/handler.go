@@ -53,6 +53,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	r "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 
@@ -176,7 +177,10 @@ func (h *handler) DescribeCluster(request *restful.Request, response *restful.Re
 		return
 	}
 
-	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+	clean := strutil.HiddenClusterRegistryPasswords(c)
+	if err := response.WriteHeaderAndEntity(http.StatusOK, clean); err != nil {
+		logger.Error("write redacted cluster response", zap.Error(err))
+	}
 }
 
 func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.Response) {
@@ -304,7 +308,10 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 		}
 	}
 
-	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+	clean := strutil.HiddenClusterRegistryPasswords(c)
+	if err := response.WriteHeaderAndEntity(http.StatusOK, clean); err != nil {
+		logger.Error("write redacted cluster response", zap.Error(err))
+	}
 }
 
 func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *query.Query) {
@@ -320,6 +327,15 @@ func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *
 	if err != nil {
 		restplus.HandleInternalError(resp, req, err)
 		return
+	}
+	if !clientrest.IsInformerRawQuery(req.Request) {
+		watcher = watch.Filter(watcher, func(event watch.Event) (watch.Event, bool) {
+			cluster, ok := event.Object.(*v1.Cluster)
+			if ok {
+				event.Object = strutil.HiddenClusterRegistryPasswords(cluster)
+			}
+			return event, true
+		})
 	}
 	restplus.ServeWatch(watcher, v1.SchemeGroupVersion.WithKind("Cluster"), req, resp, timeout)
 }
@@ -501,7 +517,10 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	}
 
 	go h.doOperation(context.TODO(), op, &service.Options{DryRun: dryRun})
-	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+	clean := strutil.HiddenClusterRegistryPasswords(&c)
+	if err := response.WriteHeaderAndEntity(http.StatusOK, clean); err != nil {
+		logger.Error("write redacted cluster response", zap.Error(err))
+	}
 }
 
 func (h *handler) UpdateClusters(request *restful.Request, response *restful.Response) {
@@ -617,7 +636,10 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 	}
 
 	go h.doOperation(context.TODO(), op, &service.Options{DryRun: dryRun})
-	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+	clean := strutil.HiddenClusterRegistryPasswords(c)
+	if err := response.WriteHeaderAndEntity(http.StatusOK, clean); err != nil {
+		logger.Error("write redacted cluster response", zap.Error(err))
+	}
 }
 
 func (h *handler) GetKubeConfig(request *restful.Request, response *restful.Response) {
@@ -3720,8 +3742,10 @@ func (h *handler) CreateRegistry(req *restful.Request, resp *restful.Response) {
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
-	regClean := strutil.HiddenPassword(*reg)
-	_ = resp.WriteHeaderAndEntity(http.StatusCreated, &regClean)
+	regClean := strutil.HiddenPassword(reg)
+	if err := resp.WriteHeaderAndEntity(http.StatusCreated, regClean); err != nil {
+		logger.Error("write redacted registry response", zap.Error(err))
+	}
 }
 
 func (h *handler) UpdateRegistry(req *restful.Request, resp *restful.Response) {
@@ -3769,7 +3793,10 @@ func (h *handler) UpdateRegistry(req *restful.Request, resp *restful.Response) {
 			return
 		}
 	}
-	_ = resp.WriteHeaderAndEntity(http.StatusOK, reg)
+	regClean := strutil.HiddenPassword(reg)
+	if err := resp.WriteHeaderAndEntity(http.StatusOK, regClean); err != nil {
+		logger.Error("write redacted registry response", zap.Error(err))
+	}
 }
 
 func (h *handler) DescribeRegistry(req *restful.Request, resp *restful.Response) {
@@ -3784,8 +3811,10 @@ func (h *handler) DescribeRegistry(req *restful.Request, resp *restful.Response)
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
-	regClean := strutil.HiddenPassword(*reg)
-	_ = resp.WriteHeaderAndEntity(http.StatusOK, &regClean)
+	regClean := strutil.HiddenPassword(reg)
+	if err := resp.WriteHeaderAndEntity(http.StatusOK, regClean); err != nil {
+		logger.Error("write redacted registry response", zap.Error(err))
+	}
 }
 
 func (h *handler) ListRegistry(req *restful.Request, resp *restful.Response) {
@@ -3826,6 +3855,15 @@ func (h *handler) watchRegistries(req *restful.Request, resp *restful.Response, 
 	if err != nil {
 		restplus.HandleInternalError(resp, req, err)
 		return
+	}
+	if !clientrest.IsInformerRawQuery(req.Request) {
+		watcher = watch.Filter(watcher, func(event watch.Event) (watch.Event, bool) {
+			registry, ok := event.Object.(*v1.Registry)
+			if ok {
+				event.Object = strutil.HiddenPassword(registry)
+			}
+			return event, true
+		})
 	}
 	restplus.ServeWatch(watcher, v1.SchemeGroupVersion.WithKind("Registry"), req, resp, timeout)
 }

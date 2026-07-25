@@ -101,7 +101,7 @@ type APIServer struct {
 }
 
 func (s *APIServer) PrepareRun(stopCh <-chan struct{}) error {
-	s.internalInformerUser = "system:kc-server"
+	s.internalInformerUser = clientrest.InternalInformerUser
 	s.InternalInformerToken = uuid.New().String()
 	s.storageFactory = registry.NewSharedStorageFactory(s.RESTOptionsGetter)
 	s.terminationChan = make(chan struct{})
@@ -214,6 +214,7 @@ func (s *APIServer) buildHandlerChain(stopCh <-chan struct{}) error {
 			bearertoken.New(tokenAuthn),
 			wstoken.New(tokenAuthn)),
 	))
+	s.container.Filter(filters.ProtectInformerQuery)
 
 	s.container.Filter(filters.WithAuthorization(s.rbacAuthorizer))
 
