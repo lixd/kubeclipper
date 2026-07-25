@@ -9,7 +9,10 @@ work="$(mktemp -d -t kc-bootstrap-version-test.XXXXXX)"
 trap 'rm -rf "$work"' EXIT
 
 version=v2.0.0
-arch="$(go env GOARCH)"
+case "$(go env GOARCH)" in
+  amd64) arch=arm64 ;;
+  *) arch=amd64 ;;
+esac
 KC_SOURCE_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
 KUBE_GIT_TREE_STATE=clean
 export KC_SOURCE_REVISION KUBE_GIT_TREE_STATE
@@ -21,14 +24,14 @@ grep -Fq "gitVersion=$version" <<<"$ldflags"
 
 (
   cd "$ROOT"
-  go build -ldflags "$ldflags" -o "$work/kubeclipper-server" ./cmd/kubeclipper-server
+  GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "$ldflags" -o "$work/kubeclipper-server" ./cmd/kubeclipper-server
 )
 verify_core_binary_metadata "$work/kubeclipper-server"
 
 dirty_ldflags="${ldflags/gitTreeState=clean/gitTreeState=dirty}"
 (
   cd "$ROOT"
-  go build -ldflags "$dirty_ldflags" -o "$work/kubeclipper-server-dirty" ./cmd/kubeclipper-server
+  GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -ldflags "$dirty_ldflags" -o "$work/kubeclipper-server-dirty" ./cmd/kubeclipper-server
 )
 if (verify_core_binary_metadata "$work/kubeclipper-server-dirty" >/dev/null 2>&1); then
   echo "dirty bootstrap binary unexpectedly passed metadata verification" >&2

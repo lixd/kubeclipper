@@ -138,18 +138,34 @@ kubeclipper_build_ldflags() (
 verify_core_binary_metadata() {
   local binary=$1
   local metadata
-  metadata="$("$binary" version -o yaml)"
+  local matches
+  if command -v go >/dev/null 2>&1; then
+    metadata="$(go version -m "$binary")"
+  else
+    local engine
+    engine="$(command -v docker || command -v podman || true)"
+    [[ -n "$engine" ]] || die "go is not installed and docker/podman is not available to inspect $(basename "$binary")"
+    local image="${KC_GO_BUILDER_IMAGE:-golang:1.24.2}"
+    metadata="$("$engine" run --rm -v "$binary:/kc-binary:ro" "$image" go version -m /kc-binary)"
+  fi
 
   if [[ -n "${KC_SOURCE_REVISION:-}" ]]; then
-    grep -Fqx "gitCommit: $KC_SOURCE_REVISION" <<<"$metadata" ||
+    matches="$({ grep -Fo "gitCommit=$KC_SOURCE_REVISION" <<<"$metadata" || true; } | wc -l | tr -d ' ')"
+    [[ "$matches" == "2" ]] ||
       die "$(basename "$binary") gitCommit does not match KC_SOURCE_REVISION"
-    grep -Fqx "gitTreeState: clean" <<<"$metadata" ||
+    matches="$({ grep -Fo "gitTreeState=clean" <<<"$metadata" || true; } | wc -l | tr -d ' ')"
+    [[ "$matches" == "2" ]] ||
       die "$(basename "$binary") was built from a dirty source tree"
   fi
   if is_semver_package_version; then
-    grep -Fqx "gitVersion: $version" <<<"$metadata" ||
+    matches="$({ grep -Fo "gitVersion=$version" <<<"$metadata" || true; } | wc -l | tr -d ' ')"
+    [[ "$matches" == "2" ]] ||
       die "$(basename "$binary") gitVersion does not match package version $version"
   fi
+  grep -Fq "GOOS=linux" <<<"$metadata" ||
+    die "$(basename "$binary") was not built for linux"
+  grep -Fq "GOARCH=$arch" <<<"$metadata" ||
+    die "$(basename "$binary") was not built for $arch"
   echo "verified $(basename "$binary") version metadata: version=${version:-derived} revision=${KC_SOURCE_REVISION:-derived} tree=clean"
 }
 
