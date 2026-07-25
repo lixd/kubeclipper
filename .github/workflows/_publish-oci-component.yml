@@ -57,7 +57,7 @@ jobs:
 
       - name: Set up QEMU for cross-architecture builds
         if: inputs.component == 'resource-k8s-extension' && (inputs.architecture == 'arm64' || inputs.architecture == 'all')
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
