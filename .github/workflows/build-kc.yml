@@ -27,9 +27,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Golang with cache
-        uses: magnetikonline/action-golang-cache@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: true
       - name: Build
         run:
           KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
@@ -45,7 +46,7 @@ jobs:
           popd
 
       - name: Upload kcctl workflow artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: kcctl-${{ github.ref_name }}-${{ github.sha }}
           path: |
