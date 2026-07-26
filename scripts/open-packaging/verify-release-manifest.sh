@@ -118,7 +118,7 @@ while IFS=$'\t' read -r type ref expected_digest platform; do
     fi
     ;;
   skopeo)
-    args=(inspect --raw)
+    args=(inspect --raw --retry-times 3)
     [[ "$insecure" == false ]] || args+=(--tls-verify=false)
     if ! skopeo "${args[@]}" "docker://$ref" > "$raw_manifest" 2>/dev/null; then
       echo "missing: $type $ref" >&2

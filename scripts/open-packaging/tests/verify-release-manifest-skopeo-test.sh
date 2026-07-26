@@ -22,7 +22,7 @@ chart_digest="sha256:$(python3 -c 'import hashlib,sys; print(hashlib.sha256(open
 cat > "$workdir/bin/skopeo" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$1" == inspect && "$2" == --raw ]]
+[[ "$1" == inspect && " $* " == *" --raw "* && " $* " == *" --retry-times 3 "* ]]
 ref="${@: -1}"
 case "$ref" in
 */package:v1) cat "$FAKE_PACKAGE_MANIFEST" ;;
