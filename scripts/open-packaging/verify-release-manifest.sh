@@ -68,7 +68,8 @@ fi
 command -v "$tool" >/dev/null 2>&1 || die "$tool is required"
 
 refs_file="$(mktemp -t kc-release-verify.XXXXXX)"
-trap 'rm -f "$refs_file"' EXIT
+raw_manifest="$(mktemp -t kc-release-raw.XXXXXX)"
+trap 'rm -f "$refs_file" "$raw_manifest"' EXIT
 python3 - "$manifest" "$registry" "$arch" > "$refs_file" <<'PY'
 import sys
 try:
@@ -117,35 +118,36 @@ while IFS=$'\t' read -r type ref expected_digest platform; do
     fi
     ;;
   skopeo)
-    if [[ "$type" == "helm-chart" ]]; then
-      if ! command -v crane >/dev/null 2>&1; then
-        echo "unsupported: skopeo cannot inspect Helm OCI chart $ref; install crane" >&2
-        failed=$((failed + 1))
-        continue
-      fi
-      args=(digest)
-      [[ "$insecure" == false ]] || args+=(--insecure)
-      if ! actual_digest="$(crane "${args[@]}" "$ref" 2>/dev/null)"; then
-        echo "missing: $type $ref" >&2
-        failed=$((failed + 1))
-        continue
-      fi
-      if [[ -n "$expected_digest" && "$expected_digest" != "$actual_digest" ]]; then
-        echo "digest mismatch: $ref expected=$expected_digest actual=$actual_digest" >&2
-        failed=$((failed + 1))
-        continue
-      fi
-      echo "ok: $type $ref@$actual_digest"
-      checked=$((checked + 1))
+    args=(inspect --raw)
+    [[ "$insecure" == false ]] || args+=(--tls-verify=false)
+    if ! skopeo "${args[@]}" "docker://$ref" > "$raw_manifest" 2>/dev/null; then
+      echo "missing: $type $ref" >&2
+      failed=$((failed + 1))
       continue
     fi
-    args=(inspect --format '{{.Digest}}')
-    [[ "$insecure" == false ]] || args+=(--tls-verify=false)
-    if [[ "$type" == "runtime-image" ]]; then
-      args+=(--override-os "${platform%%/*}" --override-arch "${platform#*/}")
-    fi
-    if ! actual_digest="$(skopeo "${args[@]}" "docker://$ref" 2>/dev/null)"; then
-      echo "missing: $type $ref" >&2
+    if ! actual_digest="$(python3 - "$raw_manifest" "$platform" <<'PY'
+import hashlib
+import json
+import sys
+
+manifest_path, platform = sys.argv[1:]
+with open(manifest_path, "rb") as stream:
+    raw = stream.read()
+document = json.loads(raw)
+if platform != "-" and isinstance(document.get("manifests"), list):
+    os_name, architecture = platform.split("/", 1)
+    for descriptor in document["manifests"]:
+        item_platform = descriptor.get("platform") or {}
+        if item_platform.get("os") == os_name and item_platform.get("architecture") == architecture:
+            print(descriptor["digest"])
+            break
+    else:
+        raise SystemExit(f"platform {platform} not found")
+else:
+    print("sha256:" + hashlib.sha256(raw).hexdigest())
+PY
+)"; then
+      echo "missing platform: $type $ref $platform" >&2
       failed=$((failed + 1))
       continue
     fi
