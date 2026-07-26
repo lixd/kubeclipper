@@ -277,12 +277,59 @@ func TestAuditingRedactsJSONResponse(t *testing.T) {
 	}
 }
 
+func TestAuditingRedactsDeployConfigMapData(t *testing.T) {
+	body := []byte(`{
+		"apiVersion":"core.kubeclipper.io/v1",
+		"kind":"ConfigMap",
+		"metadata":{"name":"deploy-config"},
+		"data":{
+			"deploy-config":"ssh:\n  user: root\n  privateKey: ssh-server-private-key\n  password: ssh-password\nagents:\n  10.0.0.2:\n    token: agent-token\nregion: keep-me\n",
+			"arbitrary-format":"private-key-data-that-is-not-json-or-yaml"
+		},
+		"immutable":true
+	}`)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.test/api/core/v1/configmaps", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := (&auditing{auditOptions: &option.AuditOptions{AuditLevel: audit.LevelRequest}}).LogRequestObject(req, &request.Info{
+		Path:     req.URL.Path,
+		Verb:     "create",
+		Resource: "configmaps",
+	})
+	if event == nil || event.RequestObject == nil {
+		t.Fatal("request object was not recorded")
+	}
+	for _, secret := range []string{"ssh-server-private-key", "ssh-password", "agent-token", "private-key-data-that-is-not-json-or-yaml"} {
+		if bytes.Contains(event.RequestObject.Raw, []byte(secret)) {
+			t.Fatalf("audit request contains deploy config data %q: %s", secret, event.RequestObject.Raw)
+		}
+	}
+	for _, visible := range []string{`"name":"deploy-config"`, `"data":"******"`, `"immutable":true`} {
+		if !bytes.Contains(event.RequestObject.Raw, []byte(visible)) {
+			t.Fatalf("audit request lost expected data %q: %s", visible, event.RequestObject.Raw)
+		}
+	}
+	restored, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(restored, body) {
+		t.Fatalf("handler body changed:\n got: %s\nwant: %s", restored, body)
+	}
+
+	ordinary := []byte(`{"metadata":{"name":"ordinary"},"data":{"settings":"keep-settings"}}`)
+	if got := redactAuditPayload(ordinary, "configmaps"); !bytes.Contains(got, []byte("keep-settings")) {
+		t.Fatalf("ordinary ConfigMap data was hidden: %s", got)
+	}
+}
+
 func TestRedactAuditPayloadPreservesNonJSON(t *testing.T) {
 	for _, body := range [][]byte{
 		[]byte("plain response token=secret"),
 		[]byte(`{"password":"secret"} trailing`),
 	} {
-		if got := redactAuditPayload(body); !bytes.Equal(got, body) {
+		if got := redactAuditPayload(body, ""); !bytes.Equal(got, body) {
 			t.Fatalf("non-JSON payload changed: got %q, want %q", got, body)
 		}
 	}

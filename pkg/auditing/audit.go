@@ -31,6 +31,7 @@ import (
 	"time"
 
 	auditoptions "github.com/kubeclipper/kubeclipper/pkg/auditing/option"
+	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -213,7 +214,7 @@ func (a *auditing) LogRequestObject(req *http.Request, info *request.Info) *audi
 					e.User.Username = obj.Username
 				}
 			} else {
-				e.RequestObject = &runtime.Unknown{Raw: redactAuditPayload(body)}
+				e.RequestObject = &runtime.Unknown{Raw: redactAuditPayload(body, info.Resource)}
 			}
 		}
 
@@ -231,7 +232,11 @@ func (a *auditing) LogResponseObject(e *audit.Event, resp *ResponseCapture) {
 	e.StageTimestamp = metav1.NowMicro()
 	e.ResponseStatus = &metav1.Status{Code: int32(resp.StatusCode())}
 	if e.Level.GreaterOrEqual(audit.LevelRequestResponse) {
-		e.ResponseObject = &runtime.Unknown{Raw: redactAuditPayload(resp.Bytes())}
+		resource := ""
+		if e.ObjectRef != nil {
+			resource = e.ObjectRef.Resource
+		}
+		e.ResponseObject = &runtime.Unknown{Raw: redactAuditPayload(resp.Bytes(), resource)}
 	}
 	a.sendEvent(e)
 }
@@ -248,7 +253,7 @@ var sensitiveAuditKeys = sets.New(
 	"pkpassword",
 )
 
-func redactAuditPayload(data []byte) []byte {
+func redactAuditPayload(data []byte, resource string) []byte {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	var value any
@@ -259,6 +264,9 @@ func redactAuditPayload(data []byte) []byte {
 		return bytes.Clone(data)
 	}
 	redactAuditValue(value)
+	if resource == "configmaps" {
+		redactDeployConfigData(value)
+	}
 	redacted, err := json.Marshal(value)
 	if err != nil {
 		return bytes.Clone(data)
@@ -279,6 +287,26 @@ func redactAuditValue(value any) {
 	case []any:
 		for _, child := range typed {
 			redactAuditValue(child)
+		}
+	}
+}
+
+func redactDeployConfigData(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		if metadata, ok := typed["metadata"].(map[string]any); ok {
+			if name, ok := metadata["name"].(string); ok && name == constatns.DeployConfigConfigMapName {
+				if _, exists := typed["data"]; exists {
+					typed["data"] = strutil.SensitiveData
+				}
+			}
+		}
+		for _, child := range typed {
+			redactDeployConfigData(child)
+		}
+	case []any:
+		for _, child := range typed {
+			redactDeployConfigData(child)
 		}
 	}
 }
