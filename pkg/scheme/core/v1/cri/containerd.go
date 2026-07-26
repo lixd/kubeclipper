@@ -327,18 +327,6 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 	// Load existing config.toml
 	conf, err := toml.LoadFile(configPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// File doesn't exist: fallback to full template rendering
-			logger.Infof("containerd config not found, generating full config")
-			if writeErr := fileutil.WriteFileWithContext(ctx, configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC,
-				containerdConfigFileMode, runnable.renderTo, dryRun); writeErr != nil {
-				return writeErr
-			}
-			if chmodErr := os.Chmod(configPath, containerdConfigFileMode); chmodErr != nil {
-				return fmt.Errorf("failed to protect containerd config: %w", chmodErr)
-			}
-			return nil
-		}
 		return fmt.Errorf("failed to load containerd config: %w", err)
 	}
 
@@ -501,10 +489,23 @@ type ContainerdRegistryConfigure struct {
 }
 
 func (c *ContainerdRegistryConfigure) Install(ctx context.Context, opts component.Options) ([]byte, error) {
+	return c.install(ctx, opts, filepath.Join(containerdDefaultConfigDir, "config.toml"))
+}
+
+func (c *ContainerdRegistryConfigure) install(ctx context.Context, opts component.Options, configFile string) ([]byte, error) {
 	if opts.DryRun {
 		return nil, nil
 	}
-	// 1. render certs.d config
+	// Registry reconciliation only updates an installed runtime. Containerd
+	// installation owns creation of the primary config file.
+	if err := c.ContainerdRunnable.mergeRegistryAuthIntoConfig(ctx, configFile, false); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			logger.Debugf("skip containerd registry configuration: runtime config %s does not exist", configFile)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("merge registry auth into containerd config %s failed: %w", configFile, err)
+	}
+	// Render certs.d only after the primary runtime config has been updated.
 	entries, err := os.ReadDir(c.ConfigDir)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("read registry config dir:%s failed:%w", c.ConfigDir, err)
@@ -529,14 +530,6 @@ func (c *ContainerdRegistryConfigure) Install(ctx context.Context, opts componen
 		}
 	}
 
-	// 2. selectively merge registry auth into config.toml
-	cf := filepath.Join(containerdDefaultConfigDir, "config.toml")
-	if err = os.MkdirAll(containerdDefaultConfigDir, 0755); err != nil {
-		logger.Errorf("mkdir containerd config dir: %s failed:%s", cf, err)
-	}
-	if err = c.ContainerdRunnable.mergeRegistryAuthIntoConfig(ctx, cf, false); err != nil {
-		logger.Errorf("merge registry auth into containerd config: %s failed:%s", cf, err)
-	}
 	// restart containerd
 	if err = systemctl.ReloadDeamon(ctx); err != nil {
 		logger.Errorf("systemctl daemon-reload failed:%s", err)

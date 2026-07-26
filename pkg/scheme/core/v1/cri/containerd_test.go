@@ -31,6 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
@@ -176,6 +177,26 @@ func TestContainerdRegistryRender(t *testing.T) {
 	hostConfig, err := os.ReadFile(filepath.Join(dir, "docker.io", "hosts.toml"))
 	require.NoError(t, err)
 	assert.Equal(t, exp, string(hostConfig))
+}
+
+func TestContainerdRegistryConfigureSkipsMissingRuntime(t *testing.T) {
+	dir := t.TempDir()
+	configDir := filepath.Join(dir, "containerd", "certs.d")
+	configFile := filepath.Join(dir, "containerd", "config.toml")
+	c := &ContainerdRegistryConfigure{
+		ConfigDir: configDir,
+		Registries: map[string]*ContainerdRegistry{
+			"registry.example.com": {
+				Server: "registry.example.com",
+			},
+		},
+		ContainerdRunnable: &ContainerdRunnable{},
+	}
+
+	_, err := c.install(context.Background(), component.Options{}, configFile)
+	require.NoError(t, err)
+	_, err = os.Stat(filepath.Dir(configFile))
+	require.ErrorIs(t, err, os.ErrNotExist)
 }
 
 func TestMergeRegistryAuthIntoConfig(t *testing.T) {
@@ -441,9 +462,9 @@ func TestMergeRegistryAuthIntoConfig_FileNotExist(t *testing.T) {
 	}
 
 	err := runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false)
-	require.NoError(t, err)
-
-	assertFileMode(t, configPath, containerdConfigFileMode)
+	require.ErrorIs(t, err, os.ErrNotExist)
+	_, statErr := os.Stat(configPath)
+	require.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
 func TestMergeRegistryAuthIntoConfig_RemoveStaleAuth(t *testing.T) {
