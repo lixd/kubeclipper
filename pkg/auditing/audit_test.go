@@ -324,6 +324,26 @@ func TestAuditingRedactsDeployConfigMapData(t *testing.T) {
 	}
 }
 
+func TestRedactAuditPayloadHandlesConfigMapFieldCasing(t *testing.T) {
+	body := []byte(`{
+		"metadata":{"name":"deploy-config"},
+		"Data":{"DeployConfig":"privateKey: typed-private-key"},
+		"BinaryData":{"secret":"dHlwZWQtYmluYXJ5LXNlY3JldA=="},
+		"Immutable":true
+	}`)
+	got := redactAuditPayload(body, "configmaps")
+	for _, secret := range []string{"typed-private-key", "dHlwZWQtYmluYXJ5LXNlY3JldA=="} {
+		if bytes.Contains(got, []byte(secret)) {
+			t.Fatalf("audit payload contains deploy config secret %q: %s", secret, got)
+		}
+	}
+	for _, visible := range []string{`"Data":"******"`, `"BinaryData":"******"`, `"Immutable":true`} {
+		if !bytes.Contains(got, []byte(visible)) {
+			t.Fatalf("audit payload lost expected value %q: %s", visible, got)
+		}
+	}
+}
+
 func TestRedactAuditPayloadPreservesNonJSON(t *testing.T) {
 	for _, body := range [][]byte{
 		[]byte("plain response token=secret"),

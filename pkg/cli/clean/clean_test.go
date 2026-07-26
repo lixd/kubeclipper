@@ -71,6 +71,9 @@ func TestCleanupCommandsRemovePackageRegistryCredentials(t *testing.T) {
 	if !strings.Contains(agentCommands, "rm -rf /etc/kubeclipper-agent") {
 		t.Fatal("agent cleanup does not remove package Registry credential directory")
 	}
+	if !strings.Contains(agentCommands, "rm -rf /opt/kc/manifest") || !strings.Contains(agentCommands, "rmdir /opt/kc") {
+		t.Fatal("agent cleanup does not remove package manifest data and its empty parent")
+	}
 	serverCommands := strings.Join(serverCleanupCommands("/var/lib/kc-etcd"), "\n")
 	if !strings.Contains(serverCommands, "rm -rf /etc/kubeclipper-server") {
 		t.Fatal("server cleanup does not remove package Registry credential directory")

@@ -294,10 +294,11 @@ func redactAuditValue(value any) {
 func redactDeployConfigData(value any) {
 	switch typed := value.(type) {
 	case map[string]any:
-		if metadata, ok := typed["metadata"].(map[string]any); ok {
-			if name, ok := metadata["name"].(string); ok && name == constatns.DeployConfigConfigMapName {
-				if _, exists := typed["data"]; exists {
-					typed["data"] = strutil.SensitiveData
+		if isDeployConfigMap(typed) {
+			for key := range typed {
+				switch normalizeAuditKey(key) {
+				case "data", "binarydata":
+					typed[key] = strutil.SensitiveData
 				}
 			}
 		}
@@ -309,6 +310,25 @@ func redactDeployConfigData(value any) {
 			redactDeployConfigData(child)
 		}
 	}
+}
+
+func isDeployConfigMap(value map[string]any) bool {
+	for key, child := range value {
+		if normalizeAuditKey(key) != "metadata" {
+			continue
+		}
+		metadata, ok := child.(map[string]any)
+		if !ok {
+			return false
+		}
+		for metadataKey, metadataValue := range metadata {
+			if normalizeAuditKey(metadataKey) == "name" {
+				name, ok := metadataValue.(string)
+				return ok && name == constatns.DeployConfigConfigMapName
+			}
+		}
+	}
+	return false
 }
 
 func normalizeAuditKey(key string) string {

@@ -224,6 +224,7 @@ func agentCleanupCommands(opLogDir string) []string {
 		"systemctl disable kc-agent --now || true",
 		"rm -rf /usr/lib/systemd/system/kc-agent.service",
 		"rm -rf /etc/kubeclipper-agent",
+		"rm -rf /opt/kc/manifest && (rmdir /opt/kc 2>/dev/null || true)",
 		fmt.Sprintf("rm -rf %s", opLogDir),
 		"systemctl reset-failed kc-agent || true",
 	}
