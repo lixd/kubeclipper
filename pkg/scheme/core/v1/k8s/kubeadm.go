@@ -243,7 +243,7 @@ func (stepper *Package) Uninstall(ctx context.Context, opts component.Options) (
 		logger.Error("remove k8s configs and images compressed files failed", zap.Error(err))
 	}
 
-	if err := os.Remove(filepath.Join(KubeletDefaultDataDir, "config.yaml")); err != nil {
+	if err := removeKubeletConfig(filepath.Join(KubeletDefaultDataDir, "config.yaml"), opts.DryRun); err != nil {
 		logger.Errorf("remove config.yaml failed,err:%v", err.Error())
 	}
 
@@ -261,6 +261,17 @@ func (stepper *Package) Uninstall(ctx context.Context, opts component.Options) (
 	}
 
 	return nil, nil
+}
+
+func removeKubeletConfig(path string, dryRun bool) error {
+	if dryRun {
+		return nil
+	}
+	err := os.Remove(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
 }
 
 func archOrRuntime(arch string) string {
