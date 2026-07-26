@@ -27,6 +27,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	auditoptions "github.com/kubeclipper/kubeclipper/pkg/auditing/option"
@@ -46,6 +47,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 
@@ -211,7 +213,7 @@ func (a *auditing) LogRequestObject(req *http.Request, info *request.Info) *audi
 					e.User.Username = obj.Username
 				}
 			} else {
-				e.RequestObject = &runtime.Unknown{Raw: body}
+				e.RequestObject = &runtime.Unknown{Raw: redactAuditPayload(body)}
 			}
 		}
 
@@ -229,9 +231,68 @@ func (a *auditing) LogResponseObject(e *audit.Event, resp *ResponseCapture) {
 	e.StageTimestamp = metav1.NowMicro()
 	e.ResponseStatus = &metav1.Status{Code: int32(resp.StatusCode())}
 	if e.Level.GreaterOrEqual(audit.LevelRequestResponse) {
-		e.ResponseObject = &runtime.Unknown{Raw: resp.Bytes()}
+		e.ResponseObject = &runtime.Unknown{Raw: redactAuditPayload(resp.Bytes())}
 	}
 	a.sendEvent(e)
+}
+
+var sensitiveAuditKeys = sets.New(
+	"password",
+	"privatekey",
+	"privatekeypassword",
+	"secret",
+	"token",
+	"accesstoken",
+	"refreshtoken",
+	"clientkey",
+	"pkpassword",
+)
+
+func redactAuditPayload(data []byte) []byte {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return bytes.Clone(data)
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return bytes.Clone(data)
+	}
+	redactAuditValue(value)
+	redacted, err := json.Marshal(value)
+	if err != nil {
+		return bytes.Clone(data)
+	}
+	return redacted
+}
+
+func redactAuditValue(value any) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if sensitiveAuditKeys.Has(normalizeAuditKey(key)) {
+				typed[key] = strutil.SensitiveData
+				continue
+			}
+			redactAuditValue(child)
+		}
+	case []any:
+		for _, child := range typed {
+			redactAuditValue(child)
+		}
+	}
+}
+
+func normalizeAuditKey(key string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= 'A' && r <= 'Z' {
+			return r + ('a' - 'A')
+		}
+		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, key)
 }
 
 func (a *auditing) sendEvent(e *audit.Event) {

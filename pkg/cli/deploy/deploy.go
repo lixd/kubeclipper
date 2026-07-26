@@ -1165,7 +1165,9 @@ func (d *DeployOptions) uploadConfig() {
 }
 
 func (d *DeployOptions) sendDefaultAdminConf() error {
-	afterHook := fmt.Sprintf("mv %s %s/admin.conf", path.Join(options.DefaultKcServerConfigPath, options.DefaultConfig), options.DefaultKcServerConfigPath)
+	temporaryPath := path.Join(options.DefaultKcServerConfigPath, options.DefaultConfig)
+	adminPath := path.Join(options.DefaultKcServerConfigPath, "admin.conf")
+	afterHook := fmt.Sprintf("install -m 0600 %s %s && rm -f %s", temporaryPath, adminPath, temporaryPath)
 	err := utils.SendPackage(d.deployConfig.SSHConfig,
 		options.DefaultConfigPath,
 		d.deployConfig.ServerIPs,

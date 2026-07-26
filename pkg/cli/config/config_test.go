@@ -20,6 +20,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -105,5 +107,36 @@ func TestConfig_Merge(t *testing.T) {
 
 	if !reflect.DeepEqual(cfgCert, cfgTarget) {
 		t.Fatalf("merge fail,want %v got %v", cfgCert, cfgTarget)
+	}
+}
+
+func TestConfigDumpUsesPrivatePermissions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configDir := filepath.Join(home, DefaultConfigPath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(configDir, "config")
+	// The fixture starts with legacy broad permissions to verify they are repaired.
+	if err := os.WriteFile(configPath, []byte("old"), 0644); err != nil { //nolint:gosec // Legacy mode is the behavior under test.
+		t.Fatal(err)
+	}
+	if err := New().Dump(); err != nil {
+		t.Fatalf("Dump() error = %v", err)
+	}
+	dirInfo, err := os.Stat(configDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := dirInfo.Mode().Perm(); got != 0700 {
+		t.Fatalf("config directory mode = %#o, want 0700", got)
+	}
+	fileInfo, err := os.Stat(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := fileInfo.Mode().Perm(); got != 0600 {
+		t.Fatalf("config file mode = %#o, want 0600", got)
 	}
 }

@@ -23,6 +23,12 @@ import (
 	"path/filepath"
 )
 
+const (
+	PrivateFileMode os.FileMode = 0600
+	PrivateDirMode  os.FileMode = 0700
+	defaultDirMode  os.FileMode = 0755
+)
+
 func FileExist(path string) bool {
 	_, err := os.Lstat(path)
 	return !os.IsNotExist(err)
@@ -43,4 +49,32 @@ func WriteToFile(path string, data []byte) error {
 		return err
 	}
 	return nil
+}
+
+// WritePrivateFile atomically replaces a file that contains credentials.
+func WritePrivateFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, defaultDirMode); err != nil {
+		return err
+	}
+	f, err := os.CreateTemp(dir, ".kc-private-*")
+	if err != nil {
+		return err
+	}
+	tmpPath := f.Name()
+	defer func() {
+		_ = os.Remove(tmpPath)
+	}()
+	if err = f.Chmod(PrivateFileMode); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if _, err = f.Write(data); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if closeErr := f.Close(); closeErr != nil {
+		return closeErr
+	}
+	return os.Rename(tmpPath, path)
 }

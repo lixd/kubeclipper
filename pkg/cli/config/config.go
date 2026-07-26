@@ -24,6 +24,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
+
 	pkgerr "github.com/pkg/errors"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
@@ -116,18 +118,13 @@ func (c *Config) Dump() error {
 	}
 	fpath := filepath.Join(homedir.HomeDir(), DefaultConfigPath)
 
-	if _, err := os.Stat(fpath); os.IsNotExist(err) {
-		if err := os.MkdirAll(fpath, os.ModeDir|0755); err != nil {
-			return err
-		}
-	}
-	f, err := os.Create(filepath.Join(fpath, "config"))
-	if err != nil {
+	if err := os.MkdirAll(fpath, utils.PrivateDirMode); err != nil {
 		return err
 	}
-	defer f.Close()
-	_, err = f.Write(cfgBytes)
-	return err
+	if err := os.Chmod(fpath, utils.PrivateDirMode); err != nil {
+		return err
+	}
+	return utils.WritePrivateFile(filepath.Join(fpath, "config"), cfgBytes)
 }
 
 // Flatten changes the config object into a selfContained config (useful for making secrets)

@@ -20,6 +20,8 @@ package auditing
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/url"
@@ -207,5 +209,106 @@ func Test_auditing_LogResponseObject(t *testing.T) {
 			}
 			a.LogResponseObject(tt.args.e, tt.args.resp)
 		})
+	}
+}
+
+func TestAuditingRedactsJSONRequestWithoutMutatingBody(t *testing.T) {
+	body := []byte(`{
+		"metadata":{"name":"private-registry"},
+		"auth":{"username":"robot","password":"registry-password"},
+		"ssh":{"privateKey":"ssh-private-key","private_key_password":"key-password"},
+		"credentials":[{"access_token":"access-token-value"},{"refresh-token":"refresh-token-value"}],
+		"clientKey":"client-key","pkPassword":"pk-password","secret":{"nested":"value"},
+		"description":"keep-me"
+	}`)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.test/api/core/v1/registries", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := (&auditing{auditOptions: &option.AuditOptions{AuditLevel: audit.LevelRequest}}).LogRequestObject(req, &request.Info{
+		Path:     req.URL.Path,
+		Verb:     "create",
+		Resource: "registries",
+	})
+	if event == nil || event.RequestObject == nil {
+		t.Fatal("request object was not recorded")
+	}
+	for _, secret := range []string{"registry-password", "ssh-private-key", "key-password", "access-token-value", "refresh-token-value", "client-key", "pk-password", `"nested":"value"`} {
+		if bytes.Contains(event.RequestObject.Raw, []byte(secret)) {
+			t.Fatalf("audit request contains secret %q: %s", secret, event.RequestObject.Raw)
+		}
+	}
+	if !bytes.Contains(event.RequestObject.Raw, []byte(`"description":"keep-me"`)) {
+		t.Fatalf("non-sensitive field was not preserved: %s", event.RequestObject.Raw)
+	}
+	restored, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(restored, body) {
+		t.Fatalf("handler body changed:\n got: %s\nwant: %s", restored, body)
+	}
+}
+
+func TestAuditingRedactsJSONResponse(t *testing.T) {
+	event := &audit.Event{Level: audit.LevelRequestResponse}
+	resp := &ResponseCapture{
+		status: http.StatusOK,
+		body: bytes.NewBufferString(`{
+			"items":[{"token":"response-token","auth":{"password":"response-password"}}],
+			"message":"visible"
+		}`),
+	}
+	(&auditing{auditOptions: &option.AuditOptions{AuditLevel: audit.LevelRequestResponse}}).LogResponseObject(event, resp)
+	if event.ResponseObject == nil {
+		t.Fatal("response object was not recorded")
+	}
+	for _, secret := range []string{"response-token", "response-password"} {
+		if bytes.Contains(event.ResponseObject.Raw, []byte(secret)) {
+			t.Fatalf("audit response contains secret %q: %s", secret, event.ResponseObject.Raw)
+		}
+	}
+	var value map[string]any
+	if err := json.Unmarshal(event.ResponseObject.Raw, &value); err != nil {
+		t.Fatalf("redacted response is not valid JSON: %v", err)
+	}
+	if value["message"] != "visible" {
+		t.Fatalf("non-sensitive response field changed: %#v", value)
+	}
+}
+
+func TestRedactAuditPayloadPreservesNonJSON(t *testing.T) {
+	for _, body := range [][]byte{
+		[]byte("plain response token=secret"),
+		[]byte(`{"password":"secret"} trailing`),
+	} {
+		if got := redactAuditPayload(body); !bytes.Equal(got, body) {
+			t.Fatalf("non-JSON payload changed: got %q, want %q", got, body)
+		}
+	}
+}
+
+func TestAuditingLoginBehaviorIsPreserved(t *testing.T) {
+	body := []byte(`{"username":"admin","password":"login-password"}`)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, "http://example.test/oauth/login", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	event := (&auditing{auditOptions: &option.AuditOptions{AuditLevel: audit.LevelRequest}}).LogRequestObject(req, &request.Info{
+		Path: req.URL.Path,
+		Verb: "create",
+	})
+	if event.RequestObject != nil {
+		t.Fatalf("login request object must not be recorded: %s", event.RequestObject.Raw)
+	}
+	if event.User.Username != "admin" {
+		t.Fatalf("login username = %q, want admin", event.User.Username)
+	}
+	restored, err := io.ReadAll(req.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(restored, body) {
+		t.Fatalf("login handler body changed: got %q, want %q", restored, body)
 	}
 }

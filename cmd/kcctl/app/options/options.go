@@ -427,7 +427,7 @@ func (c *DeployConfig) Write() error {
 	if err != nil {
 		return fmt.Errorf("dump config failed due to %s", err.Error())
 	}
-	if err = utils.WriteToFile(path, b); err != nil {
+	if err = utils.WritePrivateFile(path, b); err != nil {
 		return fmt.Errorf("dump config to %s failed due to %s", path, err.Error())
 	}
 	return nil
