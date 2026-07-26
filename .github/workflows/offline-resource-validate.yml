@@ -137,5 +137,8 @@ jobs:
       - name: Complete release assembly test
         run: scripts/open-packaging/tests/release-assembly-test.sh
 
+      - name: Skopeo release manifest verification test
+        run: scripts/open-packaging/tests/verify-release-manifest-skopeo-test.sh
+
       - name: Internal dependency scan
         run: scripts/open-packaging/check-open-packaging-sources.sh
