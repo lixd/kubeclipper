@@ -140,7 +140,7 @@ type JoinOptions struct {
 	packageRegistryExists     func(*sshutils.SSH, string, string) (bool, error)
 	packageRegistryRemove     func(*sshutils.SSH, string, string) error
 	certDownload              func(*sshutils.SSH, string, string, string) error
-	certCopy                  func(*sshutils.SSH, string, []string, string) error
+	certCopy                  func(*sshutils.SSH, string, []string, string, os.FileMode) error
 }
 
 type JoinConfig struct {
@@ -172,8 +172,8 @@ func NewJoinOptions(streams options.IOStreams) *JoinOptions {
 		certDownload: func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
 			return sshConfig.DownloadSudo(host, localPath, remotePath)
 		},
-		certCopy: func(sshConfig *sshutils.SSH, localPath string, hosts []string, remoteDir string) error {
-			return utils.SendPackageV2(sshConfig, localPath, hosts, remoteDir, nil, nil)
+		certCopy: func(sshConfig *sshutils.SSH, localPath string, hosts []string, remoteDir string, mode os.FileMode) error {
+			return utils.CopyFileToHostsWithMode(sshConfig, localPath, hosts, remoteDir, mode)
 		},
 	}
 }
@@ -895,8 +895,9 @@ func (c *JoinOptions) sendCerts(ip string) error {
 		destKey = filepath.Dir(c.deployConfig.MQ.ClientKey)
 	}
 
+	modes := []os.FileMode{0644, 0644, deliveryregistry.PrivateFileMode}
 	for i, destDir := range []string{destCa, destCert, destKey} {
-		if err := c.certCopy(c.sshConfig, localFiles[i], []string{ip}, destDir); err != nil {
+		if err := c.certCopy(c.sshConfig, localFiles[i], []string{ip}, destDir, modes[i]); err != nil {
 			return err
 		}
 	}

@@ -808,8 +808,8 @@ func (d *DeployOptions) generateAndSendCerts() error {
 				d.deployConfig.ServerIPs, filepath.Dir(d.deployConfig.MQ.ClientCert), nil, nil); err != nil {
 				return err
 			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientKey,
-				d.deployConfig.ServerIPs, filepath.Dir(d.deployConfig.MQ.ClientKey), nil, nil); err != nil {
+			if err := utils.CopyFileToHostsWithMode(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientKey,
+				d.deployConfig.ServerIPs, filepath.Dir(d.deployConfig.MQ.ClientKey), utils.PrivateFileMode); err != nil {
 				return err
 			}
 			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.CA,
@@ -820,8 +820,8 @@ func (d *DeployOptions) generateAndSendCerts() error {
 				d.deployConfig.Agents.ListIP(), filepath.Dir(d.deployConfig.MQ.ClientCert), nil, nil); err != nil {
 				return err
 			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientKey,
-				d.deployConfig.Agents.ListIP(), filepath.Dir(d.deployConfig.MQ.ClientKey), nil, nil); err != nil {
+			if err := utils.CopyFileToHostsWithMode(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientKey,
+				d.deployConfig.Agents.ListIP(), filepath.Dir(d.deployConfig.MQ.ClientKey), utils.PrivateFileMode); err != nil {
 				return err
 			}
 		}
@@ -1067,10 +1067,10 @@ func (d *DeployOptions) dumpConfig() {
 
 func (d *DeployOptions) sendCertAndKey(contents []certutils.Config, pki string) error {
 	for _, content := range contents {
-		err := utils.SendPackageV2(d.deployConfig.SSHConfig,
+		err := utils.CopyFileToHostsWithMode(d.deployConfig.SSHConfig,
 			path.Join(content.Path, content.BaseName+".key"),
 			d.deployConfig.ServerIPs,
-			filepath.Join(options.DefaultKcServerConfigPath, pki), nil, nil)
+			filepath.Join(options.DefaultKcServerConfigPath, pki), utils.PrivateFileMode)
 		if err != nil {
 			return err
 		}
@@ -1087,10 +1087,10 @@ func (d *DeployOptions) sendCertAndKey(contents []certutils.Config, pki string) 
 
 func (d *DeployOptions) sendAgentCertAndKey(contents []certutils.Config, pki string) error {
 	for _, content := range contents {
-		err := utils.SendPackageV2(d.deployConfig.SSHConfig,
+		err := utils.CopyFileToHostsWithMode(d.deployConfig.SSHConfig,
 			path.Join(content.Path, content.BaseName+".key"),
 			d.deployConfig.Agents.ListIP(),
-			filepath.Join(options.DefaultKcAgentConfigPath, pki), nil, nil)
+			filepath.Join(options.DefaultKcAgentConfigPath, pki), utils.PrivateFileMode)
 		if err != nil {
 			return err
 		}

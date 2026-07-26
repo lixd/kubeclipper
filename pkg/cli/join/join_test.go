@@ -124,13 +124,17 @@ func TestSendCertsAlwaysDownloadsCurrentServerCertificates(t *testing.T) {
 	var downloadedPaths []string
 	o.certDownload = recordCertificateDownload(t, o, &downloadedPaths)
 	var copied int
-	o.certCopy = recordCertificateCopy(t, o, &copied)
+	var copiedModes []os.FileMode
+	o.certCopy = recordCertificateCopy(t, o, &copied, &copiedModes)
 
 	if err := o.sendCerts("10.0.0.2"); err != nil {
 		t.Fatalf("sendCerts() error = %v", err)
 	}
 	if len(downloadedPaths) != 3 || copied != 3 {
 		t.Fatalf("downloads = %d, copies = %d, want 3 each", len(downloadedPaths), copied)
+	}
+	if want := []os.FileMode{0644, 0644, deliveryregistry.PrivateFileMode}; !reflect.DeepEqual(copiedModes, want) {
+		t.Fatalf("copied modes = %v, want %v", copiedModes, want)
 	}
 	for _, path := range downloadedPaths {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -153,9 +157,9 @@ func recordCertificateDownload(t *testing.T, o *JoinOptions, downloadedPaths *[]
 	}
 }
 
-func recordCertificateCopy(t *testing.T, o *JoinOptions, copied *int) func(*sshutils.SSH, string, []string, string) error {
+func recordCertificateCopy(t *testing.T, o *JoinOptions, copied *int, modes *[]os.FileMode) func(*sshutils.SSH, string, []string, string, os.FileMode) error {
 	t.Helper()
-	return func(sshConfig *sshutils.SSH, localPath string, hosts []string, _ string) error {
+	return func(sshConfig *sshutils.SSH, localPath string, hosts []string, _ string, mode os.FileMode) error {
 		if sshConfig != o.sshConfig || !reflect.DeepEqual(hosts, []string{"10.0.0.2"}) {
 			t.Fatalf("copy transport = %+v hosts = %v", sshConfig, hosts)
 		}
@@ -170,6 +174,7 @@ func recordCertificateCopy(t *testing.T, o *JoinOptions, copied *int) func(*sshu
 		if info.Mode().Perm() != deliveryregistry.PrivateFileMode {
 			t.Fatalf("certificate mode = %v, want %v", info.Mode().Perm(), deliveryregistry.PrivateFileMode)
 		}
+		*modes = append(*modes, mode)
 		*copied++
 		return nil
 	}
@@ -182,7 +187,7 @@ func TestSendCertsSkipsTransferWhenMQTLSIsDisabled(t *testing.T) {
 		t.Fatal("certificate download called with MQ TLS disabled")
 		return nil
 	}
-	o.certCopy = func(*sshutils.SSH, string, []string, string) error {
+	o.certCopy = func(*sshutils.SSH, string, []string, string, os.FileMode) error {
 		t.Fatal("certificate copy called with MQ TLS disabled")
 		return nil
 	}
