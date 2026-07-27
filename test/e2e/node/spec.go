@@ -23,9 +23,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/onsi/ginkgo"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	v1 "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
@@ -56,26 +58,18 @@ var _ = SIGDescribe("[Serial]", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("check node is disabled")
-		nodeList, err := f.Client.DescribeNode(context.TODO(), nodeID)
+		err = waitForNodeDisableState(f.Client, nodeID, true, f.Timeouts.CommonTimeout)
 		framework.ExpectNoError(err)
-		if _, ok := nodeList.Items[0].Labels[common.LabelNodeDisable]; !ok {
-			framework.Failf("Fail to disable node")
-		} else {
-			ginkgo.By("node is disabled")
-		}
+		ginkgo.By("node is disabled")
 
 		ginkgo.By("enable node")
 		err = f.Client.EnableNode(context.TODO(), nodeID)
 		framework.ExpectNoError(err)
 
 		ginkgo.By("check node is enabled")
-		nodeList, err = f.Client.DescribeNode(context.TODO(), nodeID)
+		err = waitForNodeDisableState(f.Client, nodeID, false, f.Timeouts.CommonTimeout)
 		framework.ExpectNoError(err)
-		if _, ok := nodeList.Items[0].Labels[common.LabelNodeDisable]; !ok {
-			ginkgo.By("node is enabled")
-		} else {
-			framework.Failf("Fail to enabled node")
-		}
+		ginkgo.By("node is enabled")
 	})
 	ginkgo.It("[Fast] [new-node] [Terminal] should connect node ssh", func() {
 		ginkgo.By("Get public key")
@@ -137,3 +131,17 @@ var _ = SIGDescribe("[Serial]", func() {
 		}
 	})
 })
+
+func waitForNodeDisableState(client *kc.Client, nodeID string, disabled bool, timeout time.Duration) error {
+	return wait.PollImmediate(framework.Poll, timeout, func() (bool, error) {
+		nodes, err := client.DescribeNode(context.TODO(), nodeID)
+		if err != nil {
+			return false, err
+		}
+		if len(nodes.Items) != 1 {
+			return false, nil
+		}
+		_, found := nodes.Items[0].Labels[common.LabelNodeDisable]
+		return found == disabled, nil
+	})
+}
