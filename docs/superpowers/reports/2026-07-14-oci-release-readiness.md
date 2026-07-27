@@ -1,11 +1,152 @@
 # 纯 OCI 发布就绪报告（2026-07-27）
 
-> **当前结论：发布代码候选 `3a1ad28d13334a5a46e06162b2ad1442e5f8bc74` 的代码、必需
-> GitHub Actions、OCI provenance、认证 TLS Harbor 和双机完整生命周期均已通过。Harbor、
-> GHCR qualification packages、双机、SSH 授权、Git 标签和临时凭据均已清理，P0/P1 为零。
-> 建议正式发布 2.0.0。**
+> **当前结论：发布代码候选 `47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051` 的必需
+> GitHub Actions、112 项 OCI manifest/provenance 和双机纯 OCI 完整生命周期均已通过；
+> qualification GHCR packages、双机运行态、SSH 授权、Git 标签、代理和临时凭据均已清理。
+> P0/P1 为零，存在两项不阻断发布的 P2 可观测性/缓存语义改进。建议正式发布 2.0.0。**
 
-## 2026-07-27 最终发布候选 `3a1ad28`
+## 2026-07-27 当前最终发布候选 `47d9ef1`
+
+### 候选提交和边界
+
+- 分支：`codex/oci-static-server-replacement`。
+- 发布代码 revision：`47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051`。
+- 当前代码提交：`47d9ef1 test(e2e): wait for node disable state`；上一提交
+  `0d2fbff fix(oci): harden delivery and multi-join cleanup` 包含本轮最终产品修复。
+- 分支和 qualification 标签只推送到用户 fork `lixd/kubeclipper`；未推 upstream、未强推或覆盖历史。
+- 本轮双机门禁只要求 Kubernetes、containerd 和必需 CNI Calico；MetalLB、NFS 不作为双机门禁，
+  但正式 release workflow 仍按 support policy 发布完整 catalog 并校验 manifest。
+- 本节之后创建的报告提交仅记录证据，不能替代 `47d9ef1` 作为二进制和 OCI
+  `sourceRevision`。
+
+### 当前 release commit 的 GitHub Actions
+
+| 必需工作流 | Run | 结果 |
+|---|---|---|
+| Go tests/coverage | [30257358359](https://github.com/lixd/kubeclipper/actions/runs/30257358359) | success；head SHA 为 `47d9ef1` |
+| offline-resource-validate | [30257358757](https://github.com/lixd/kubeclipper/actions/runs/30257358757) | success；policy、Shell、workflow、manifest、bundle、provenance 和 assembly 门禁通过 |
+| OCI AIO deploy + Fast E2E | [30257359187](https://github.com/lixd/kubeclipper/actions/runs/30257359187) | success；deploy、login、Fast E2E、clean 通过 |
+| 16 组件发布 + manifest/provenance | [30257359028](https://github.com/lixd/kubeclipper/actions/runs/30257359028) | success；全部 publish job 和 manifest job 通过 |
+
+2026-07-27 再次通过 `gh run view` 复核：四个 run 均为 `completed/success`，且
+`headSha` 全部精确等于 `47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051`。
+
+### Release manifest、digest 和 provenance
+
+qualification workflow 生成并严格校验的 manifest：
+
+```text
+version:                       v2.0.0
+artifact count:                112
+manifest sha256:               d7fce4c5654f2631503f142eb4758feeca49ef581e095b5a1b8256af4d5516d2
+metadata.sourceRevision:       47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051
+bootstrap/kubeclipper:v2.0.0: sha256:5f9016d1c9706a24b73c231713bfd76566beceae86a51469dfc593f542a7a368
+bootstrap/etcd:3.5.21:        sha256:46d269c4f6acb180d4edfbb2b856b2a84dd22afa72ea5de577353173902230c7
+bootstrap/console:v1.6.0:     sha256:d31b9b9b8bd5aca7bc6028151e17aeb14fcd095439fd7a60507c80eed35be366
+cri/containerd:1.7.29:       sha256:7e6e20ec797d0f2f42612bfcca105eef502811b97a33570397ed74eb53884ccc
+k8s/k8s:v1.34.2:             sha256:9e6f70fb1a17b47186af8ca2e125663aa3e4076c448c100218dc5d439056266e
+tigera chart:v3.29.6:        sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+```
+
+manifest job 输出 `verified 112 artifact(s); failures: 0`。所有 package 的 amd64/arm64
+平台、runtime image child digest、Helm chart digest 和 package OCI revision label 均由同一
+workflow 远端解析；bootstrap/kubeclipper 等 package 的 `sourceRevision` 与 metadata 完全一致。
+
+### 当前增量的本地和 CI 验证
+
+当前增量再次执行：
+
+```text
+go test -race ./cmd/kcctl/app/options ./pkg/cli/clean ./pkg/cli/deploy \
+  ./pkg/cli/join ./pkg/component/common ./pkg/delivery/apis \
+  ./pkg/delivery/fetcher ./pkg/delivery/publisher ./pkg/simple/downloader
+                                                               PASS
+git diff --check                                                 PASS
+```
+
+其中 race 测试覆盖：多 transport clean、join 独立 SSH 配置、OCI publisher 并发锁和失败清理、
+Helm OCI 下载、严格 delivery 校验、HTTP 下载临时文件和错误传播。全仓 Go test/coverage、vet、
+lint、Actionlint、ShellCheck、open-packaging、release assembly、linux/amd64 与 linux/arm64 构建、
+manifest/digest/sourceRevision/provenance 验证由上表两个代码门禁 workflow 在同一 SHA 上完成。
+
+### 双机纯 OCI 生命周期
+
+测试机为 sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`），隔离 Registry
+namespace 为
+`ghcr.io/lixd/kubeclipper/qualification-47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051`，
+集群名为 `oci-qualification-47d9ef1`。
+
+1. 从干净基线使用候选 Linux amd64 `kcctl` 和 OCI bootstrap package 在 sh-dev-3 完成 AIO
+   deploy；kcctl、server、agent 均为 `v2.0.0`、commit `47d9ef1`、tree clean。
+2. 默认网卡检测选择 `ens3`，没有选择 Docker/CNI bridge。deploy config 权限为 `0600`，
+   `deploy` 与 `join-7fe03deb-0771-4a51-ae4d-7c2d8bc257e4` transport 分离且不持久化私钥正文。
+3. 使用独立 server key 和 agent key 将 sh-dev-2 join；两个 agent 均 Ready。
+4. 未传 `--untaint-master` 创建单 master 集群，API 持久化 `untaintMaster: true`。CreateCluster
+   operation `62cd28d2-cba3-4af8-be91-b38cce0b3539` 的 14 步全部 successful。
+5. master 为 Ready；Kubernetes `v1.34.2`、containerd `1.7.29`、Calico `v3.29.6`，全部系统
+   Pod Running/Ready。master 普通 Pod 从 qualification GHCR 拉取成功，DNS 返回 `10.96.0.1`，
+   Pod 内 API `/version` 返回 `v1.34.2`。
+6. AddNodes operation `26069e4c-ef8f-4b4f-b90d-99ee6b65e3d4` 的 8 步全部 successful；worker
+   Ready，containerd `1.7.29`，Calico node/CSI/kube-proxy 均 Running/Ready。worker 实际从 GHCR
+   拉取 pause、kube-proxy、Calico CNI/node/flexvol/CSI/registrar 镜像。
+7. worker 定向普通 Pod 使用 qualification GHCR 中已拉取的 `calico/node:v3.29.6` 正常 Running；
+   Pod 内通过 `kubernetes.default.svc.cluster.local:443` 建立连接，验证 DNS 和 Service 网络。
+8. RemoveNodes operation `a3c93682-a637-4e89-8f6a-6c1928857f61` 的 14 步全部 successful；worker
+   kubelet/containerd inactive，Kubernetes、containerd、CNI、Calico 路径、接口和挂载全部清除，
+   平台 agent 按设计保留到最终 clean。
+9. 正常执行 `kcctl delete cluster oci-qualification-47d9ef1`，DeleteCluster operation
+   `17f37b9b-5948-491e-82ca-b3f02c5713d8` 启动后集群进入 404；master 的 Kubernetes、containerd、
+   CNI 和 Calico 运行态全部清除，无 force、kubeadm reset 或人工修复。
+10. 一次执行 `kcctl clean --all --force --assumeyes` 返回 `clean successful`，日志明确完成
+    `server`、`agent (deploy)` 和 `agent (join-7fe03deb...)` 三组 transport，AIO server/agent 和
+    join agent 均被清理，无第二次 clean 或人工服务修复。
+
+测试机到 GitHub CDN 存在严重丢包，构建和大镜像下载阶段使用了隔离 SSH 反向代理。一次 worker
+`kubeclipper/kubectl` smoke pull 因 CDN TLS handshake timeout 失败；错误为
+`pkg-containers.githubusercontent.com` 超时，不是 Registry 404、401/403、digest 或产品配置错误。
+Kubernetes/Calico 的 qualification GHCR 镜像已在 worker 真实拉取并运行，普通 Pod、DNS 和 Service
+网络验证仍完成。代理仅用于环境绕行，没有进入代码、manifest 或正式部署配置。
+
+### 最终清理与残留审计
+
+- 两机 `kc-agent`、`kc-server`、`kubelet`、KubeClipper 安装的 `containerd` 均 inactive，无对应
+  运行进程；`/etc/kubernetes`、`/var/lib/kubelet`、`/etc/containerd`、`/var/lib/containerd`、
+  CNI/Calico 路径、网络设备和挂载均不存在。
+- `kcctl clean` 自动清除了服务、unit、配置、运行数据和安装二进制；它按当前语义保留
+  `/var/lib/kubeclipper/cache` 下载缓存。本轮测试收尾确认缓存只属于本轮 qualification 后，定向删除
+  两机该目录；最终 `/var/lib/kubeclipper` 均不存在。
+- sh-dev-2 的 `/root/.kc` 创建于 2026-07-08/09，早于本轮且属于机器既有环境，按保护基线原则保留；
+  本轮两把临时 SSH 公钥按 key blob 从两机 `authorized_keys` 精确删除，复查命中为 0。
+- systemd manager 中临时 `HTTP_PROXY`、`HTTPS_PROXY`、`NO_PROXY` 已撤销；反向代理和 relay
+  `17890`/`17891`/`17892`/`17893` 均已停止且无监听；本机和两机 `/tmp` 测试文件已删除。
+- 两个隔离 Git 标签 `oci-qualification-0d2fbff-20260727`、
+  `oci-qualification-47d9ef1-20260727` 已从 fork 和本地删除，`git ls-remote` 复查为 0。
+- fork GHCR 中两个 qualification namespace 共 72 个 packages 已通过 GitHub Packages API 删除；
+  完整分页复查名称包含这两个 commit 的 package 数量为 0。
+- 未停止或修改 sh-dev-3 原有 Docker、Registry、nginx、`sprout-postgres-v2` 等无关服务；保留用户
+  明确要求暂不撤销的 `gh` package 权限，token 本身未写入文件、日志或报告。
+
+### P0/P1/P2 与发布建议
+
+- **P0：无。** 当前 release code commit 的四条必需 Actions、112 项 manifest/provenance、
+  create/add/remove/delete/clean 和最终环境清理均有直接证据。
+- **P1：无。** join agent clean、独立 SSH transport、多网卡、架构检测、support policy、Actions
+  runtime、Registry 认证/TLS 和 OCI delivery 稳定性阻断项均已关闭。
+- **P2-1：删除操作可观测性。** 删除末段 operation 与 cluster 一起回收，server journal 出现一次
+  optimistic-lock 更新冲突和若干 `cluster ... is being deleted` controller error；最终资源正常 404、
+  节点清理完整且无需补救。后续可将预期终态降级日志级别，或在回收前保留最终 operation 状态。
+- **P2-2：clean 缓存语义。** `clean --all` 会保留 `/var/lib/kubeclipper/cache`，便于重装复用，但
+  “all” 对用户可能意味着完全删除。后续可增加明确的 `--purge-cache` 或在帮助中说明；缓存不含
+  SSH key、Registry 密码或 Kubernetes 配置，不阻断发布。
+
+最终建议：**可以正式发布 2.0.0。** 正式 tag、二进制、OCI package 和 GitHub Release manifest
+必须从 `47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051` 生成；本报告的后续文档提交不能作为新的
+`sourceRevision`。
+
+## 2026-07-27 历史发布候选 `3a1ad28`
+
+> 本节保留早期完整 Harbor/TLS 和双机证据用于审计；当前发布 revision 以上一节的
+> `47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051` 为准。
 
 ### 候选提交和发布边界
 
