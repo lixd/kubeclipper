@@ -1097,8 +1097,9 @@ func FinalizeRemovedNodeState(c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
 	}
 	unmountRuntimeState := stopRuntime + `
 while IFS= read -r target; do
+  # findmnt canonicalizes /var/run through its /run symlink on common Linux systems.
   case "$target" in
-    /var/run/calico|/var/run/calico/*|/run/containerd|/run/containerd/*)
+    /run/calico|/run/calico/*|/var/run/calico|/var/run/calico/*|/run/containerd|/run/containerd/*)
       umount -l "$target" >/dev/null 2>&1 || true
       ;;
   esac
