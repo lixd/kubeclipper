@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
@@ -65,7 +66,7 @@ func TestKubectlTerminalInstallStepsWaitForApiConvergence(t *testing.T) {
 }
 
 func TestFinalizeRemovedNodeState(t *testing.T) {
-	cluster := &v1.Cluster{ContainerRuntime: v1.ContainerRuntime{DataRootDir: "/data/containerd"}}
+	cluster := &v1.Cluster{ContainerRuntime: v1.ContainerRuntime{Type: v1.CRIContainerd, DataRootDir: "/data/containerd"}}
 	steps := FinalizeRemovedNodeState(cluster, []v1.StepNode{{ID: "worker-1"}})
 	if len(steps) != 2 || steps[0].Name != "unmountCalicoRuntimeState" || steps[1].Name != "finalizeRemovedNodeState" {
 		t.Fatalf("unexpected final cleanup steps: %+v", steps)
@@ -73,10 +74,32 @@ func TestFinalizeRemovedNodeState(t *testing.T) {
 	if len(steps[1].Commands) != 1 {
 		t.Fatalf("unexpected cleanup commands: %+v", steps[1].Commands)
 	}
+	unmount := strings.Join(steps[0].Commands[0].ShellCommand, " ")
+	for _, want := range []string{"systemctl stop containerd.service", "findmnt -rn -o TARGET", "umount -l", "/var/run/calico", "/run/containerd"} {
+		if !strings.Contains(unmount, want) {
+			t.Errorf("unmount command %q does not contain %q", unmount, want)
+		}
+	}
 	got := strings.Join(steps[1].Commands[0].ShellCommand, " ")
 	for _, path := range []string{"/etc/containerd", "/data/containerd", "/opt/cni", "/etc/cni", "/var/lib/cni", "/var/run/calico"} {
 		if !strings.Contains(got, path) {
 			t.Errorf("cleanup command %q does not contain %q", got, path)
+		}
+	}
+}
+
+func TestClearDefersCNIRuntimeStateRemoval(t *testing.T) {
+	metadata := &component.ExtraMetadata{
+		Masters: component.NodeList{{ID: "master-1"}},
+		Workers: component.NodeList{{ID: "worker-1"}},
+	}
+	steps, err := Clear(&v1.Cluster{}, metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range steps {
+		if step.Name == "removeCNIRunData" {
+			t.Fatalf("CNI runtime state must be removed after runtime shutdown: %+v", step)
 		}
 	}
 }

@@ -1056,8 +1056,7 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 	steps = append(steps,
 		doCommandRemoveStep("removeCNIBinaries", nodes, CniDefaultBinaryDir),
 		doCommandRemoveStep("cleanCNIConfig", nodes, CniDefaultConfigDir),
-		doCommandRemoveStep("removeCNIData", nodes, CniDefaultDataDir),
-		doCommandRemoveStep("removeCNIRunData", nodes, CniDefaultRunDataDir))
+		doCommandRemoveStep("removeCNIData", nodes, CniDefaultDataDir))
 
 	// clean Kubernetes config
 	steps = append(steps,
@@ -1092,6 +1091,18 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 // recreated while component uninstall steps are still converging.
 func FinalizeRemovedNodeState(c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
 	dataRoot := strutil.StringDefaultIfEmpty("/var/lib/containerd", c.ContainerRuntime.DataRootDir)
+	stopRuntime := "true"
+	if c.ContainerRuntime.Type == v1.CRIContainerd {
+		stopRuntime = "systemctl stop containerd.service >/dev/null 2>&1 || true"
+	}
+	unmountRuntimeState := stopRuntime + `
+while IFS= read -r target; do
+  case "$target" in
+    /var/run/calico|/var/run/calico/*|/run/containerd|/run/containerd/*)
+      umount -l "$target" >/dev/null 2>&1 || true
+      ;;
+  esac
+done < <(findmnt -rn -o TARGET | sort -r)`
 	return []v1.Step{
 		{
 			ID:         strutil.GetUUID(),
@@ -1103,7 +1114,7 @@ func FinalizeRemovedNodeState(c *v1.Cluster, nodes []v1.StepNode) []v1.Step {
 			Action:     v1.ActionUninstall,
 			Commands: []v1.Command{{
 				Type:         v1.CommandShell,
-				ShellCommand: []string{"bash", "-c", "mountpoint -q /var/run/calico/cgroup && umount /var/run/calico/cgroup || true"},
+				ShellCommand: []string{"bash", "-c", unmountRuntimeState},
 			}},
 		},
 		{
@@ -1183,8 +1194,8 @@ func (stepper *KubectlTerminal) InstallSteps(stepMaster0 []v1.StepNode) ([]v1.St
 		return nil, err
 	}
 	installSteps = append(installSteps, v1.Step{
-		ID:         strutil.GetUUID(),
-		Name:       "applyKubectlPod",
+		ID:   strutil.GetUUID(),
+		Name: "applyKubectlPod",
 		// The API server may still be converging when the terminal manifest is
 		// applied, especially while the image registry is being initialized.
 		Timeout:    metav1.Duration{Duration: 2 * time.Minute},
