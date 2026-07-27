@@ -1,10 +1,136 @@
-# 纯 OCI 发布就绪报告（2026-07-24）
+# 纯 OCI 发布就绪报告（2026-07-27）
 
-> **当前结论：最新代码候选 `93d5edb4` 已完成本地实现和验证，但暂不建议直接正式发布。**
-> `kcctl registry sync`、2.0.0 发布矩阵、正式 release manifest 资产和官方 GHCR 默认值已经落地；
-> 远程认证 TLS Registry 的真实同步 E2E 已通过。按要求本轮没有推送，因此该提交还没有真实
-> GitHub Actions、正式 GHCR digest 和生产 Harbor 最小权限证据。下方 `7332bac` 的双机纯 OCI
-> 资格结果仍然有效，但不能替代新提交的发布验证。
+> **当前结论：发布代码候选 `3a1ad28d13334a5a46e06162b2ad1442e5f8bc74` 的代码、必需
+> GitHub Actions、OCI provenance、认证 TLS Harbor 和双机完整生命周期均已通过。Harbor、
+> GHCR qualification packages、双机、SSH 授权、Git 标签和临时凭据均已清理，P0/P1 为零。
+> 建议正式发布 2.0.0。**
+
+## 2026-07-27 最终发布候选 `3a1ad28`
+
+### 候选提交和发布边界
+
+- 分支：`codex/oci-static-server-replacement`。
+- 发布代码 revision：`3a1ad28d13334a5a46e06162b2ad1442e5f8bc74`。
+- 最后一个代码提交：`3a1ad28 fix(k8s): make kubelet config cleanup idempotent`。
+- 分支只推送到用户 fork `lixd/kubeclipper`；未推 upstream、未强推或覆盖历史。
+- 本次双机 E2E 只验收 Kubernetes、containerd 和作为必需 CNI 的 Calico；没有把 MetalLB、NFS
+  等扩展组件作为双机发布门禁。发布工作流仍按 support policy 发布完整 catalog。
+
+### 当前 commit 的 GitHub Actions
+
+| 必需工作流 | Run | 结果 |
+|---|---|---|
+| Go tests/coverage | [30204655540](https://github.com/lixd/kubeclipper/actions/runs/30204655540) | success |
+| offline-resource-validate | [30204655544](https://github.com/lixd/kubeclipper/actions/runs/30204655544) | success；policy、Shell、workflow、manifest、bundle、provenance、assembly 和 Skopeo 验证全部通过 |
+| OCI AIO deploy + Fast E2E | [30204655547](https://github.com/lixd/kubeclipper/actions/runs/30204655547) | success；OCI deploy、login、Fast E2E 和 clean 全部通过 |
+| 16 组件发布 + release manifest/provenance | [30204655615](https://github.com/lixd/kubeclipper/actions/runs/30204655615) | success；全部 publish job 和 manifest job 通过 |
+
+同一提交较早的 run `30204645751` 被 workflow concurrency 取消；随后完整 run
+`30204655540` 成功，因此它不是测试失败，也不替代上表的成功 run。
+
+### Release manifest 和 provenance
+
+qualification workflow 生成的 manifest 为 `/tmp/release-manifest-3a1ad28.yaml`：
+
+```text
+version:                 v2.0.0
+artifact count:          112
+manifest sha256:         1112337b9216e216c6f100a98f33159809fceb7d33583473fc39de7c77ddf434
+metadata.sourceRevision: 3a1ad28d13334a5a46e06162b2ad1442e5f8bc74
+bootstrap/kubeclipper:   sha256:b9b3564681271592e19e25f9626b095e0f12fc3bd8ec03c7441969ba683c3041
+bootstrap/etcd:          sha256:0bdf75ccaa974ffb9e7eb81599507f3f11e74a0038e4bd782f385382a2218080
+bootstrap/console:       sha256:bd8bab7fb86372ad2a5f7f6ef22c1a3d3bdc259a633f40895caea8e9cbd1bd7e
+cri/containerd:1.7.29:   sha256:8a63861942d7b8874b96d9323ac34c564d8dc1611fea64a524730f545a911083
+tigera chart v3.29.6:    sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+```
+
+Harbor 同步后的 6 个 package 顶层 digest 全部匹配；6 个 package 的 amd64/arm64 共 12 个
+平台 manifest，其 OCI revision label 均为 `3a1ad28d13334a5a46e06162b2ad1442e5f8bc74`。
+用于本次 Kubernetes `v1.34.2` + Calico `v3.29.6` 的 Tigera chart 和 18 个 amd64 runtime
+image 共 19 项，digest 全部匹配。
+
+### 生产方式 Harbor 权限和 TLS 验收
+
+隔离 Harbor 为 `https://172.16.131.105:5443/qualification-3a1ad28`，使用 IP SAN 证书、
+自定义 CA、项目级 reader/writer robot 和严格 TLS：
+
+- 匿名访问返回 401；错误凭据返回 401；未提供自定义 CA 时 TLS 校验失败。
+- reader 可以 pull，但不能 push；writer 可以 push；权限没有扩大到项目管理或系统管理。
+- server/agent 的 Registry 配置权限均为 `0600`，密码没有进入普通日志。
+- Kubernetes image Registry 资源 `qualification-3a1ad28-images` 使用 HTTPS、CA 和认证，
+  `skipTLSVerify=false`。
+- Harbor 证书轮换后，节点上的 CA 指纹与服务端一致；containerd 从同一 Registry 成功拉取
+  Kubernetes、Calico 和 `kubeclipper/kubectl` 镜像。
+
+一次普通 Pod 最初使用了并不存在的 `busybox:1.36` tag。containerd 先对带 CA 的 host 得到
+真实 404，再在 fallback host 上报告 x509，后一个错误覆盖了 404。改用 release catalog 已包含的
+`kubeclipper/kubectl` 后，Registry pull、Pod、DNS 和 API smoke 全部成功；这是测试数据错误，
+没有通过关闭 TLS、跳过校验或修改产品代码规避。
+
+### 双机纯 OCI 生命周期
+
+测试主机为 sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`）；集群名为
+`oci-qualification-3a1ad28`，Kubernetes `v1.34.2`、containerd `1.7.29`、Calico `v3.29.6`。
+
+1. 使用当前 commit 的 Linux amd64 `kcctl` 和 OCI bootstrap package 在 sh-dev-3 完成 AIO
+   deploy；kcctl/server/agent 均报告 `v2.0.0`、同一 commit、tree clean、linux/amd64。
+2. 默认地址检测在多网卡主机选择 `ens3`，没有选择 Docker/CNI bridge。
+3. 使用互不通用的 server SSH key 和 agent SSH key 将 sh-dev-2 join；两个平台节点 Ready。
+4. 未传 `--untaint-master` 创建单 master 集群，API 持久化 `untaintMaster: true`；创建 operation
+   `3fb5a74f-f92e-46c4-9087-18e5ec345528` 成功，master 无 control-plane taint，所有 Kubernetes
+   和 Calico 系统 Pod Running/Ready。
+5. master 上普通 Pod 成功从认证 Harbor 拉取，CoreDNS 将
+   `kubernetes.default.svc.cluster.local` 解析为 `10.96.0.1`，Pod 内访问 API 返回 v1.34.2。
+6. add-node operation `c3f973f6-e1e7-4350-8628-8d70639249c7` 将 sh-dev-2 加入；两节点均
+   Ready，worker 运行 containerd `1.7.29`。
+7. worker 定向 Pod 在 sh-dev-2 成功完成 Registry pull、DNS 和 API 访问；master Pod 到 worker
+   Pod IP `172.25.58.194` 的 3 次 ping 全部成功，0% 丢包，证明 Calico 跨节点数据面正常。
+8. remove-node operation `fe422d42-9857-4815-b73c-ac57d241e77f` 的 14 个步骤全部 successful；
+   日志中没有 `remove config.yaml failed`，worker 的 kubelet/containerd inactive，Kubernetes、
+   containerd、CNI 和 Calico 路径及网络设备均已清除。
+9. 正常 API 删除集群后，资源从 `Terminating` 进入 404，不需要 force 或人工 kubeadm 清理。
+10. 一次执行 `kcctl -y clean -A -f` 返回 `clean successful`，同时清理 AIO server/agent 和通过
+    join 加入的 agent，无人工补救。
+
+### 清理和残留审计
+
+- 两机 `kc-server`、`kc-agent`、`kc-etcd`、`kc-console`、`kubelet`、KubeClipper 安装的
+  `containerd` 均 inactive；没有对应运行进程。
+- 两机无 `/etc/kubeclipper`、`/var/lib/kubeclipper`、`/etc/kubernetes`、`/var/lib/kubelet`、
+  `/var/lib/etcd`、KubeClipper 的 `/etc/containerd`/`/var/lib/containerd`、CNI/Calico 路径，
+  无 `cali*`、`vxlan.calico`、`kube-ipvs0` 设备和 `apiserver.cluster.local` hosts 项。
+- 两条 qualification SSH 公钥已从 authorized_keys 删除；reader 密码在文件系统和 journal
+  精确命中均为 0。robot 用户名在 sh-dev-3 journal 中有 1 条正常审计记录，不属于秘密泄漏。
+- sh-dev-3 预装 apt 包 `containerd` 的 `/usr/bin/containerd` 和 systemd unit 时间为
+  `2026-06-22`，早于本轮测试且被原有 Docker 使用；服务为 disabled/inactive，按“不碰无关服务”
+  保留，不计为 KubeClipper 残留。原有 Docker/Harbor 服务未被停止或修改。
+- Harbor 项目中的 26 个 repository 全部通过 API 删除，reader/writer robot ID 29/30 删除后
+  返回 404，项目 `qualification-3a1ad28` 删除后返回 404；未执行 Registry blob GC。
+- 14 个 `oci-qualification-*` Git 标签已从 fork 和本地删除；复查结果为 0。
+- sh-package 上 `kc-final-control-*`、`kc-range-*`、`kc-sync-*`、`kc-harbor-source-*`、
+  `kc-qualification-*` 临时密钥、CA、密码和工作目录已删除。
+- fork GHCR 中本轮完整 namespace
+  `ghcr.io/lixd/kubeclipper/qualification-3a1ad28d13334a5a46e06162b2ad1442e5f8bc74`
+  的 36 个 packages 已删除。分页复查又发现此前 16 次 qualification workflow 各残留 36 个
+  package；这些严格匹配 `kubeclipper/qualification-<40 位 commit>/...` 的历史测试包共 576 个，
+  也已全部删除。本次合计删除 612 个 GHCR qualification packages。
+- 删除后完整分页复查：`kubeclipper/qualification-` 严格前缀数量为 0，任意名称包含
+  `qualification` 的 container package 数量为 0；代表 package
+  `qualification-3a1ad28d.../pause` 的 GitHub Packages REST endpoint 返回 HTTP 404，匿名
+  Registry 读取失败。
+- 经用户明确要求，`gh` 登录保留 `read:packages` 和 `delete:packages` scope，便于后续正式发布
+  和资格测试清理；token 本身没有写入报告、日志或仓库。
+
+### P0/P1/P2 和发布建议
+
+- **P0（产品和发布链路）：无。** 当前 release commit 的代码门禁、四条必需 Actions、112 项
+  manifest/provenance、认证 TLS Harbor、双机 create/add/remove/delete/clean 均有直接证据。
+- **P1：无。** fork GHCR 当前及历史 qualification packages 已全部删除并完成 0/404 复查。
+- **P2：无新增项。** Registry blob GC 仍由 Registry 运维方按常规策略执行。
+
+最终建议：**可以正式发布 2.0.0。** 正式二进制和 OCI 产物必须继续对应
+`3a1ad28d13334a5a46e06162b2ad1442e5f8bc74`；后续仅更新报告的文档提交不能作为新的二进制
+`sourceRevision`。
 
 ## 2026-07-24 `kcctl registry sync` 与 2.0.0 发布增量
 
