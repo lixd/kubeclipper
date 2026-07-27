@@ -31,8 +31,10 @@ import (
 	"strings"
 
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"sigs.k8s.io/yaml"
@@ -81,6 +83,10 @@ func PublishHelmChart(req HelmChartPublishRequest) (*HelmChartPublishResult, err
 	}
 	ref := fmt.Sprintf("%s/%s/%s:%s", strings.TrimRight(req.Registry, "/"), prefix, metadata.Name, metadata.Version)
 	img := newHelmChartImage(configData, chartData)
+	digest, err := img.Digest()
+	if err != nil {
+		return nil, err
+	}
 	registryConfig := req.RegistryConfig
 	if registryConfig == nil {
 		registryConfig, err = deliveryregistry.Resolve(req.Registry)
@@ -88,6 +94,8 @@ func PublishHelmChart(req HelmChartPublishRequest) (*HelmChartPublishResult, err
 			return nil, err
 		}
 	}
+	registryConfigCopy := *registryConfig
+	registryConfig = &registryConfigCopy
 	if validationErr := registryConfig.ValidateRegistry(req.Registry); validationErr != nil {
 		return nil, validationErr
 	}
@@ -95,12 +103,10 @@ func PublishHelmChart(req HelmChartPublishRequest) (*HelmChartPublishResult, err
 	if err != nil {
 		return nil, err
 	}
-	if pushErr := crane.Push(img, ref, craneOpts...); pushErr != nil {
+	if pushErr := publishHelmChartImage(
+		context.Background(), ref, img, digest, isStableArtifactVersion(metadata.Version), craneOpts...,
+	); pushErr != nil {
 		return nil, pushErr
-	}
-	digest, err := img.Digest()
-	if err != nil {
-		return nil, err
 	}
 	chartHash, _, err := v1.SHA256(bytes.NewReader(chartData))
 	if err != nil {
@@ -113,6 +119,51 @@ func PublishHelmChart(req HelmChartPublishRequest) (*HelmChartPublishResult, err
 		Digest:    digest.String(),
 		ChartHash: chartHash.String(),
 	}, nil
+}
+
+func publishHelmChartImage(
+	ctx context.Context,
+	reference string,
+	img v1.Image,
+	digest v1.Hash,
+	immutable bool,
+	options ...crane.Option,
+) error {
+	parsedOptions := crane.GetOptions(append(options, crane.WithContext(ctx))...)
+	ref, err := name.ParseReference(reference, parsedOptions.Name...)
+	if err != nil {
+		return err
+	}
+	unlock, err := lockPublishReference(ctx, ref.Name())
+	if err != nil {
+		return fmt.Errorf("lock Helm chart reference %s: %w", ref.Name(), err)
+	}
+	defer unlock()
+
+	existing, exists, err := remoteDescriptor(ref, parsedOptions.Remote...)
+	if err != nil {
+		return fmt.Errorf("inspect existing Helm chart %s: %w", ref.Name(), err)
+	}
+	if exists && existing.Digest == digest {
+		return nil
+	}
+	if exists && immutable {
+		return fmt.Errorf("helm chart tag conflict: %s already points to %s, refusing %s", ref.Name(), existing.Digest, digest)
+	}
+	if err = remote.Write(ref, img, parsedOptions.Remote...); err != nil {
+		return fmt.Errorf("write Helm chart %s: %w", ref.Name(), err)
+	}
+	written, exists, err := remoteDescriptor(ref, parsedOptions.Remote...)
+	if err != nil {
+		return fmt.Errorf("verify Helm chart %s after write: %w", ref.Name(), err)
+	}
+	if !exists {
+		return fmt.Errorf("verify Helm chart %s after write: tag not found", ref.Name())
+	}
+	if written.Digest != digest {
+		return fmt.Errorf("verify Helm chart %s after write: expected %s, got %s", ref.Name(), digest, written.Digest)
+	}
+	return nil
 }
 
 type helmChartMetadata struct {

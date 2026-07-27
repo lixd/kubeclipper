@@ -185,6 +185,26 @@ func TestDeployOptionsValidateArgsDoesNotRequirePackage(t *testing.T) {
 	}
 }
 
+func TestDeployCompleteRecordsInitialAgentTransport(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	d.deployConfig.SSHConfig.PkFile = "/keys/deploy"
+	d.deployConfig.PackageRegistry = "ghcr.io/kubeclipper/kubeclipper"
+	d.packageRegistryFiles.Scheme = deliveryregistry.SchemeHTTPS
+	d.agents = []string{"10.0.0.2"}
+	if err := d.Complete(); err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	metadata, ok := d.deployConfig.Agents["10.0.0.2"]
+	if !ok || metadata.SSHTransportID != options.SSHTransportIDDeploy {
+		t.Fatalf("initial agent metadata = %+v, exists %t", metadata, ok)
+	}
+	transport := d.deployConfig.SSHTransports[options.SSHTransportIDDeploy]
+	if transport == nil || transport.PkFile != "/keys/deploy" {
+		t.Fatalf("initial deploy transport = %+v", transport)
+	}
+}
+
 func TestPackageRegistryCredentialsAreNotSerializedInDeployConfig(t *testing.T) {
 	d := NewDeployOptions(options.IOStreams{})
 	d.deployConfig.PackageRegistry = "harbor.example.com/kubeclipper"

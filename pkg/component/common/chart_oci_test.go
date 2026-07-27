@@ -35,6 +35,19 @@ import (
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "kubeclipper-common-publisher-lock-test-")
+	if err != nil {
+		panic(err)
+	}
+	if err = os.Setenv(deliverypublisher.PublishLockDirEnv, dir); err != nil {
+		panic(err)
+	}
+	code := m.Run()
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
+}
+
 func TestPullHelmOCIChartArchiveAuthenticatedTLSByDigest(t *testing.T) {
 	server := httptest.NewTLSServer(chartBasicAuth("robot$kc", "token", containerregistry.New()))
 	defer server.Close()

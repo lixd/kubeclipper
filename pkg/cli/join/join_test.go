@@ -1,6 +1,7 @@
 package join
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
+	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
@@ -108,6 +110,148 @@ func TestAgentSSHConfigForPersistenceDoesNotCopyCachedPrivateKey(t *testing.T) {
 	}
 	if source.PrivateKey != "cached-private-key" {
 		t.Fatal("source SSH config was mutated")
+	}
+}
+
+func TestPlanJoinedAgentsPreservesTransportForSequentialJoins(t *testing.T) {
+	config := options.NewDeployOptions()
+	config.SSHConfig = &sshutils.SSH{User: "deploy", PkFile: "/keys/deploy"}
+	config.ServerIPs = []string{"10.0.0.1"}
+	config.Agents = options.Agents{
+		"10.0.0.2": {AgentID: "initial"},
+	}
+	if err := config.RecordInitialAgentSSHTransport(); err != nil {
+		t.Fatal(err)
+	}
+
+	first := NewJoinOptions(options.IOStreams{})
+	first.deployConfig = config
+	first.parseAgent = options.Agents{"10.0.0.3": {Region: "default"}}
+	first.sshConfig = &sshutils.SSH{User: "agent-a", PkFile: "/keys/a", PrivateKey: "cached-a"}
+	first.newSSHTransportID = func() string { return "join-a" }
+	if err := first.planJoinedAgents(); err != nil {
+		t.Fatalf("first planJoinedAgents() error = %v", err)
+	}
+
+	second := NewJoinOptions(options.IOStreams{})
+	second.deployConfig = config
+	second.parseAgent = options.Agents{"10.0.0.4": {Region: "default"}}
+	second.sshConfig = &sshutils.SSH{User: "agent-b", PkFile: "/keys/b", PrivateKey: "cached-b"}
+	second.newSSHTransportID = func() string { return "join-b" }
+	if err := second.planJoinedAgents(); err != nil {
+		t.Fatalf("second planJoinedAgents() error = %v", err)
+	}
+
+	for ip, wantID := range map[string]string{
+		"10.0.0.2": options.SSHTransportIDDeploy,
+		"10.0.0.3": "join-a",
+		"10.0.0.4": "join-b",
+	} {
+		if got := config.Agents[ip].SSHTransportID; got != wantID {
+			t.Fatalf("agent %s transport = %q, want %q", ip, got, wantID)
+		}
+	}
+	for id, wantKey := range map[string]string{
+		options.SSHTransportIDDeploy: "/keys/deploy",
+		"join-a":                     "/keys/a",
+		"join-b":                     "/keys/b",
+	} {
+		transport := config.SSHTransports[id]
+		if transport == nil || transport.PkFile != wantKey || transport.PrivateKey != "" {
+			t.Fatalf("transport %q = %+v, want key %q without cached key", id, transport, wantKey)
+		}
+	}
+}
+
+func TestFailedJoinRestoresAgentsAndSSHTransports(t *testing.T) {
+	config := options.NewDeployOptions()
+	config.SSHConfig = &sshutils.SSH{User: "deploy", PkFile: "/keys/deploy"}
+	config.ServerIPs = []string{"10.0.0.1"}
+	config.Agents = options.Agents{
+		"10.0.0.2": {AgentID: "existing", SSHTransportID: "join-a"},
+	}
+	config.SSHTransports = options.SSHTransports{
+		options.SSHTransportIDDeploy: {User: "deploy", PkFile: "/keys/deploy"},
+		"join-a":                     {User: "agent-a", PkFile: "/keys/a"},
+	}
+	wantAgents := cloneAgents(config.Agents)
+	wantTransports := cloneSSHTransports(config.SSHTransports)
+
+	o := NewJoinOptions(options.IOStreams{})
+	o.deployConfig = config
+	o.parseAgent = options.Agents{"10.0.0.3": {Region: "default"}}
+	o.sshConfig = &sshutils.SSH{User: "agent-b", PkFile: "/keys/b"}
+	o.newSSHTransportID = func() string { return "join-b" }
+	if err := o.planJoinedAgents(); err != nil {
+		t.Fatalf("planJoinedAgents() error = %v", err)
+	}
+	rolledBack := false
+	o.sshRunner = func(config *sshutils.SSH, host, _ string) (sshutils.Result, error) {
+		if config.PkFile != "/keys/b" || host != "10.0.0.3" {
+			t.Fatalf("rollback used key %q for host %q", config.PkFile, host)
+		}
+		rolledBack = true
+		return sshutils.Result{}, nil
+	}
+	persisted := false
+	o.updateDeployConfig = func(_ context.Context, _ *kc.Client, got *options.DeployConfig, dump bool) error {
+		persisted = true
+		if !dump || !reflect.DeepEqual(got.Agents, wantAgents) || !reflect.DeepEqual(got.SSHTransports, wantTransports) {
+			t.Fatalf("restored deploy config = agents %+v transports %+v dump %t", got.Agents, got.SSHTransports, dump)
+		}
+		return nil
+	}
+	if err := o.failJoinWithRollbackAndConfig(errors.New("install failed")); err == nil {
+		t.Fatal("failJoinWithRollbackAndConfig() error = nil")
+	}
+	if !rolledBack || !persisted {
+		t.Fatalf("rollback called = %t, restored config persisted = %t", rolledBack, persisted)
+	}
+	if !reflect.DeepEqual(config.Agents, wantAgents) || !reflect.DeepEqual(config.SSHTransports, wantTransports) {
+		t.Fatalf("failed join state was not restored: agents %+v transports %+v", config.Agents, config.SSHTransports)
+	}
+}
+
+func TestPlannedInventoryPersistenceFailureRestoresPreJoinState(t *testing.T) {
+	config := options.NewDeployOptions()
+	config.SSHConfig = &sshutils.SSH{User: "deploy", PkFile: "/keys/deploy"}
+	config.ServerIPs = []string{"10.0.0.1"}
+	config.Agents = options.Agents{
+		"10.0.0.2": {AgentID: "initial"},
+	}
+	if err := config.RecordInitialAgentSSHTransport(); err != nil {
+		t.Fatal(err)
+	}
+	wantAgents := cloneAgents(config.Agents)
+	wantTransports := cloneSSHTransports(config.SSHTransports)
+
+	o := NewJoinOptions(options.IOStreams{})
+	o.deployConfig = config
+	o.parseAgent = options.Agents{"10.0.0.3": {Region: "default"}}
+	o.sshConfig = &sshutils.SSH{User: "agent", PkFile: "/keys/agent"}
+	o.newSSHTransportID = func() string { return "join-failed" }
+	updates := 0
+	o.updateDeployConfig = func(_ context.Context, _ *kc.Client, got *options.DeployConfig, _ bool) error {
+		updates++
+		if updates == 1 {
+			if got.Agents["10.0.0.3"].SSHTransportID != "join-failed" {
+				t.Fatalf("planned inventory was not passed to first update: %+v", got.Agents)
+			}
+			return errors.New("injected persist failure")
+		}
+		if !reflect.DeepEqual(got.Agents, wantAgents) || !reflect.DeepEqual(got.SSHTransports, wantTransports) {
+			t.Fatalf("restore update = agents %+v transports %+v", got.Agents, got.SSHTransports)
+		}
+		return nil
+	}
+	if err := o.runJoinAgentNode(); err == nil {
+		t.Fatal("runJoinAgentNode() error = nil")
+	}
+	if updates != 2 {
+		t.Fatalf("deploy config updates = %d, want planned write and restore", updates)
+	}
+	if !reflect.DeepEqual(config.Agents, wantAgents) || !reflect.DeepEqual(config.SSHTransports, wantTransports) {
+		t.Fatalf("state after failed planned write = agents %+v transports %+v", config.Agents, config.SSHTransports)
 	}
 }
 
@@ -251,6 +395,41 @@ func TestPreparePackageRegistryConfigUsesServerTransportAndAgentCopy(t *testing.
 	cleanup()
 	if _, err = os.Stat(path); !os.IsNotExist(err) {
 		t.Fatalf("temporary package registry config still exists: %v", err)
+	}
+}
+
+func TestExistingPackageRegistryTargetsUseEachAgentTransport(t *testing.T) {
+	o := NewJoinOptions(options.IOStreams{})
+	o.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	o.deployConfig.SSHConfig = &sshutils.SSH{User: "deploy", PkFile: "/keys/deploy"}
+	o.deployConfig.Agents = options.Agents{
+		"10.0.0.2": {AgentID: "a", SSHTransportID: "join-a"},
+		"10.0.0.3": {AgentID: "b", SSHTransportID: "join-b"},
+		"10.0.0.4": {AgentID: "new"},
+	}
+	o.deployConfig.SSHTransports = options.SSHTransports{
+		options.SSHTransportIDDeploy: {User: "deploy", PkFile: "/keys/deploy"},
+		"join-a":                     {User: "agent-a", PkFile: "/keys/a"},
+		"join-b":                     {User: "agent-b", PkFile: "/keys/b"},
+	}
+	o.parseAgent = options.Agents{"10.0.0.4": {}}
+	o.serverSSHConfig = &sshutils.SSH{User: "server", PkFile: "/keys/server"}
+
+	targets, err := o.existingPackageRegistryTargets()
+	if err != nil {
+		t.Fatalf("existingPackageRegistryTargets() error = %v", err)
+	}
+	keys := make(map[string]string)
+	for _, target := range targets {
+		keys[target.host+":"+target.remotePath] = target.sshConfig.PkFile
+	}
+	want := map[string]string{
+		"10.0.0.1:" + deliveryregistry.ServerConfigPath: "/keys/server",
+		"10.0.0.2:" + deliveryregistry.AgentConfigPath:  "/keys/a",
+		"10.0.0.3:" + deliveryregistry.AgentConfigPath:  "/keys/b",
+	}
+	if !reflect.DeepEqual(keys, want) {
+		t.Fatalf("target SSH keys = %v, want %v", keys, want)
 	}
 }
 

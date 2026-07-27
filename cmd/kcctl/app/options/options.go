@@ -222,6 +222,17 @@ type ImageProxy struct {
 
 type Agents map[string]Metadata // key:ip
 
+const (
+	// SSHTransportIDDeploy is the transport used by the initial deploy command.
+	SSHTransportIDDeploy = "deploy"
+	// SSHTransportIDLegacyAgent preserves the single AgentSSHConfig model used
+	// by deploy configs written before per-agent transports were introduced.
+	SSHTransportIDLegacyAgent = "legacy-agent"
+)
+
+// SSHTransports stores reusable SSH configurations referenced by agent metadata.
+type SSHTransports map[string]*sshutils.SSH
+
 func (a Agents) ListIP() []string {
 	list := make([]string, 0, len(a))
 	for ip := range a {
@@ -261,15 +272,17 @@ func (a Agents) Add(ip string, metadata Metadata) {
 
 // Metadata user custom node info,region will use by filter,use label,others use annotation.
 type Metadata struct {
-	AgentID string `json:"agentID" yaml:"agentID,omitempty"`
-	Region  string `json:"region" yaml:"region,omitempty"`
-	FloatIP string `json:"floatIP" yaml:"floatIP,omitempty"`
+	AgentID        string `json:"agentID" yaml:"agentID,omitempty"`
+	Region         string `json:"region" yaml:"region,omitempty"`
+	FloatIP        string `json:"floatIP" yaml:"floatIP,omitempty"`
+	SSHTransportID string `json:"sshTransport,omitempty" yaml:"sshTransport,omitempty"`
 }
 
 type DeployConfig struct {
 	Config                     string                         `json:"-" yaml:"-"`
 	SSHConfig                  *sshutils.SSH                  `json:"ssh" yaml:"ssh,omitempty"`
 	AgentSSHConfig             *sshutils.SSH                  `json:"agentSSH" yaml:"agentSSH,omitempty"`
+	SSHTransports              SSHTransports                  `json:"sshTransports,omitempty" yaml:"sshTransports,omitempty"`
 	EtcdConfig                 *Etcd                          `json:"etcd" yaml:"etcd,omitempty"`
 	ServerIPs                  []string                       `json:"serverIPs" yaml:"serverIPs,omitempty"`
 	Agents                     Agents                         `json:"agents" yaml:"agents,omitempty"`
@@ -288,6 +301,91 @@ type DeployConfig struct {
 	ImageProxy                 *ImageProxy                    `json:"imageProxy" yaml:"imageProxy,omitempty"`
 	AuthenticationOpts         *options.AuthenticationOptions `json:"authentication" yaml:"authentication,omitempty"`
 	KCServerHealthCheckTimeout time.Duration                  `json:"kcServerHealthCheckTimeout" yaml:"kcServerHealthCheckTimeout,omitempty"`
+}
+
+// SSHConfigForPersistence copies an SSH transport without persisting the
+// private key data cached by sshutils when a reusable key path is available.
+func SSHConfigForPersistence(source *sshutils.SSH) *sshutils.SSH {
+	if source == nil {
+		return nil
+	}
+	persisted := *source
+	if source.ConnectionTimeout != nil {
+		timeout := *source.ConnectionTimeout
+		persisted.ConnectionTimeout = &timeout
+	}
+	if persisted.PkFile != "" {
+		persisted.PrivateKey = ""
+	}
+	return &persisted
+}
+
+// NormalizeSSHTransports migrates the legacy global SSH fields into the
+// per-agent transport model. Explicit transport references are never silently
+// replaced: a missing referenced transport is treated as a corrupt inventory.
+func (c *DeployConfig) NormalizeSSHTransports() error {
+	if c.SSHTransports == nil {
+		c.SSHTransports = make(SSHTransports)
+	}
+	if c.SSHConfig != nil {
+		c.SSHTransports[SSHTransportIDDeploy] = SSHConfigForPersistence(c.SSHConfig)
+	}
+	if c.AgentSSHConfig != nil {
+		c.SSHTransports[SSHTransportIDLegacyAgent] = SSHConfigForPersistence(c.AgentSSHConfig)
+	}
+
+	servers := sets.NewString(c.ServerIPs...)
+	for ip, metadata := range c.Agents {
+		if metadata.SSHTransportID == "" {
+			switch {
+			case servers.Has(ip):
+				metadata.SSHTransportID = SSHTransportIDDeploy
+			case c.AgentSSHConfig != nil:
+				metadata.SSHTransportID = SSHTransportIDLegacyAgent
+			default:
+				metadata.SSHTransportID = SSHTransportIDDeploy
+			}
+			c.Agents[ip] = metadata
+		}
+		transport, ok := c.SSHTransports[metadata.SSHTransportID]
+		if !ok || transport == nil {
+			return fmt.Errorf("agent %s references unknown SSH transport %q", ip, metadata.SSHTransportID)
+		}
+	}
+	return nil
+}
+
+// RecordInitialAgentSSHTransport records the transport actually used by
+// deploy, which always reaches every initial node through SSHConfig.
+func (c *DeployConfig) RecordInitialAgentSSHTransport() error {
+	if c.SSHConfig == nil {
+		return fmt.Errorf("initial deploy SSH transport is empty")
+	}
+	if c.SSHTransports == nil {
+		c.SSHTransports = make(SSHTransports)
+	}
+	c.SSHTransports[SSHTransportIDDeploy] = SSHConfigForPersistence(c.SSHConfig)
+	for ip, metadata := range c.Agents {
+		metadata.SSHTransportID = SSHTransportIDDeploy
+		c.Agents[ip] = metadata
+	}
+	return nil
+}
+
+// SSHTransportForAgent resolves one agent's transport after applying legacy migration.
+func (c *DeployConfig) SSHTransportForAgent(ip string) (string, *sshutils.SSH, error) {
+	if err := c.NormalizeSSHTransports(); err != nil {
+		return "", nil, err
+	}
+	metadata, ok := c.Agents[ip]
+	if !ok {
+		return "", nil, fmt.Errorf("agent %s is not present in deploy config", ip)
+	}
+	transport := c.SSHTransports[metadata.SSHTransportID]
+	if transport == nil {
+		return "", nil, fmt.Errorf("agent %s references unknown SSH transport %q", ip, metadata.SSHTransportID)
+	}
+	return metadata.SSHTransportID, transport, nil
 }
 
 type AgentRegions map[string][]string // key: region, value: ips
@@ -401,7 +499,7 @@ func (c *DeployConfig) Complete() error {
 		}
 	}
 
-	return nil
+	return c.NormalizeSSHTransports()
 }
 
 // Omitempty use unmarshal+marshal to omit empty field.
@@ -419,6 +517,9 @@ func Omitempty(data []byte) ([]byte, error) {
 }
 
 func (c *DeployConfig) Write() error {
+	if err := c.NormalizeSSHTransports(); err != nil {
+		return fmt.Errorf("normalize SSH transports: %w", err)
+	}
 	path := c.Config
 	if c.Config == "" {
 		path = DefaultDeployConfigPath

@@ -106,7 +106,17 @@ func run(ctx context.Context, registry string, registryConfig *deliveryregistry.
 		return err
 	}
 	defer os.RemoveAll(workdir)
-	_ = os.RemoveAll(downloader.BaseDstDir)
+	oldCacheDir, hadCacheDir := os.LookupEnv(downloader.CacheDirEnv)
+	if err := os.Setenv(downloader.CacheDirEnv, filepath.Join(workdir, "cache")); err != nil {
+		return err
+	}
+	defer func() {
+		if hadCacheDir {
+			_ = os.Setenv(downloader.CacheDirEnv, oldCacheDir)
+		} else {
+			_ = os.Unsetenv(downloader.CacheDirEnv)
+		}
+	}()
 
 	fixtures := []packageFixture{
 		{kind: "k8s", name: "k8s", version: "v1.36.0", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz"}},

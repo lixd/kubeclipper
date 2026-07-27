@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
 func TestNewForTransport(t *testing.T) {
@@ -78,7 +79,7 @@ func TestFetchComponentUsesResolvedComponentArch(t *testing.T) {
 	if result.Arch != "arm64" {
 		t.Fatalf("result arch = %q, want arm64", result.Arch)
 	}
-	if got := result.Files[deliveryapis.ContentCharts]; got != "/tmp/kc-downloader/packages/cni/calico/v3.31.5/linux-arm64/contents/charts.tgz" {
+	if got := result.Files[deliveryapis.ContentCharts]; got != downloader.ChartPath("cni", "calico", "v3.31.5", "linux-arm64") {
 		t.Fatalf("chart path = %q", got)
 	}
 }
@@ -172,6 +173,18 @@ func TestValidatePlanRejectsInvalidComponents(t *testing.T) {
 				},
 			}},
 			want: "duplicate content \"charts\"",
+		},
+		{
+			name: "content path traversal",
+			components: []deliveryapis.ResolvedComponent{{
+				Kind:      validComponent.Kind,
+				Name:      validComponent.Name,
+				Version:   validComponent.Version,
+				Arch:      validComponent.Arch,
+				Transport: validComponent.Transport,
+				Contents:  []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentCharts, File: "../../charts.tgz"}},
+			}},
+			want: "must be a relative base name",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -25,21 +25,25 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
-	"github.com/google/go-containerregistry/pkg/v1/match"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
@@ -68,8 +72,16 @@ type PublishResult struct {
 type OCIArtifactPublisher struct{}
 
 const (
-	packageRootDir      = "opt/kubeclipper/resource"
-	packageManifestFile = "kc-package-manifest.json"
+	packageRootDir       = "opt/kubeclipper/resource"
+	packageManifestFile  = "kc-package-manifest.json"
+	packageWriteAttempts = 3
+)
+
+var (
+	stableArtifactVersionPattern = regexp.MustCompile(
+		`^v?[0-9]+(?:\.[0-9]+){0,2}` +
+			`(?:-[0-9A-Za-z][0-9A-Za-z.-]*)?(?:\+[0-9A-Za-z][0-9A-Za-z.-]*)?$`,
+	)
 )
 
 func NewOCIArtifactPublisher() *OCIArtifactPublisher {
@@ -133,6 +145,8 @@ func (p *OCIArtifactPublisher) Publish(req PublishRequest) (*PublishResult, erro
 			return nil, err
 		}
 	}
+	registryConfigCopy := *registryConfig
+	registryConfig = &registryConfigCopy
 	if err := registryConfig.ValidateRegistry(req.Registry); err != nil {
 		return nil, err
 	}
@@ -335,7 +349,8 @@ func addFileToRootFSTar(tw *tar.Writer, src, name string, mode int64) error {
 }
 
 func pushPackageIndex(ctx context.Context, target string, img v1.Image, arch string, config *deliveryregistry.Config) error {
-	craneOpts, err := config.CraneOptions(ctx)
+	configCopy := *config
+	craneOpts, err := configCopy.CraneOptions(ctx)
 	if err != nil {
 		return err
 	}
@@ -344,14 +359,76 @@ func pushPackageIndex(ctx context.Context, target string, img v1.Image, arch str
 	if err != nil {
 		return err
 	}
-	index := existingPackageIndex(ref, opts.Remote...)
-	index = buildPackageIndex(index, img, arch)
-	return remote.WriteIndex(ref, index, opts.Remote...)
+	digest, err := img.Digest()
+	if err != nil {
+		return fmt.Errorf("calculate package image digest: %w", err)
+	}
+
+	// The Distribution API has no portable compare-and-swap operation for tags.
+	// Serialize writers in this process, verify every write, and let the release
+	// workflow's component concurrency group serialize separate publisher processes.
+	unlock, err := lockPublishReference(ctx, ref.Name())
+	if err != nil {
+		return fmt.Errorf("lock package reference %s: %w", ref.Name(), err)
+	}
+	defer unlock()
+
+	platform := v1.Platform{OS: "linux", Architecture: arch}
+	immutable := isStableArtifactVersion(ref.Identifier())
+	var verificationErr error
+	for attempt := range packageWriteAttempts {
+		index, readErr := existingPackageIndex(ref, opts.Remote...)
+		if readErr != nil {
+			return fmt.Errorf("inspect existing package index %s: %w", ref.Name(), readErr)
+		}
+		existingDigest, found, inspectErr := packagePlatformDigest(index, platform.OS, platform.Architecture)
+		if inspectErr != nil {
+			return fmt.Errorf("inspect package platform %s in %s: %w", platform, ref.Name(), inspectErr)
+		}
+		if found && existingDigest == digest {
+			return nil
+		}
+		if found && immutable {
+			return fmt.Errorf("package tag conflict: %s platform %s already points to %s, refusing %s", ref.Name(), platform, existingDigest, digest)
+		}
+
+		next := buildPackageIndex(index, img, arch)
+		if writeErr := remote.WriteIndex(ref, next, opts.Remote...); writeErr != nil {
+			return fmt.Errorf("write package index %s: %w", ref.Name(), writeErr)
+		}
+		written, readErr := existingPackageIndex(ref, opts.Remote...)
+		if readErr != nil {
+			return fmt.Errorf("verify package index %s after write: %w", ref.Name(), readErr)
+		}
+		verificationErr = verifyPackageIndex(written, next)
+		if verificationErr == nil {
+			writtenDigest, writtenFound, inspectErr := packagePlatformDigest(written, platform.OS, platform.Architecture)
+			switch {
+			case inspectErr != nil:
+				verificationErr = inspectErr
+			case !writtenFound:
+				verificationErr = fmt.Errorf("written index has no %s descriptor", platform)
+			case writtenDigest != digest:
+				verificationErr = fmt.Errorf("written index %s digest is %s, want %s", platform, writtenDigest, digest)
+			}
+		}
+		if verificationErr == nil {
+			return nil
+		}
+		if attempt+1 < packageWriteAttempts {
+			if waitErr := waitPackageWriteRetry(ctx, attempt); waitErr != nil {
+				return waitErr
+			}
+		}
+	}
+	return fmt.Errorf("verify package index %s after %d attempts: %w", ref.Name(), packageWriteAttempts, verificationErr)
 }
 
 func buildPackageIndex(base v1.ImageIndex, img v1.Image, arch string) v1.ImageIndex {
 	platform := v1.Platform{OS: "linux", Architecture: arch}
-	index := mutate.RemoveManifests(base, match.Platforms(platform))
+	index := mutate.RemoveManifests(base, func(desc v1.Descriptor) bool {
+		return desc.Platform != nil && desc.Platform.OS == platform.OS && desc.Platform.Architecture == platform.Architecture
+	})
 	index = mutate.AppendManifests(index, mutate.IndexAddendum{
 		Add: img,
 		Descriptor: v1.Descriptor{
@@ -362,39 +439,133 @@ func buildPackageIndex(base v1.ImageIndex, img v1.Image, arch string) v1.ImageIn
 	return mutate.IndexMediaType(index, types.OCIImageIndex)
 }
 
-func existingPackageIndex(ref name.Reference, options ...remote.Option) v1.ImageIndex {
-	desc, err := remote.Get(ref, options...)
+func existingPackageIndex(ref name.Reference, options ...remote.Option) (v1.ImageIndex, error) {
+	desc, exists, err := remoteDescriptor(ref, options...)
 	if err != nil {
-		return empty.Index
+		return nil, err
+	}
+	if !exists {
+		return empty.Index, nil
 	}
 	switch desc.MediaType {
 	case types.OCIImageIndex, types.DockerManifestList:
 		index, err := desc.ImageIndex()
-		if err == nil {
-			return index
+		if err != nil {
+			return nil, fmt.Errorf("decode existing image index: %w", err)
 		}
+		if _, err = index.IndexManifest(); err != nil {
+			return nil, fmt.Errorf("parse existing image index: %w", err)
+		}
+		return index, nil
 	case types.OCIManifestSchema1, types.DockerManifestSchema2:
 		image, err := desc.Image()
 		if err != nil {
-			return empty.Index
+			return nil, fmt.Errorf("decode existing package image: %w", err)
 		}
 		manifest, err := deliveryManifestFromImage(image)
 		if err != nil {
-			return empty.Index
+			return nil, fmt.Errorf("read existing package manifest: %w", err)
 		}
 		platform := v1.Platform{OS: manifest.Platform.OS, Architecture: manifest.Platform.Arch}
 		if platform.OS == "" {
 			platform.OS = "linux"
 		}
+		if platform.Architecture == "" {
+			return nil, fmt.Errorf("existing package image has no architecture")
+		}
 		return mutate.AppendManifests(empty.Index, mutate.IndexAddendum{
 			Add: image,
 			Descriptor: v1.Descriptor{
-				MediaType: types.OCIManifestSchema1,
+				MediaType: desc.MediaType,
 				Platform:  &platform,
 			},
-		})
+		}), nil
+	default:
+		return nil, fmt.Errorf("existing reference has unsupported media type %q", desc.MediaType)
 	}
-	return empty.Index
+}
+
+func remoteDescriptor(ref name.Reference, options ...remote.Option) (*remote.Descriptor, bool, error) {
+	desc, err := remote.Get(ref, options...)
+	if err == nil {
+		return desc, true, nil
+	}
+	var transportErr *transport.Error
+	if errors.As(err, &transportErr) && transportErr.StatusCode == http.StatusNotFound {
+		return nil, false, nil
+	}
+	return nil, false, err
+}
+
+func packagePlatformDigest(index v1.ImageIndex, osName, architecture string) (v1.Hash, bool, error) {
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		return v1.Hash{}, false, err
+	}
+	var digest v1.Hash
+	found := false
+	for i := range manifest.Manifests {
+		descriptor := &manifest.Manifests[i]
+		if descriptor.Platform == nil || descriptor.Platform.OS != osName || descriptor.Platform.Architecture != architecture {
+			continue
+		}
+		if found {
+			return v1.Hash{}, false, fmt.Errorf("multiple descriptors found for %s/%s", osName, architecture)
+		}
+		digest = descriptor.Digest
+		found = true
+	}
+	return digest, found, nil
+}
+
+func verifyPackageIndex(actual, expected v1.ImageIndex) error {
+	expectedManifest, err := expected.IndexManifest()
+	if err != nil {
+		return fmt.Errorf("read expected index: %w", err)
+	}
+	actualManifest, err := actual.IndexManifest()
+	if err != nil {
+		return fmt.Errorf("read written index: %w", err)
+	}
+	actualDescriptors := make(map[string]int, len(actualManifest.Manifests))
+	for i := range actualManifest.Manifests {
+		actualDescriptors[packageDescriptorKey(&actualManifest.Manifests[i])]++
+	}
+	for i := range expectedManifest.Manifests {
+		key := packageDescriptorKey(&expectedManifest.Manifests[i])
+		if actualDescriptors[key] == 0 {
+			return fmt.Errorf("written index is missing descriptor %s", key)
+		}
+		actualDescriptors[key]--
+	}
+	return nil
+}
+
+func packageDescriptorKey(descriptor *v1.Descriptor) string {
+	platform := "<none>"
+	if descriptor.Platform != nil {
+		platform = strings.Join([]string{
+			descriptor.Platform.OS,
+			descriptor.Platform.Architecture,
+			descriptor.Platform.Variant,
+		}, "/")
+	}
+	return fmt.Sprintf("%s|%s|%s", platform, descriptor.MediaType, descriptor.Digest)
+}
+
+func isStableArtifactVersion(version string) bool {
+	return stableArtifactVersionPattern.MatchString(strings.TrimSpace(version))
+}
+
+func waitPackageWriteRetry(ctx context.Context, attempt int) error {
+	timer := time.NewTimer(time.Duration(attempt+1) * 100 * time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func deliveryManifestFromImage(img v1.Image) (deliveryapis.PackageManifest, error) {

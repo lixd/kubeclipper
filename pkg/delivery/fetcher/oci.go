@@ -26,6 +26,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -41,6 +42,8 @@ import (
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
+
+const fetchedFileMode = 0o644
 
 type OCIArtifactFetcher struct {
 	DryRun         bool
@@ -71,7 +74,7 @@ func (f *OCIArtifactFetcher) Fetch(ctx context.Context, plan *deliveryapis.Resol
 	return result, nil
 }
 
-func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch string, component deliveryapis.ResolvedComponent) (ComponentFetchResult, error) {
+func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch string, component deliveryapis.ResolvedComponent) (result ComponentFetchResult, err error) {
 	if component.Transport.Type != deliveryapis.TransportOCI {
 		return ComponentFetchResult{}, fmt.Errorf("unsupported transport %q for oci fetcher", component.Transport.Type)
 	}
@@ -104,6 +107,13 @@ func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch st
 		}
 		return componentResult, nil
 	}
+	lock, err := downloader.AcquirePackageLock(component.Kind, component.Name, component.Version, platformDir(osName, arch))
+	if err != nil {
+		return ComponentFetchResult{}, err
+	}
+	defer func() {
+		err = errors.Join(err, lock.Unlock())
+	}()
 	if cached, ok := loadCachedComponent(componentResult, fetchContents); ok {
 		return cached, nil
 	}
@@ -366,10 +376,7 @@ func writePackageFile(layers []containerv1.Layer, target string, content deliver
 			return fmt.Errorf("payload digest mismatch: expected %s, got %s", content.Digest, actual)
 		}
 	}
-	if err = os.MkdirAll(filepath.Dir(target), 0755); err != nil {
-		return err
-	}
-	return os.WriteFile(target, data, 0644)
+	return downloader.AtomicWriteFile(target, data, fetchedFileMode)
 }
 
 func readPackageFile(layers []containerv1.Layer, file string) ([]byte, error) {
@@ -473,5 +480,5 @@ func writeFetchedManifest(result ComponentFetchResult, contents []deliveryapis.A
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(result.ManifestPath, data, 0644)
+	return downloader.AtomicWriteFile(result.ManifestPath, data, fetchedFileMode)
 }

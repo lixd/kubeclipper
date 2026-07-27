@@ -223,6 +223,9 @@ func (d *DeployOptions) Complete() error {
 			return err
 		}
 	}
+	if transportErr := d.deployConfig.RecordInitialAgentSSHTransport(); transportErr != nil {
+		return transportErr
+	}
 
 	d.allNodes = sets.NewString().
 		Insert(d.deployConfig.ServerIPs...).

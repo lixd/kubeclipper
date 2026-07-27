@@ -20,6 +20,33 @@ package apis
 
 import "testing"
 
+func TestValidateContentFileName(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		file    string
+		wantErr bool
+	}{
+		{name: "base name", file: "configs.tar.gz"},
+		{name: "empty", wantErr: true},
+		{name: "absolute", file: "/etc/passwd", wantErr: true},
+		{name: "parent", file: "../passwd", wantErr: true},
+		{name: "nested", file: "nested/configs.tar.gz", wantErr: true},
+		{name: "windows nested", file: `nested\\configs.tar.gz`, wantErr: true},
+		{name: "dot", file: ".", wantErr: true},
+		{name: "dot dot", file: "..", wantErr: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := ValidateContentFileName(test.file)
+			if test.wantErr && err == nil {
+				t.Fatalf("ValidateContentFileName(%q) expected error", test.file)
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("ValidateContentFileName(%q) error: %v", test.file, err)
+			}
+		})
+	}
+}
+
 func TestPackageInventoryValidate(t *testing.T) {
 	catalog := NewPackageInventory("default")
 	catalog.Spec.Packages = []PackageEntry{

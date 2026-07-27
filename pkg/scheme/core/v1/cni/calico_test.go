@@ -31,6 +31,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
 func TestCalicoUninstallStepsCleanNetwork(t *testing.T) {
@@ -287,7 +288,7 @@ func TestCalicoInstallStepsWithContextAppliesResolvedChart(t *testing.T) {
 		t.Fatalf("installCalicoRelease step not found in %+v", steps)
 	}
 	gotCommand := strings.Join(installRelease.Commands[0].ShellCommand, " ")
-	wantChartPath := "/tmp/kc-downloader/packages/cni/calico/v3.31.5/linux-" + runtime.GOARCH + "/contents/charts.tgz"
+	wantChartPath := downloader.ChartPath("cni", "calico", "v3.31.5", "linux-"+runtime.GOARCH)
 	if !strings.Contains(gotCommand, wantChartPath) {
 		t.Fatalf("installCalicoRelease command = %q", gotCommand)
 	}

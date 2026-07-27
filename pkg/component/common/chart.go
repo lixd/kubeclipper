@@ -22,6 +22,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,6 +47,8 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
+
+const chartCacheFileMode = 0o644
 
 const DefaultHelmChartRepo = "kubeclipper"
 
@@ -110,19 +113,25 @@ func (i *Chart) downloadResolvedChart(ctx context.Context, opts component.Option
 	return path, nil
 }
 
-func (i *Chart) downloadHelmOCIChart(ctx context.Context, opts component.Options, content deliveryapis.ArtifactContent) (string, error) {
+func (i *Chart) downloadHelmOCIChart(ctx context.Context, opts component.Options, content deliveryapis.ArtifactContent) (chartPath string, err error) {
 	ref := strings.TrimPrefix(strings.TrimSpace(content.Transport.Ref), "oci://")
 	if ref == "" {
 		return "", fmt.Errorf("resolved helm chart ref is required")
 	}
-	chartPath := downloader.ChartPath(i.ArtifactKind(), i.PkgName, i.Version, i.ArtifactPlatform())
-	dstDir := downloader.PackageContentsDir(i.ArtifactKind(), i.PkgName, i.Version, i.ArtifactPlatform())
+	if err := downloader.ValidatePackagePath(i.ArtifactKind(), i.PkgName, i.Version, i.ArtifactPlatform()); err != nil {
+		return "", err
+	}
+	chartPath = downloader.ChartPath(i.ArtifactKind(), i.PkgName, i.Version, i.ArtifactPlatform())
 	if opts.DryRun {
 		return chartPath, nil
 	}
-	if err := os.MkdirAll(dstDir, 0755); err != nil {
+	lock, err := downloader.AcquirePackageLock(i.ArtifactKind(), i.PkgName, i.Version, i.ArtifactPlatform())
+	if err != nil {
 		return "", err
 	}
+	defer func() {
+		err = errors.Join(err, lock.Unlock())
+	}()
 	return chartPath, pullHelmOCIChartArchive(ctx, ref, i.Version, content.Transport.Digest, chartPath)
 }
 
@@ -161,23 +170,15 @@ func pullHelmOCIChartArchive(ctx context.Context, ref, version, digest, chartPat
 		if mediaType != types.MediaType(deliveryapis.MediaTypeHelmChartLayer) {
 			continue
 		}
-		if err = os.MkdirAll(filepath.Dir(chartPath), 0755); err != nil {
-			return err
-		}
 		reader, err := layer.Compressed()
 		if err != nil {
 			return err
 		}
 		defer reader.Close()
-		writer, err := os.OpenFile(chartPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
-		if err != nil {
-			return err
-		}
-		if _, err = io.Copy(writer, reader); err != nil {
-			writer.Close()
-			return err
-		}
-		if err = writer.Close(); err != nil {
+		if err := downloader.AtomicWrite(chartPath, chartCacheFileMode, func(writer io.Writer) error {
+			_, copyErr := io.Copy(writer, reader)
+			return copyErr
+		}); err != nil {
 			return err
 		}
 		return writeHelmChartSource(chartPath, ref, version, digest)
@@ -225,7 +226,7 @@ func writeHelmChartSource(chartPath, ref, version, digest string) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(helmChartSourcePath(chartPath), data, 0644)
+	return downloader.AtomicWriteFile(helmChartSourcePath(chartPath), data, chartCacheFileMode)
 }
 
 func fileSHA256(path string) (string, error) {

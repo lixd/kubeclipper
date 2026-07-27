@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,9 +123,12 @@ type JoinOptions struct {
 	nodeIPDetect string
 	parseAgent   options.Agents
 
-	sshConfig       *sshutils.SSH
-	serverSSHConfig *sshutils.SSH
-	sshRunner       func(*sshutils.SSH, string, string) (sshutils.Result, error)
+	sshConfig          *sshutils.SSH
+	serverSSHConfig    *sshutils.SSH
+	sshRunner          func(*sshutils.SSH, string, string) (sshutils.Result, error)
+	updateDeployConfig func(context.Context, *kc.Client, *options.DeployConfig, bool) error
+	newSSHTransportID  func() string
+	preJoinState       *joinDeployState
 
 	joinConfigPath string
 
@@ -143,6 +147,12 @@ type JoinOptions struct {
 	certCopy                  func(*sshutils.SSH, string, []string, string, os.FileMode) error
 }
 
+type joinDeployState struct {
+	agents         options.Agents
+	sshTransports  options.SSHTransports
+	agentSSHConfig *sshutils.SSH
+}
+
 type JoinConfig struct {
 	Agents          options.Agents `json:"agents,omitempty" yaml:"agents,omitempty"`
 	IPDetect        string         `json:"ipDetect,omitempty" yaml:"ipDetect,omitempty"`
@@ -154,13 +164,17 @@ type JoinConfig struct {
 
 func NewJoinOptions(streams options.IOStreams) *JoinOptions {
 	return &JoinOptions{
-		cliOpts:         options.NewCliOptions(),
-		IOStreams:       streams,
-		deployConfig:    options.NewDeployOptions(),
-		ipDetect:        autodetection.MethodFirst,
-		sshConfig:       sshutils.NewSSH(),
-		serverSSHConfig: &sshutils.SSH{},
-		sshRunner:       sshutils.SSHCmdWithSudo,
+		cliOpts:            options.NewCliOptions(),
+		IOStreams:          streams,
+		deployConfig:       options.NewDeployOptions(),
+		ipDetect:           autodetection.MethodFirst,
+		sshConfig:          sshutils.NewSSH(),
+		serverSSHConfig:    &sshutils.SSH{},
+		sshRunner:          sshutils.SSHCmdWithSudo,
+		updateDeployConfig: deploy.UpdateDeployConfig,
+		newSSHTransportID: func() string {
+			return "join-" + uuid.New().String()
+		},
 		packageRegistryDownload: func(sshConfig *sshutils.SSH, host, localPath, remotePath string) error {
 			return sshConfig.DownloadSudo(host, localPath, remotePath)
 		},
@@ -335,9 +349,8 @@ func (c *JoinOptions) Complete() error {
 	} else {
 		c.deployConfig.NodeIPDetect = c.nodeIPDetect
 	}
-	// When joining agent nodes, the corresponding pk-file or password is not saved,
-	// which causes operational complexity but avoids problems caused by different pk-file or password
-	// between nodes
+	// Each join persists its transport under a per-agent reference so later joins
+	// cannot replace the credentials required to clean existing nodes.
 	if c.sshConfig != nil {
 		if c.sshConfig.Port == 0 {
 			c.sshConfig.Port = sshutils.NewSSH().Port
@@ -445,7 +458,7 @@ func (c *JoinOptions) RunJoinNode() error {
 	}
 	if c.rotatePackageRegistry {
 		if err := c.updateExistingPackageRegistryConfigs(func() error {
-			return deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true)
+			return c.updateDeployConfig(context.Background(), c.client, c.deployConfig, true)
 		}); err != nil {
 			return c.failJoinWithRollbackAndConfig(errors.Wrap(err, "update existing package registry config"))
 		}
@@ -532,7 +545,7 @@ type packageRegistryTarget struct {
 	sshConfig  *sshutils.SSH
 }
 
-func (c *JoinOptions) existingPackageRegistryTargets() []packageRegistryTarget {
+func (c *JoinOptions) existingPackageRegistryTargets() ([]packageRegistryTarget, error) {
 	servers := make(map[string]struct{}, len(c.deployConfig.ServerIPs))
 	targets := make([]packageRegistryTarget, 0, len(c.deployConfig.ServerIPs)+len(c.deployConfig.Agents))
 	for _, host := range c.deployConfig.ServerIPs {
@@ -545,15 +558,21 @@ func (c *JoinOptions) existingPackageRegistryTargets() []packageRegistryTarget {
 		if c.parseAgent.Exists(host) {
 			continue
 		}
-		sshConfig := c.deployConfig.AgentSSHConfig
-		if _, serverLocal := servers[host]; serverLocal || sshConfig == nil {
-			sshConfig = c.serverSSHConfig
+		if _, serverLocal := servers[host]; serverLocal {
+			targets = append(targets, packageRegistryTarget{
+				host: host, remotePath: deliveryregistry.AgentConfigPath, sshConfig: c.serverSSHConfig,
+			})
+			continue
+		}
+		_, sshConfig, err := c.deployConfig.SSHTransportForAgent(host)
+		if err != nil {
+			return nil, err
 		}
 		targets = append(targets, packageRegistryTarget{
 			host: host, remotePath: deliveryregistry.AgentConfigPath, sshConfig: sshConfig,
 		})
 	}
-	return targets
+	return targets, nil
 }
 
 func (c *JoinOptions) updateExistingPackageRegistryConfigs(commit func() error) error {
@@ -563,7 +582,10 @@ func (c *JoinOptions) updateExistingPackageRegistryConfigs(commit func() error) 
 	}
 	defer os.RemoveAll(backupDir)
 
-	targets := c.existingPackageRegistryTargets()
+	targets, err := c.existingPackageRegistryTargets()
+	if err != nil {
+		return errors.Wrap(err, "resolve existing node SSH transports")
+	}
 	backups := make([]string, len(targets))
 	for index, target := range targets {
 		backupPath := filepath.Join(backupDir, fmt.Sprintf("target-%d.json", index))
@@ -627,26 +649,19 @@ func (c *JoinOptions) restorePackageRegistryConfigs(targets []packageRegistryTar
 }
 
 func (c *JoinOptions) runJoinAgentNode() error {
-	for ip := range c.parseAgent {
-		metadata := c.parseAgent[ip]
-		metadata.AgentID = uuid.New().String()
-		c.parseAgent[ip] = metadata
-		if c.deployConfig.Agents == nil {
-			c.deployConfig.Agents = make(options.Agents)
-		}
-		c.deployConfig.Agents.Add(ip, metadata)
+	if err := c.planJoinedAgents(); err != nil {
+		return err
 	}
 	// Persist the cleanup inventory before installing anything. If the kcctl
 	// process is interrupted after an agent starts, force-clean still knows
 	// both the host and the transport that were used to reach it.
-	c.deployConfig.AgentSSHConfig = agentSSHConfigForPersistence(c.sshConfig)
 	packageRegistry := c.deployConfig.PackageRegistry
 	if c.rotatePackageRegistry {
 		c.deployConfig.PackageRegistry = c.deployedPackageRegistry
 	}
-	if err := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
+	if err := c.updateDeployConfig(context.Background(), c.client, c.deployConfig, true); err != nil {
 		c.deployConfig.PackageRegistry = packageRegistry
-		return errors.Wrap(err, "persist planned agents in deploy config failed")
+		return c.failPlannedJoinPersistence(errors.Wrap(err, "persist planned agents in deploy config failed"))
 	}
 	c.deployConfig.PackageRegistry = packageRegistry
 
@@ -663,28 +678,109 @@ func (c *JoinOptions) runJoinAgentNode() error {
 }
 
 func agentSSHConfigForPersistence(source *sshutils.SSH) *sshutils.SSH {
+	return options.SSHConfigForPersistence(source)
+}
+
+func cloneSSHConfig(source *sshutils.SSH) *sshutils.SSH {
 	if source == nil {
 		return nil
 	}
-	persisted := *source
-	// SSH.connect caches the contents of PkFile in PrivateKey. Retain the
-	// reusable path for cleanup without copying that private key into the
-	// deploy ConfigMap and local deploy-config.
-	if persisted.PkFile != "" {
-		persisted.PrivateKey = ""
+	cloned := *source
+	if source.ConnectionTimeout != nil {
+		timeout := *source.ConnectionTimeout
+		cloned.ConnectionTimeout = &timeout
 	}
-	return &persisted
+	return &cloned
+}
+
+func cloneAgents(source options.Agents) options.Agents {
+	cloned := make(options.Agents, len(source))
+	maps.Copy(cloned, source)
+	return cloned
+}
+
+func cloneSSHTransports(source options.SSHTransports) options.SSHTransports {
+	cloned := make(options.SSHTransports, len(source))
+	for id, transport := range source {
+		cloned[id] = cloneSSHConfig(transport)
+	}
+	return cloned
+}
+
+func (c *JoinOptions) capturePreJoinState() error {
+	if err := c.deployConfig.NormalizeSSHTransports(); err != nil {
+		return err
+	}
+	c.preJoinState = &joinDeployState{
+		agents:         cloneAgents(c.deployConfig.Agents),
+		sshTransports:  cloneSSHTransports(c.deployConfig.SSHTransports),
+		agentSSHConfig: cloneSSHConfig(c.deployConfig.AgentSSHConfig),
+	}
+	return nil
+}
+
+func (c *JoinOptions) restorePreJoinState() {
+	if c.preJoinState == nil {
+		for ip := range c.parseAgent {
+			delete(c.deployConfig.Agents, ip)
+		}
+		return
+	}
+	c.deployConfig.Agents = cloneAgents(c.preJoinState.agents)
+	c.deployConfig.SSHTransports = cloneSSHTransports(c.preJoinState.sshTransports)
+	c.deployConfig.AgentSSHConfig = cloneSSHConfig(c.preJoinState.agentSSHConfig)
+}
+
+func (c *JoinOptions) planJoinedAgents() error {
+	if err := c.capturePreJoinState(); err != nil {
+		return errors.Wrap(err, "capture pre-join SSH transport state")
+	}
+	if c.sshConfig == nil {
+		return errors.New("join SSH transport is empty")
+	}
+	if c.newSSHTransportID == nil {
+		return errors.New("join SSH transport ID generator is empty")
+	}
+	transportID := c.newSSHTransportID()
+	if strings.TrimSpace(transportID) == "" {
+		return errors.New("generated join SSH transport ID is empty")
+	}
+	if _, exists := c.deployConfig.SSHTransports[transportID]; exists {
+		return fmt.Errorf("generated join SSH transport ID %q already exists", transportID)
+	}
+	c.deployConfig.SSHTransports[transportID] = agentSSHConfigForPersistence(c.sshConfig)
+	if c.deployConfig.Agents == nil {
+		c.deployConfig.Agents = make(options.Agents)
+	}
+	for ip := range c.parseAgent {
+		metadata := c.parseAgent[ip]
+		metadata.AgentID = uuid.New().String()
+		metadata.SSHTransportID = transportID
+		c.parseAgent[ip] = metadata
+		c.deployConfig.Agents.Add(ip, metadata)
+	}
+	return nil
+}
+
+func (c *JoinOptions) failPlannedJoinPersistence(joinErr error) error {
+	c.restorePreJoinState()
+	if c.rotatePackageRegistry {
+		c.deployConfig.PackageRegistry = c.deployedPackageRegistry
+	}
+	persistErr := c.updateDeployConfig(context.Background(), c.client, c.deployConfig, true)
+	if persistErr != nil {
+		return errors.Wrapf(joinErr, "restore pre-join deploy config failed: %v", persistErr)
+	}
+	return joinErr
 }
 
 func (c *JoinOptions) failJoinWithRollbackAndConfig(joinErr error) error {
 	rollbackErr := c.rollbackJoinedAgents()
-	for ip := range c.parseAgent {
-		delete(c.deployConfig.Agents, ip)
-	}
+	c.restorePreJoinState()
 	if c.rotatePackageRegistry {
 		c.deployConfig.PackageRegistry = c.deployedPackageRegistry
 	}
-	persistErr := deploy.UpdateDeployConfig(context.Background(), c.client, c.deployConfig, true)
+	persistErr := c.updateDeployConfig(context.Background(), c.client, c.deployConfig, true)
 	if rollbackErr != nil || persistErr != nil {
 		return errors.Wrapf(joinErr, "join agent failed; rollback error: %v; cleanup inventory update error: %v", rollbackErr, persistErr)
 	}

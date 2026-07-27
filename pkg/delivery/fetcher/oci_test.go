@@ -40,6 +40,19 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
+func TestMain(m *testing.M) {
+	cacheDir, err := os.MkdirTemp("", "kubeclipper-fetcher-test-")
+	if err != nil {
+		panic(err)
+	}
+	if err = os.Setenv(downloader.CacheDirEnv, cacheDir); err != nil {
+		panic(err)
+	}
+	code := m.Run()
+	_ = os.RemoveAll(cacheDir)
+	os.Exit(code)
+}
+
 func TestOCIReference(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
@@ -167,10 +180,10 @@ func TestOCIArtifactFetcherDryRun(t *testing.T) {
 	if result.Components[0].OS != deliveryapis.DefaultPackageOS {
 		t.Fatalf("component os = %q", result.Components[0].OS)
 	}
-	if got := result.Components[0].Files[deliveryapis.ContentCharts]; got != "/tmp/kc-downloader/packages/cni/calico/v3.31.5/linux-amd64/contents/charts.tgz" {
+	if got := result.Components[0].Files[deliveryapis.ContentCharts]; got != downloader.ChartPath("cni", "calico", "v3.31.5", "linux-amd64") {
 		t.Fatalf("chart path = %q", got)
 	}
-	if result.Components[0].BaseDir != "/tmp/kc-downloader/packages/cni/calico/v3.31.5/linux-amd64" {
+	if result.Components[0].BaseDir != downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64") {
 		t.Fatalf("base dir = %q", result.Components[0].BaseDir)
 	}
 }

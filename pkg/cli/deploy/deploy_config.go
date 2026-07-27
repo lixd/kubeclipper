@@ -51,6 +51,9 @@ func GetDeployConfig(ctx context.Context, cli *kc.Client, dump bool) (*options.D
 	if dc.Agents == nil {
 		dc.Agents = make(options.Agents)
 	}
+	if err = dc.NormalizeSSHTransports(); err != nil {
+		return nil, errors.WithMessage(err, "normalize deploy-config SSH transports")
+	}
 
 	if !dump {
 		if err = dc.Write(); err != nil {
@@ -62,6 +65,9 @@ func GetDeployConfig(ctx context.Context, cli *kc.Client, dump bool) (*options.D
 
 // UpdateDeployConfig update online deploy config and dump to local if we need.
 func UpdateDeployConfig(ctx context.Context, cli *kc.Client, deployConfig *options.DeployConfig, dump bool) error {
+	if err := deployConfig.NormalizeSSHTransports(); err != nil {
+		return errors.WithMessage(err, "normalize deploy-config SSH transports")
+	}
 	if dump {
 		if err := deployConfig.Write(); err != nil {
 			return errors.WithMessage(err, "dump local deploy config")

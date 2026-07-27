@@ -30,12 +30,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	containerregistry "github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
@@ -47,6 +52,21 @@ func TestRepositoryRef(t *testing.T) {
 	want := "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0"
 	if got != want {
 		t.Fatalf("repositoryRef() = %q, want %q", got, want)
+	}
+}
+
+func TestIsStableArtifactVersion(t *testing.T) {
+	tests := map[string]bool{
+		"v2.0.0":      true,
+		"2.2.4":       true,
+		"v1":          true,
+		"latest":      false,
+		"release-2.0": false,
+	}
+	for version, want := range tests {
+		if got := isStableArtifactVersion(version); got != want {
+			t.Errorf("isStableArtifactVersion(%q) = %t, want %t", version, got, want)
+		}
 	}
 }
 
@@ -109,6 +129,170 @@ func TestBuildPackageIndexReplacesSameArch(t *testing.T) {
 	}
 	if !archs["amd64"] || !archs["arm64"] {
 		t.Fatalf("archs = %+v, want amd64 and arm64", archs)
+	}
+}
+
+func TestExistingPackageIndexTreatsOnlyNotFoundAsEmpty(t *testing.T) {
+	t.Run("not found", func(t *testing.T) {
+		server := httptest.NewServer(containerregistry.New())
+		defer server.Close()
+		registry := strings.TrimPrefix(server.URL, "http://")
+		config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
+		ref, options := testRemoteReference(t, registry+"/team/package:v1.0.0", config)
+
+		index, err := existingPackageIndex(ref, options...)
+		if err != nil {
+			t.Fatalf("existingPackageIndex() 404 error = %v", err)
+		}
+		manifest, err := index.IndexManifest()
+		if err != nil {
+			t.Fatalf("IndexManifest() error = %v", err)
+		}
+		if len(manifest.Manifests) != 0 {
+			t.Fatalf("404 index manifest count = %d, want 0", len(manifest.Manifests))
+		}
+	})
+
+	t.Run("forbidden", func(t *testing.T) {
+		var manifestWrites atomic.Int64
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/v2/" {
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			if r.Method == http.MethodPut {
+				manifestWrites.Add(1)
+			}
+			http.Error(w, "forbidden", http.StatusForbidden)
+		}))
+		defer server.Close()
+		registry := strings.TrimPrefix(server.URL, "http://")
+		config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
+		ref, options := testRemoteReference(t, registry+"/team/package:v1.0.0", config)
+
+		if _, err := existingPackageIndex(ref, options...); err == nil || !strings.Contains(err.Error(), "403") {
+			t.Fatalf("existingPackageIndex() forbidden error = %v", err)
+		}
+		if err := pushPackageIndex(t.Context(), ref.Name(), testPackageImage(t, "forbidden"), "amd64", config); err == nil || !strings.Contains(err.Error(), "403") {
+			t.Fatalf("pushPackageIndex() forbidden error = %v", err)
+		}
+		if got := manifestWrites.Load(); got != 0 {
+			t.Fatalf("pushPackageIndex() wrote %d manifests after a forbidden read", got)
+		}
+	})
+}
+
+func TestPushPackageIndexStableTagIsIdempotentAndRejectsConflict(t *testing.T) {
+	var manifestWrites atomic.Int64
+	registryHandler := containerregistry.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/manifests/") {
+			manifestWrites.Add(1)
+		}
+		registryHandler.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	registry := strings.TrimPrefix(server.URL, "http://")
+	config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
+	target := registry + "/kubeclipper/packages/cri/containerd:2.2.4"
+	firstImage := testPackageImage(t, "first")
+	firstDigest, err := firstImage.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = pushPackageIndex(t.Context(), target, firstImage, "amd64", config); err != nil {
+		t.Fatalf("first pushPackageIndex() error = %v", err)
+	}
+	writesAfterFirstPush := manifestWrites.Load()
+	if writesAfterFirstPush == 0 {
+		t.Fatal("first package push did not write a manifest")
+	}
+	if err = pushPackageIndex(t.Context(), target, firstImage, "amd64", config); err != nil {
+		t.Fatalf("idempotent pushPackageIndex() error = %v", err)
+	}
+	if got := manifestWrites.Load(); got != writesAfterFirstPush {
+		t.Fatalf("idempotent push wrote manifests: got %d writes, want %d", got, writesAfterFirstPush)
+	}
+
+	conflictingImage := testPackageImage(t, "conflict")
+	err = pushPackageIndex(t.Context(), target, conflictingImage, "amd64", config)
+	if err == nil || !strings.Contains(err.Error(), "package tag conflict") {
+		t.Fatalf("conflicting pushPackageIndex() error = %v", err)
+	}
+	if got := manifestWrites.Load(); got != writesAfterFirstPush {
+		t.Fatalf("conflicting push wrote manifests: got %d writes, want %d", got, writesAfterFirstPush)
+	}
+
+	ref, options := testRemoteReference(t, target, config)
+	index, err := existingPackageIndex(ref, options...)
+	if err != nil {
+		t.Fatalf("existingPackageIndex() error = %v", err)
+	}
+	actualDigest, found, err := packagePlatformDigest(index, "linux", "amd64")
+	if err != nil {
+		t.Fatalf("packagePlatformDigest() error = %v", err)
+	}
+	if !found || actualDigest != firstDigest {
+		t.Fatalf("published amd64 digest = %s, found=%t, want %s", actualDigest, found, firstDigest)
+	}
+}
+
+func TestPushPackageIndexConcurrentArchitectures(t *testing.T) {
+	server := httptest.NewServer(containerregistry.New())
+	defer server.Close()
+	registry := strings.TrimPrefix(server.URL, "http://")
+	config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
+	target := registry + "/kubeclipper/packages/k8s/k8s:v1.36.1"
+	images := map[string]v1.Image{
+		"amd64": testPackageImage(t, "amd64"),
+		"arm64": testPackageImage(t, "arm64"),
+	}
+
+	start := make(chan struct{})
+	errorsCh := make(chan error, len(images))
+	var wg sync.WaitGroup
+	for arch, img := range images {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			errorsCh <- pushPackageIndex(t.Context(), target, img, arch, config)
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errorsCh)
+	for err := range errorsCh {
+		if err != nil {
+			t.Fatalf("concurrent pushPackageIndex() error = %v", err)
+		}
+	}
+
+	ref, options := testRemoteReference(t, target, config)
+	index, err := existingPackageIndex(ref, options...)
+	if err != nil {
+		t.Fatalf("existingPackageIndex() error = %v", err)
+	}
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		t.Fatalf("IndexManifest() error = %v", err)
+	}
+	if len(manifest.Manifests) != len(images) {
+		t.Fatalf("manifest count = %d, want %d", len(manifest.Manifests), len(images))
+	}
+	for arch, img := range images {
+		want, err := img.Digest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, found, err := packagePlatformDigest(index, "linux", arch)
+		if err != nil {
+			t.Fatalf("packagePlatformDigest(%s) error = %v", arch, err)
+		}
+		if !found || got != want {
+			t.Fatalf("platform %s digest = %s, found=%t, want %s", arch, got, found, want)
+		}
 	}
 }
 
@@ -305,6 +489,77 @@ func TestHelmChartImageUsesHelmOCIMediaTypes(t *testing.T) {
 	}
 }
 
+func TestPublishHelmChartStableTagIsIdempotentAndRejectsConflict(t *testing.T) {
+	var manifestWrites atomic.Int64
+	registryHandler := containerregistry.New()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/manifests/") {
+			manifestWrites.Add(1)
+		}
+		registryHandler.ServeHTTP(w, r)
+	}))
+	defer server.Close()
+	registry := strings.TrimPrefix(server.URL, "http://")
+	config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
+	chart := filepath.Join(t.TempDir(), "tigera-operator-v3.31.5.tgz")
+	if err := writeTestArchive(chart, map[string]string{
+		"tigera-operator/Chart.yaml":  "apiVersion: v2\nname: tigera-operator\nversion: v3.31.5\n",
+		"tigera-operator/values.yaml": "installation: {}\n",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	request := HelmChartPublishRequest{
+		ChartPath:        chart,
+		Registry:         registry,
+		RepositoryPrefix: deliveryapis.ChartRepositoryPrefix,
+		Name:             "tigera-operator",
+		RegistryConfig:   config,
+	}
+
+	first, err := PublishHelmChart(request)
+	if err != nil {
+		t.Fatalf("first PublishHelmChart() error = %v", err)
+	}
+	writesAfterFirstPush := manifestWrites.Load()
+	second, err := PublishHelmChart(request)
+	if err != nil {
+		t.Fatalf("idempotent PublishHelmChart() error = %v", err)
+	}
+	if second.Digest != first.Digest {
+		t.Fatalf("idempotent chart digest = %s, want %s", second.Digest, first.Digest)
+	}
+	if got := manifestWrites.Load(); got != writesAfterFirstPush {
+		t.Fatalf("idempotent chart push wrote manifests: got %d writes, want %d", got, writesAfterFirstPush)
+	}
+
+	conflictingChart := filepath.Join(t.TempDir(), "tigera-operator-conflict.tgz")
+	if err = writeTestArchive(conflictingChart, map[string]string{
+		"tigera-operator/Chart.yaml":  "apiVersion: v2\nname: tigera-operator\nversion: v3.31.5\n",
+		"tigera-operator/values.yaml": "installation:\n  enabled: false\n",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	request.ChartPath = conflictingChart
+	if _, err = PublishHelmChart(request); err == nil || !strings.Contains(err.Error(), "helm chart tag conflict") {
+		t.Fatalf("conflicting PublishHelmChart() error = %v", err)
+	}
+	if got := manifestWrites.Load(); got != writesAfterFirstPush {
+		t.Fatalf("conflicting chart push wrote manifests: got %d writes, want %d", got, writesAfterFirstPush)
+	}
+
+	craneOptions, err := config.CraneOptions(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := crane.Digest(first.Ref+":"+first.Version, craneOptions...)
+	if err != nil {
+		t.Fatalf("read published chart digest: %v", err)
+	}
+	if actual != first.Digest {
+		t.Fatalf("published chart digest = %s, want %s", actual, first.Digest)
+	}
+}
+
 func TestInspectPackageContentsRejectsInvalidArchivePayload(t *testing.T) {
 	root := t.TempDir()
 	base := filepath.Join(root, "containerd", "2.2.4", "amd64")
@@ -465,6 +720,36 @@ func writePayloadArchive(path, payloadName string) error {
 	return writeTestArchive(path, map[string]string{
 		"payload/" + payloadName + ".txt": payloadName,
 	})
+}
+
+func testPackageImage(t *testing.T, label string) v1.Image {
+	t.Helper()
+	img := mutate.MediaType(empty.Image, types.OCIManifestSchema1)
+	img = mutate.ConfigMediaType(img, types.OCIConfigJSON)
+	config, err := img.ConfigFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	config.Config.Labels = map[string]string{"test.kubeclipper.io/content": label}
+	img, err = mutate.ConfigFile(img, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return img
+}
+
+func testRemoteReference(t *testing.T, target string, config *deliveryregistry.Config) (name.Reference, []remote.Option) {
+	t.Helper()
+	craneOptions, err := config.CraneOptions(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedOptions := crane.GetOptions(craneOptions...)
+	ref, err := name.ParseReference(target, parsedOptions.Name...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ref, parsedOptions.Remote
 }
 
 func testBasicAuth(username, password string, next http.Handler) http.Handler {

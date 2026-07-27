@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
 type ArtifactFetcher interface {
@@ -101,6 +102,9 @@ func validatePlan(plan *deliveryapis.ResolvedArtifactPlan) error {
 		if component.Kind == "" || component.Name == "" || component.Version == "" {
 			return fmt.Errorf("resolved artifact plan component[%d] identity is required", i)
 		}
+		if err := downloader.ValidatePackagePath(component.Kind, component.Name, component.Version, platformDir(plan.OS, plan.Arch)); err != nil {
+			return fmt.Errorf("resolved artifact plan component[%d]: %w", i, err)
+		}
 		key := component.Kind + "/" + component.Name + ":" + component.Version
 		if _, ok := seen[key]; ok {
 			return fmt.Errorf("resolved artifact plan contains duplicate component %s", key)
@@ -133,6 +137,9 @@ func validateComponentContents(componentIndex int, contents []deliveryapis.Artif
 		}
 		if _, ok := seen[content.Name]; ok {
 			return fmt.Errorf("resolved artifact plan component[%d] duplicate content %q", componentIndex, content.Name)
+		}
+		if err := deliveryapis.ValidateContentFileName(contentFile(content)); err != nil {
+			return fmt.Errorf("resolved artifact plan component[%d] content[%d]: %w", componentIndex, j, err)
 		}
 		seen[content.Name] = struct{}{}
 	}

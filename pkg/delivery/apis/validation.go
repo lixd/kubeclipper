@@ -20,6 +20,7 @@ package apis
 
 import (
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -140,6 +141,9 @@ func validateContentProfile(profile string, contents []ArtifactContent) error {
 		if content.File == "" {
 			return fmt.Errorf("content %q file is required", content.Name)
 		}
+		if err := ValidateContentFileName(content.File); err != nil {
+			return fmt.Errorf("content %q: %w", content.Name, err)
+		}
 		if content.Digest != "" && !digestRegexp.MatchString(content.Digest) {
 			return fmt.Errorf("content %q digest must be sha256:<64 hex>", content.Name)
 		}
@@ -164,6 +168,20 @@ func validateContentProfile(profile string, contents []ArtifactContent) error {
 			return nil
 		}
 		return fmt.Errorf("content profile %q requires %q or %q", profile, ContentConfigs, ContentCharts)
+	}
+	return nil
+}
+
+// ValidateContentFileName confines package payloads to the artifact contents
+// directory. Package publishers already produce base names, so accepting path
+// components here would only create traversal and platform ambiguity.
+func ValidateContentFileName(file string) error {
+	if file == "" {
+		return fmt.Errorf("file is required")
+	}
+	if filepath.IsAbs(file) || file == "." || file == ".." ||
+		filepath.Base(file) != file || strings.ContainsAny(file, `/\\`) {
+		return fmt.Errorf("file %q must be a relative base name", file)
 	}
 	return nil
 }

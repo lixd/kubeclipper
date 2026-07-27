@@ -28,7 +28,9 @@ permissions:
   packages: write
 
 concurrency:
-  group: publish-${{ inputs.component }}-${{ inputs.version }}-${{ github.ref }}
+  # Serialize every writer for one target component/version even when a retry
+  # comes from a different ref. OCI Distribution tags have no portable CAS.
+  group: publish-${{ inputs.registry_prefix }}-${{ inputs.component }}-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:

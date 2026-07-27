@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"sort"
 
 	"github.com/pkg/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -65,21 +66,34 @@ const (
 
 type CleanOptions struct {
 	options.IOStreams
-	cliOpts      *options.CliOptions
-	deployConfig *options.DeployConfig
-	client       *kc.Client
-	cleanAll     bool
-	force        bool
+	cliOpts            *options.CliOptions
+	deployConfig       *options.DeployConfig
+	client             *kc.Client
+	cleanAll           bool
+	force              bool
+	sudoPreCheck       func(string, *sshutils.SSH, options.IOStreams, []string) bool
+	remoteCleanup      func(*sshutils.SSH, []string, string, []string) error
+	localConfigCleanup func() error
 
 	allNodes []string
 }
 
+type sshTransportGroup struct {
+	id        string
+	sshConfig *sshutils.SSH
+	hosts     []string
+}
+
 func NewCleanOptions(streams options.IOStreams) *CleanOptions {
-	return &CleanOptions{
-		IOStreams:    streams,
-		cliOpts:      options.NewCliOptions(),
-		deployConfig: options.NewDeployOptions(),
+	o := &CleanOptions{
+		IOStreams:     streams,
+		cliOpts:       options.NewCliOptions(),
+		deployConfig:  options.NewDeployOptions(),
+		sudoPreCheck:  sudo.PreCheck,
+		remoteCleanup: runRemoteCleanup,
 	}
+	o.localConfigCleanup = o.cleanKcConfig
+	return o
 }
 
 func NewCmdClean(streams options.IOStreams) *cobra.Command {
@@ -124,7 +138,7 @@ func (c *CleanOptions) Complete() error {
 		}
 
 		// deploy-config Complete
-		c.deployConfig, err = deploy.GetDeployConfig(context.Background(), c.client, false)
+		c.deployConfig, err = deploy.GetDeployConfig(context.Background(), c.client, true)
 		if err != nil {
 			return errors.WithMessage(err, "get online deploy-config failed")
 		}
@@ -132,15 +146,31 @@ func (c *CleanOptions) Complete() error {
 		if err != nil {
 			return errors.WithMessage(err, "get online node inventory for clean failed")
 		}
-		if err := mergeOnlineAgents(c.deployConfig, nodes); err != nil {
+		if err := mergeAndPersistOnlineAgents(c.deployConfig, nodes); err != nil {
 			return err
 		}
+	}
+	if err := c.deployConfig.NormalizeSSHTransports(); err != nil {
+		return errors.WithMessage(err, "normalize clean SSH transports")
+	}
+	if _, err := c.agentTransportGroups(true); err != nil {
+		return err
 	}
 
 	c.allNodes = sets.NewString().
 		Insert(c.deployConfig.ServerIPs...).
 		Insert(c.deployConfig.Agents.ListIP()...).
 		List()
+	return nil
+}
+
+func mergeAndPersistOnlineAgents(deployConfig *options.DeployConfig, nodes *kc.NodesList) error {
+	if err := mergeOnlineAgents(deployConfig, nodes); err != nil {
+		return err
+	}
+	if err := deployConfig.Write(); err != nil {
+		return errors.WithMessage(err, "persist merged node inventory for force clean")
+	}
 	return nil
 }
 
@@ -167,38 +197,70 @@ func mergeOnlineAgents(deployConfig *options.DeployConfig, nodes *kc.NodesList) 
 }
 
 func (c *CleanOptions) preCheck() bool {
-	serverOK := sudo.PreCheck("server sudo", c.deployConfig.SSHConfig, c.IOStreams, c.deployConfig.ServerIPs)
-	_, joinedAgents := c.agentHostsByTransport()
-	agentOK := sudo.PreCheck("agent sudo", c.agentSSHConfig(), c.IOStreams, joinedAgents)
-	return serverOK && agentOK
+	ok := true
+	if len(c.deployConfig.ServerIPs) > 0 {
+		ok = c.sudoPreCheck("server sudo", c.deployConfig.SSHConfig, c.IOStreams, c.deployConfig.ServerIPs) && ok
+	}
+	groups, err := c.agentTransportGroups(true)
+	if err != nil {
+		logger.Error(err)
+		return false
+	}
+	for _, group := range groups {
+		name := fmt.Sprintf("agent sudo (%s)", group.id)
+		ok = c.sudoPreCheck(name, group.sshConfig, c.IOStreams, group.hosts) && ok
+	}
+	return ok
 }
 
-func (c *CleanOptions) agentHostsByTransport() (serverAgents, joinedAgents []string) {
+func (c *CleanOptions) agentTransportGroups(includeServerAgents bool) ([]sshTransportGroup, error) {
+	if err := c.deployConfig.NormalizeSSHTransports(); err != nil {
+		return nil, errors.WithMessage(err, "normalize agent SSH transports")
+	}
 	servers := sets.NewString(c.deployConfig.ServerIPs...)
+	grouped := make(map[string]*sshTransportGroup)
 	for _, ip := range c.deployConfig.Agents.ListIP() {
-		if servers.Has(ip) {
-			serverAgents = append(serverAgents, ip)
-		} else {
-			joinedAgents = append(joinedAgents, ip)
+		if !includeServerAgents && servers.Has(ip) {
+			continue
 		}
+		id, sshConfig, err := c.deployConfig.SSHTransportForAgent(ip)
+		if err != nil {
+			return nil, err
+		}
+		group := grouped[id]
+		if group == nil {
+			group = &sshTransportGroup{id: id, sshConfig: sshConfig}
+			grouped[id] = group
+		}
+		group.hosts = append(group.hosts, ip)
 	}
-	return serverAgents, joinedAgents
-}
-
-func (c *CleanOptions) agentSSHConfig() *sshutils.SSH {
-	if c.deployConfig.AgentSSHConfig != nil {
-		return c.deployConfig.AgentSSHConfig
+	ids := make([]string, 0, len(grouped))
+	for id := range grouped {
+		ids = append(ids, id)
 	}
-	return c.deployConfig.SSHConfig
+	sort.Strings(ids)
+	groups := make([]sshTransportGroup, 0, len(ids))
+	for _, id := range ids {
+		group := grouped[id]
+		sort.Strings(group.hosts)
+		groups = append(groups, *group)
+	}
+	return groups, nil
 }
 
 func (c *CleanOptions) RunClean() error {
 	if c.cleanAll {
 		if err := utilerrors.NewAggregate([]error{
 			c.cleanKcAgent(), c.cleanKcServer(), c.cleanKcConsole(),
-			c.cleanBinaries(), c.cleanKcEnv(), c.cleanKcConfig(),
+			c.cleanBinaries(), c.cleanKcEnv(),
 		}); err != nil {
 			return errors.Wrap(err, "clean kubeclipper platform failed")
+		}
+		// Keep the local recovery inventory whenever a remote cleanup fails.
+		// It is the only source available to a subsequent force-clean after the
+		// server has already been removed.
+		if err := c.localConfigCleanup(); err != nil {
+			return errors.Wrap(err, "clean kubeclipper local config failed")
 		}
 	}
 	logger.Info("clean successful")
@@ -212,11 +274,15 @@ func (c *CleanOptions) cleanKcAgent() error {
 	}
 
 	cmdList := agentCleanupCommands(c.deployConfig.OpLog.Dir)
-	serverAgents, joinedAgents := c.agentHostsByTransport()
-	return utilerrors.NewAggregate([]error{
-		runRemoteCleanup(c.deployConfig.SSHConfig, serverAgents, "server-local kc agent", cmdList),
-		runRemoteCleanup(c.agentSSHConfig(), joinedAgents, "joined kc agent", cmdList),
-	})
+	var errs []error
+	groups, err := c.agentTransportGroups(true)
+	if err != nil {
+		return err
+	}
+	for _, group := range groups {
+		errs = append(errs, c.remoteCleanup(group.sshConfig, group.hosts, "kc agent ("+group.id+")", cmdList))
+	}
+	return utilerrors.NewAggregate(errs)
 }
 
 func agentCleanupCommands(opLogDir string) []string {
@@ -237,7 +303,7 @@ func (c *CleanOptions) cleanKcServer() error {
 	}
 
 	cmdList := serverCleanupCommands(c.deployConfig.EtcdConfig.DataDir)
-	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc server", cmdList)
+	return c.remoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc server", cmdList)
 }
 
 func serverCleanupCommands(etcdDataDir string) []string {
@@ -265,7 +331,7 @@ func (c *CleanOptions) cleanKcConsole() error {
 		"rm -rf /etc/kc-console",
 		"systemctl reset-failed kc-console || true",
 	}
-	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc console", cmdList)
+	return c.remoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc console", cmdList)
 }
 
 func (c *CleanOptions) cleanBinaries() error {
@@ -277,12 +343,18 @@ func (c *CleanOptions) cleanBinaries() error {
 	cmdList := []string{
 		"rm -rf /usr/local/bin/kubeclipper* && rm -rf /usr/local/bin/etcd*  && rm -rf /usr/local/bin/caddy",
 	}
-	_, joinedAgents := c.agentHostsByTransport()
-
-	return utilerrors.NewAggregate([]error{
-		runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "server binaries", cmdList),
-		runRemoteCleanup(c.agentSSHConfig(), joinedAgents, "agent binaries", cmdList),
-	})
+	var errs []error
+	if len(c.deployConfig.ServerIPs) > 0 {
+		errs = append(errs, c.remoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "server binaries", cmdList))
+	}
+	groups, err := c.agentTransportGroups(false)
+	if err != nil {
+		return err
+	}
+	for _, group := range groups {
+		errs = append(errs, c.remoteCleanup(group.sshConfig, group.hosts, "agent binaries ("+group.id+")", cmdList))
+	}
+	return utilerrors.NewAggregate(errs)
 }
 
 func (c *CleanOptions) cleanKcEnv() error {
@@ -295,7 +367,7 @@ func (c *CleanOptions) cleanKcEnv() error {
 		"rm -rf /etc/kc/kc.env",
 	}
 
-	return runRemoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc environment", cmdList)
+	return c.remoteCleanup(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, "kc environment", cmdList)
 }
 
 func (c *CleanOptions) cleanKcConfig() error {
