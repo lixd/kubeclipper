@@ -294,15 +294,7 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 				return
 			}
 		}
-		pendingOperation, err := buildPendingOperation(operationType, buildOperationSponsor(h.genericConfig), timeoutSecs, c.ResourceVersion, pn)
-		if err != nil {
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
-
-		c.Status.Phase = v1.ClusterUpdating
-		c.PendingOperations = append(c.PendingOperations, pendingOperation)
-		if c, err = h.clusterOperator.UpdateCluster(ctx, c); err != nil {
+		if c, err = h.enqueuePendingNodeOperation(ctx, clu, operationType, timeoutSecs, pn); err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
@@ -312,6 +304,43 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 	if err := response.WriteHeaderAndEntity(http.StatusOK, clean); err != nil {
 		logger.Error("write redacted cluster response", zap.Error(err))
 	}
+}
+
+func (h *handler) enqueuePendingNodeOperation(
+	ctx context.Context,
+	clusterName, operationType, timeoutSecs string,
+	pn *clusteroperation.PatchNodes,
+) (*v1.Cluster, error) {
+	var updated *v1.Cluster
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest, err := h.clusterOperator.GetClusterEx(ctx, clusterName, "0")
+		if err != nil {
+			return err
+		}
+		candidate := latest.DeepCopy()
+
+		patch := *pn
+		patch.Nodes = append(v1.WorkerNodeList(nil), pn.Nodes...)
+		if compareErr := patch.MakeCompare(candidate); compareErr != nil {
+			return compareErr
+		}
+		if len(patch.Nodes) == 0 {
+			return clusteroperation.ErrZeroNode
+		}
+
+		pendingOperation, err := buildPendingOperation(
+			operationType, buildOperationSponsor(h.genericConfig), timeoutSecs, candidate.ResourceVersion, &patch,
+		)
+		if err != nil {
+			return err
+		}
+
+		candidate.Status.Phase = v1.ClusterUpdating
+		candidate.PendingOperations = append(candidate.PendingOperations, pendingOperation)
+		updated, err = h.clusterOperator.UpdateCluster(ctx, candidate)
+		return err
+	})
+	return updated, err
 }
 
 func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *query.Query) {
