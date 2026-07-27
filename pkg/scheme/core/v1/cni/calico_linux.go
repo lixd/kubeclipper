@@ -49,15 +49,18 @@ func clearCalicoNICsWithOps(mode string, deleteLink func(string) error, deleteMo
 		if err := deleteLink(defaultIPIPDeviceName); err != nil {
 			logger.Errorf("failed to remove IPIP tunnel device: %v", err)
 		}
-		logger.Info("disable IPIP kernel module")
-		if err := deleteModule(ipipKernelModuleName, 0); err != nil {
-			logger.Errorf("failed to disable IPIP kernel module: %v", err)
-		}
 	case CalicoNetworkVXLANAll, CalicoNetworkVXLANSubnet:
 		logger.Infof("remove VTEP device: %s", defaultVTEPDeviceName)
 		if err := deleteLink(defaultVTEPDeviceName); err != nil {
 			logger.Errorf("failed to remove VTEP device: %v", err)
 		}
+	}
+
+	// Calico may load IPIP even when VXLAN is selected. Unloading the module
+	// removes its automatically managed tunl0 fallback device.
+	logger.Info("disable IPIP kernel module")
+	if err := deleteModule(ipipKernelModuleName, 0); err != nil {
+		logger.Errorf("failed to disable IPIP kernel module: %v", err)
 	}
 
 	links, err := listLinks()

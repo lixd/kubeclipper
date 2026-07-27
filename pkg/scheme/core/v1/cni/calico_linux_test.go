@@ -32,7 +32,11 @@ func TestClearCalicoNICsRemovesModeDeviceAndCalicoVeths(t *testing.T) {
 		deleted = append(deleted, name)
 		return nil
 	}
-	deleteModule := func(string, int) error { return nil }
+	var unloaded []string
+	deleteModule := func(name string, _ int) error {
+		unloaded = append(unloaded, name)
+		return nil
+	}
 	listLinks := func() ([]netlink.Link, error) {
 		return []netlink.Link{
 			&netlink.Veth{LinkAttrs: netlink.LinkAttrs{Name: "cali1234"}},
@@ -45,10 +49,17 @@ func TestClearCalicoNICsRemovesModeDeviceAndCalicoVeths(t *testing.T) {
 	if want := []string{defaultIPIPDeviceName, "cali1234"}; !reflect.DeepEqual(deleted, want) {
 		t.Fatalf("deleted links = %v, want %v", deleted, want)
 	}
+	if want := []string{ipipKernelModuleName}; !reflect.DeepEqual(unloaded, want) {
+		t.Fatalf("unloaded modules = %v, want %v", unloaded, want)
+	}
 
 	deleted = nil
+	unloaded = nil
 	clearCalicoNICsWithOps(CalicoNetworkVXLANAll, deleteLink, deleteModule, listLinks)
 	if want := []string{defaultVTEPDeviceName, "cali1234"}; !reflect.DeepEqual(deleted, want) {
 		t.Fatalf("deleted links = %v, want %v", deleted, want)
+	}
+	if want := []string{ipipKernelModuleName}; !reflect.DeepEqual(unloaded, want) {
+		t.Fatalf("unloaded modules = %v, want %v", unloaded, want)
 	}
 }
