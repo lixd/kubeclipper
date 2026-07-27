@@ -1,11 +1,144 @@
 # 纯 OCI 发布就绪报告（2026-07-27）
 
-> **当前结论：发布代码候选 `47d9ef11f1d5e3f3d8f85bdd6eed266993ab3051` 的必需
-> GitHub Actions、112 项 OCI manifest/provenance 和双机纯 OCI 完整生命周期均已通过；
-> qualification GHCR packages、双机运行态、SSH 授权、Git 标签、代理和临时凭据均已清理。
-> P0/P1 为零，存在两项不阻断发布的 P2 可观测性/缓存语义改进。建议正式发布 2.0.0。**
+> **当前结论：最终发布代码候选 `c9d35b37d36d9285a4f0007c3267b486956312d2` 的必需
+> GitHub Actions、112 项 OCI manifest/provenance，以及 Kubernetes v1.34.2、v1.35.0、
+> v1.36.1 三版本双机纯 OCI 生命周期均已通过。remove-node、delete-cluster 和最终
+> `kcctl clean --all` 后无需人工补救；qualification package/tag、临时授权、代理、缓存和文件
+> 已全部清理。P0/P1 为零，建议正式发布 2.0.0。**
 
-## 2026-07-27 当前最终发布候选 `47d9ef1`
+## 2026-07-27 最终发布候选 `c9d35b3`（三版本矩阵）
+
+### 候选提交和修复范围
+
+- 分支：`codex/oci-static-server-replacement`。
+- 发布代码 revision：`c9d35b37d36d9285a4f0007c3267b486956312d2`。
+- 最终提交：`c9d35b3 fix(k8s): remove stale CNI network namespaces`。
+- 本轮在前一候选上继续关闭了 Calico 清理顺序、canonical runtime path、IPIP module、
+  API node operation optimistic-lock retry 和 `/run/netns/cni-*` 残留问题。
+- 代码分支和 qualification tag 只普通推送到用户 fork `lixd/kubeclipper`；未推 upstream、
+  未强推或改写远端历史。报告提交不属于发布代码，不得替代上述 `sourceRevision`。
+- 双机门禁覆盖 Kubernetes、containerd 和必需 CNI Calico；MetalLB、NFS 是扩展组件，不作为
+  双机生命周期门禁，但仍由正式 release workflow 按 support policy 发布和校验。
+
+### 当前 release commit 的 GitHub Actions
+
+| 必需工作流 | Run | 结果 |
+|---|---|---|
+| Go tests/coverage | [30306588151](https://github.com/lixd/kubeclipper/actions/runs/30306588151) | completed/success |
+| offline-resource-validate | [30306588093](https://github.com/lixd/kubeclipper/actions/runs/30306588093) | completed/success |
+| OCI AIO deploy + Fast E2E | [30306588159](https://github.com/lixd/kubeclipper/actions/runs/30306588159) | completed/success |
+| 16 组件发布 + manifest/provenance | [30306588286](https://github.com/lixd/kubeclipper/actions/runs/30306588286) | completed/success |
+
+2026-07-27 使用 `gh run view` 和 Actions API 再次复核：四个 run 的 `headSha` 都精确等于
+`c9d35b37d36d9285a4f0007c3267b486956312d2`。publish workflow 的 16 个 publish job 和
+manifest job `90114997247` 全部成功。
+
+### Release manifest、digest 和 provenance
+
+manifest job 原始日志记录：
+
+```text
+version:                       v2.0.0
+artifact count:                112
+verification:                  verified 112 artifact(s); failures: 0
+manifest sha256:               435ad9cfdbb2c81a07e000374945cd4f699f26e0c7e0d4032a552703fb8cdd6d
+metadata.sourceRevision:       c9d35b37d36d9285a4f0007c3267b486956312d2
+bootstrap/kubeclipper:v2.0.0: sha256:58682f36f0f62cfe1be68fd56270dd506bf8e6792c869ad3f01de125a3b10a43
+bootstrap/etcd:3.5.21:        sha256:ca70f46efc12232bdb5a5fd3f9f31d5845ac9b43565981c852c564f742ed5ba1
+bootstrap/console:v1.6.0:     sha256:ab7547d803b5fd8f38d29e3b44f91f0efc06efe30b1cb537ed906746b75c8481
+cri/containerd:1.7.29:       sha256:87d214e2b248d55200370dd0494bb3c63bc7229e9596d48f195deddbd6d8e101
+cri/containerd:2.2.4:        sha256:703eb8a55fa8fd11b0c14fce73aefc6391d16a242d5ba10ad0d3bd3dcc7cd5a1
+k8s/k8s:v1.34.2:             sha256:1cfb04ed52a42c59a5674ae5efaef14412052bb8f3c6b1a732a8c26545d52324
+k8s/k8s:v1.35.0:             sha256:6e2fa5e54b9e49ab8f272613abf08878d41c05f129d006a2fb5e4e0d0e97b144
+k8s/k8s:v1.36.1:             sha256:de906ae79df1f892bd795e07b88b953cc12b53b7bc93e23a0f09fa50e7560d71
+tigera chart:v3.29.6:        sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+tigera chart:v3.31.5:        sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+```
+
+manifest 包含 package、Helm chart 和 runtime image 的 amd64/arm64 产物；校验器逐项读取远端
+digest、runtime child digest 和 package OCI revision label。qualification package 在验收结束后
+按计划删除，上述证据保留在不可变的 Actions run/job 日志中。
+
+### 本地代码验证
+
+最终增量执行：
+
+```text
+go test -race ./pkg/scheme/core/v1/k8s ./pkg/clusteroperation ./pkg/apis/core/v1  PASS
+go vet ./...                                                                PASS
+make lint                                                                   PASS，0 issues
+git diff --check                                                            PASS
+```
+
+前一候选同一代码链路已完成修改包 race、全仓 Go test/vet/lint、ShellCheck、Actionlint、全部
+open-packaging 测试、linux/amd64 和 linux/arm64 构建；当前 SHA 的 Go、offline validation 和
+publish Actions 又重新执行这些发布门禁并全部成功。
+
+### 三版本双机纯 OCI 生命周期
+
+测试机为 sh-dev-3（`172.16.131.146`）和 sh-dev-2（`172.16.131.208`），隔离 namespace 为
+`ghcr.io/lixd/kubeclipper/qualification-c9d35b37d36d9285a4f0007c3267b486956312d2`。
+候选 Linux amd64 `kcctl`、server 和两个 agent 均报告 `v2.0.0`、同一 Git commit、tree clean。
+sh-dev-2 使用独立 agent SSH key join，未复用 server SSH transport。
+
+| Kubernetes | containerd | Calico | create / 单 master | add/remove worker | Pod、DNS、API、Service | delete 后残留 |
+|---|---|---|---|---|---|---|
+| v1.34.2 | 1.7.29 | v3.29.6 | 通过；未传 `--untaint-master`，API 自动持久化 `true` | 通过，无 resourceVersion conflict | 通过；PodIP `172.25.58.194`，ServiceIP `10.108.52.101` | 两机均为 0 |
+| v1.35.0 | 1.7.29 | v3.29.6 | 通过；master 无 taint | 通过，无 resourceVersion conflict | 通过；PodIP `172.25.58.194`，ServiceIP `10.97.156.113` | 两机均为 0 |
+| v1.36.1 | 2.2.4 | v3.31.5 | 通过；API `untaintMaster: true` | 通过；AddNodes `6d07f2d6...`、RemoveNodes `89b2e78b...` successful | 通过；PodIP `172.25.58.194`，ServiceIP `10.108.229.170` | 两机均为 0 |
+
+每个版本都从已删除上一集群的基线重新 create，完成 master Ready、全部系统 Pod Ready、Pod 内
+DNS 和 Kubernetes API `/version`、worker add-node、worker Ready、master 到 worker PodIP、
+Service ClusterIP、remove-node、delete-cluster。三个版本均无需 force、手工 `kubeadm reset`、
+手工卸载 netns 或重启服务。
+
+v1.36.1 的补充证据：
+
+- master 和 worker 都报告 kubelet `v1.36.1`、`containerd://2.2.4`，Calico 和 kube-proxy
+  DaemonSet 完整覆盖两节点。
+- worker Pod 内 CoreDNS 将 `kubernetes.default.svc.cluster.local` 解析为 `10.96.0.1`，API
+  `/version` 返回 `v1.36.1`；master 到 worker PodIP 和 Service ClusterIP 均返回 `worker-ok`。
+- remove-node 后 worker 的 kubelet/containerd service 和进程为 0；Kubernetes、containerd、
+  CNI、Calico 目录、Calico 接口、`/run/netns/cni-*` 文件和挂载全部为 0。
+- DeleteCluster operation `c29a8a1f-320d-4015-9c5f-167fcb2cca08` successful；master 执行
+  同级审计，所有计数为 0。
+
+环境告警单独分类：deploy 预检报告 `chronyd or ntpd service not running`，但两机实测时间差仅
+`0.178s`；v1.36.1 首次拉取 kube-proxy 时 GHCR token 请求出现一次 EOF，containerd/kubeadm
+自动重试后继续成功。两项均未造成 digest、认证、安装或运行错误，不属于产品阻断。
+
+### 最终 clean 和测试资源清理
+
+- 一次执行 `kcctl clean --all --assumeyes` 返回 `clean successful`；日志明确枚举
+  `server`、`agent (deploy)`、`agent (join-cd07701e...)`，证明通过 join 加入的 agent 被覆盖。
+- clean 后两机 kubeclipper-server/agent、kubelet、containerd 均 inactive且无进程；产品
+  二进制、systemd unit、Kubernetes/CRI/CNI/Calico 配置、目录、接口和 netns 均为 0。
+- `clean --all` 按当前设计保留 OCI 下载缓存；确认其只属于本轮后定向删除。两机最终
+  `/var/lib/kubeclipper/cache` 和历次验收 `/tmp/kc-*` 测试产物数量均为 0。
+- 从两机 `authorized_keys` 按 key blob 精确删除本轮及前序矩阵测试公钥，各删除 4 条；复查
+  `kc-`、`qualification`、`matrix` 测试标记命中为 0。
+- 6 个 `oci-qualification-*` tag 已从 fork 和本地删除，`git ls-remote` 复查为 0；GitHub
+  Packages API 删除 216 个严格匹配 `kubeclipper/qualification-` 的 package，完整分页复查为 0。
+- 两条 SSH 反向代理、所有 `/private/tmp/kc-*` 测试缓存/日志/工具目录、临时 key 和证书均已删除。
+- 未停止或删除 sh-dev-3 上与 KubeClipper 无关的 Docker/Registry/nginx 和受保护容器
+  `sprout-postgres-v2`；按用户要求继续保留 `gh` 的 package 权限，未泄露 token。
+
+### P0/P1/P2 和发布建议
+
+- **P0：无。** 最终 release code commit 的四条必需 Actions、112 项 provenance、三版本双机
+  create/add/remove/delete、最终 clean 和测试环境清理全部有直接证据。
+- **P1：无。** clean 多 join、SSH transport 隔离、网卡检测、架构检测、support policy、Actions
+  runtime、Registry 认证/TLS、单 master 调度和 CNI netns 清理均已关闭。
+- **P2：clean 缓存语义。** `clean --all` 保留无凭据的 OCI 下载缓存以便重装，名称可能让用户
+  误解为完全清理；后续可增加 `--purge-cache` 或完善帮助文本，不阻断 2.0.0。
+- **P2：删除操作日志可观测性。** 删除末段资源回收可能产生预期的 not-found/optimistic-lock
+  日志；生命周期结果正确，后续可降低预期终态日志级别，不阻断发布。
+
+最终建议：**可以正式发布 2.0.0。** 正式 tag、二进制、OCI package 和 GitHub Release manifest
+必须从 `c9d35b37d36d9285a4f0007c3267b486956312d2` 生成；不要把后续仅包含本报告的提交作为新的
+`sourceRevision`。
+
+## 2026-07-27 历史发布候选 `47d9ef1`
 
 ### 候选提交和边界
 
