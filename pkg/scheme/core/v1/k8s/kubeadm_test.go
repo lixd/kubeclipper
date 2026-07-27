@@ -75,7 +75,7 @@ func TestFinalizeRemovedNodeState(t *testing.T) {
 		t.Fatalf("unexpected cleanup commands: %+v", steps[1].Commands)
 	}
 	unmount := strings.Join(steps[0].Commands[0].ShellCommand, " ")
-	for _, want := range []string{"systemctl stop containerd.service", "findmnt -rn -o TARGET", "umount -l", "/run/calico", "/var/run/calico", "/run/containerd"} {
+	for _, want := range []string{"systemctl stop containerd.service", "findmnt -rn -o TARGET", "umount -l", "/run/calico", "/var/run/calico", "/run/containerd", "/run/netns/cni-*", "rm -f /run/netns/cni-*"} {
 		if !strings.Contains(unmount, want) {
 			t.Errorf("unmount command %q does not contain %q", unmount, want)
 		}
