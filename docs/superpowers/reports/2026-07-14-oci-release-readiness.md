@@ -1,12 +1,91 @@
-# 纯 OCI 发布就绪报告（2026-07-27）
+# 纯 OCI 发布就绪报告（2026-07-28）
 
-> **当前结论：最终发布代码候选 `c9d35b37d36d9285a4f0007c3267b486956312d2` 的必需
-> GitHub Actions、112 项 OCI manifest/provenance，以及 Kubernetes v1.34.2、v1.35.0、
-> v1.36.1 三版本双机纯 OCI 生命周期均已通过。remove-node、delete-cluster 和最终
+> **当前结论：独立复审后的最终发布代码候选 `33ca68e1ce8932e062f9003a2b13f1a2007904ca`
+> 已关闭 runtime tag 可变、qualification 矩阵漂移和发布版本输入校验遗漏；该提交的四条必需
+> GitHub Actions 及 112 项 OCI manifest/provenance 全部通过。Kubernetes v1.34.2、v1.35.0、
+> v1.36.1 三版本双机纯 OCI 生命周期已在其直接代码基线 `c9d35b3` 通过，本次增量不改变
+> Kubernetes 生命周期逻辑，且当前提交的 OCI AIO 已复验。remove-node、delete-cluster 和最终
 > `kcctl clean --all` 后无需人工补救；qualification package/tag、临时授权、代理、缓存和文件
 > 已全部清理。P0/P1 为零，建议正式发布 2.0.0。**
 
-## 2026-07-27 最终发布候选 `c9d35b3`（三版本矩阵）
+## 2026-07-28 独立复审候选 `33ca68e`
+
+### 复审发现和修复
+
+- 修复正式 runtime image tag 的可变性：发布前读取源端和目标端 digest；相同则跳过，不同则
+  拒绝覆盖；401/403、TLS 和临时 Registry 错误不再被误判为“目标不存在”。package image 和
+  Helm chart 原有的稳定 tag 不可变规则保持不变。
+- qualification workflow 不再手写 16 项矩阵，改为与正式 release 一样从
+  `packaging/resources.yaml` 和 `tools/release-policy-verify` 生成，避免资格测试与正式发布漂移。
+- 发布策略门禁新增 bootstrap、Kubernetes、containerd、Calico、extension、kc-runtime、NFS
+  和 MetalLB 的空版本、空列表及重复版本检查。
+- `releasemanifest.Sync` 对 nil manifest/options 返回明确错误，不再允许公共 Go API panic。
+- 复查 join server/agent SSH 隔离、package Registry 凭据下发、multi-join clean、目标架构检测、
+  多网卡过滤、单 master 自动 untaint、OCI fetch/cache、digest/provenance 和三版本运行路径，
+  未发现新的 P0/P1。
+
+提交 `33ca68e fix(release): enforce immutable OCI qualification` 已普通推送到用户 fork
+`lixd/kubeclipper`；未推 upstream、未强推或改写历史。
+
+### 当前提交的 GitHub Actions
+
+| 必需工作流 | Run | 结果 |
+|---|---|---|
+| Go tests/coverage | [30327020086](https://github.com/lixd/kubeclipper/actions/runs/30327020086) | completed/success |
+| offline-resource-validate | [30327020094](https://github.com/lixd/kubeclipper/actions/runs/30327020094) | completed/success；新增不可变回归通过 |
+| OCI AIO deploy + Fast E2E | [30327020043](https://github.com/lixd/kubeclipper/actions/runs/30327020043) | completed/success；deploy、login、Fast E2E、clean 通过 |
+| 16 组件发布 + manifest/provenance | [30327020232](https://github.com/lixd/kubeclipper/actions/runs/30327020232) | completed/success；动态矩阵 16/16 及 manifest job 通过 |
+
+四个 run 的 `headSha` 均精确等于
+`33ca68e1ce8932e062f9003a2b13f1a2007904ca`。manifest job `90176626227` 的原始日志记录：
+
+```text
+version:                 v2.0.0
+artifact count:          112
+verification:            verified 112 artifact(s); failures: 0
+manifest sha256:         4bc28c8923fafe325df7231a3451b6a971e87e058293770c078fa182278adffc
+metadata.sourceRevision: 33ca68e1ce8932e062f9003a2b13f1a2007904ca
+```
+
+### 本轮本地验证和环境区分
+
+```text
+go test -race ./pkg/delivery/... ./pkg/cli/registry ./pkg/cli/deploy
+  ./pkg/cli/join ./pkg/cli/clean ./pkg/apis/core/v1
+  ./pkg/clustermanage/kubeadm ./pkg/scheme/core/v1/...               PASS
+go vet ./...                                                         PASS
+golangci-lint run                                                    PASS，0 issues
+actionlint .github/workflows/*.yml                                   PASS（1.7.7）
+shellcheck push-runtime-images.sh 及新增回归脚本                      PASS（0.11.0）
+scripts/open-packaging/tests/*.sh                                    PASS（全部 6 项）
+scripts/open-packaging/check-open-packaging-sources.sh               PASS
+go run ./tools/release-policy-verify --manifest packaging/resources.yaml PASS
+KUBE_BUILD_PLATFORMS='linux/amd64 linux/arm64' make build             PASS
+git diff --check                                                     PASS
+```
+
+本机直接运行 `go test ./...` 时，产品单元包通过，但环境型套件有两类预期失败：`test/e2e` 缺少
+已部署平台的 `~/.kc/config`，`pkg/utils/systemctl` 在 macOS 无 system D-Bus。它们不是代码失败；
+同一提交的 Linux Go tests/coverage 和 OCI AIO Actions 均已通过。对整个历史 `hack/` 目录做无
+项目基线参数的 ShellCheck 会报告旧代码生成脚本告警；本轮变更脚本和全部 open-packaging
+可执行测试已单独通过，不将历史生成器告警冒充 OCI 阻断。
+
+### 隔离资源清理和最终结论
+
+- 测试 tag `oci-qualification-review-20260728-33ca68e` 已从 fork 和本地删除，远端复查为 0。
+- 严格匹配 `qualification-33ca68e1ce8932e062f9003a2b13f1a2007904ca` 的 36 个 GHCR package
+  已删除，GitHub Packages 完整分页复查为 0。
+- 工作区干净，分支与 fork 同步；未操作 upstream，也未触碰与 KubeClipper 无关的服务。
+- P0：无。P1：无。P2 保留既有的 clean 缓存语义、删除终态日志，以及历史 `hack/` ShellCheck
+  基线整理，不阻断 2.0.0。
+
+最终建议：**可以正式发布 2.0.0。** 正式 tag、二进制、OCI package 和 GitHub Release manifest
+应从 `33ca68e1ce8932e062f9003a2b13f1a2007904ca` 生成。
+
+## 2026-07-27 三版本生命周期基线 `c9d35b3`
+
+> 本节保留三版本双机生命周期的原始证据；其当时的“最终候选”表述已由上方
+> `33ca68e` 独立复审结论取代。
 
 ### 候选提交和修复范围
 
