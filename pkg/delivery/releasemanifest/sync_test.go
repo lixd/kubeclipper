@@ -36,6 +36,15 @@ type rewriteTransport struct {
 	base   http.RoundTripper
 }
 
+func TestSyncRejectsNilInputs(t *testing.T) {
+	if _, err := Sync(t.Context(), nil, &SyncOptions{}); err == nil || !strings.Contains(err.Error(), "manifest is required") {
+		t.Fatalf("Sync(nil manifest) error = %v", err)
+	}
+	if _, err := Sync(t.Context(), &Manifest{}, nil); err == nil || !strings.Contains(err.Error(), "options are required") {
+		t.Fatalf("Sync(nil options) error = %v", err)
+	}
+}
+
 func (t rewriteTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	clone := request.Clone(request.Context())
 	clone.URL.Scheme = t.target.Scheme

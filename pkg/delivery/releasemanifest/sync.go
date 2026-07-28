@@ -53,6 +53,12 @@ type artifactGroup struct {
 //nolint:gocyclo // Sync is the transaction boundary for source and target validation.
 func Sync(ctx context.Context, manifest *Manifest, options *SyncOptions) (SyncResult, error) {
 	var result SyncResult
+	if manifest == nil {
+		return result, fmt.Errorf("release manifest is required")
+	}
+	if options == nil {
+		return result, fmt.Errorf("sync options are required")
+	}
 	if err := manifest.Validate(); err != nil {
 		return result, err
 	}

@@ -10,27 +10,26 @@ permissions:
   packages: write
 
 jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build qualification publish matrix
+        id: matrix
+        run: echo "matrix=$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)" >> "$GITHUB_OUTPUT"
+
   publish:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - {component: bootstrap-kubeclipper, version: v2.0.0}
-          - {component: bootstrap-etcd, version: "3.5.21"}
-          - {component: bootstrap-console, version: v1.6.0}
-          - {component: bootstrap-registry, version: "3.1.1"}
-          - {component: resource-k8s, version: v1.36.1}
-          - {component: resource-k8s, version: v1.35.0}
-          - {component: resource-k8s, version: v1.34.2}
-          - {component: resource-containerd, version: "2.2.4"}
-          - {component: resource-containerd, version: "1.7.29"}
-          - {component: resource-k8s-extension, version: v1}
-          - {component: resource-calico, version: v3.31.5}
-          - {component: resource-calico, version: v3.29.6}
-          - {component: resource-kc-runtime, version: v2.0.0}
-          - {component: resource-nfs, version: v4.0.2}
-          - {component: resource-nfs, version: v4.1.0}
-          - {component: resource-metallb, version: v0.13.7}
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     uses: ./.github/workflows/_publish-oci-component.yml
     with:
       component: ${{ matrix.component }}

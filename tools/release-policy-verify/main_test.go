@@ -103,3 +103,43 @@ func TestVerifyPolicyCoverageRejectsNonOfficialReleaseRegistry(t *testing.T) {
 		t.Fatalf("verifyPolicyCoverage() error = %v", err)
 	}
 }
+
+func TestVerifyPolicyCoverageRejectsInvalidPublishVersions(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*buildManifest)
+		message string
+	}{
+		{
+			name: "missing optional runtime set",
+			mutate: func(manifest *buildManifest) {
+				delete(manifest.Resources.RuntimeImageSets, "nfs")
+			},
+			message: "addon/nfs must advertise at least one version",
+		},
+		{
+			name: "empty bootstrap version",
+			mutate: func(manifest *buildManifest) {
+				manifest.Bootstrap.ConsoleVersion = ""
+			},
+			message: "bootstrap/console contains an empty version",
+		},
+		{
+			name: "duplicate resource version",
+			mutate: func(manifest *buildManifest) {
+				manifest.Resources.K8s.Versions = append(manifest.Resources.K8s.Versions, "v1.36.1")
+			},
+			message: "k8s/k8s contains duplicate version v1.36.1",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			manifest := supportedManifest()
+			test.mutate(&manifest)
+			err := verifyPolicyCoverage(manifest, deliveryapis.DefaultSupportPolicy())
+			if err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("verifyPolicyCoverage() error = %v, want %q", err, test.message)
+			}
+		})
+	}
+}

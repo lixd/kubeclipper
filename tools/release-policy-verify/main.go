@@ -128,6 +128,9 @@ func verifyPolicyCoverage(manifest buildManifest, policy *deliveryapis.SupportPo
 	if err := verifyReleaseRegistries(&manifest); err != nil {
 		return err
 	}
+	if err := verifyReleaseVersions(&manifest); err != nil {
+		return err
+	}
 	if err := policy.Validate(); err != nil {
 		return err
 	}
@@ -166,6 +169,39 @@ func verifyPolicyCoverage(manifest buildManifest, policy *deliveryapis.SupportPo
 	for _, version := range manifest.Resources.K8s.Versions {
 		if !kubernetesVersionReferenced(version, policy) {
 			return fmt.Errorf("release artifact k8s/k8s:%s is not referenced by the default support policy", version)
+		}
+	}
+	return nil
+}
+
+func verifyReleaseVersions(manifest *buildManifest) error {
+	versionSets := map[string][]string{
+		"bootstrap/kubeclipper":       {manifest.Bootstrap.KubeClipperVersion},
+		"bootstrap/etcd":              {manifest.Bootstrap.EtcdVersion},
+		"bootstrap/console":           {manifest.Bootstrap.ConsoleVersion},
+		"bootstrap/registry":          {manifest.Bootstrap.RegistryVersion},
+		"k8s/k8s":                     manifest.Resources.K8s.Versions,
+		"cri/containerd":              manifest.Resources.CRI.Containerd.Versions,
+		"k8s-extension/k8s-extension": manifest.Resources.K8sExtension.Versions,
+		"cni/calico":                  manifest.Resources.CNI.Calico.Versions,
+		"kc-runtime/kc-runtime":       manifest.Resources.KCRuntime.Versions,
+		"addon/nfs":                   manifest.Resources.RuntimeImageSets["nfs"].Versions,
+		"addon/metallb":               manifest.Resources.RuntimeImageSets["metallb"].Versions,
+	}
+	for component, versions := range versionSets {
+		if len(versions) == 0 {
+			return fmt.Errorf("release component %s must advertise at least one version", component)
+		}
+		seen := make(map[string]struct{}, len(versions))
+		for _, version := range versions {
+			version = strings.TrimSpace(version)
+			if version == "" {
+				return fmt.Errorf("release component %s contains an empty version", component)
+			}
+			if _, exists := seen[version]; exists {
+				return fmt.Errorf("release component %s contains duplicate version %s", component, version)
+			}
+			seen[version] = struct{}{}
 		}
 	}
 	return nil

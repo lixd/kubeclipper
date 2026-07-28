@@ -90,6 +90,14 @@ published=0
 copy_retries="${KC_IMAGE_COPY_RETRIES:-3}"
 copy_retry_delay="${KC_IMAGE_COPY_RETRY_DELAY:-5}"
 
+image_digest() {
+  local ref=$1
+  case "$copy_tool" in
+  crane) crane digest "$ref" ;;
+  skopeo) skopeo inspect --format '{{.Digest}}' "docker://$ref" ;;
+  esac
+}
+
 component_filter() {
   local item=$1
   shift
@@ -119,7 +127,8 @@ target_image() {
 }
 
 seen_targets="$(mktemp -t kc-runtime-images.XXXXXX)"
-trap 'rm -f "$seen_targets"' EXIT
+digest_error="$(mktemp -t kc-runtime-digest.XXXXXX)"
+trap 'rm -f "$seen_targets" "$digest_error"' EXIT
 
 {
   read -r _header
@@ -154,14 +163,21 @@ trap 'rm -f "$seen_targets"' EXIT
       printf ' %q' "${cmd[@]}"
       printf '\n'
     else
-      if command -v crane >/dev/null 2>&1; then
-        source_digest="$(crane digest "$source" 2>/dev/null || true)"
-        target_digest="$(crane digest "$target" 2>/dev/null || true)"
-        if [[ -n "$source_digest" && "$source_digest" == "$target_digest" ]]; then
-          echo "==> target image already matches source, skip: $target"
-          published=$((published + 1))
-          continue
+      source_digest="$(image_digest "$source")" || die "cannot resolve source image digest: $source"
+      if ! target_digest="$(image_digest "$target" 2>"$digest_error")"; then
+        if grep -Eqi 'MANIFEST[_ ]UNKNOWN|NAME[_ ]UNKNOWN|404[[:space:]]+Not Found|status( code)?:?[[:space:]]*404|unexpected status.*404' "$digest_error"; then
+          target_digest=""
+        else
+          die "cannot inspect target image $target: $(tr '\n' ' ' < "$digest_error")"
         fi
+      fi
+      if [[ -n "$target_digest" && "$source_digest" == "$target_digest" ]]; then
+        echo "==> target image already matches source, skip: $target"
+        published=$((published + 1))
+        continue
+      fi
+      if [[ -n "$target_digest" ]]; then
+        die "runtime image tag conflict: $target already points to $target_digest, refusing $source_digest"
       fi
       echo "==> ${cmd[*]}"
       ok=false
