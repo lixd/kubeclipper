@@ -46,11 +46,12 @@ func printReport(out io.Writer, report *Report) error {
 	if err := printProblems(out, report, style); err != nil {
 		return err
 	}
-	passed, failed, skipped := countChecks(report)
-	_, err := fmt.Fprintf(out, "\n%s%s%s, %s, %s\n",
+	passed, warnings, failed, skipped := countChecks(report)
+	_, err := fmt.Fprintf(out, "\n%s%s%s, %s, %s, %s\n",
 		style.label("Summary"),
 		style.separator(),
 		style.checkCount(platformstatus.Healthy, passed, "passed"),
+		style.checkCount(platformstatus.Degraded, warnings, "warnings"),
 		style.checkCount(platformstatus.Unhealthy, failed, "failed"),
 		style.checkCount(platformstatus.Skipped, skipped, "skipped"),
 	)
@@ -162,7 +163,7 @@ func printDetailLines(out io.Writer, style outputStyle, heading string, lines []
 	return nil
 }
 
-func countChecks(report *Report) (passed, failed, skipped int) {
+func countChecks(report *Report) (passed, warnings, failed, skipped int) {
 	for componentIndex := range report.Components {
 		component := &report.Components[componentIndex]
 		for checkIndex := range component.Checks {
@@ -170,6 +171,8 @@ func countChecks(report *Report) (passed, failed, skipped int) {
 			switch check.Status {
 			case platformstatus.Healthy:
 				passed++
+			case platformstatus.Degraded:
+				warnings++
 			case platformstatus.Skipped:
 				skipped++
 			default:
@@ -177,7 +180,7 @@ func countChecks(report *Report) (passed, failed, skipped int) {
 			}
 		}
 	}
-	return passed, failed, skipped
+	return passed, warnings, failed, skipped
 }
 
 func statusMarker(status platformstatus.Status, terminal bool) string {
