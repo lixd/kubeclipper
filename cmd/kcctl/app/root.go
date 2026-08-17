@@ -44,6 +44,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/cli/clean"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/delete"
+	"github.com/kubeclipper/kubeclipper/pkg/cli/deliverypolicy"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/deploy"
 
@@ -94,6 +95,7 @@ func NewKubeClipperCommand(in io.Reader, out, err io.Writer) *cobra.Command {
 	cmds.AddCommand(get.NewCmdGet(ioStreams))
 	cmds.AddCommand(create.NewCmdCreate(ioStreams))
 	cmds.AddCommand(delete.NewCmdDelete(ioStreams))
+	cmds.AddCommand(deliverypolicy.NewCmdDeliveryPolicy(ioStreams))
 	cmds.AddCommand(version.NewCmdVersion(ioStreams))
 	cmds.AddCommand(join.NewCmdJoin(ioStreams))
 	cmds.AddCommand(drain.NewCmdDrain(ioStreams))

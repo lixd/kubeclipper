@@ -21,20 +21,21 @@ package v1
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/component-base/version"
 
+	deliverycore "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	"github.com/kubeclipper/kubeclipper/pkg/models/core"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
-
-	"github.com/kubeclipper/kubeclipper/pkg/query"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/certs"
 
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
-
-	"github.com/kubeclipper/kubeclipper/pkg/scheme"
 
 	serverconfig "github.com/kubeclipper/kubeclipper/pkg/server/config"
 
@@ -47,13 +48,16 @@ import (
 
 type handler struct {
 	platformOperator platform.Operator
+	coreOperator     core.Operator
 	serverConfig     *serverconfig.Config
 	statusProvider   platformstatus.Provider
+	deliveryIndexer  deliverycore.RegistryPackageInventoryIndexer
 }
 
-func newHandler(operator platform.Operator, config *serverconfig.Config, statusProvider platformstatus.Provider) *handler {
+func newHandler(operator platform.Operator, coreOperator core.Operator, config *serverconfig.Config, statusProvider platformstatus.Provider) *handler {
 	return &handler{
 		platformOperator: operator,
+		coreOperator:     coreOperator,
 		serverConfig:     config,
 		statusProvider:   statusProvider,
 	}
@@ -73,18 +77,110 @@ func (h *handler) GetPlatformStatus(request *restful.Request, response *restful.
 }
 
 func (h *handler) ListOfflineResource(request *restful.Request, response *restful.Response) {
-	online := query.GetBoolValueWithDefault(request, "online", false)
-	metas := scheme.PackageMetadata{}
-	if err := metas.ReadMetadata(online, h.serverConfig.StaticServerOptions.Path); err != nil {
+	source, err := deliverycore.ResolveDeliverySourceForConfig(
+		request.Request.Context(), h.platformOperator, h.coreOperator, h.deliveryIndexer,
+	)
+	if err != nil {
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	result := kc.ComponentMeta{
-		Rules:  metas.GetK8sVersionControlRules(version.Get().GitVersion),
-		Addons: metas.Addons,
+	if source.InventoryStore == nil || source.PolicyStore == nil {
+		restplus.HandleInternalError(response, request, fmt.Errorf("OCI package registry and delivery policy are required"))
+		return
 	}
-
+	inventory, err := source.InventoryStore.Get(request.Request.Context())
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	policy, err := source.PolicyStore.Get(request.Request.Context())
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	projection, err := deliveryapis.ProjectComponentMeta(inventory, policy, deliveryapis.ProjectOptions{
+		Archs:              componentMetaArchs(request.QueryParameter("arch")),
+		KubeClipperVersion: version.Get().GitVersion,
+	})
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	result := kc.ComponentMeta{Rules: projection.Rules, Addons: projection.Addons}
 	_ = response.WriteHeaderAndEntity(http.StatusOK, result)
+}
+
+func componentMetaArchs(raw string) []string {
+	if raw == "" {
+		return nil
+	}
+	archs := make([]string, 0, 1)
+	for _, arch := range strings.Split(raw, ",") {
+		if arch = strings.TrimSpace(arch); arch != "" {
+			archs = append(archs, arch)
+		}
+	}
+	return archs
+}
+
+func (h *handler) GetDeliveryPolicy(request *restful.Request, response *restful.Response) {
+	store, err := h.deliveryPolicyStore(request)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	policy, err := store.Get(request.Request.Context())
+	if apierrors.IsNotFound(err) {
+		restplus.HandleNotFound(response, request, err)
+		return
+	}
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	_ = response.WriteHeaderAndEntity(http.StatusOK, policy)
+}
+
+func (h *handler) UpdateDeliveryPolicy(request *restful.Request, response *restful.Response) {
+	store, err := h.deliveryPolicyStore(request)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	policy := &deliveryapis.SupportPolicy{}
+	if err = request.ReadEntity(policy); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	if policy.Metadata.Name == "" {
+		policy.Metadata.Name = "default"
+	}
+	if err = store.Update(request.Request.Context(), func(current *deliveryapis.SupportPolicy) error {
+		*current = *policy
+		return current.Validate()
+	}); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	updated, err := store.Get(request.Request.Context())
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	_ = response.WriteHeaderAndEntity(http.StatusOK, updated)
+}
+
+func (h *handler) deliveryPolicyStore(request *restful.Request) (deliveryapis.PolicyStore, error) {
+	source, err := deliverycore.ResolveDeliverySourceForConfig(
+		request.Request.Context(), h.platformOperator, h.coreOperator, h.deliveryIndexer,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if source.PolicyStore == nil {
+		return nil, fmt.Errorf("delivery policy storage is not configured")
+	}
+	return source.PolicyStore, nil
 }
 
 // Deprecated: use core/v1/handler.DescribeTemplate instead

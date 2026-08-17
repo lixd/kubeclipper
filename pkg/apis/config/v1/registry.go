@@ -21,11 +21,13 @@ package v1
 import (
 	"net/http"
 
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/errors"
+	"github.com/kubeclipper/kubeclipper/pkg/models/core"
 	"github.com/kubeclipper/kubeclipper/pkg/models/platform"
 	"github.com/kubeclipper/kubeclipper/pkg/platformstatus"
 
@@ -56,10 +58,11 @@ var GroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1"}
 func AddToContainer(
 	c *restful.Container,
 	platformOperator platform.Operator,
+	coreOperator core.Operator,
 	config *serverconfig.Config,
 	statusProvider platformstatus.Provider,
 ) error {
-	h := newHandler(platformOperator, config, statusProvider)
+	h := newHandler(platformOperator, coreOperator, config, statusProvider)
 
 	webservice := runtime.NewWebService(GroupVersion)
 	webservice.Route(webservice.GET("/oauth").
@@ -114,6 +117,19 @@ func AddToContainer(
 			DefaultValue("false")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), kc.ComponentMeta{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
+
+	webservice.Route(webservice.GET("/deliverypolicy").
+		Doc("Get OCI delivery support policy.").
+		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
+		To(h.GetDeliveryPolicy).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), deliveryapis.SupportPolicy{}))
+
+	webservice.Route(webservice.PUT("/deliverypolicy").
+		Doc("Create or update OCI delivery support policy.").
+		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
+		To(h.UpdateDeliveryPolicy).
+		Reads(deliveryapis.SupportPolicy{}).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), deliveryapis.SupportPolicy{}))
 
 	webservice.Route(webservice.GET("/template").
 		Doc("Information about platform template").
