@@ -21,10 +21,11 @@ package join
 import (
 	"bytes"
 	"context"
+	"crypto/x509"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
-	"strings"
 	"text/template"
 
 	"gopkg.in/yaml.v2"
@@ -45,6 +46,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
+	certutils "github.com/kubeclipper/kubeclipper/pkg/utils/certs"
 )
 
 const (
@@ -54,26 +56,26 @@ const (
   At least one Server node must be installed before adding an Agents node.`
 	joinExample = `
   # Add agent node.
-  kcctl join --agent 192.168.10.123 --package-registry registry.local:5000
+  kcctl join --agent 192.168.10.123
 
   # Add agent node specify region.
-  kcctl join --agent us-west-1:192.168.10.123 --package-registry registry.local:5000
+  kcctl join --agent us-west-1:192.168.10.123
 
   # Add multiple agent nodes.
-  kcctl join --agent 192.168.10.123,192.168.10.124 --package-registry registry.local:5000
+  kcctl join --agent 192.168.10.123,192.168.10.124
 
   # Add multiple agent nodes in same region.
-  kcctl join --agent us-west-1:192.168.10.123,192.168.10.124 --package-registry registry.local:5000
+  kcctl join --agent us-west-1:192.168.10.123,192.168.10.124
 
   # Add multiple agent nodes node in different region
-  kcctl join --agent us-west-1:1.2.3.4 --agent us-west-2:2.3.4.5 --package-registry registry.local:5000
+  kcctl join --agent us-west-1:1.2.3.4 --agent us-west-2:2.3.4.5
 
   # add multiple agent nodes which has orderly ip.
   # this will add 10 agent,1.1.1.1, 1.1.1.2, ... 1.1.1.10.
-  kcctl join --agent us-west-1:1.1.1.1-1.1.1.10 --package-registry registry.local:5000
+  kcctl join --agent us-west-1:1.1.1.1-1.1.1.10
 
   # Add multiple agent nodes and config float ip.
-  kcctl join --agent 192.168.10.123,192.168.10.124 --float-ip 192.168.10.123:172.20.149.199 --float-ip 192.168.10.124:172.20.149.200 --package-registry registry.local:5000
+  kcctl join --agent 192.168.10.123,192.168.10.124 --float-ip 192.168.10.123:172.20.149.199 --float-ip 192.168.10.124:172.20.149.200
 
   # Add agent nodes use config file. join config example:
 ssh:
@@ -90,7 +92,6 @@ ssh:
 #	MethodCanReach  = "can-reach="
 ipDetect: first-found
 nodeIPDetect: first-found
-packageRegistry: registry.local:5000
 agents:
   192.168.234.41:
     #region: default
@@ -118,15 +119,15 @@ type JoinOptions struct {
 
 	joinConfigPath string
 
-	PackageRegistry string `json:"packageRegistry" yaml:"packageRegistry,omitempty"`
+	packageRegistry string
 }
 
 type JoinConfig struct {
-	Agents          options.Agents `json:"agents,omitempty" yaml:"agents,omitempty"`
-	IPDetect        string         `json:"ipDetect,omitempty" yaml:"ipDetect,omitempty"`
-	NodeIPDetect    string         `json:"nodeIPDetect,omitempty" yaml:"nodeIPDetect,omitempty"`
+	Agents          options.Agents `json:"agents,omitempty"          yaml:"agents,omitempty"`
+	IPDetect        string         `json:"ipDetect,omitempty"        yaml:"ipDetect,omitempty"`
+	NodeIPDetect    string         `json:"nodeIPDetect,omitempty"    yaml:"nodeIPDetect,omitempty"`
 	PackageRegistry string         `json:"packageRegistry,omitempty" yaml:"packageRegistry,omitempty"`
-	SSHConfig       *sshutils.SSH  `json:"ssh,omitempty" yaml:"ssh,omitempty"`
+	SSHConfig       *sshutils.SSH  `json:"ssh,omitempty"             yaml:"ssh,omitempty"`
 }
 
 func NewJoinOptions(streams options.IOStreams) *JoinOptions {
@@ -158,11 +159,17 @@ func NewCmdJoin(streams options.IOStreams) *cobra.Command {
 		},
 	}
 	o.cliOpts.AddFlags(cmd.Flags())
-	cmd.Flags().StringVar(&o.ipDetect, "ip-detect", o.ipDetect, fmt.Sprintf("Kc agent node ip detect method. Used to route between nodes. \n%s", options.IPDetectDescription))
-	cmd.Flags().StringVar(&o.nodeIPDetect, "node-ip-detect", o.nodeIPDetect, fmt.Sprintf("Kc agent node ip detect method. Used for routing between nodes in the kubernetes cluster. If not specified, ip-detect is inherited. \n%s", options.IPDetectDescription))
+	ipDetectDescription := fmt.Sprintf("Kc agent node ip detect method. Used to route between nodes. \n%s", options.IPDetectDescription)
+	cmd.Flags().StringVar(&o.ipDetect, "ip-detect", o.ipDetect, ipDetectDescription)
+	nodeIPDetectDescription := fmt.Sprintf(
+		"Kc agent node ip detect method. Used for routing between nodes in the kubernetes cluster. "+
+			"If not specified, ip-detect is inherited. \n%s",
+		options.IPDetectDescription,
+	)
+	cmd.Flags().StringVar(&o.nodeIPDetect, "node-ip-detect", o.nodeIPDetect, nodeIPDetectDescription)
 	cmd.Flags().StringArrayVar(&o.agents, "agent", o.agents, "join agent node.")
 	cmd.Flags().StringArrayVar(&o.floatIPs, "float-ip", o.floatIPs, "Kc agent ip and float ip.")
-	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", o.PackageRegistry, "OCI registry host:port for KubeClipper offline packages. Default is inherited from the deploy config.")
+	cmd.Flags().StringVar(&o.packageRegistry, "package-registry", "", "OCI registry for KubeClipper packages. Default is inherited from the deploy config.")
 	cmd.Flags().StringVar(&o.joinConfigPath, "join-config", "", "path to the join config file to use for join")
 
 	options.AddFlagsToSSH(o.sshConfig, cmd.Flags())
@@ -199,7 +206,7 @@ func (c *JoinOptions) Complete() error {
 			c.nodeIPDetect = joinConfig.NodeIPDetect
 		}
 		if joinConfig.PackageRegistry != "" {
-			c.PackageRegistry = joinConfig.PackageRegistry
+			c.packageRegistry = joinConfig.PackageRegistry
 		}
 		if joinConfig.SSHConfig != nil {
 			c.sshConfig = joinConfig.SSHConfig
@@ -223,8 +230,8 @@ func (c *JoinOptions) Complete() error {
 	if err != nil {
 		return errors.WithMessage(err, "get online deploy-config failed")
 	}
-	if strings.TrimSpace(c.PackageRegistry) != "" {
-		c.deployConfig.PackageRegistry = c.PackageRegistry
+	if c.packageRegistry != "" {
+		c.deployConfig.PackageRegistry = c.packageRegistry
 	}
 	// overwrite by specify
 	if c.ipDetect != "" {
@@ -282,7 +289,7 @@ func (c *JoinOptions) ValidateArgs(cmd *cobra.Command) error {
 		logger.Info("example: kcctl join --agent 172.10.10.20 --server 172.10.10.10")
 		return utils.UsageErrorf(cmd, "join an agent node requires specifying at least one server node")
 	}
-	if strings.TrimSpace(c.deployConfig.PackageRegistry) == "" {
+	if c.deployConfig.PackageRegistry == "" {
 		return utils.UsageErrorf(cmd, "join an agent node requires packageRegistry in deploy-config")
 	}
 	return nil
@@ -358,7 +365,7 @@ func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata) err
 	}); err != nil {
 		return errors.Wrap(err, "install bootstrap agent from registry")
 	}
-	err := c.sendCerts(node)
+	err := c.sendCerts(node, metadata.AgentID)
 	if err != nil {
 		return err
 	}
@@ -423,30 +430,14 @@ func (c *JoinOptions) getKcAgentConfigTemplateContent(metadata options.Metadata)
 	data["IPDetect"] = c.deployConfig.IPDetect
 	data["NodeIPDetect"] = c.deployConfig.NodeIPDetect
 	data["AgentID"] = metadata.AgentID
+	data["APIServerEndpoint"] = fmt.Sprintf("https://%s:%d", c.deployConfig.ServerIPs[0], c.deployConfig.ServerPort)
+	data["APIServerCAFile"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath, "ca.crt")
+	data["AgentCertFile"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath, "agent.crt")
+	data["AgentKeyFile"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath, "agent.key")
 	if c.deployConfig.Debug {
 		data["LogLevel"] = "debug"
 	} else {
 		data["LogLevel"] = "info"
-	}
-	var endpoint []string
-	for _, v := range c.deployConfig.MQ.IPs {
-		endpoint = append(endpoint, fmt.Sprintf("%s:%d", v, c.deployConfig.MQ.Port))
-	}
-	data["MQServerEndpoints"] = endpoint
-	data["MQExternal"] = c.deployConfig.MQ.External
-	data["MQUser"] = c.deployConfig.MQ.User
-	data["MQAuthToken"] = c.deployConfig.MQ.Secret
-	data["MQTLS"] = c.deployConfig.MQ.TLS
-	if c.deployConfig.MQ.TLS {
-		if c.deployConfig.MQ.External {
-			data["MQCaPath"] = c.deployConfig.MQ.CA
-			data["MQClientCertPath"] = c.deployConfig.MQ.ClientCert
-			data["MQClientKeyPath"] = c.deployConfig.MQ.ClientKey
-		} else {
-			data["MQCaPath"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultCaPath, filepath.Base(c.deployConfig.MQ.CA))
-			data["MQClientCertPath"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath, filepath.Base(c.deployConfig.MQ.ClientCert))
-			data["MQClientKeyPath"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath, filepath.Base(c.deployConfig.MQ.ClientKey))
-		}
 	}
 	data["OpLogDir"] = c.deployConfig.OpLog.Dir
 	data["OpLogThreshold"] = c.deployConfig.OpLog.Threshold
@@ -458,47 +449,39 @@ func (c *JoinOptions) getKcAgentConfigTemplateContent(metadata options.Metadata)
 	return buffer.String()
 }
 
-func (c *JoinOptions) sendCerts(ip string) error {
-	// download cert from server
-	files := []string{
-		c.deployConfig.MQ.CA,
-		c.deployConfig.MQ.ClientCert,
-		c.deployConfig.MQ.ClientKey,
+func (c *JoinOptions) sendCerts(ip, agentID string) error {
+	caPath := filepath.Join(options.HomeDIR, options.DefaultPath, options.DefaultCaPath)
+	caConfig := certutils.Config{Path: caPath, BaseName: options.Ca, CommonName: options.Ca}
+	caCert, caKey, err := certutils.LoadCaCertAndKeyFromDisk(caConfig)
+	if err != nil {
+		return fmt.Errorf("load KubeClipper CA: %w", err)
 	}
-
-	for _, file := range files {
-		exist, err := sshutils.IsFileExist(file)
-		if err != nil {
-			return errors.WithMessage(err, "check file exist")
-		}
-		if !exist {
-			if err = c.sshConfig.DownloadSudo(c.deployConfig.ServerIPs[0], file, file); err != nil {
-				return errors.WithMessage(err, "download cert from server")
-			}
-		}
+	altNames := certutils.AltNames{DNSNames: map[string]string{agentID: agentID}, IPs: map[string]net.IP{}}
+	if parsed := net.ParseIP(ip); parsed != nil {
+		altNames.IPs[parsed.String()] = parsed
 	}
-
-	if c.deployConfig.MQ.TLS {
-		destCa := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultCaPath)
-		destCert := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath)
-		destKey := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultNatsPKIPath)
-		if c.deployConfig.MQ.External {
-			destCa = filepath.Dir(c.deployConfig.MQ.CA)
-			destCert = filepath.Dir(c.deployConfig.MQ.ClientCert)
-			destKey = filepath.Dir(c.deployConfig.MQ.ClientKey)
-		}
-
-		err := utils.SendPackageV2(c.sshConfig, c.deployConfig.MQ.CA, []string{ip}, destCa, nil, nil)
-		if err != nil {
-			return err
-		}
-		err = utils.SendPackageV2(c.sshConfig, c.deployConfig.MQ.ClientCert, []string{ip}, destCert, nil, nil)
-		if err != nil {
-			return err
-		}
-		err = utils.SendPackageV2(c.sshConfig, c.deployConfig.MQ.ClientKey, []string{ip}, destKey, nil, nil)
+	certConfig := certutils.Config{
+		Path: filepath.Join(options.HomeDIR, options.DefaultPath, "pki", "agents", agentID), BaseName: "agent",
+		CAName: options.Ca, CommonName: "system:kc-agent:" + agentID, Organization: []string{"system:kc-agents"},
+		Year: 100, AltNames: altNames, Usages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+	}
+	cert, key, err := certutils.NewCaCertAndKeyFromRoot(certConfig, caCert, caKey)
+	if err != nil {
 		return err
 	}
-
+	if err := certutils.WriteCertAndKey(certConfig.Path, certConfig.BaseName, cert, key); err != nil {
+		return err
+	}
+	destination := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath)
+	sources := []string{
+		filepath.Join(caPath, options.Ca+".crt"),
+		filepath.Join(certConfig.Path, "agent.crt"),
+		filepath.Join(certConfig.Path, "agent.key"),
+	}
+	for _, source := range sources {
+		if err := utils.SendPackageV2(c.sshConfig, source, []string{ip}, destination, nil, nil); err != nil {
+			return err
+		}
+	}
 	return nil
 }

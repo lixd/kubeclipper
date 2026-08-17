@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -376,50 +375,34 @@ func (stepper *UpgradePackage) Install(ctx context.Context, opts component.Optio
 	if err != nil {
 		return nil, err
 	}
-	var instance *downloader.Downloader
 	if stepper.Transport.Type != "" {
 		if err = downloadAndUnpackResolvedPackage(ctx, stepper.Package, opts); err != nil {
 			return nil, err
 		}
 	} else {
-		instance, err = downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-		if err != nil {
-			return nil, err
-		}
-		if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-			return nil, err
+		if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+			stepper.Arch = resolved.Arch
+			stepper.Transport = resolved.Transport
+			stepper.Contents = resolved.Contents
+			if err = downloadAndUnpackResolvedPackage(ctx, stepper.Package, opts); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("upgrade Kubernetes %s requires resolved OCI artifact transport", stepper.Version)
 		}
 	}
 	if stepper.DownloadImage {
-		if instance == nil {
-			return nil, fmt.Errorf("local image archive is unavailable for OCI-delivered Kubernetes package")
-		}
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		if err := utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
+		return nil, fmt.Errorf("upgrade Kubernetes image archives are not supported with OCI package delivery")
 	}
 	return nil, nil
 }
 
 func (stepper *UpgradePackage) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
 	// remove upgrade package
-	if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -rf %s", filepath.Join(downloader.BaseDstDir, K8s))); err != nil {
+	if _, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -rf %s", filepath.Join(downloader.BaseDstDir, K8s))); err != nil {
 		return nil, err
 	}
 	// remove image file
-	if stepper.DownloadImage {
-		if err = instance.RemoveImages(); err != nil {
-			logger.Error("remove k8s upgrade images compressed file failed", zap.Error(err))
-		}
-	}
 	return nil, nil
 }
 

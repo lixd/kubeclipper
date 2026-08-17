@@ -75,14 +75,7 @@ type Chart struct {
 
 func (i *Chart) Install(ctx context.Context, opts component.Options) ([]byte, error) {
 	if i.Transport.Type == "" {
-		instance, err := downloader.NewInstance(ctx, i.PkgName, i.Version, runtime.GOARCH, !i.Offline, opts.DryRun)
-		if err != nil {
-			return nil, err
-		}
-		if _, err = instance.DownloadCharts(); err != nil {
-			return nil, fmt.Errorf("download %s-%s chart packages failed: %v", i.PkgName, i.Version, err)
-		}
-		return nil, nil
+		return nil, fmt.Errorf("install %s-%s chart requires resolved OCI artifact transport", i.PkgName, i.Version)
 	}
 	if i.Transport.Type != deliveryapis.TransportOCI {
 		return nil, fmt.Errorf("install %s-%s chart unsupported resolved transport %q", i.PkgName, i.Version, i.Transport.Type)

@@ -38,6 +38,7 @@ const (
 	ContentConfigs = "configs"
 	ContentCharts  = "charts"
 	ContentBinary  = "binary"
+	ContentImages  = "images"
 
 	MediaTypeConfigsLayer   = "application/vnd.kubeclipper.configs.layer.v1.tar+gzip"
 	MediaTypeChartsLayer    = "application/vnd.kubeclipper.charts.layer.v1.tgz"

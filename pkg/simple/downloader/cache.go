@@ -27,12 +27,16 @@ import (
 )
 
 const (
-	CacheDirEnv     = "KUBECLIPPER_CACHE_DIR"
-	rootCacheDir    = "/var/lib/kubeclipper/cache"
-	packageContents = "contents"
-	packageLock     = ".cache.lock"
-	cacheDirMode    = 0700
-	cacheFileMode   = 0600
+	ManifestFilename = "manifest.json"
+	ConfigFilename   = "configs.tar.gz"
+	BaseDstDir       = "/tmp/kc-downloader"
+	ChartFilename    = "charts.tgz"
+	CacheDirEnv      = "KUBECLIPPER_CACHE_DIR"
+	rootCacheDir     = "/var/lib/kubeclipper/cache"
+	packageContents  = "contents"
+	packageLock      = ".cache.lock"
+	cacheDirMode     = 0700
+	cacheFileMode    = 0600
 )
 
 type PackageLock struct {
@@ -78,6 +82,10 @@ func PackageManifestPath(kind, name, version, arch string) string {
 
 func ChartPath(kind, name, version, arch string) string {
 	return filepath.Join(PackageContentsDir(kind, name, version, arch), ChartFilename)
+}
+
+func ChartDir(name, version string) string {
+	return filepath.Join(BaseDstDir, "."+name, version)
 }
 
 func AcquirePackageLock(kind, name, version, arch string) (*PackageLock, error) {

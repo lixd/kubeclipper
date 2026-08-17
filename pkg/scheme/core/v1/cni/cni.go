@@ -25,7 +25,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
-	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -76,6 +75,13 @@ func applyResolvedCNI(ctx context.Context, base *BaseCni, name string) {
 	}
 }
 
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return deliveryapis.DefaultPackageOS + "-" + arch
+	}
+	return deliveryapis.DefaultPackageOS + "-" + runtime.GOARCH
+}
+
 type Stepper interface {
 	InitStep(metadata *component.ExtraMetadata, cni *v1.CNI, networking *v1.Networking) Stepper
 	LoadImage(nodes []v1.StepNode) ([]v1.Step, error)
@@ -89,32 +95,11 @@ func (runnable *BaseCni) NewInstance() component.ObjectMeta {
 }
 
 func (runnable *BaseCni) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, runnable.Type, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-
-	if runnable.Offline && runnable.ResolvedImageRegistry == "" {
-		dstFile, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		// load image package
-		if err = utils.LoadImage(ctx, opts.DryRun, dstFile, runnable.CriType); err != nil {
-			return nil, err
-		}
-		logger.Info("calico packages offline install successfully")
-	}
-
 	return nil, nil
 }
 
 func (runnable *BaseCni) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, runnable.Type, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveImages(); err != nil {
+	if err := downloader.CleanupPackage("cni", runnable.Type, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
 		logger.Error("remove calico images compressed file failed", zap.Error(err))
 	}
 	return nil, nil

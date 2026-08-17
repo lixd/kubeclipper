@@ -21,13 +21,11 @@ package scheme
 import (
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
 
@@ -87,25 +85,16 @@ func (x MetaKcVersions) Swap(i, j int)      { x[i], x[j] = x[j], x[i] }
 
 func (m *PackageMetadata) ReadMetadata(online bool, path string) error {
 	if online {
-		c := http.DefaultClient
-		resp, err := c.Get(fmt.Sprintf("%s/metadata.json", downloader.CloudStaticServer))
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if err = json.NewDecoder(resp.Body).Decode(m); err != nil {
-			return err
-		}
-	} else {
-		file := filepath.Join(path, "metadata.json")
-		metadata, err := os.ReadFile(file)
-		if err != nil {
-			return err
-		}
-		err = json.Unmarshal(metadata, m)
-		if err != nil {
-			return err
-		}
+		return fmt.Errorf("remote package metadata is no longer served over HTTP; use OCI package inventory")
+	}
+	file := filepath.Join(path, "metadata.json")
+	metadata, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	err = json.Unmarshal(metadata, m)
+	if err != nil {
+		return err
 	}
 	return nil
 }

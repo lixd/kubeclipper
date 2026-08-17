@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -160,12 +159,7 @@ func (runnable ContainerdRunnable) Install(ctx context.Context, opts component.O
 	if runnable.Transport.Type != "" {
 		err = downloadAndUnpackResolvedRuntimeConfigs(ctx, runnable.Base, criContainerd, opts.DryRun)
 	} else {
-		instance, instanceErr := downloader.NewInstance(ctx, criContainerd, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-		if instanceErr == nil {
-			_, err = instance.DownloadAndUnpackConfigs()
-		} else {
-			err = instanceErr
-		}
+		err = fmt.Errorf("install containerd %s requires resolved OCI artifact transport", runnable.Version)
 	}
 	if err != nil {
 		return nil, err
@@ -193,13 +187,10 @@ func (runnable ContainerdRunnable) Install(ctx context.Context, opts component.O
 
 func (runnable ContainerdRunnable) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	runnable.disableContainerdService(ctx, opts.DryRun)
+	var err error
 
 	// remove related binary configuration files
-	instance, err := downloader.NewInstance(ctx, criContainerd, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveConfigs(); err != nil {
+	if err := downloader.CleanupPackage("cri", criContainerd, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
 		logger.Error("remove contanierd configs compressed file failed", zap.Error(err))
 	}
 	// remove containerd run dir

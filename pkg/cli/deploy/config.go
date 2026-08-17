@@ -97,30 +97,12 @@ agents:
 # kubeclipper agent node's default region.
 #defaultRegion: default
 
-# OCI registry host:port for KubeClipper offline packages.
-packageRegistry: ""
-
 # kubeclipper backend server port
 #serverPort: 8080
 # kubeclipper frontend server port.
 #consolePort: 80
-#automatic generate jwt token.
-#jwtSecret: ""
-
-# mq config,support internal or external mq.
-# use internal mq,kubeclipper will running mq with service,and automatic generate ips、user、secret and certs(if enable tls).
-# use external mq,you need specify ips、user、secret and certs(if enable tls).
-mq:
-  #external: false
-  #tls: true
-  ca: ""
-  clientCert: ""
-  clientKey: ""
-  ips: []
-  #port: 9889
-  #clusterPort: 9890
-  #user: admin
-  secret: ""
+# OCI registry containing KubeClipper packages.
+packageRegistry: ""
 
 # operation log config.
 opLog:
