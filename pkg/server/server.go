@@ -301,7 +301,7 @@ func (s *APIServer) installAPIs(stopCh <-chan struct{}) error {
 	}
 
 	platformOperator := platform.NewPlatformOperator(s.storageFactory.PlatformSettings(), s.storageFactory.Events())
-	if err := configv1.AddToContainer(s.container, platformOperator, s.Config, s); err != nil {
+	if err := configv1.AddToContainer(s.container, platformOperator, coreOperator, s.Config, s); err != nil {
 		return err
 	}
 
