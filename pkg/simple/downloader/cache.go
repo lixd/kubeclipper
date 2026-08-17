@@ -18,6 +18,7 @@ package downloader
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -112,6 +113,13 @@ func (l *PackageLock) Unlock() error {
 }
 
 func AtomicWriteFile(path string, data []byte, mode os.FileMode) error {
+	return AtomicWrite(path, mode, func(writer io.Writer) error {
+		_, err := writer.Write(data)
+		return err
+	})
+}
+
+func AtomicWrite(path string, mode os.FileMode, write func(io.Writer) error) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, cacheDirMode); err != nil {
 		return err
@@ -123,7 +131,7 @@ func AtomicWriteFile(path string, data []byte, mode os.FileMode) error {
 	tmpPath := tmp.Name()
 	defer os.Remove(tmpPath)
 	if err = tmp.Chmod(mode); err == nil {
-		_, err = tmp.Write(data)
+		err = write(tmp)
 	}
 	if err == nil {
 		err = tmp.Sync()
@@ -136,4 +144,22 @@ func AtomicWriteFile(path string, data []byte, mode os.FileMode) error {
 		return closeErr
 	}
 	return os.Rename(tmpPath, path)
+}
+
+func CleanupCharts(kind, name, version, arch string, dryRun bool) error {
+	if err := ValidatePackagePath(kind, name, version, arch); err != nil {
+		return err
+	}
+	if dryRun {
+		return nil
+	}
+	for _, path := range []string{
+		ChartPath(kind, name, version, arch),
+		ChartPath(kind, name, version, arch) + ".source.json",
+	} {
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
