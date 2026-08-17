@@ -2,10 +2,6 @@ agentID: 847627ea-160f-48e2-9a90-07a9739425aa
 region: default
 registerNode: true
 nodeStatusUpdateFrequency: 1m
-downloader:
-  address: 127.0.0.1:8090
-  tlsCertFile: ""
-  tlsPrivateKey: ""
 log:
   logFile: ""
   logFileMaxSizeMB: 100

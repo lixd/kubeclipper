@@ -1,61 +1,71 @@
 apiVersion: packaging.kubeclipper.io/v1alpha1
 kind: OfflineResourceBuild
-release: v1.8.0
+release: v2.0.0
 architectures:
   - amd64
+  - arm64
 registries:
-  package: ghcr.io/kubeclipper
-  image: ghcr.io/kubeclipper
+  package: ghcr.io/kubeclipper/kubeclipper
+  image: ghcr.io/kubeclipper/kubeclipper
 bootstrap:
-  kubeclipperVersion: v1.8.0
+  kubeclipperVersion: v2.0.0
   etcdVersion: 3.5.21
+  consoleVersion: v1.6.0
+  registryVersion: 3.1.1
   caddyVersion: 2.10.2
-  caddyUrlTemplate: https://github.com/caddyserver/caddy/releases/download/v${version}/caddy_${version}_linux_${arch}.tar.gz
   registry:
     bootstrapImage: registry:2
-    binaryUrlTemplate: ""
 resources:
   k8s:
     versions:
       - v1.36.1
+      - v1.35.0
+      - v1.34.2
+    kubeadmConfVersion: 0.16.2
+  k8sExtension:
+    versions:
+      - v1
     etcdVersion: 3.5.21
     helmVersion: 3.18.6
-    kubeadmConfVersion: 0.16.2
+    nerdctlVersion: 1.4.0
+    cniPluginsVersion: 1.3.0
+    calicoVersion: 3.31.5
     conntrack:
-      source: build
       version: 1.4.9
-      method: docker-source
+  kcRuntime:
+    versions:
+      - v2.0.0
+  runtimeImageSets:
+    nfs:
+      versions:
+        - v4.0.2
+        - v4.1.0
+    metallb:
+      versions:
+        - v0.13.7
   cri:
     containerd:
       versions:
         - 2.2.4
+        - 1.7.29
       runcVersion: 1.3.3
       crictlVersion: 1.35.0
   cni:
     calico:
       versions:
         - v3.31.5
-      chartVersion: v3.31.5
-      helmRepo: https://docs.tigera.io/calico/charts
+        - v3.29.6
+      chartName: tigera-operator
 addons:
-  csi-driver-nfs:
-    enabled: true
-    versions:
-      - v4.12.1
-    chartRepo: https://raw.githubusercontent.com/kubernetes-csi/csi-driver-nfs/master/charts
-    chartName: csi-driver-nfs
-    chartVersion: 4.12.1
   nvidia-dra-driver-gpu:
     enabled: false
     versions:
       - 25.8.0
-    chartRepo: https://helm.ngc.nvidia.com/nvidia
     chartName: nvidia-dra-driver-gpu
     chartVersion: 25.8.0
   nvidia-gpu-operator:
     enabled: false
     versions:
       - v25.10.0
-    chartRepo: https://helm.ngc.nvidia.com/nvidia
     chartName: gpu-operator
     chartVersion: 25.10.0

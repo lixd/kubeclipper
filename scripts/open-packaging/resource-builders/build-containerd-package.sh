@@ -11,8 +11,6 @@ version="2.2.4"
 runc_version="1.3.3"
 crictl_version="1.35.0"
 output="./resource"
-containerd_url=""
-service_url=""
 
 usage() {
   cat <<'EOF'
@@ -25,8 +23,6 @@ Flags:
   --crictl-version <version>   crictl version. Default: 1.35.0.
   --arch <amd64|arm64|all>     Target architecture. Default: amd64.
   --output <dir>               Resource output root. Default: ./resource.
-  --containerd-url <url>       Override containerd tarball URL for a single arch.
-  --service-url <url>          Override containerd.service URL.
   -h, --help                   Show this help.
 
 Output:
@@ -41,8 +37,6 @@ while [[ $# -gt 0 ]]; do
   --crictl-version) need_value "$@"; crictl_version="$2"; shift 2 ;;
   --arch) need_value "$@"; arch="$2"; shift 2 ;;
   --output) need_value "$@"; output="$2"; shift 2 ;;
-  --containerd-url) need_value "$@"; containerd_url="$2"; shift 2 ;;
-  --service-url) need_value "$@"; service_url="$2"; shift 2 ;;
   -h | --help) usage; exit 0 ;;
   *) die "unknown argument: $1" ;;
   esac
@@ -51,6 +45,32 @@ done
 validate_arch "$arch"
 need_cmd tar
 need_cmd gzip
+
+write_default_containerd_service() {
+  local dst=$1
+  write_file "$dst" \
+    "[Unit]" \
+    "Description=containerd container runtime" \
+    "Documentation=https://containerd.io" \
+    "After=network.target local-fs.target" \
+    "" \
+    "[Service]" \
+    "ExecStartPre=-/sbin/modprobe overlay" \
+    "ExecStart=/usr/local/bin/containerd" \
+    "Type=notify" \
+    "Delegate=yes" \
+    "KillMode=process" \
+    "Restart=always" \
+    "RestartSec=5" \
+    "LimitNPROC=infinity" \
+    "LimitCORE=infinity" \
+    "LimitNOFILE=infinity" \
+    "TasksMax=infinity" \
+    "OOMScoreAdjust=-999" \
+    "" \
+    "[Install]" \
+    "WantedBy=multi-user.target"
+}
 
 build_one() {
   local target_arch=$1
@@ -64,7 +84,7 @@ build_one() {
   package_dir="$output/containerd/$version/$target_arch"
   mkdir -p "$build_dir/usr/local/bin" "$build_dir/usr/local/sbin" "$build_dir/etc/systemd/system" "$down_dir" "$package_dir"
 
-  url="${containerd_url:-https://github.com/containerd/containerd/releases/download/v$version/containerd-$version-linux-$target_arch.tar.gz}"
+  url="https://github.com/containerd/containerd/releases/download/v$version/containerd-$version-linux-$target_arch.tar.gz"
   download "$url" "$down_dir/containerd.tar.gz"
   tar -xzf "$down_dir/containerd.tar.gz" -C "$down_dir"
   cp -f "$down_dir/bin/containerd" "$build_dir/usr/local/bin/"
@@ -79,7 +99,10 @@ build_one() {
   tar -xzf "$down_dir/crictl.tar.gz" -C "$down_dir"
   cp -f "$down_dir/crictl" "$build_dir/usr/local/bin/crictl"
 
-  download "${service_url:-https://raw.githubusercontent.com/containerd/containerd/v$version/containerd.service}" "$build_dir/etc/systemd/system/containerd.service"
+  if ! download "https://raw.githubusercontent.com/containerd/containerd/v$version/containerd.service" "$build_dir/etc/systemd/system/containerd.service"; then
+    log "falling back to bundled containerd.service"
+    write_default_containerd_service "$build_dir/etc/systemd/system/containerd.service"
+  fi
 
   generate_manifest "$build_dir" "$build_dir/opt/kc/manifest/containerd/$version/$target_arch/config/manifest.json"
   rm -f "$package_dir/configs.tar.gz" "$package_dir/manifest.json"

@@ -1,9 +1,4 @@
-# commit with version tag(v1,v1.1,v1.1.1...) to create release.
-# need CHANGELOG-$tag.md(CHANGELOG-v1.0.md).
-
-# 1.setup go env
-# 2.build
-# 3.release
+# Publish the complete OCI release and kcctl assets for a stable v* tag.
 
 name: release
 
@@ -14,71 +9,153 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
-  build:
-    name: Release
-    runs-on: ubuntu-latest
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
-      - name: Check out code into the Go module directory
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Set up Golang with cache
-        uses: magnetikonline/action-golang-cache@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - name: Get tag or branch
-        id: extract_branch
-        shell: bash
+          cache: true
+      - name: Validate release tag and build publish matrix
+        id: matrix
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
         run: |
-          latest_tag=$(git describe --tags --abbrev=0 2>/dev/null)
-          branch=${GITHUB_REF#refs/heads/}
-          if [[ "$branch" == "master" || "$branch" == "main" ]]; then
-            ref_name=$branch
-          elif [[ -n "$latest_tag" ]]; then
-            ref_name=$latest_tag
-          else
-            ref_name=$branch
-          fi
-          echo "The ref name is $ref_name"
-          echo "##[set-output name=branch;]${ref_name}"
+          set -euo pipefail
+          manifest_version="$(awk '$1 == "release:" {print $2}' packaging/resources.yaml)"
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "release tag must be a stable vX.Y.Z version: $RELEASE_TAG" >&2
+            exit 1
+          }
+          [[ "$manifest_version" == "$RELEASE_TAG" ]] || {
+            echo "release tag $RELEASE_TAG does not match packaging release $manifest_version" >&2
+            exit 1
+          }
+          matrix="$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
-      - name: Build
-        if: github.event_name == 'push'
-        run:
-          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build
+  publish:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: ${{ matrix.component }}
+      version: ${{ matrix.version }}
+      architecture: ${{ matrix.architecture }}
+      registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper
+      upload_release_input: true
+    secrets: inherit
 
-      - name: Compress
-        run: |
-          pushd dist
-          tar -zcvf kc-linux-arm64.tar.gz linux_arm64/
-          tar -zcvf kc-linux-amd64.tar.gz kubeclipper-server kubeclipper-agent kcctl
-          tar -zcvf kc-darwin-amd64.tar.gz darwin_amd64/
-          tar -zcvf kc-darwin-arm64.tar.gz darwin_arm64/
-          popd
-      - name: Setup ossutil
-        uses: manyuanrong/setup-ossutil@v3.0
+  build-cli:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
         with:
-          endpoint: ${{ secrets.OSS_ENDPOINT }}
-          access-key-id: ${{ secrets.OSS_ACCESS_KEY }}
-          access-key-secret: ${{ secrets.OSS_ACCESS_SECRET }}
-          #sts-token: "sts_token"
-      - name: Upload to oss
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build kcctl
+        run: KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
+      - name: Package kcctl artifacts
         run: |
-          ossutil cp -rf dist/kc-linux-arm64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
-          ossutil cp -rf dist/kc-linux-amd64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
-          ossutil cp -rf dist/kc-darwin-amd64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
-          ossutil cp -rf dist/kc-darwin-arm64.tar.gz oss://${{ secrets.OSS_BUCKET }}/kc/${{ steps.extract_branch.outputs.version }}/
+          set -euo pipefail
+          pushd dist
+          cp kcctl kcctl-linux-amd64
+          cp linux_arm64/kcctl kcctl-linux-arm64
+          cp darwin_amd64/kcctl kcctl-darwin-amd64
+          cp darwin_arm64/kcctl kcctl-darwin-arm64
+          sha256sum kcctl-* > kcctl-checksums.txt
+          popd
+      - uses: actions/upload-artifact@v6
+        with:
+          name: kcctl-release-${{ github.run_id }}
+          path: |
+            dist/kcctl-linux-amd64
+            dist/kcctl-linux-arm64
+            dist/kcctl-darwin-amd64
+            dist/kcctl-darwin-arm64
+            dist/kcctl-checksums.txt
+          retention-days: 2
 
-      - name: Release
+  manifest:
+    needs: publish
+    runs-on: ubuntu-24.04
+    env:
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: imjasonh/setup-crane@v0.4
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: oci-release-input-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/kc-release
+          merge-multiple: true
+      - name: Generate and verify release manifest
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          resource_dir="$RUNNER_TEMP/kc-release"
+          output="$resource_dir/release-manifest-$RELEASE_TAG.yaml"
+          scripts/open-packaging/generate-resource-metadata.sh \
+            --resource-dir "$resource_dir" \
+            --image-registry "$REGISTRY_PREFIX"
+          scripts/open-packaging/generate-release-manifest.sh \
+            --build-manifest packaging/resources.yaml \
+            --resource-dir "$resource_dir" \
+            --output "$output" \
+            --package-registry "$REGISTRY_PREFIX" \
+            --image-registry "$REGISTRY_PREFIX" \
+            --include-bootstrap \
+            --arch all \
+            --resolve-digests \
+            --source-revision "$GITHUB_SHA"
+          scripts/open-packaging/verify-release-manifest.sh \
+            --manifest "$output" \
+            --registry "$REGISTRY_PREFIX"
+          sha256sum "$output" > "$output.sha256"
+      - uses: actions/upload-artifact@v6
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/kc-release/release-manifest-${{ github.ref_name }}.yaml
+            ${{ runner.temp }}/kc-release/release-manifest-${{ github.ref_name }}.yaml.sha256
+          retention-days: 2
+
+  github-release:
+    needs: [build-cli, manifest]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: kcctl-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
-          files: |
-            dist/kc-linux-arm64.tar.gz
-            dist/kc-linux-amd64.tar.gz
-            dist/kc-darwin-amd64.tar.gz
-            dist/kc-darwin-arm64.tar.gz
-          # note you'll typically need to create a personal access token
-          # with permissions to create releases in the other repo
-          token: ${{ secrets.GH_TOKEN }}
+          files: ${{ runner.temp }}/release/*
+          generate_release_notes: true

@@ -1,0 +1,35 @@
+name: publish-resource-nfs
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: NFS runtime image-set version.
+        required: true
+        default: v4.1.0
+        type: choice
+        options: [v4.0.2, v4.1.0]
+      architecture:
+        description: Target architecture.
+        required: true
+        default: amd64
+        type: choice
+        options: [amd64, arm64, all]
+      registry_prefix:
+        description: GHCR prefix. Defaults to ghcr.io/<repository-owner>/kubeclipper.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: resource-nfs
+      version: ${{ inputs.version }}
+      architecture: ${{ inputs.architecture }}
+      registry_prefix: ${{ inputs.registry_prefix }}
+    secrets: inherit

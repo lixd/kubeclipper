@@ -19,6 +19,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,8 @@ import (
 
 	deliverypublisher "github.com/kubeclipper/kubeclipper/pkg/delivery/publisher"
 )
+
+const workdirMode = 0755
 
 type manifest struct {
 	Registry string         `json:"registry"`
@@ -80,8 +83,8 @@ func run(opts options) error {
 		return err
 	}
 	var cfg manifest
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return err
+	if unmarshalErr := yaml.Unmarshal(data, &cfg); unmarshalErr != nil {
+		return unmarshalErr
 	}
 	if strings.TrimSpace(cfg.Registry) == "" {
 		return fmt.Errorf("manifest registry is required")
@@ -97,18 +100,18 @@ func run(opts options) error {
 			return err
 		}
 		defer os.RemoveAll(workdir)
-	} else if err := os.MkdirAll(workdir, 0755); err != nil {
+	} else if err := os.MkdirAll(workdir, workdirMode); err != nil {
 		return err
 	}
 
 	client := &http.Client{Timeout: 30 * time.Minute}
 	publisher := deliverypublisher.NewOCIArtifactPublisher()
-	for _, pkg := range cfg.Packages {
-		normalized, err := normalizeEntry(pkg)
+	for i := range cfg.Packages {
+		normalized, err := normalizeEntry(&cfg.Packages[i])
 		if err != nil {
 			return err
 		}
-		localPath, err := materializeSource(client, workdir, normalized)
+		localPath, err := materializeSource(client, workdir, &normalized)
 		if err != nil {
 			return err
 		}
@@ -132,26 +135,27 @@ func run(opts options) error {
 	return nil
 }
 
-func normalizeEntry(pkg packageEntry) (packageEntry, error) {
+func normalizeEntry(input *packageEntry) (packageEntry, error) {
+	pkg := *input
 	pkg.Source = strings.TrimSpace(pkg.Source)
 	pkg.Kind = strings.TrimSpace(pkg.Kind)
 	pkg.Name = strings.TrimSpace(pkg.Name)
 	pkg.Version = strings.TrimSpace(pkg.Version)
 	pkg.Arch = strings.TrimSpace(pkg.Arch)
 	pkg.Profile = strings.TrimSpace(pkg.Profile)
-	if strings.TrimSpace(pkg.Source) == "" {
+	if pkg.Source == "" {
 		return packageEntry{}, fmt.Errorf("package source is required")
 	}
-	if strings.TrimSpace(pkg.Kind) == "" || strings.TrimSpace(pkg.Name) == "" || strings.TrimSpace(pkg.Version) == "" {
+	if pkg.Kind == "" || pkg.Name == "" || pkg.Version == "" {
 		return packageEntry{}, fmt.Errorf("package kind, name and version are required")
 	}
-	if strings.TrimSpace(pkg.Arch) == "" {
+	if pkg.Arch == "" {
 		pkg.Arch = "amd64"
 	}
 	return pkg, nil
 }
 
-func materializeSource(client *http.Client, workdir string, pkg packageEntry) (string, error) {
+func materializeSource(client *http.Client, workdir string, pkg *packageEntry) (string, error) {
 	source := strings.TrimSpace(pkg.Source)
 	if isRemoteURL(source) {
 		return downloadToWorkdir(client, workdir, pkg, source)
@@ -167,8 +171,8 @@ func isRemoteURL(raw string) bool {
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https")
 }
 
-func downloadToWorkdir(client *http.Client, workdir string, pkg packageEntry, source string) (string, error) {
-	req, err := http.NewRequest(http.MethodGet, source, nil)
+func downloadToWorkdir(client *http.Client, workdir string, pkg *packageEntry, source string) (string, error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, source, http.NoBody)
 	if err != nil {
 		return "", err
 	}

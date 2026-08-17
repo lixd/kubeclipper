@@ -1,0 +1,34 @@
+name: publish-bootstrap-etcd
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: etcd version.
+        required: true
+        default: 3.5.21
+        type: string
+      architecture:
+        description: Target architecture.
+        required: true
+        default: amd64
+        type: choice
+        options: [amd64, arm64, all]
+      registry_prefix:
+        description: GHCR prefix. Defaults to ghcr.io/<repository-owner>/kubeclipper.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: bootstrap-etcd
+      version: ${{ inputs.version }}
+      architecture: ${{ inputs.architecture }}
+      registry_prefix: ${{ inputs.registry_prefix }}
+    secrets: inherit

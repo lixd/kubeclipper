@@ -20,11 +20,11 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -34,6 +34,32 @@ import (
 	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
 	deliverypublisher "github.com/kubeclipper/kubeclipper/pkg/delivery/publisher"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
+)
+
+const (
+	archAMD64              = "amd64"
+	archARM64              = "arm64"
+	kindCNI                = "cni"
+	kindCRI                = "cri"
+	kindK8s                = "k8s"
+	kindBinary             = "binary"
+	kindExtension          = "extension"
+	nameCalico             = "calico"
+	nameContainerd         = "containerd"
+	nameEtcdctl            = "etcdctl"
+	nameKubeClipperAgent   = "kubeclipper-agent"
+	nameKubectlTerminal    = "kubectl-terminal"
+	versionCalico          = "v3.30.0"
+	versionContainerd      = "2.1.0"
+	versionEtcdctl         = "v3.5.15"
+	versionK8s             = "v1.36.0"
+	versionKubeClipper     = "v1.8.0"
+	versionKubectlTerminal = "v1.0.0"
+	imagesArchive          = "images.tar.gz"
+	verificationComponents = 6
+	directoryMode          = 0755
+	fileMode               = 0644
+	executableFileMode     = 0755
 )
 
 type packageFixture struct {
@@ -70,130 +96,170 @@ func run(ctx context.Context, registry string) error {
 	defer os.RemoveAll(workdir)
 	_ = os.RemoveAll(downloader.BaseDstDir)
 
-	fixtures := []packageFixture{
-		{kind: "k8s", name: "k8s", version: "v1.36.0", profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz", "images.tar.gz"}},
-		{kind: "cri", name: "containerd", version: "2.1.0", profile: deliveryapis.ContentProfileRuntime, files: []string{"configs.tar.gz", "images.tar.gz"}},
-		{kind: "cni", name: "calico", version: "v3.30.0", profile: deliveryapis.ContentProfileAddon, files: []string{"images.tar.gz", "charts.tgz"}},
-		{kind: "binary", name: "kubeclipper-agent", version: "v1.8.0", profile: deliveryapis.ContentProfileBinary, files: []string{"kubeclipper-agent"}},
-		{kind: "binary", name: "etcdctl", version: "v3.5.15", profile: deliveryapis.ContentProfileBinary, files: []string{"etcdctl"}},
-		{kind: "extension", name: "kubectl-terminal", version: "v1.0.0", profile: deliveryapis.ContentProfileExtension, files: []string{"images.tar.gz"}},
-	}
-
-	publisher := deliverypublisher.NewOCIArtifactPublisher()
-	for _, fixture := range fixtures {
-		archive, err := writePackageArchive(workdir, fixture)
-		if err != nil {
-			return err
-		}
-		result, err := publisher.Publish(deliverypublisher.PublishRequest{
-			PackagePath:    archive,
-			Kind:           fixture.kind,
-			Name:           fixture.name,
-			Version:        fixture.version,
-			Arch:           "amd64",
-			Registry:       registry,
-			ContentProfile: fixture.profile,
-		})
-		if err != nil {
-			return fmt.Errorf("publish %s/%s:%s: %w", fixture.kind, fixture.name, fixture.version, err)
-		}
-		v.check(result.Transport.Type == deliveryapis.TransportOCI, "publish %s/%s uses OCI transport", fixture.kind, fixture.name)
-		v.check(strings.HasPrefix(result.Transport.Digest, "sha256:"), "publish %s/%s records manifest digest", fixture.kind, fixture.name)
+	fixtures := verificationFixtures()
+	if publishErr := publishFixtures(workdir, registry, fixtures, v); publishErr != nil {
+		return publishErr
 	}
 
 	inventory, err := deliveryindexer.NewRegistryPackageInventoryIndexer(nil).Refresh(ctx, registry)
 	if err != nil {
 		return err
 	}
-	v.check(inventory.Spec.Registry == registry, "inventory records source registry")
-	v.check(len(inventory.Spec.Packages) >= len(fixtures), "inventory contains all published packages")
-	for _, fixture := range fixtures {
-		pkg, ok := findPackage(inventory, fixture.kind, fixture.name, fixture.version)
-		v.check(ok, "inventory has %s/%s:%s", fixture.kind, fixture.name, fixture.version)
-		if ok {
-			v.check(pkg.Arch == "amd64", "inventory %s/%s arch comes from platform", fixture.kind, fixture.name)
-			v.check(pkg.Transport.Type == deliveryapis.TransportOCI, "inventory %s/%s transport is OCI", fixture.kind, fixture.name)
-			v.check(strings.HasPrefix(pkg.Transport.Digest, "sha256:"), "inventory %s/%s has digest", fixture.kind, fixture.name)
-		}
-	}
-
-	policy := supportPolicy()
-	plan, err := deliveryapis.ResolveArtifacts(inventory, policy, deliveryapis.ResolveRequest{
-		KubernetesVersion: "v1.36.0",
-		OS:                deliveryapis.DefaultPackageOS,
-		Arch:              "amd64",
-	})
+	verifyInventory(inventory, fixtures, registry, v)
+	plan, err := resolveVerificationPlan(inventory, v)
 	if err != nil {
 		return err
 	}
-	v.check(len(plan.Components) == 3, "cluster install plan contains k8s/cri/cni only")
-	for _, component := range plan.Components {
-		v.check(component.Transport.Type == deliveryapis.TransportOCI, "plan %s/%s transport is OCI", component.Kind, component.Name)
-		v.check(strings.HasPrefix(component.Transport.Digest, "sha256:"), "plan %s/%s is digest pinned", component.Kind, component.Name)
-	}
-
-	_, err = deliveryapis.ResolveArtifacts(inventory, policy, deliveryapis.ResolveRequest{
-		KubernetesVersion: "v1.36.0",
-		OS:                deliveryapis.DefaultPackageOS,
-		Arch:              "arm64",
-	})
-	var resolverErr *deliveryapis.ResolverError
-	v.check(errors.As(err, &resolverErr) && resolverErr.Code == deliveryapis.ErrArtifactArchUnavailable, "arm64 resolve fails with ArtifactArchUnavailable")
-
-	agent, err := deliveryapis.ResolveBootstrapBinary(inventory, policy, deliveryapis.BootstrapBinaryResolveRequest{
-		Arch:              "amd64",
-		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.PackageCandidate{{Kind: "binary", Name: "kubeclipper-agent"}},
-	})
-	if err != nil {
+	if err := verifyFetchedPlan(ctx, plan, v); err != nil {
 		return err
-	}
-	etcdctl, err := deliveryapis.ResolveBootstrapBinary(inventory, policy, deliveryapis.BootstrapBinaryResolveRequest{
-		Arch:              "amd64",
-		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.PackageCandidate{{Kind: "binary", Name: "etcdctl"}},
-	})
-	if err != nil {
-		return err
-	}
-	extension, err := deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
-		Arch:              "amd64",
-		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.ExtensionCandidate{{Kind: "extension", Name: "kubectl-terminal"}},
-	})
-	if err != nil {
-		return err
-	}
-	v.check(agent.Kind == "binary" && agent.Name == "kubeclipper-agent", "bootstrap agent resolves from binary package")
-	v.check(etcdctl.Kind == "binary" && etcdctl.Name == "etcdctl", "bootstrap etcdctl resolves from binary package")
-	v.check(extension.Kind == "extension" && extension.Name == "kubectl-terminal", "kubectl terminal resolves from extension package")
-	_, err = deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
-		Arch:              "amd64",
-		KubernetesVersion: "v1.36.0",
-		Candidates:        []deliveryapis.ExtensionCandidate{{Kind: "extension", Name: "inventory-only-extension"}},
-	})
-	v.check(errors.As(err, &resolverErr) && resolverErr.Code == deliveryapis.ErrUnsupportedComponentChoice, "extension inventory-only candidate is rejected by policy")
-
-	fullPlan := *plan
-	fullPlan.Components = append(append([]deliveryapis.ResolvedComponent{}, plan.Components...), agent, etcdctl, extension)
-	fetcher := deliveryfetcher.NewOCIArtifactFetcher(false)
-	fetchResult, err := fetcher.Fetch(ctx, &fullPlan)
-	if err != nil {
-		return err
-	}
-	v.check(len(fetchResult.Components) == 6, "fetcher materializes all resolved components")
-	for _, component := range fetchResult.Components {
-		v.check(component.Transport.Type == deliveryapis.TransportOCI, "fetched %s/%s transport remains OCI", component.Kind, component.Name)
-		v.check(fileExists(component.ManifestPath), "fetched %s/%s manifest exists", component.Kind, component.Name)
-		for name, path := range component.Files {
-			v.check(fileExists(path), "fetched %s/%s content %s exists", component.Kind, component.Name, name)
-		}
 	}
 
 	if len(v.failures) > 0 {
 		return fmt.Errorf("verification checks failed: %s", strings.Join(v.failures, "; "))
 	}
 	fmt.Printf("OCI verification passed: %d/%d checks\n", v.passed, v.total)
+	return nil
+}
+
+func verificationFixtures() []packageFixture {
+	return []packageFixture{
+		{
+			kind: kindK8s, name: kindK8s, version: versionK8s,
+			profile: deliveryapis.ContentProfileK8s, files: []string{"configs.tar.gz", imagesArchive},
+		},
+		{
+			kind: kindCRI, name: nameContainerd, version: versionContainerd,
+			profile: deliveryapis.ContentProfileRuntime, files: []string{"configs.tar.gz", imagesArchive},
+		},
+		{
+			kind: kindCNI, name: nameCalico, version: versionCalico,
+			profile: deliveryapis.ContentProfileAddon, files: []string{imagesArchive, "charts.tgz"},
+		},
+		{
+			kind: kindBinary, name: nameKubeClipperAgent, version: versionKubeClipper,
+			profile: deliveryapis.ContentProfileBinary, files: []string{nameKubeClipperAgent},
+		},
+		{
+			kind: kindBinary, name: nameEtcdctl, version: versionEtcdctl,
+			profile: deliveryapis.ContentProfileBinary, files: []string{nameEtcdctl},
+		},
+		{
+			kind: kindExtension, name: nameKubectlTerminal, version: versionKubectlTerminal,
+			profile: deliveryapis.ContentProfileExtension, files: []string{imagesArchive},
+		},
+	}
+}
+
+func publishFixtures(workdir, registry string, fixtures []packageFixture, v *verifier) error {
+	publisher := deliverypublisher.NewOCIArtifactPublisher()
+	for i := range fixtures {
+		fixture := &fixtures[i]
+		archive, err := writePackageArchive(workdir, fixture)
+		if err != nil {
+			return err
+		}
+		result, err := publisher.Publish(deliverypublisher.PublishRequest{
+			PackagePath: archive, Kind: fixture.kind, Name: fixture.name, Version: fixture.version,
+			Arch: archAMD64, Registry: registry, ContentProfile: fixture.profile,
+		})
+		if err != nil {
+			return fmt.Errorf("publish %s/%s:%s: %w", fixture.kind, fixture.name, fixture.version, err)
+		}
+		v.checkf(result.Transport.Type == deliveryapis.TransportOCI, "publish %s/%s uses OCI transport", fixture.kind, fixture.name)
+		v.checkf(strings.HasPrefix(result.Transport.Digest, "sha256:"), "publish %s/%s records manifest digest", fixture.kind, fixture.name)
+	}
+	return nil
+}
+
+func verifyInventory(inventory *deliveryapis.PackageInventory, fixtures []packageFixture, registry string, v *verifier) {
+	v.checkf(inventory.Spec.Registry == registry, "inventory records source registry")
+	v.checkf(len(inventory.Spec.Packages) >= len(fixtures), "inventory contains all published packages")
+	for i := range fixtures {
+		fixture := &fixtures[i]
+		pkg, ok := findPackage(inventory, fixture.kind, fixture.name, fixture.version)
+		v.checkf(ok, "inventory has %s/%s:%s", fixture.kind, fixture.name, fixture.version)
+		if ok {
+			v.checkf(pkg.Arch == archAMD64, "inventory %s/%s arch comes from platform", fixture.kind, fixture.name)
+			v.checkf(pkg.Transport.Type == deliveryapis.TransportOCI, "inventory %s/%s transport is OCI", fixture.kind, fixture.name)
+			v.checkf(strings.HasPrefix(pkg.Transport.Digest, "sha256:"), "inventory %s/%s has digest", fixture.kind, fixture.name)
+		}
+	}
+}
+
+func resolveVerificationPlan(inventory *deliveryapis.PackageInventory, v *verifier) (*deliveryapis.ResolvedArtifactPlan, error) {
+	policy := supportPolicy()
+	plan, err := deliveryapis.ResolveArtifacts(inventory, policy, deliveryapis.ResolveRequest{
+		KubernetesVersion: versionK8s, OS: deliveryapis.DefaultPackageOS, Arch: archAMD64,
+	})
+	if err != nil {
+		return nil, err
+	}
+	v.checkf(len(plan.Components) == 3, "cluster install plan contains k8s/cri/cni only")
+	for i := range plan.Components {
+		component := &plan.Components[i]
+		v.checkf(component.Transport.Type == deliveryapis.TransportOCI, "plan %s/%s transport is OCI", component.Kind, component.Name)
+		v.checkf(strings.HasPrefix(component.Transport.Digest, "sha256:"), "plan %s/%s is digest pinned", component.Kind, component.Name)
+	}
+	_, err = deliveryapis.ResolveArtifacts(inventory, policy, deliveryapis.ResolveRequest{
+		KubernetesVersion: versionK8s, OS: deliveryapis.DefaultPackageOS, Arch: archARM64,
+	})
+	var resolverErr *deliveryapis.ResolverError
+	v.checkf(
+		errors.As(err, &resolverErr) && resolverErr.Code == deliveryapis.ErrArtifactArchUnavailable,
+		"arm64 resolve fails with ArtifactArchUnavailable",
+	)
+
+	agent, err := deliveryapis.ResolveBootstrapBinary(inventory, policy, deliveryapis.BootstrapBinaryResolveRequest{
+		Arch: archAMD64, KubernetesVersion: versionK8s,
+		Candidates: []deliveryapis.PackageCandidate{{Kind: kindBinary, Name: nameKubeClipperAgent}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	etcdctl, err := deliveryapis.ResolveBootstrapBinary(inventory, policy, deliveryapis.BootstrapBinaryResolveRequest{
+		Arch: archAMD64, KubernetesVersion: versionK8s,
+		Candidates: []deliveryapis.PackageCandidate{{Kind: kindBinary, Name: nameEtcdctl}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	extension, err := deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
+		Arch: archAMD64, KubernetesVersion: versionK8s,
+		Candidates: []deliveryapis.ExtensionCandidate{{Kind: kindExtension, Name: nameKubectlTerminal}},
+	})
+	if err != nil {
+		return nil, err
+	}
+	v.checkf(agent.Kind == kindBinary && agent.Name == nameKubeClipperAgent, "bootstrap agent resolves from binary package")
+	v.checkf(etcdctl.Kind == kindBinary && etcdctl.Name == nameEtcdctl, "bootstrap etcdctl resolves from binary package")
+	v.checkf(extension.Kind == kindExtension && extension.Name == nameKubectlTerminal, "kubectl terminal resolves from extension package")
+	_, err = deliveryapis.ResolveExtensionArtifact(inventory, policy, deliveryapis.ExtensionResolveRequest{
+		Arch: archAMD64, KubernetesVersion: versionK8s,
+		Candidates: []deliveryapis.ExtensionCandidate{{Kind: kindExtension, Name: "inventory-only-extension"}},
+	})
+	v.checkf(
+		errors.As(err, &resolverErr) && resolverErr.Code == deliveryapis.ErrUnsupportedComponentChoice,
+		"extension inventory-only candidate is rejected by policy",
+	)
+
+	plan.Components = append(plan.Components, agent, etcdctl, extension)
+	return plan, nil
+}
+
+func verifyFetchedPlan(ctx context.Context, plan *deliveryapis.ResolvedArtifactPlan, v *verifier) error {
+	fetchResult, err := deliveryfetcher.NewOCIArtifactFetcher(false).Fetch(ctx, plan)
+	if err != nil {
+		return err
+	}
+	v.checkf(len(fetchResult.Components) == verificationComponents, "fetcher materializes all resolved components")
+	for i := range fetchResult.Components {
+		component := &fetchResult.Components[i]
+		v.checkf(component.Transport.Type == deliveryapis.TransportOCI, "fetched %s/%s transport remains OCI", component.Kind, component.Name)
+		v.checkf(component.ManifestPath != "", "fetched %s/%s manifest is recorded", component.Kind, component.Name)
+		for name, path := range component.Files {
+			v.checkf(path != "", "fetched %s/%s content %s is recorded", component.Kind, component.Name, name)
+		}
+	}
 	return nil
 }
 
@@ -207,55 +273,55 @@ func supportPolicy() *deliveryapis.SupportPolicy {
 				Slot:      "cri",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "containerd", Version: "2.1.0"},
+				Default:   deliveryapis.ComponentChoice{Name: nameContainerd, Version: versionContainerd},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "cri",
-					Name:            "containerd",
-					AllowedVersions: []string{"2.1.0"},
+					Kind:            kindCRI,
+					Name:            nameContainerd,
+					AllowedVersions: []string{versionContainerd},
 				}},
 			},
 			{
 				Slot:      "cni",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "calico", Version: "v3.30.0"},
+				Default:   deliveryapis.ComponentChoice{Name: nameCalico, Version: versionCalico},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "cni",
-					Name:            "calico",
-					AllowedVersions: []string{"v3.30.0"},
+					Kind:            kindCNI,
+					Name:            nameCalico,
+					AllowedVersions: []string{versionCalico},
 				}},
 			},
 			{
 				Slot:      "bootstrap-kubeclipper-agent",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "kubeclipper-agent", Version: "v1.8.0"},
+				Default:   deliveryapis.ComponentChoice{Name: nameKubeClipperAgent, Version: versionKubeClipper},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "binary",
-					Name:            "kubeclipper-agent",
-					AllowedVersions: []string{"v1.8.0"},
+					Kind:            kindBinary,
+					Name:            nameKubeClipperAgent,
+					AllowedVersions: []string{versionKubeClipper},
 				}},
 			},
 			{
 				Slot:      "bootstrap-etcdctl",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "etcdctl", Version: "v3.5.15"},
+				Default:   deliveryapis.ComponentChoice{Name: nameEtcdctl, Version: versionEtcdctl},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "binary",
-					Name:            "etcdctl",
-					AllowedVersions: []string{"v3.5.15"},
+					Kind:            kindBinary,
+					Name:            nameEtcdctl,
+					AllowedVersions: []string{versionEtcdctl},
 				}},
 			},
 			{
 				Slot:      "extension",
 				Selection: deliveryapis.SelectionOneOf,
 				Required:  true,
-				Default:   deliveryapis.ComponentChoice{Name: "kubectl-terminal", Version: "v1.0.0"},
+				Default:   deliveryapis.ComponentChoice{Name: nameKubectlTerminal, Version: versionKubectlTerminal},
 				Options: []deliveryapis.ComponentOption{{
-					Kind:            "extension",
-					Name:            "kubectl-terminal",
-					AllowedVersions: []string{"v1.0.0"},
+					Kind:            kindExtension,
+					Name:            nameKubectlTerminal,
+					AllowedVersions: []string{versionKubectlTerminal},
 				}},
 			},
 		},
@@ -263,102 +329,92 @@ func supportPolicy() *deliveryapis.SupportPolicy {
 	return policy
 }
 
-func writePackageArchive(workdir string, fixture packageFixture) (string, error) {
+func writePackageArchive(workdir string, fixture *packageFixture) (string, error) {
 	root := filepath.Join(workdir, "archives", fixture.kind, fixture.name, fixture.version)
-	base := filepath.Join(root, fixture.name, fixture.version, "amd64")
-	if err := os.MkdirAll(base, 0755); err != nil {
+	if err := os.MkdirAll(root, directoryMode); err != nil {
 		return "", err
 	}
+	entries := make([]tarEntry, 0, len(fixture.files))
 	for _, file := range fixture.files {
-		mode := os.FileMode(0644)
+		contents := []byte(fixture.kind + "/" + fixture.name + "/" + fixture.version + "/" + file + "\n")
+		mode := int64(fileMode)
 		if fixture.profile == deliveryapis.ContentProfileBinary {
-			mode = 0755
-			if err := os.WriteFile(filepath.Join(base, file), []byte(fixture.kind+"/"+fixture.name+"/"+fixture.version+"/"+file+"\n"), mode); err != nil {
+			mode = executableFileMode
+		} else {
+			var err error
+			contents, err = tarGzPayload(contents, fileMode)
+			if err != nil {
 				return "", err
 			}
-			continue
 		}
-		if err := writePayloadTarGz(filepath.Join(base, file), fixture, file, mode); err != nil {
-			return "", err
-		}
+		entries = append(entries, tarEntry{
+			name: filepath.ToSlash(filepath.Join(fixture.name, fixture.version, archAMD64, file)),
+			data: contents,
+			mode: mode,
+		})
 	}
 	archive := filepath.Join(root, fixture.name+".tar.gz")
-	return archive, writeTarGz(archive, root)
+	return archive, writeTarGz(archive, entries)
 }
 
-func writePayloadTarGz(path string, fixture packageFixture, file string, mode os.FileMode) error {
-	payloadRoot, err := os.MkdirTemp(filepath.Dir(path), "payload-")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(payloadRoot)
-	payloadFile := filepath.Join(payloadRoot, "payload.txt")
-	if err = os.WriteFile(payloadFile, []byte(fixture.kind+"/"+fixture.name+"/"+fixture.version+"/"+file+"\n"), mode); err != nil {
-		return err
-	}
-	return writeTarGz(path, payloadRoot)
+type tarEntry struct {
+	name string
+	data []byte
+	mode int64
 }
 
-func writeTarGz(archive, root string) error {
+func tarGzPayload(data []byte, mode int64) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	writer := gzip.NewWriter(buffer)
+	tarWriter := tar.NewWriter(writer)
+	if err := tarWriter.WriteHeader(&tar.Header{Name: "payload.txt", Mode: mode, Size: int64(len(data))}); err != nil {
+		return nil, err
+	}
+	if _, err := tarWriter.Write(data); err != nil {
+		return nil, err
+	}
+	if err := tarWriter.Close(); err != nil {
+		return nil, err
+	}
+	if err := writer.Close(); err != nil {
+		return nil, err
+	}
+	return buffer.Bytes(), nil
+}
+
+func writeTarGz(archive string, entries []tarEntry) error {
 	file, err := os.Create(archive)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 	gw := gzip.NewWriter(file)
-	defer gw.Close()
 	tw := tar.NewWriter(gw)
-	defer tw.Close()
-	return filepath.Walk(root, func(path string, info os.FileInfo, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		if info.IsDir() {
-			return nil
-		}
-		if filepath.Clean(path) == filepath.Clean(archive) {
-			return nil
-		}
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
+	for _, entry := range entries {
+		if err := tw.WriteHeader(&tar.Header{Name: entry.name, Mode: entry.mode, Size: int64(len(entry.data))}); err != nil {
 			return err
 		}
-		header, err := tar.FileInfoHeader(info, "")
-		if err != nil {
+		if _, err := tw.Write(entry.data); err != nil {
 			return err
 		}
-		header.Name = filepath.ToSlash(rel)
-		if err = tw.WriteHeader(header); err != nil {
-			return err
-		}
-		src, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		defer src.Close()
-		_, err = io.Copy(tw, src)
+	}
+	if err := tw.Close(); err != nil {
 		return err
-	})
+	}
+	return gw.Close()
 }
 
 func findPackage(inventory *deliveryapis.PackageInventory, kind, name, version string) (deliveryapis.PackageEntry, bool) {
-	for _, pkg := range inventory.Spec.Packages {
-		if pkg.Kind == kind && pkg.Name == name && pkg.Version == version && pkg.Arch == "amd64" {
+	for i := range inventory.Spec.Packages {
+		pkg := inventory.Spec.Packages[i]
+		if pkg.Kind == kind && pkg.Name == name && pkg.Version == version && pkg.Arch == archAMD64 {
 			return pkg, true
 		}
 	}
 	return deliveryapis.PackageEntry{}, false
 }
 
-func fileExists(path string) bool {
-	if path == "" {
-		return false
-	}
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-func (v *verifier) check(ok bool, format string, args ...interface{}) {
+func (v *verifier) checkf(ok bool, format string, args ...any) {
 	v.total++
 	message := fmt.Sprintf(format, args...)
 	if !ok {
