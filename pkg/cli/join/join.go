@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"gopkg.in/yaml.v2"
@@ -255,6 +256,9 @@ func (c *JoinOptions) Complete() error {
 	if err != nil {
 		return errors.WithMessage(err, "get online deploy-config failed")
 	}
+	if strings.TrimSpace(c.deployConfig.TempDir) == "" {
+		c.deployConfig.TempDir = config.DefaultPkgPath
+	}
 	if c.packageRegistry != "" {
 		c.deployConfig.PackageRegistry = c.packageRegistry
 	}
@@ -393,11 +397,12 @@ func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata) err
 		Hosts:          []string{node},
 		NeedAgent:      false,
 		RegistryConfig: c.packageRegistryConfig,
+		RemoteTempDir:  c.deployConfig.TempDir,
 	}); err != nil {
 		return errors.Wrap(err, "install bootstrap agent from registry")
 	}
 	if err := deploy.InstallPackageRegistryConfig(
-		c.sshConfig, []string{node}, c.packageRegistryConfig, deliveryregistry.AgentConfigPath,
+		c.sshConfig, []string{node}, c.packageRegistryConfig, deliveryregistry.AgentConfigPath, c.deployConfig.TempDir,
 	); err != nil {
 		return errors.Wrap(err, "install package registry config")
 	}
@@ -515,7 +520,7 @@ func (c *JoinOptions) sendCerts(ip, agentID string) error {
 		filepath.Join(certConfig.Path, "agent.key"),
 	}
 	for _, source := range sources {
-		if err := utils.SendPackageV2(c.sshConfig, source, []string{ip}, destination, nil, nil); err != nil {
+		if err := utils.SendPackageV2WithTempDir(c.sshConfig, source, []string{ip}, destination, nil, nil, c.deployConfig.TempDir); err != nil {
 			return err
 		}
 	}

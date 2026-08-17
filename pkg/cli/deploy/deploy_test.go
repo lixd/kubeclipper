@@ -125,7 +125,7 @@ func TestDeployOptionsValidateTempDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d := NewDeployOptions(options.IOStreams{})
 			d.aio = true
-			d.deployConfig.Pkg = "/tmp/kc-amd64.tar.gz"
+			d.deployConfig.PackageRegistry = "registry.example.test/kubeclipper"
 			d.deployConfig.ServerIPs = []string{"192.0.2.10"}
 			d.deployConfig.TempDir = tt.tempDir
 
