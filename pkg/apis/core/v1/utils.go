@@ -88,6 +88,10 @@ func (h *handler) parseOperationFromCluster(extraMetadata *component.ExtraMetada
 
 	// Container runtime should be installed on all nodes.
 	ctx := component.WithExtraMetadata(context.TODO(), *extraMetadata)
+	ctx, err := h.withResolvedArtifactPlan(ctx, extraMetadata, c, action)
+	if err != nil {
+		return nil, err
+	}
 	stepNodes := utils.UnwrapNodeList(extraMetadata.GetAllNodes())
 	cSteps, err := clusteroperation.GetCriStep(ctx, c, operator, action, stepNodes)
 	if err != nil {
@@ -386,7 +390,11 @@ func (h *handler) parseAddonStep(ctx context.Context, clu *v1.Cluster, addons []
 		if err := newComp.Validate(); err != nil {
 			return []v1.Step{}, err
 		}
-		if err := newComp.InitSteps(ctx); err != nil {
+		resolvedCtx, err := h.withResolvedAddonArtifacts(ctx, clu, newComp, action)
+		if err != nil {
+			return []v1.Step{}, err
+		}
+		if err := newComp.InitSteps(resolvedCtx); err != nil {
 			return []v1.Step{}, err
 		}
 		s, err := getSteps(newComp, action)

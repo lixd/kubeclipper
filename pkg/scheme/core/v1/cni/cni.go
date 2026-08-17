@@ -24,7 +24,9 @@ import (
 	"runtime"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
@@ -57,10 +59,21 @@ const (
 
 type BaseCni struct {
 	v1.CNI
-	ResolvedImageRegistry string `json:"imageRegistry,omitempty"`
-	DualStack             bool   `json:"dualStack"`
-	PodIPv4CIDR           string `json:"podIPv4CIDR"`
-	PodIPv6CIDR           string `json:"podIPv6CIDR"`
+	ResolvedImageRegistry string                         `json:"imageRegistry,omitempty"`
+	DualStack             bool                           `json:"dualStack"`
+	PodIPv4CIDR           string                         `json:"podIPv4CIDR"`
+	PodIPv6CIDR           string                         `json:"podIPv6CIDR"`
+	Arch                  string                         `json:"arch,omitempty"`
+	Transport             deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents              []deliveryapis.ArtifactContent `json:"contents,omitempty"`
+}
+
+func applyResolvedCNI(ctx context.Context, base *BaseCni, name string) {
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cni", name, base.Version); ok {
+		base.Arch = resolved.Arch
+		base.Transport = resolved.Transport
+		base.Contents = resolved.Contents
+	}
 }
 
 type Stepper interface {

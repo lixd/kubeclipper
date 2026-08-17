@@ -163,3 +163,13 @@ func CleanupCharts(kind, name, version, arch string, dryRun bool) error {
 	}
 	return nil
 }
+
+func CleanupPackage(kind, name, version, arch string, dryRun bool) error {
+	if err := ValidatePackagePath(kind, name, version, arch); err != nil {
+		return err
+	}
+	if dryRun {
+		return nil
+	}
+	return os.RemoveAll(PackageDir(kind, name, version, arch))
+}

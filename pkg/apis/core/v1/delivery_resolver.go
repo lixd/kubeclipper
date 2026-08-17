@@ -33,16 +33,16 @@ func (h *handler) withResolvedArtifactPlan(ctx context.Context, extra *component
 	if (action != v1.ActionInstall && action != v1.ActionUpgrade) || extra == nil || cluster == nil {
 		return ctx, nil
 	}
-	arch, ok := singleTargetArch(extra)
-	if !ok {
-		return nil, fmt.Errorf("OCI delivery requires a single target architecture")
-	}
 	source, err := resolveDeliverySource(ctx, h.platformOperator, h.coreOperator, cluster, h.deliveryIndexer)
 	if err != nil {
 		return nil, err
 	}
 	if source.inventoryStore == nil || source.policyStore == nil {
-		return nil, fmt.Errorf("delivery source requires package inventory and support policy")
+		return ctx, nil
+	}
+	arch, ok := singleTargetArch(extra)
+	if !ok {
+		return nil, fmt.Errorf("OCI delivery requires a single target architecture")
 	}
 	kubernetesVersion := cluster.KubernetesVersion
 	if action == v1.ActionUpgrade && extra.KubeVersion != "" {

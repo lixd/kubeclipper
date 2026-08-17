@@ -70,6 +70,7 @@ func (runnable *ContainerdRunnable) InitStep(ctx context.Context, cluster *v1.Cl
 	runnable.Version = cluster.ContainerRuntime.Version
 	runnable.Offline = metadata.Offline
 	runnable.DataRootDir = strutil.StringDefaultIfEmpty(containerdDefaultConfigDir, cluster.ContainerRuntime.DataRootDir)
+	applyResolvedRuntime(ctx, &runnable.Base, criContainerd)
 	runnable.ImageRegistry = metadata.ImageRegistry
 	runnable.Registies = registries
 	runnable.RegistryWithAuth = FilterRegistryWithAuth(runnable.Registies)
@@ -155,11 +156,18 @@ func (runnable *ContainerdRunnable) NewInstance() component.ObjectMeta {
 }
 
 func (runnable ContainerdRunnable) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, criContainerd, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
+	var err error
+	if runnable.Transport.Type != "" {
+		err = downloadAndUnpackResolvedRuntimeConfigs(ctx, runnable.Base, criContainerd, opts.DryRun)
+	} else {
+		instance, instanceErr := downloader.NewInstance(ctx, criContainerd, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
+		if instanceErr == nil {
+			_, err = instance.DownloadAndUnpackConfigs()
+		} else {
+			err = instanceErr
+		}
 	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	// When systemd is the init system of Linux,

@@ -30,8 +30,7 @@ import (
 )
 
 func (h *handler) withResolvedAddonArtifacts(ctx context.Context, cluster *schemecorev1.Cluster, addon component.Interface, action schemecorev1.StepAction) (context.Context, error) {
-	extra := component.GetExtraMetadata(ctx)
-	if (action != schemecorev1.ActionInstall && action != schemecorev1.ActionUpgrade) || !extra.Offline {
+	if action != schemecorev1.ActionInstall && action != schemecorev1.ActionUpgrade {
 		return ctx, nil
 	}
 	aware, ok := addon.(component.OfflineArtifactAware)
@@ -42,16 +41,16 @@ func (h *handler) withResolvedAddonArtifacts(ctx context.Context, cluster *schem
 	if len(requests) == 0 {
 		return ctx, nil
 	}
-	arch, ok := singleTargetArchFromContext(ctx)
-	if !ok {
-		return nil, fmt.Errorf("offline addon delivery requires a single target architecture")
-	}
 	source, err := resolveDeliverySource(ctx, h.platformOperator, h.coreOperator, cluster, h.deliveryIndexer)
 	if err != nil {
 		return nil, err
 	}
 	if source.inventoryStore == nil || source.policyStore == nil {
-		return nil, fmt.Errorf("delivery source requires package inventory and support policy")
+		return ctx, nil
+	}
+	arch, ok := singleTargetArchFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("OCI delivery requires a single target architecture")
 	}
 	inventory, err := source.inventoryStore.Get(ctx)
 	if err != nil {

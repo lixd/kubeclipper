@@ -62,6 +62,7 @@ func (runnable *DockerRunnable) InitStep(ctx context.Context, cluster *v1.Cluste
 	runnable.Version = cluster.ContainerRuntime.Version
 	runnable.Offline = metadata.Offline
 	runnable.DataRootDir = cluster.ContainerRuntime.DataRootDir
+	applyResolvedRuntime(ctx, &runnable.Base, criDocker)
 	runnable.InsecureRegistry = ToDockerInsecureRegistry(cluster.Status.Registries)
 
 	runtimeBytes, err := json.Marshal(runnable)
@@ -131,11 +132,18 @@ func (runnable *DockerRunnable) NewInstance() component.ObjectMeta {
 }
 
 func (runnable DockerRunnable) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, criDocker, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
+	var err error
+	if runnable.Transport.Type != "" {
+		err = downloadAndUnpackResolvedRuntimeConfigs(ctx, runnable.Base, criDocker, opts.DryRun)
+	} else {
+		instance, instanceErr := downloader.NewInstance(ctx, criDocker, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
+		if instanceErr == nil {
+			_, err = instance.DownloadAndUnpackConfigs()
+		} else {
+			err = instanceErr
+		}
 	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
+	if err != nil {
 		return nil, err
 	}
 	// generate docker daemon config file
