@@ -26,7 +26,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -136,12 +135,7 @@ func (runnable DockerRunnable) Install(ctx context.Context, opts component.Optio
 	if runnable.Transport.Type != "" {
 		err = downloadAndUnpackResolvedRuntimeConfigs(ctx, runnable.Base, criDocker, opts.DryRun)
 	} else {
-		instance, instanceErr := downloader.NewInstance(ctx, criDocker, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-		if instanceErr == nil {
-			_, err = instance.DownloadAndUnpackConfigs()
-		} else {
-			err = instanceErr
-		}
+		err = fmt.Errorf("install docker %s requires resolved OCI artifact transport", runnable.Version)
 	}
 	if err != nil {
 		return nil, err
@@ -160,13 +154,10 @@ func (runnable DockerRunnable) Install(ctx context.Context, opts component.Optio
 
 func (runnable DockerRunnable) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	runnable.disableDockerService(ctx, opts.DryRun)
+	var err error
 
 	// remove related binary configuration files
-	instance, err := downloader.NewInstance(ctx, criDocker, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveConfigs(); err != nil {
+	if err := downloader.CleanupPackage("cri", criDocker, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
 		logger.Error("remove docker configs compressed file failed", zap.Error(err))
 	}
 	// remove unix socket

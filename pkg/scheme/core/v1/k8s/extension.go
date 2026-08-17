@@ -27,7 +27,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
-	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryfetcher "github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
@@ -88,23 +87,7 @@ func (stepper *Extension) Install(ctx context.Context, opts component.Options) (
 		logger.Debug("k8s extension resolved install successfully")
 		return nil, nil
 	}
-	instance, err := downloader.NewInstance(ctx, k8sExtension, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
-	}
-	if stepper.Offline && stepper.ImageRegistry == "" {
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		if err = utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
-	}
-	return nil, nil
+	return nil, fmt.Errorf("install k8s extension %s requires resolved OCI artifact transport", stepper.Version)
 }
 
 func (stepper *Extension) installResolved(ctx context.Context, opts component.Options) error {

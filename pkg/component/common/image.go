@@ -22,17 +22,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"time"
 
-	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
-	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
 
@@ -57,53 +53,10 @@ type Imager struct {
 }
 
 func (i *Imager) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, i.PkgName, i.Version, runtime.GOARCH, !i.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-
-	var dstFiles []string
-
-	if len(i.CustomImageList) > 0 {
-		dstFiles, err = instance.DownloadCustomImages(i.CustomImageList...)
-		if err != nil {
-			return nil, fmt.Errorf("download %s-%s custom image failed: %v", i.PkgName, i.Version, err)
-		}
-	} else {
-		dstFile, err := instance.DownloadImages()
-		if err != nil {
-			return nil, fmt.Errorf("download %s-%s image failed: %v", i.PkgName, i.Version, err)
-		}
-		dstFiles = []string{dstFile}
-	}
-
-	// load image package
-	for _, dstFile := range dstFiles {
-		if err := utils.LoadImage(ctx, opts.DryRun, dstFile, i.CriName); err != nil {
-			return nil, fmt.Errorf("load %s-%s image failed: %v", i.PkgName, i.Version, err)
-		}
-	}
-
-	logger.Infof("%s-%s image packages offline install successfully", i.PkgName, i.Version)
-	return nil, err
+	return nil, fmt.Errorf("image archive tasks were removed; configure an image registry for %s", i.PkgName)
 }
 
 func (i *Imager) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, imageName, i.Version, runtime.GOARCH, !i.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(i.CustomImageList) > 0 {
-		if err = instance.RemoveCustomImages(i.CustomImageList...); err != nil {
-			logger.Errorf("remove %s-%s custom-images compressed file failed", i.PkgName, i.Version, zap.Error(err))
-		}
-	} else {
-		if err = instance.RemoveImages(); err != nil {
-			logger.Errorf("remove %s-%s images compressed file failed", i.PkgName, i.Version, zap.Error(err))
-		}
-	}
-
 	return nil, nil
 }
 

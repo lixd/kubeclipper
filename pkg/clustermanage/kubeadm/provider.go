@@ -668,41 +668,21 @@ func (r *Kubeadm) kubectlTerminal(ctx context.Context, node KubeNode, action v1.
 			return nil
 		}
 
-		deployConfig, err := r.getDeployConfig()
+		cluster, err := r.Operator.ClusterReader.GetCluster(ctx, r.Config.ClusterName)
 		if err != nil {
 			return err
 		}
-
-		exDir := "/tmp/.kc-extension"
-		exImage := fmt.Sprintf("%s/images.tar", exDir)
-
-		// TODO： since there is only one version of the kubectl terminal image at this stage,
-		// it is difficult to match multiple versions of the k8s cluster.
-		// for now, we are using kubectl v1.23.6 as the latest version
-		url := fmt.Sprintf("http://%s:%v/kc-extension/latest/%s", deployConfig.ServerIPs[0], deployConfig.StaticServerPort, node.arch)
-
-		loadImage := ""
-		switch node.cri {
-		case v1.CRIDocker:
-			// docker load -i xxx/images.tar
-			loadImage = fmt.Sprintf("docker load -i %s", exImage)
-		case v1.CRIContainerd:
-			loadImage = fmt.Sprintf("nerdctl -n k8s.io load -i %s", exImage)
-		default:
-			logger.Warnf("unsupported cri types: ", node.cri)
+		if cluster.ResolvedImageRegistry == "" {
+			return fmt.Errorf("kubectl terminal extension requires cluster imageRegistry; image tarball loading has been removed")
 		}
 
-		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{})
+		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{ImageRegistryAddr: cluster.ResolvedImageRegistry})
 		if err != nil {
 			return err
 		}
 		yamlFile := filepath.Join(k8s.ManifestDir, "kc-kubectl.yaml")
 
 		cmdList = []string{
-			fmt.Sprintf("mkdir -p %s", exDir),
-			fmt.Sprintf("curl %s/images.tar.gz -o %s.gz", url, exImage),
-			fmt.Sprintf("gzip -df %s.gz", exImage),
-			loadImage,
 			fmt.Sprintf("mkdir -p %s", k8s.ManifestDir),
 			sshutils.WrapEcho(terminalData, yamlFile),
 			fmt.Sprintf("kubectl apply -f %s", yamlFile),

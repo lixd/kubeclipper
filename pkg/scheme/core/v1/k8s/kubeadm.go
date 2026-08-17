@@ -207,23 +207,7 @@ func (stepper *Package) Install(ctx context.Context, opts component.Options) ([]
 		stepper.Contents = resolved.Contents
 		return stepper.installResolved(ctx, opts)
 	}
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if stepper.Offline && stepper.ImageRegistry == "" {
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		if err = utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
-	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
-	}
-	return nil, stepper.enableKubeletService(ctx, opts.DryRun)
+	return nil, fmt.Errorf("install Kubernetes %s requires resolved OCI artifact transport", stepper.Version)
 }
 
 func (stepper *Package) installResolved(ctx context.Context, opts component.Options) ([]byte, error) {

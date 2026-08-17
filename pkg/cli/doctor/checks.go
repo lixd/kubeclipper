@@ -35,7 +35,7 @@ import (
 func checkKCServer(_ context.Context, state *diagnosticState) Component {
 	component := Component{Name: "kc-server"}
 	statusComponent := platformComponent(state.platform, "kc-server")
-	for _, name := range []string{"api", "controller-manager", "static-resource"} {
+	for _, name := range []string{"api", "controller-manager"} {
 		check := platformCheck(statusComponent, name)
 		if check == nil {
 			status := platformstatus.Unknown
@@ -86,8 +86,6 @@ func checkServerNode(state *diagnosticState, host string) []Check {
 	}
 	checks = append(checks,
 		state.remote.httpHealth(host, "api-health", fmt.Sprintf("%s://%s/healthz", scheme, endpoint(host, state.deployConfig.ServerPort))),
-		state.remote.httpHealth(host, "static-resource-health",
-			fmt.Sprintf("http://%s/healthz", endpoint(host, state.deployConfig.StaticServerPort))),
 	)
 	for i := range checks {
 		if checks[i].Status != platformstatus.Healthy && len(checks[i].Logs) == 0 {
@@ -416,11 +414,8 @@ func attachServerFailureDetails(state *diagnosticState, component *Component, se
 			check.Logs = append(check.Logs, state.remote.journal(host, "kc-server")...)
 			check.Commands = appendUnique(check.Commands, state.remote.serviceCommands(host, "kc-server")...)
 		}
-		switch check.Name {
-		case "controller-manager":
+		if check.Name == "controller-manager" {
 			attachServerTimes(state.remote, check, servers)
-		case "static-resource":
-			attachStaticResourceEvidence(state, check, servers)
 		}
 		if len(check.Logs) > shownLogs {
 			check.Logs = check.Logs[len(check.Logs)-shownLogs:]
@@ -440,24 +435,6 @@ func attachServerTimes(remote *remoteRunner, check *Check, servers []string) {
 			}
 		}
 		check.Evidence = append(check.Evidence, fmt.Sprintf("%s clock check failed", host))
-	}
-}
-
-func attachStaticResourceEvidence(state *diagnosticState, check *Check, servers []string) {
-	path := state.deployConfig.StaticServerPath
-	if path == "" {
-		return
-	}
-	quotedPath := shellQuote(path)
-	script := fmt.Sprintf("if test -d %s; then echo directory=present; else echo directory=missing; fi; "+
-		"if test -r %s; then echo readable=true; else echo readable=false; fi; df -P %s",
-		quotedPath, quotedPath, quotedPath)
-	command := fmt.Sprintf("timeout %d sh -c %s", remoteCommandTimeout, shellQuote(script))
-	for _, host := range servers {
-		for _, evidence := range state.remote.capture(host, command) {
-			check.Evidence = append(check.Evidence, host+" "+evidence)
-		}
-		check.Commands = appendUnique(check.Commands, state.remote.sshCommand(host, "df -P "+quotedPath))
 	}
 }
 

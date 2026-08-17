@@ -71,8 +71,8 @@ const (
 	DefaultCaPath              = "pki"
 	DefaultKcctlPKIPath        = "pki/kcctl"
 	DefaultEtcdPKIPath         = "pki/etcd"
-	DefaultNatsPKIPath         = "pki/nats"
 	DefaultKCPKIPath           = "pki/kc"
+	DefaultAgentPKIPath        = "pki/agent"
 	DefaultKcServerConfigPath  = "/etc/kubeclipper-server"
 	DefaultKcAgentConfigPath   = "/etc/kubeclipper-agent"
 	DefaultKcConsoleConfigPath = "/etc/kc-console"
@@ -85,8 +85,6 @@ const (
 	EtcdServer      = "etcd"      // server
 	EtcdKcClient    = "kc-server-etcd-client"
 	EtcdHealthCheck = "kube-etcd-healthcheck-client" // healthcheck-client
-	NatsIOClient    = "kc-server-nats-client"
-	NatsIOServer    = "kc-server-nats-server"
 	KCServer        = "kc-server"
 	KCServerAltName = "server.kubeclipper.io"
 
@@ -197,19 +195,6 @@ type Etcd struct {
 	DataDir     string `json:"dataDir" yaml:"dataDir,omitempty"`
 }
 
-type MQ struct {
-	External    bool     `json:"external" yaml:"external,omitempty"`
-	TLS         bool     `json:"tls" yaml:"tls,omitempty"`
-	CA          string   `json:"ca" yaml:"ca,omitempty"`
-	ClientCert  string   `json:"clientCert" yaml:"clientCert,omitempty"`
-	ClientKey   string   `json:"clientKey" yaml:"clientKey,omitempty"`
-	IPs         []string `json:"ips" yaml:"ips,omitempty"`
-	Port        int      `json:"port" yaml:"port,omitempty"`
-	ClusterPort int      `json:"clusterPort" yaml:"clusterPort,omitempty"`
-	User        string   `json:"user" yaml:"user,omitempty"`
-	Secret      string   `json:"secret" yaml:"secret,omitempty"`
-}
-
 type OpLog struct {
 	Dir       string `json:"dir" yaml:"dir,omitempty"`
 	Threshold int    `json:"threshold" yaml:"threshold,omitempty"`
@@ -278,9 +263,7 @@ type DeployConfig struct {
 	ServerPort                 int                            `json:"serverPort" yaml:"serverPort,omitempty"`
 	TLS                        bool                           `json:"tls" yaml:"tls,omitempty"`
 	ConsolePort                int                            `json:"consolePort" yaml:"consolePort,omitempty"`
-	JWTSecret                  string                         `json:"jwtSecret" yaml:"jwtSecret,omitempty"`
 	AuditOpts                  *option.AuditOptions           `json:"audit" yaml:"audit,omitempty"`
-	MQ                         *MQ                            `json:"mq" yaml:"mq,omitempty"`
 	OpLog                      *OpLog                         `json:"opLog" yaml:"opLog,omitempty"`
 	ImageProxy                 *ImageProxy                    `json:"imageProxy" yaml:"imageProxy,omitempty"`
 	AuthenticationOpts         *options.AuthenticationOptions `json:"authentication" yaml:"authentication,omitempty"`
@@ -340,13 +323,7 @@ func NewDeployOptions() *DeployConfig {
 		ServerPort:    8080,
 		TLS:           true,
 		AuditOpts:     option.NewAuditOptions(),
-		MQ: &MQ{
-			User:        "admin",
-			TLS:         true,
-			Port:        9889,
-			ClusterPort: 9890,
-		},
-		ConsolePort: 80,
+		ConsolePort:   80,
 		OpLog: &OpLog{
 			Dir:       "/var/log/kc-agent",
 			Threshold: 1048576,
@@ -445,19 +422,9 @@ func (c *DeployConfig) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&c.NodeIPDetect, "node-ip-detect", c.NodeIPDetect, fmt.Sprintf("Kc agent node ip detect method. Used for routing between nodes in the kubernetes cluster. If not specified, ip-detect is inherited. \n%s", IPDetectDescription))
 	flags.BoolVar(&c.Debug, "debug", c.Debug, "Deploy kc use debug mode")
 	flags.StringVarP(&c.DefaultRegion, "region", "r", c.DefaultRegion, "Kc agent default region")
-	flags.StringVar(&c.PackageRegistry, "package-registry", c.PackageRegistry, "OCI registry host:port for KubeClipper offline packages")
+	flags.StringVar(&c.PackageRegistry, "package-registry", c.PackageRegistry, "OCI registry for KubeClipper packages")
 	flags.BoolVar(&c.TLS, "tls", c.TLS, "Kc api server  use tls mode")
 	flags.IntVar(&c.ServerPort, "server-port", c.ServerPort, "Kc server port")
-	flags.BoolVar(&c.MQ.External, "mq-external", c.MQ.External, "Kc external mq")
-	flags.BoolVar(&c.MQ.TLS, "mq-tls", c.MQ.TLS, "Kc external mq client and built-in mq client/server use tls mode. built-in mq client/server cert automatic generation")
-	flags.StringVar(&c.MQ.CA, "mq-ca", c.MQ.CA, "Kc external mq client ca file path(absolute path)")
-	flags.StringVar(&c.MQ.ClientCert, "mq-cert", c.MQ.ClientCert, "Kc external mq client cert file path(absolute path)")
-	flags.StringVar(&c.MQ.ClientKey, "mq-key", c.MQ.ClientKey, "Kc external mq client key file path(absolute path)")
-	flags.StringSliceVar(&c.MQ.IPs, "mq-ips", c.MQ.IPs, "external mq ips.")
-	flags.IntVar(&c.MQ.Port, "mq-port", c.MQ.Port, "Kc built-in mq or external mq port")
-	flags.StringVar(&c.MQ.User, "mq-user", c.MQ.User, "external mq user")
-	flags.StringVar(&c.MQ.Secret, "mq-secret", c.MQ.Secret, "external mq user secret")
-	flags.IntVar(&c.MQ.ClusterPort, "mq-cluster-port", c.MQ.ClusterPort, "Kc mq cluster port")
 	flags.StringSliceVar(&c.ServerIPs, "server", c.ServerIPs, "Kc server ips")
 	flags.IntVar(&c.EtcdConfig.ClientPort, "etcd-port", c.EtcdConfig.ClientPort, "Etcd port")
 	flags.IntVar(&c.EtcdConfig.PeerPort, "etcd-peer-port", c.EtcdConfig.PeerPort, "Etcd peer port")
@@ -485,10 +452,6 @@ func (c *DeployConfig) GetKcServerConfigTemplateContent(ip string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("template parse failed: %s", err.Error())
 	}
-	var mqServerEndpoints []string
-	for _, v := range c.MQ.IPs {
-		mqServerEndpoints = append(mqServerEndpoints, fmt.Sprintf("%s:%d", v, c.MQ.Port))
-	}
 	etcdEndpoints := []string{fmt.Sprintf("%s:%d", ip, c.EtcdConfig.ClientPort)}
 	var data = make(map[string]interface{})
 	data["ServerAddress"] = ip
@@ -499,8 +462,7 @@ func (c *DeployConfig) GetKcServerConfigTemplateContent(ip string) (string, erro
 		data["TLSPrivateKey"] = filepath.Join(DefaultKcServerConfigPath, DefaultKCPKIPath, fmt.Sprintf("%s.key", KCServer))
 		data["CACertFile"] = filepath.Join(DefaultKcServerConfigPath, DefaultCaPath, "ca.crt")
 	}
-	// TODO: make auto generate
-	data["JwtSecret"] = c.JWTSecret
+	data["JwtSecret"] = c.AuthenticationOpts.JwtSecret
 	data["InitialPassword"] = c.AuthenticationOpts.InitialPassword
 	data["RetentionPeriod"] = c.AuditOpts.RetentionPeriod
 	data["MaximumEntries"] = c.AuditOpts.MaximumEntries
@@ -519,33 +481,6 @@ func (c *DeployConfig) GetKcServerConfigTemplateContent(ip string) (string, erro
 	data["EtcdCertPath"] = filepath.Join(DefaultKcServerConfigPath, DefaultEtcdPKIPath, fmt.Sprintf("%s.crt", EtcdKcClient))
 	data["EtcdKeyPath"] = filepath.Join(DefaultKcServerConfigPath, DefaultEtcdPKIPath, fmt.Sprintf("%s.key", EtcdKcClient))
 
-	data["MQExternal"] = c.MQ.External
-	data["MQUser"] = c.MQ.User
-	data["MQAuthToken"] = c.MQ.Secret
-	data["MQServerEndpoints"] = mqServerEndpoints
-	data["MQTLS"] = c.MQ.TLS
-	if !c.MQ.External {
-		isFloatIP, _ := sshutils.IsFloatIP(c.SSHConfig, ip)
-		if isFloatIP {
-			// if user specify a float ip,we replace to listen 0.0.0.0
-			data["MQServerAddress"] = "0.0.0.0"
-		} else {
-			data["MQServerAddress"] = ip
-		}
-		data["MQServerPort"] = c.MQ.Port
-		data["MQClusterPort"] = c.MQ.ClusterPort
-		data["LeaderHost"] = fmt.Sprintf("%s:%d", c.ServerIPs[0], c.MQ.ClusterPort)
-		if c.MQ.TLS {
-			data["MQServerCertPath"] = filepath.Join(DefaultKcServerConfigPath, DefaultNatsPKIPath, fmt.Sprintf("%s.crt", NatsIOServer))
-			data["MQServerKeyPath"] = filepath.Join(DefaultKcServerConfigPath, DefaultNatsPKIPath, fmt.Sprintf("%s.key", NatsIOServer))
-		}
-	}
-
-	if c.MQ.TLS {
-		data["MQCaPath"] = c.MQ.CA
-		data["MQClientCertPath"] = c.MQ.ClientCert
-		data["MQClientKeyPath"] = c.MQ.ClientKey
-	}
 	var buffer bytes.Buffer
 	if err := tmpl.Execute(&buffer, data); err != nil {
 		return "", fmt.Errorf("template execute failed: %s", err.Error())
@@ -558,32 +493,20 @@ func (c *DeployConfig) GetKcAgentConfigTemplateContent(metadata Metadata) (strin
 	if err != nil {
 		return "", fmt.Errorf("template parse failed: %s", err.Error())
 	}
-	var mqServerEndpoints []string
-	for _, v := range c.MQ.IPs {
-		mqServerEndpoints = append(mqServerEndpoints, fmt.Sprintf("%s:%d", v, c.MQ.Port))
-	}
-
 	var data = make(map[string]interface{})
 	data["AgentID"] = metadata.AgentID
 	data["Region"] = metadata.Region
 	data["FloatIP"] = metadata.FloatIP
 	data["IPDetect"] = c.IPDetect
 	data["NodeIPDetect"] = c.NodeIPDetect
+	data["APIServerEndpoint"] = fmt.Sprintf("https://%s:%d", c.ServerIPs[0], c.ServerPort)
+	data["APIServerCAFile"] = filepath.Join(DefaultKcAgentConfigPath, DefaultAgentPKIPath, "ca.crt")
+	data["AgentCertFile"] = filepath.Join(DefaultKcAgentConfigPath, DefaultAgentPKIPath, "agent.crt")
+	data["AgentKeyFile"] = filepath.Join(DefaultKcAgentConfigPath, DefaultAgentPKIPath, "agent.key")
 	if c.Debug {
 		data["LogLevel"] = "debug"
 	} else {
 		data["LogLevel"] = "info"
-	}
-	data["MQServerEndpoints"] = mqServerEndpoints
-	data["MQAuthToken"] = c.MQ.Secret
-	data["MQExternal"] = c.MQ.External
-	data["MQUser"] = c.MQ.User
-	data["MQAuthToken"] = c.MQ.Secret
-	data["MQTLS"] = c.MQ.TLS
-	if c.MQ.TLS {
-		data["MQCaPath"] = filepath.Join(DefaultKcAgentConfigPath, DefaultCaPath, filepath.Base(c.MQ.CA))
-		data["MQClientCertPath"] = filepath.Join(DefaultKcAgentConfigPath, DefaultNatsPKIPath, filepath.Base(c.MQ.ClientCert))
-		data["MQClientKeyPath"] = filepath.Join(DefaultKcAgentConfigPath, DefaultNatsPKIPath, filepath.Base(c.MQ.ClientKey))
 	}
 	data["OpLogDir"] = c.OpLog.Dir
 	data["OpLogThreshold"] = c.OpLog.Threshold

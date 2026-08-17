@@ -13,6 +13,13 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 )
 
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return deliveryapis.DefaultPackageOS + "-" + arch
+	}
+	return deliveryapis.DefaultPackageOS + "-" + runtime.GOARCH
+}
+
 func applyResolvedRuntime(ctx context.Context, base *Base, name string) {
 	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cri", name, base.Version); ok {
 		base.Arch = resolved.Arch

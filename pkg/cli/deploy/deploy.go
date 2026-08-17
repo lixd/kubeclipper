@@ -41,6 +41,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
 
@@ -73,7 +74,11 @@ import (
 )
 
 const (
-	longDescription = `
+	kcServerClientIdentity        = "system:kc-server"
+	serviceHealthCheckTimeout     = 5 * time.Second
+	authenticationJWTSecretLength = 24
+	authenticationJWTSecretDigits = 5
+	longDescription               = `
   Deploy Kubeclipper Platform from deploy-config.yaml or cmd flags.
 
   Kubeclipper Platform must have one kc-server node at lease, kc-server use etcd as db backend.
@@ -82,44 +87,12 @@ const (
   If you want to deploy kc-server and kc-agent on the same node, it is better to change etcd port configuration,
   in order to be able to deploy k8s on this node
 
-  KubeClipper bootstrap assets are delivered from the OCI package registry configured
-  by --package-registry. The Registry must contain the required binary packages before
-  deploy starts.`
+	Packages are fetched from the OCI package registry before installation.`
 	deployExample = `
-  # Deploy All-In-One use local host, etcd port will be set automatically. (client-12379 | peer-12380 | metrics-12381)
-  kcctl deploy --package-registry registry.local:5000
+  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 \
+    --pk-file ~/.ssh/id_rsa --package-registry registry.example.com/kubeclipper
 
-  # Deploy AIO env and change etcd port
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381 --package-registry registry.local:5000
-
-  # Deploy HA env
-  kcctl deploy --server 192.168.234.3,192.168.234.4,192.168.234.5 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381 --package-registry registry.local:5000
-
-  # Deploy env use SSH key instead of password
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
-
-  # Deploy env with many agent node in same region.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:192.168.10.123,192.168.10.124  --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
-
-  # Deploy env with many agent node in different region.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1,1.1.1.2 --agent us-west-2:1.1.1.3 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
-
-  # Deploy env with many agent node which has orderly ip.
-  # this will add 10 agent,1.1.1.1, 1.1.1.2, ... 1.1.1.10.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1-1.1.1.10 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
-  
-  # Deploy env with many agent nodes and specify ip detect method for these nodes
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 --ip-detect=interface=eth0 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
-
-  # Deploy env with many agent nodes and specify node ip detect method for these nodes, used for routing between nodes in the kubernetes cluster
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 --node-ip-detect=interface=eth1 --pk-file ~/.ssh/id_rsa --package-registry registry.local:5000
-
-  # Deploy from config.
-  kcctl deploy --deploy-config deploy-config.yaml
-  # Deploy and config fip to agent node.
-  kcctl deploy --server 172.20.149.198 --agent us-west-1:10.0.0.10 --agent us-west-2:20.0.0.11 --fip 10.0.0.10:172.20.149.199 --fip 20.0.0.11:172.20.149.200 --package-registry registry.local:5000
-
-  Please read 'kcctl deploy -h' get more deploy flags`
+  kcctl deploy --deploy-config deploy-config.yaml`
 )
 
 type DeployOptions struct {
@@ -163,25 +136,35 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 		Short:                 "Deploy Kubeclipper platform",
 		Long:                  longDescription,
 		Example:               deployExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			utils.CheckErr(o.Complete())
-			utils.CheckErr(o.ValidateArgs())
+		RunE: func(_ *cobra.Command, _ []string) error {
+			if err := o.Complete(); err != nil {
+				return err
+			}
+			if err := o.ValidateArgs(); err != nil {
+				return err
+			}
 			o.preRun()
 			if !o.preCheck() {
-				return
+				return fmt.Errorf("deploy precheck failed")
 			}
-			utils.CheckErr(o.RunDeploy())
+			return o.RunDeploy()
 		},
 		Args: cobra.NoArgs,
 	}
 
 	cmd.Flags().StringArrayVar(&o.agents, "agent", o.agents, "Kc agent region and ips.")
 	cmd.Flags().StringArrayVar(&o.fips, "float-ip", o.fips, "Kc agent ip and float ip.")
-	cmd.Flags().IntVar(&o.deployConfig.AuthenticationOpts.AuthenticateRateLimiterMaxTries, "authenticate-rate-limiter-max-retries", o.deployConfig.AuthenticationOpts.AuthenticateRateLimiterMaxTries, "maximum number of retry times within the valid period")
-	cmd.Flags().DurationVar(&o.deployConfig.AuthenticationOpts.AuthenticateRateLimiterDuration, "authenticate-rate-limiter-duration", o.deployConfig.AuthenticationOpts.AuthenticateRateLimiterDuration, "specifies the lock duration of the user")
-	cmd.Flags().DurationVar(&o.deployConfig.AuthenticationOpts.LoginHistoryRetentionPeriod, "login-history-retention-period", o.deployConfig.AuthenticationOpts.LoginHistoryRetentionPeriod, "login-history-retention-period defines how long login history should be kept.")
-	cmd.Flags().IntVar(&o.deployConfig.AuthenticationOpts.LoginHistoryMaximumEntries, "login-history-maximum-entries", o.deployConfig.AuthenticationOpts.LoginHistoryMaximumEntries, "login-history-maximum-entries defines how many entries of login history should be kept.")
-	cmd.Flags().StringVar(&o.deployConfig.AuthenticationOpts.InitialPassword, "initial-password", o.deployConfig.AuthenticationOpts.InitialPassword, "admin user password")
+	auth := o.deployConfig.AuthenticationOpts
+	flags := cmd.Flags()
+	flags.IntVar(&auth.AuthenticateRateLimiterMaxTries, "authenticate-rate-limiter-max-retries", auth.AuthenticateRateLimiterMaxTries,
+		"maximum number of retry times within the valid period")
+	flags.DurationVar(&auth.AuthenticateRateLimiterDuration, "authenticate-rate-limiter-duration", auth.AuthenticateRateLimiterDuration,
+		"specifies the lock duration of the user")
+	flags.DurationVar(&auth.LoginHistoryRetentionPeriod, "login-history-retention-period", auth.LoginHistoryRetentionPeriod,
+		"login-history-retention-period defines how long login history should be kept.")
+	flags.IntVar(&auth.LoginHistoryMaximumEntries, "login-history-maximum-entries", auth.LoginHistoryMaximumEntries,
+		"login-history-maximum-entries defines how many entries of login history should be kept.")
+	flags.StringVar(&auth.InitialPassword, "initial-password", auth.InitialPassword, "admin user password")
 	o.deployConfig.AddFlags(cmd.Flags())
 	o.deployConfig.AuditOpts.AddFlags(cmd.Flags())
 
@@ -191,11 +174,12 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 }
 
 func (d *DeployOptions) Complete() error {
-	var err error
-	if err = d.deployConfig.Complete(); err != nil {
+	if err := d.deployConfig.Complete(); err != nil {
 		return err
 	}
-
+	if err := d.generateAuthenticationJWTSecret(); err != nil {
+		return err
+	}
 	// if both the server and agent are empty, set the all-in-one environment
 	if d.deployConfig.ServerIPs == nil && d.agents == nil {
 		d.aio = true
@@ -211,24 +195,17 @@ func (d *DeployOptions) Complete() error {
 
 	// if specify config，ignore flags.
 	if d.deployConfig.Config == "" {
-		if d.deployConfig.Agents, err = BuildAgent(d.agents, d.fips, d.deployConfig.DefaultRegion); err != nil {
+		agents, err := BuildAgent(d.agents, d.fips, d.deployConfig.DefaultRegion)
+		if err != nil {
 			return err
 		}
+		d.deployConfig.Agents = agents
 	}
 
 	d.allNodes = sets.NewString().
 		Insert(d.deployConfig.ServerIPs...).
 		Insert(d.deployConfig.Agents.ListIP()...).
 		List()
-
-	if !d.deployConfig.MQ.External {
-		d.deployConfig.MQ.IPs = d.deployConfig.ServerIPs // internal mq use server ips as mq ips
-		if d.deployConfig.MQ.TLS {                       // fill default tls file path
-			d.deployConfig.MQ.CA = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultCaPath, fmt.Sprintf("%s.crt", options.Ca))
-			d.deployConfig.MQ.ClientCert = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultNatsPKIPath, fmt.Sprintf("%s.crt", options.NatsIOClient))
-			d.deployConfig.MQ.ClientKey = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultNatsPKIPath, fmt.Sprintf("%s.key", options.NatsIOClient))
-		}
-	}
 
 	if d.deployConfig.NodeIPDetect == "" {
 		logger.Infof("node-ip-detect inherits from ip-detect: %s", d.deployConfig.IPDetect)
@@ -242,7 +219,19 @@ func (d *DeployOptions) Complete() error {
 	return nil
 }
 
+func (d *DeployOptions) generateAuthenticationJWTSecret() error {
+	secret, err := password.Generate(authenticationJWTSecretLength, authenticationJWTSecretDigits, 0, false, true)
+	if err != nil {
+		return fmt.Errorf("generate authentication JWT secret: %w", err)
+	}
+	d.deployConfig.AuthenticationOpts.JwtSecret = secret
+	return nil
+}
+
 func (d *DeployOptions) ValidateArgs() error {
+	if !d.deployConfig.TLS {
+		return fmt.Errorf("operation v2 requires TLS because kc-agent communicates with kc-server over mTLS")
+	}
 	if errs := d.deployConfig.AuditOpts.Validate(); len(errs) != 0 {
 		return fmt.Errorf("%d errors in audit occured: %v", len(errs), errs)
 	}
@@ -256,6 +245,9 @@ func (d *DeployOptions) ValidateArgs() error {
 	if d.deployConfig.NodeIPDetect != "" && !autodetection.CheckMethod(d.deployConfig.NodeIPDetect) {
 		return fmt.Errorf("invalid node ip detect method,suppot [first-found,interface=xxx,cidr=xxx] now")
 	}
+	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
+		return fmt.Errorf("--package-registry must be specified")
+	}
 	if !d.aio && d.deployConfig.SSHConfig.PkFile == "" && d.deployConfig.SSHConfig.Password == "" {
 		return fmt.Errorf("one of --pk-file or --passwd must be specified")
 	}
@@ -268,29 +260,16 @@ func (d *DeployOptions) ValidateArgs() error {
 	if len(d.deployConfig.ServerIPs)%2 == 0 {
 		return fmt.Errorf("the number of servers must be odd")
 	}
-	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
-		return fmt.Errorf("--package-registry must be specified")
-	}
-	if d.deployConfig.MQ.External {
-		if len(d.deployConfig.MQ.IPs) == 0 {
-			return fmt.Errorf("the ips of the external mq cannot be empty")
-		}
-		if d.deployConfig.MQ.Port == 0 {
-			return fmt.Errorf("the port of the external mq cannot be empty")
-		}
-		if d.deployConfig.MQ.TLS {
-			if d.deployConfig.MQ.CA == "" || d.deployConfig.MQ.ClientCert == "" || d.deployConfig.MQ.ClientKey == "" {
-				return fmt.Errorf("mq tls: the mq-external-ca/mq-external-cert/mq-external-key of the external mq cannot be empty")
-			}
-			if !(filepath.IsAbs(d.deployConfig.MQ.CA) || filepath.IsAbs(d.deployConfig.MQ.ClientCert) || filepath.IsAbs(d.deployConfig.MQ.ClientKey)) {
-				return fmt.Errorf("mq tls: ca/cert/key file must be an absolute path")
-			}
-		}
-	}
 	return nil
 }
 
 func (d *DeployOptions) preRun() {
+	for agent, metadata := range d.deployConfig.Agents {
+		if metadata.AgentID == "" {
+			metadata.AgentID = uuid.New().String()
+			d.deployConfig.Agents[agent] = metadata
+		}
+	}
 	for _, sip := range d.deployConfig.ServerIPs {
 		hostname, err := sshutils.GetRemoteHostName(d.deployConfig.SSHConfig, sip)
 		if err != nil {
@@ -298,28 +277,25 @@ func (d *DeployOptions) preRun() {
 		}
 		d.servers[sip] = hostname
 	}
-	res, _ := password.Generate(24, 5, 0, false, true)
-	d.deployConfig.JWTSecret = res
-	if !d.deployConfig.MQ.External {
-		res, _ = password.Generate(24, 0, 0, false, true)
-		d.deployConfig.MQ.Secret = res
-	}
 	d.dumpConfig()
 }
 
 type precheckFunc func(sshConfig *sshutils.SSH, host string) error
+
+const (
+	timeSyncPrecheckCommand = `for service in chrony chronyd ntp ntpd systemd-timesyncd; ` +
+		`do systemctl is-active --quiet "$service" && exit 0; done; exit 10`
+	timeSyncServiceMissingExitCode = 10
+)
 
 var (
 	precheckKcEtcdFunc                = generateCommonPreCheckFunc("kc-etcd")
 	precheckKcServerFunc              = generateCommonPreCheckFunc("kc-server")
 	precheckKcAgentFunc               = generateCommonPreCheckFunc("kc-agent")
 	precheckNtpFunc      precheckFunc = func(sshConfig *sshutils.SSH, host string) error {
-		ret, err := sshutils.SSHCmdWithSudo(sshConfig, host, "systemctl --all --type service --state running | grep -e chrony -e ntp|wc -l")
-		if err != nil {
-			return err
-		}
-		if ret.StdoutToString("") == "0" {
-			err = fmt.Errorf("chronyd or ntpd service not running, may cause service internal error")
+		ret, err := sshutils.SSHCmdWithSudo(sshConfig, host, timeSyncPrecheckCommand)
+		if ret.ExitCode == timeSyncServiceMissingExitCode {
+			return fmt.Errorf("no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)")
 		}
 		return err
 	}
@@ -410,11 +386,7 @@ func (d *DeployOptions) precheckService(name string, nodes []string, fn precheck
 		}
 	}
 	logger.Errorf("===========>%s PRECHECK FAILED!", name)
-	if options.AssumeYes {
-		return true
-	}
-	_, _ = d.IOStreams.Out.Write([]byte("Ignore this error, still install? Please input (yes/no)"))
-	return utils.AskForConfirmation()
+	return false
 }
 
 func (d *DeployOptions) precheckTimeLag() bool {
@@ -484,11 +456,7 @@ func (d *DeployOptions) precheckTimeLag() bool {
 		}
 	}
 	logger.Errorf("===========>TIME-LAG PRECHECK FAILED!")
-	if options.AssumeYes {
-		return true
-	}
-	_, _ = d.IOStreams.Out.Write([]byte("Ignore this error, still install? Please input (yes/no)"))
-	return utils.AskForConfirmation()
+	return false
 }
 
 func (d *DeployOptions) precheckPorts() bool {
@@ -524,19 +492,6 @@ func (d *DeployOptions) precheckPorts() bool {
 		{d.deployConfig.ServerPort, "kc-server"},
 		{d.deployConfig.ConsolePort, "kc-console"},
 	}
-	if !d.deployConfig.MQ.External {
-		serverPorts = append(serverPorts,
-			struct {
-				port int
-				name string
-			}{d.deployConfig.MQ.Port, "kc-mq"},
-			struct {
-				port int
-				name string
-			}{d.deployConfig.MQ.ClusterPort, "kc-mq-cluster"},
-		)
-	}
-
 	for _, p := range serverPorts {
 		if !d.precheckService(
 			fmt.Sprintf("PORT-%d(%s)", p.port, p.name),
@@ -597,11 +552,11 @@ func (d *DeployOptions) RunDeploy() error {
 	}
 	logger.Infof("------ Install kc-etcd ------")
 	d.deployEtcd()
-	// TODO: add check etcd status instead of time.sleep
-	time.Sleep(5 * time.Second)
+	if err := d.waitEtcdReady(); err != nil {
+		return err
+	}
 	logger.Infof("------ Install kc-server ------")
 	d.deployKcServer()
-	time.Sleep(5 * time.Second)
 	logger.Infof("------ Install kc-agent ------")
 	d.deployKcAgent()
 	logger.Infof("------ Install kc-console ------")
@@ -612,6 +567,9 @@ func (d *DeployOptions) RunDeploy() error {
 	d.dumpConfig()
 	logger.Infof("------ Upload configs ------")
 	d.uploadConfig()
+	if err := writeLocalDeployConfig(d.deployConfig); err != nil {
+		return fmt.Errorf("sync local deploy config: %w", err)
+	}
 	fmt.Printf("\033[1;40;36m%s\033[0m\n", options.Contact)
 	return nil
 }
@@ -633,11 +591,32 @@ func (d *DeployOptions) generateAndSendCerts() error {
 	}
 	cas := caList()
 	certs := make([]certutils.Config, 0)
+	agentCerts := make(map[string]certutils.Config, len(d.deployConfig.Agents))
 
 	kcctlCommonNameUsages := make(map[string][]x509.ExtKeyUsage)
 	kcctlCommonNameUsages[options.AdminKcctlCert] = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-	kcctlCert := clientCertList(options.DefaultKcctlPKIPath, options.Ca, append(altNames, d.deployConfig.Agents.ListIP()...), []string{user.KCCTL}, kcctlCommonNameUsages)
+	kcctlCert := clientCertList(
+		options.DefaultKcctlPKIPath,
+		options.Ca,
+		append(altNames, d.deployConfig.Agents.ListIP()...),
+		[]string{user.KCCTL},
+		kcctlCommonNameUsages,
+	)
 	certs = append(certs, kcctlCert...)
+	for agentIP, metadata := range d.deployConfig.Agents {
+		altNames := certutils.AltNames{DNSNames: map[string]string{metadata.AgentID: metadata.AgentID}, IPs: map[string]net.IP{}}
+		if ip := net.ParseIP(agentIP); ip != nil {
+			altNames.IPs[ip.String()] = ip
+		}
+		cert := certutils.Config{
+			Path: filepath.Join(options.HomeDIR, options.DefaultPath, "pki", "agents", metadata.AgentID), BaseName: "agent",
+			CAName: options.Ca, CommonName: "system:kc-agent:" + metadata.AgentID,
+			Organization: []string{"system:kc-agents"}, Year: 100, AltNames: altNames,
+			Usages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		}
+		agentCerts[agentIP] = cert
+		certs = append(certs, cert)
+	}
 
 	etcdCommonNameUsages := make(map[string][]x509.ExtKeyUsage)
 	etcdCommonNameUsages[options.EtcdServer] = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth}
@@ -648,22 +627,14 @@ func (d *DeployOptions) generateAndSendCerts() error {
 	etcdCert := certList(options.DefaultEtcdPKIPath, options.Ca, append(altNames, d.deployConfig.ServerIPs...), etcdCommonNameUsages)
 	certs = append(certs, etcdCert...)
 
-	var natsCert []certutils.Config
-	if !d.deployConfig.MQ.External && d.deployConfig.MQ.TLS {
-		natsCommonNameUsages := make(map[string][]x509.ExtKeyUsage)
-		natsCommonNameUsages[options.NatsIOClient] = []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth}
-		natsCommonNameUsages[options.NatsIOServer] = []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth}
-		natsCert = certList(options.DefaultNatsPKIPath, options.Ca, append(altNames, d.deployConfig.ServerIPs...), natsCommonNameUsages)
-		certs = append(certs, natsCert...)
-	}
 	var kcCerts []certutils.Config
 	if d.deployConfig.TLS {
 		nameUsages := map[string][]x509.ExtKeyUsage{
-			options.KCServer: {x509.ExtKeyUsageServerAuth},
+			options.KCServer: {x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
 		}
 		names := append(altNames, d.deployConfig.ServerIPs...)
 		names = append(names, options.KCServerAltName)
-		kcCerts = certList(options.DefaultKCPKIPath, options.Ca, names, nameUsages)
+		kcCerts = kcServerCertList(names, nameUsages)
 		certs = append(certs, kcCerts...)
 	}
 
@@ -717,47 +688,13 @@ func (d *DeployOptions) generateAndSendCerts() error {
 	if err := d.sendCertAndKey(etcdCert, options.DefaultEtcdPKIPath); err != nil {
 		return err
 	}
-
-	if d.deployConfig.MQ.TLS {
-		if !d.deployConfig.MQ.External {
-			err := d.sendCertAndKey(natsCert, options.DefaultNatsPKIPath)
-			if err != nil {
-				return err
-			}
-			if err := d.sendAgentCertAndKey(cas, options.DefaultCaPath); err != nil {
-				return err
-			}
-			err = d.sendAgentCertAndKey(natsCert, options.DefaultNatsPKIPath)
-			if err != nil {
-				return err
-			}
-		} else {
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.CA,
-				d.deployConfig.ServerIPs, filepath.Dir(d.deployConfig.MQ.CA), nil, nil); err != nil {
-				return err
-			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientCert,
-				d.deployConfig.ServerIPs, filepath.Dir(d.deployConfig.MQ.ClientCert), nil, nil); err != nil {
-				return err
-			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientKey,
-				d.deployConfig.ServerIPs, filepath.Dir(d.deployConfig.MQ.ClientKey), nil, nil); err != nil {
-				return err
-			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.CA,
-				d.deployConfig.Agents.ListIP(), filepath.Dir(d.deployConfig.MQ.CA), nil, nil); err != nil {
-				return err
-			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientCert,
-				d.deployConfig.Agents.ListIP(), filepath.Dir(d.deployConfig.MQ.ClientCert), nil, nil); err != nil {
-				return err
-			}
-			if err := utils.SendPackageV2(d.deployConfig.SSHConfig, d.deployConfig.MQ.ClientKey,
-				d.deployConfig.Agents.ListIP(), filepath.Dir(d.deployConfig.MQ.ClientKey), nil, nil); err != nil {
-				return err
-			}
+	for agentIP := range agentCerts {
+		cert := agentCerts[agentIP]
+		if err := d.sendAgentIdentity(agentIP, &cert, &cas[0]); err != nil {
+			return err
 		}
 	}
+
 	if d.deployConfig.TLS {
 		err := d.sendConsoleCert(cas, options.DefaultCaPath)
 		if err != nil {
@@ -786,6 +723,106 @@ func (d *DeployOptions) deployEtcd() {
 	}
 }
 
+type etcdHealthClient interface {
+	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
+	Close() error
+}
+
+func (d *DeployOptions) waitEtcdReady() error {
+	tlsConfig, err := d.etcdHealthTLSConfig()
+	if err != nil {
+		return fmt.Errorf("load etcd health check credentials: %w", err)
+	}
+
+	endpoints := d.etcdEndpoints()
+	clients, err := newEtcdHealthClients(endpoints, tlsConfig)
+	if err != nil {
+		return fmt.Errorf("create etcd health check clients: %w", err)
+	}
+	defer closeEtcdHealthClients(clients)
+
+	ctx, cancel := context.WithTimeout(context.Background(), d.deployConfig.KCServerHealthCheckTimeout)
+	defer cancel()
+	if err := retryFunc(ctx, 3*time.Second, "waitEtcdReady", "cluster", func(string) error {
+		return checkEtcdEndpoints(ctx, clients, endpoints)
+	}); err != nil {
+		return fmt.Errorf("etcd cluster is not ready: %w", err)
+	}
+	return nil
+}
+
+func (d *DeployOptions) etcdEndpoints() []string {
+	endpoints := make([]string, 0, len(d.deployConfig.ServerIPs))
+	for _, host := range d.deployConfig.ServerIPs {
+		endpoints = append(endpoints, net.JoinHostPort(host, strconv.Itoa(d.deployConfig.EtcdConfig.ClientPort)))
+	}
+	return endpoints
+}
+
+func (*DeployOptions) etcdHealthTLSConfig() (*tls.Config, error) {
+	basePath := filepath.Join(options.HomeDIR, options.DefaultPath)
+	clientCert, err := tls.LoadX509KeyPair(
+		filepath.Join(basePath, options.DefaultEtcdPKIPath, options.EtcdHealthCheck+".crt"),
+		filepath.Join(basePath, options.DefaultEtcdPKIPath, options.EtcdHealthCheck+".key"),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	caCert, err := os.ReadFile(filepath.Join(basePath, options.DefaultCaPath, options.Ca+".crt"))
+	if err != nil {
+		return nil, err
+	}
+	rootCAs := x509.NewCertPool()
+	if !rootCAs.AppendCertsFromPEM(caCert) {
+		return nil, fmt.Errorf("parse etcd CA certificate")
+	}
+
+	return &tls.Config{
+		Certificates: []tls.Certificate{clientCert},
+		RootCAs:      rootCAs,
+		MinVersion:   tls.VersionTLS12,
+	}, nil
+}
+
+func newEtcdHealthClients(endpoints []string, tlsConfig *tls.Config) ([]etcdHealthClient, error) {
+	clients := make([]etcdHealthClient, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		client, err := clientv3.New(clientv3.Config{
+			Endpoints:   []string{endpoint},
+			DialTimeout: serviceHealthCheckTimeout,
+			TLS:         tlsConfig,
+		})
+		if err != nil {
+			closeEtcdHealthClients(clients)
+			return nil, err
+		}
+		clients = append(clients, client)
+	}
+	return clients, nil
+}
+
+func closeEtcdHealthClients(clients []etcdHealthClient) {
+	for _, client := range clients {
+		_ = client.Close()
+	}
+}
+
+func checkEtcdEndpoints(ctx context.Context, clients []etcdHealthClient, endpoints []string) error {
+	if len(clients) != len(endpoints) {
+		return fmt.Errorf("etcd health client count %d does not match endpoint count %d", len(clients), len(endpoints))
+	}
+	for i, endpoint := range endpoints {
+		requestCtx, cancel := context.WithTimeout(ctx, serviceHealthCheckTimeout)
+		_, err := clients[i].Get(requestCtx, "health")
+		cancel()
+		if err != nil {
+			return fmt.Errorf("endpoint %s is unhealthy: %w", endpoint, err)
+		}
+	}
+	return nil
+}
+
 func (d *DeployOptions) getEtcdTemplateContent(ip string) string {
 	tmpl, err := template.New("text").Parse(config.EtcdServiceTmpl)
 	if err != nil {
@@ -799,12 +836,20 @@ func (d *DeployOptions) getEtcdTemplateContent(ip string) string {
 	var data = make(map[string]interface{})
 	data["NodeName"] = d.servers[ip]
 	data["AdvertiseAddress"] = fmt.Sprintf("%s:%d", ip, d.deployConfig.EtcdConfig.ClientPort)
-	data["ServerCertPath"] = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, fmt.Sprintf("%s.crt", options.EtcdServer))
+	data["ServerCertPath"] = filepath.Join(
+		options.DefaultKcServerConfigPath,
+		options.DefaultEtcdPKIPath,
+		fmt.Sprintf("%s.crt", options.EtcdServer),
+	)
 	data["DataDIR"] = d.deployConfig.EtcdConfig.DataDir
 	data["PeerAddress"] = fmt.Sprintf("%s:%d", ip, d.deployConfig.EtcdConfig.PeerPort)
 	data["InitialCluster"] = strings.Join(initialCluster, ",")
 	data["ClusterToken"] = "kc-etcd-cluster"
-	data["ServerCertKeyPath"] = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, fmt.Sprintf("%s.key", options.EtcdServer))
+	data["ServerCertKeyPath"] = filepath.Join(
+		options.DefaultKcServerConfigPath,
+		options.DefaultEtcdPKIPath,
+		fmt.Sprintf("%s.key", options.EtcdServer),
+	)
 	if isFloatIP {
 		// if user specify a float ip,we replace to listen 0.0.0.0
 		data["PeerURLs"] = fmt.Sprintf("https://0.0.0.0:%d", d.deployConfig.EtcdConfig.PeerPort)
@@ -814,8 +859,16 @@ func (d *DeployOptions) getEtcdTemplateContent(ip string) string {
 		data["PeerURLs"] = fmt.Sprintf("https://%s:%d", ip, d.deployConfig.EtcdConfig.PeerPort)
 	}
 	data["MetricsURLs"] = fmt.Sprintf("http://127.0.0.1:%d", d.deployConfig.EtcdConfig.MetricsPort)
-	data["PeerCertPath"] = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, fmt.Sprintf("%s.crt", options.EtcdPeer))
-	data["PeerCertKeyPath"] = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, fmt.Sprintf("%s.key", options.EtcdPeer))
+	data["PeerCertPath"] = filepath.Join(
+		options.DefaultKcServerConfigPath,
+		options.DefaultEtcdPKIPath,
+		fmt.Sprintf("%s.crt", options.EtcdPeer),
+	)
+	data["PeerCertKeyPath"] = filepath.Join(
+		options.DefaultKcServerConfigPath,
+		options.DefaultEtcdPKIPath,
+		fmt.Sprintf("%s.key", options.EtcdPeer),
+	)
 	data["CaPath"] = filepath.Join(options.DefaultKcServerConfigPath, options.DefaultCaPath, fmt.Sprintf("%s.crt", options.Ca))
 	var buffer bytes.Buffer
 	if err := tmpl.Execute(&buffer, data); err != nil {
@@ -852,7 +905,10 @@ func (d *DeployOptions) getKcConsoleTemplateContent() string {
 }
 
 func (d *DeployOptions) deployKcServer() {
-	cmdList := d.buildKcServerInstallCommands()
+	cmdList := []string{
+		"mkdir -pv /etc/kubeclipper-server",
+		sshutils.WrapEcho(config.KcServerService, "/usr/lib/systemd/system/kc-server.service"),
+	}
 	for _, cmd := range cmdList {
 		err := sshutils.CmdBatchWithSudo(d.deployConfig.SSHConfig, d.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
 		if err != nil {
@@ -885,19 +941,11 @@ func (d *DeployOptions) deployKcServer() {
 	}
 }
 
-func (d *DeployOptions) buildKcServerInstallCommands() []string {
-	return []string{
-		fmt.Sprintf("mkdir -pv %s", options.DefaultKcServerConfigPath),
-		fmt.Sprintf("mkdir -pv %s/delivery", options.DefaultKcServerConfigPath),
-		sshutils.WrapEcho(config.KcServerService, "/usr/lib/systemd/system/kc-server.service"),
-	}
-}
-
 func (d *DeployOptions) waitServerRunning(host string) error {
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{Transport: tr, Timeout: serviceHealthCheckTimeout}
 
 	addr := fmt.Sprintf("http://%s:%v/healthz", host, d.deployConfig.ServerPort)
 	if d.deployConfig.TLS {
@@ -920,17 +968,21 @@ func (d *DeployOptions) waitServerRunning(host string) error {
 }
 
 func retryFunc(ctx context.Context, intervalTime time.Duration, funcName, host string, fn func(host string) error) error {
+	ticker := time.NewTicker(intervalTime)
+	defer ticker.Stop()
+
 	for {
+		err := fn(host)
+		if err == nil {
+			return nil
+		}
+		logger.Infof("function '%s' running error: %s. about to enter retry", funcName, err.Error())
+
 		select {
 		case <-ctx.Done():
 			logger.Warnf("retry function '%s' timeout...", funcName)
 			return ctx.Err()
-		case <-time.After(intervalTime):
-			err := fn(host)
-			if err == nil {
-				return nil
-			}
-			logger.Infof("function '%s' running error: %s. about to enter retry", funcName, err.Error())
+		case <-ticker.C:
 		}
 	}
 }
@@ -954,8 +1006,6 @@ func (d *DeployOptions) deployKcConsole() {
 func (d *DeployOptions) deployKcAgent() {
 	for agent := range d.deployConfig.Agents {
 		metadata := d.deployConfig.Agents[agent]
-		metadata.AgentID = uuid.New().String()
-		d.deployConfig.Agents[agent] = metadata
 		agentConfig, err := d.deployConfig.GetKcAgentConfigTemplateContent(metadata)
 		if err != nil {
 			logger.Fatal(err)
@@ -976,6 +1026,21 @@ func (d *DeployOptions) deployKcAgent() {
 			}
 		}
 	}
+}
+
+func (d *DeployOptions) sendAgentIdentity(agentIP string, cert, ca *certutils.Config) error {
+	destination := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath)
+	sources := []string{
+		path.Join(cert.Path, cert.BaseName+".crt"),
+		path.Join(cert.Path, cert.BaseName+".key"),
+		path.Join(ca.Path, ca.BaseName+".crt"),
+	}
+	for _, source := range sources {
+		if err := utils.SendPackageV2(d.deployConfig.SSHConfig, source, []string{agentIP}, destination, nil, nil); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (d *DeployOptions) removeTempFile() {
@@ -1067,8 +1132,18 @@ func (d *DeployOptions) uploadConfig() {
 		},
 		AuthInfos: map[string]*config.AuthInfo{
 			"kcctl-admin": {
-				ClientCertificate: path.Join(homedir.HomeDir(), options.DefaultPath, options.DefaultKcctlPKIPath, options.AdminKcctlCert+".crt"),
-				ClientKey:         path.Join(homedir.HomeDir(), options.DefaultPath, options.DefaultKcctlPKIPath, options.AdminKcctlCert+".key"),
+				ClientCertificate: path.Join(
+					homedir.HomeDir(),
+					options.DefaultPath,
+					options.DefaultKcctlPKIPath,
+					options.AdminKcctlCert+".crt",
+				),
+				ClientKey: path.Join(
+					homedir.HomeDir(),
+					options.DefaultPath,
+					options.DefaultKcctlPKIPath,
+					options.AdminKcctlCert+".key",
+				),
 			},
 		},
 		CurrentContext: fmt.Sprintf("%s@default-cert", "kcctl-admin"),
@@ -1094,7 +1169,11 @@ func (d *DeployOptions) uploadConfig() {
 }
 
 func (d *DeployOptions) sendDefaultAdminConf() error {
-	afterHook := fmt.Sprintf("mv %s %s/admin.conf", path.Join(options.DefaultKcServerConfigPath, options.DefaultConfig), options.DefaultKcServerConfigPath)
+	afterHook := fmt.Sprintf(
+		"mv %s %s/admin.conf",
+		path.Join(options.DefaultKcServerConfigPath, options.DefaultConfig),
+		options.DefaultKcServerConfigPath,
+	)
 	err := utils.SendPackage(d.deployConfig.SSHConfig,
 		options.DefaultConfigPath,
 		d.deployConfig.ServerIPs,
@@ -1216,39 +1295,6 @@ func uploadCerts(client *kc.Client) {
 	}
 	createOrUpdateConfigMap(client, etcdcm)
 
-	natsPath := filepath.Join(options.HomeDIR, options.DefaultPath, options.DefaultNatsPKIPath)
-	natsservercert, err := os.ReadFile(fmt.Sprintf("%s/kc-server-nats-server.crt", natsPath))
-	if err != nil {
-		logger.Fatal(err)
-	}
-	natsserverkey, err := os.ReadFile(fmt.Sprintf("%s/kc-server-nats-server.key", natsPath))
-	if err != nil {
-		logger.Fatal(err)
-	}
-	natsclientcert, err := os.ReadFile(fmt.Sprintf("%s/kc-server-nats-client.crt", natsPath))
-	if err != nil {
-		logger.Fatal(err)
-	}
-	natsclientkey, err := os.ReadFile(fmt.Sprintf("%s/kc-server-nats-client.key", natsPath))
-	if err != nil {
-		logger.Fatal(err)
-	}
-	natscm := &v1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       v1.KindConfigMap,
-			APIVersion: v1.SchemeGroupVersion.String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: constatns.KcNatsCertsConfigMapName,
-		},
-		Data: map[string]string{
-			"kc-server-nats-server.crt": base64.StdEncoding.EncodeToString(natsservercert),
-			"kc-server-nats-server.key": base64.StdEncoding.EncodeToString(natsserverkey),
-			"kc-server-nats-client.crt": base64.StdEncoding.EncodeToString(natsclientcert),
-			"kc-server-nats-client.key": base64.StdEncoding.EncodeToString(natsclientkey),
-		},
-	}
-	createOrUpdateConfigMap(client, natscm)
 }
 
 func caList() []certutils.Config {
@@ -1300,6 +1346,16 @@ func certList(pki, caName string, altNames []string, commonNameUsage map[string]
 		certConfig = append(certConfig, conf)
 	}
 	return certConfig
+}
+
+func kcServerCertList(altNames []string, commonNameUsage map[string][]x509.ExtKeyUsage) []certutils.Config {
+	certs := certList(options.DefaultKCPKIPath, options.Ca, altNames, commonNameUsage)
+	for i := range certs {
+		if certs[i].BaseName == options.KCServer {
+			certs[i].CommonName = kcServerClientIdentity
+		}
+	}
+	return certs
 }
 
 func clientCertList(pki, caName string, altNames, organization []string, commonNameUsage map[string][]x509.ExtKeyUsage) []certutils.Config {

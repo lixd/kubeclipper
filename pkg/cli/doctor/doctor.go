@@ -75,14 +75,13 @@ type diagnosticState struct {
 }
 
 type deployConfigFile struct {
-	SSH              sshConfigFile  `json:"ssh" yaml:"ssh"`
-	Etcd             etcdConfigFile `json:"etcd" yaml:"etcd"`
-	ServerIPs        []string       `json:"serverIPs" yaml:"serverIPs"`
-	Agents           options.Agents `json:"agents" yaml:"agents"`
-	ServerPort       int            `json:"serverPort" yaml:"serverPort"`
-	TLS              bool           `json:"tls" yaml:"tls"`
-	StaticServerPort int            `json:"staticServerPort" yaml:"staticServerPort"`
-	StaticServerPath string         `json:"staticServerPath" yaml:"staticServerPath"`
+	SSH             sshConfigFile  `json:"ssh" yaml:"ssh"`
+	Etcd            etcdConfigFile `json:"etcd" yaml:"etcd"`
+	ServerIPs       []string       `json:"serverIPs" yaml:"serverIPs"`
+	Agents          options.Agents `json:"agents" yaml:"agents"`
+	PackageRegistry string         `json:"packageRegistry" yaml:"packageRegistry"`
+	ServerPort      int            `json:"serverPort" yaml:"serverPort"`
+	TLS             bool           `json:"tls" yaml:"tls"`
 }
 
 type sshConfigFile struct {
@@ -292,7 +291,6 @@ func loadDeployConfig(path string) (*options.DeployConfig, error) {
 			MetricsPort: defaults.EtcdConfig.MetricsPort, DataDir: defaults.EtcdConfig.DataDir,
 		},
 		Agents: defaults.Agents, ServerPort: defaults.ServerPort, TLS: defaults.TLS,
-		StaticServerPort: defaults.StaticServerPort, StaticServerPath: defaults.StaticServerPath,
 	}
 	if err := yaml.Unmarshal(data, &fileConfig); err != nil {
 		return nil, err
@@ -309,10 +307,9 @@ func loadDeployConfig(path string) (*options.DeployConfig, error) {
 	}
 	deployConfig.ServerIPs = fileConfig.ServerIPs
 	deployConfig.Agents = fileConfig.Agents
+	deployConfig.PackageRegistry = fileConfig.PackageRegistry
 	deployConfig.ServerPort = fileConfig.ServerPort
 	deployConfig.TLS = fileConfig.TLS
-	deployConfig.StaticServerPort = fileConfig.StaticServerPort
-	deployConfig.StaticServerPath = fileConfig.StaticServerPath
 	if len(deployConfig.ServerIPs) == 0 {
 		return nil, fmt.Errorf("serverIPs is empty")
 	}
