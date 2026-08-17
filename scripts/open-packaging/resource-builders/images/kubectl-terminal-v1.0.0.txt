@@ -1,0 +1,1 @@
+kubeclipper/kubectl:latest
