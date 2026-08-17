@@ -59,7 +59,9 @@ func parseFlags() options {
 	flag.StringVar(&opts.Name, "name", "", "optional chart name validation")
 	flag.Parse()
 	if opts.ChartPath == "" || opts.Registry == "" || opts.RepositoryPrefix == "" {
-		fmt.Fprintf(os.Stderr, "usage: %s --chart <chart.tgz> --registry <host:port> [--repository-prefix kubeclipper/charts] [--name <chart-name>]\n", os.Args[0])
+		fmt.Fprintf(os.Stderr,
+			"usage: %s --chart <chart.tgz> --registry <host:port> [--repository-prefix kubeclipper/charts] [--name <chart-name>]\n",
+			os.Args[0])
 		os.Exit(2)
 	}
 	return opts

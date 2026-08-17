@@ -63,7 +63,7 @@ report="$resource_dir/build-report.json"
 
 printf 'resource\tversion\tarch\tsourceImage\ttargetImage\n' > "$images_lock"
 while IFS= read -r -d '' list; do
-  rel="${list#$resource_dir/}"
+  rel="${list#"$resource_dir"/}"
   IFS="/" read -r resource version arch file extra <<<"$rel"
   [[ "$file" == "images.txt" && -z "${extra:-}" ]] || continue
   while IFS= read -r image; do
@@ -74,7 +74,7 @@ done < <(find "$resource_dir" -mindepth 4 -maxdepth 4 -type f -name images.txt -
 
 printf 'resource\tversion\tarch\tchartArchive\n' > "$charts_lock"
 while IFS= read -r -d '' chart; do
-  rel="${chart#$resource_dir/}"
+  rel="${chart#"$resource_dir"/}"
   IFS="/" read -r resource version arch file extra <<<"$rel"
   [[ "$file" == "charts.tgz" && -z "${extra:-}" ]] || continue
   printf '%s\t%s\t%s\t%s\n' "$resource" "$version" "$arch" "$chart" >> "$charts_lock"
@@ -99,12 +99,10 @@ for path in sorted(p for p in glob.glob(os.path.join(root, "*", "*", "*")) if os
         "arch": arch,
         "hasConfigs": "configs.tar.gz" in files,
         "hasChart": "charts.tgz" in files,
-        "hasImagesArchive": "images.tar.gz" in files,
         "hasImagesList": "images.txt" in files,
         "hasBinary": any(os.path.isfile(os.path.join(path, name)) and name not in {
             "configs.tar.gz",
             "charts.tgz",
-            "images.tar.gz",
             "images.txt",
             "manifest.json",
         } for name in files),

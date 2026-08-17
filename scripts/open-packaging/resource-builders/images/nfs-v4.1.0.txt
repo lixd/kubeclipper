@@ -1,0 +1,5 @@
+docker.io/caas4/livenessprobe:v2.7.0
+docker.io/caas4/csi-node-driver-registrar:v2.5.1
+docker.io/caas4/nfsplugin:v4.1.0
+docker.io/caas4/csi-provisioner:v3.2.0
+docker.io/caas4/csi-attacher:v3.2.1

@@ -1,0 +1,93 @@
+name: publish-oci-qualification
+
+on:
+  push:
+    tags:
+      - "oci-qualification-*"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build qualification publish matrix
+        id: matrix
+        run: echo "matrix=$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    uses: ./.github/workflows/_publish-oci-component.yml
+    with:
+      component: ${{ matrix.component }}
+      version: ${{ matrix.version }}
+      architecture: all
+      registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
+      upload_release_input: true
+    secrets: inherit
+
+  manifest:
+    needs: publish
+    runs-on: ubuntu-24.04
+    env:
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: imjasonh/setup-crane@v0.4
+
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Download release assembly inputs
+        uses: actions/download-artifact@v7
+        with:
+          pattern: oci-release-input-${{ github.run_id }}-*
+          path: ${{ runner.temp }}/kc-release
+          merge-multiple: true
+
+      - name: Rebuild merged release metadata
+        run: |
+          scripts/open-packaging/generate-resource-metadata.sh \
+            --resource-dir "$RUNNER_TEMP/kc-release" \
+            --image-registry "$REGISTRY_PREFIX"
+          echo "RESOURCE_DIR=$RUNNER_TEMP/kc-release" >> "$GITHUB_ENV"
+
+      - name: Resolve release digests and provenance
+        run: |
+          scripts/open-packaging/generate-release-manifest.sh \
+            --build-manifest packaging/resources.yaml \
+            --resource-dir "$RESOURCE_DIR" \
+            --output "$RESOURCE_DIR/release-manifest.yaml" \
+            --package-registry "$REGISTRY_PREFIX" \
+            --image-registry "$REGISTRY_PREFIX" \
+            --include-bootstrap \
+            --arch all \
+            --resolve-digests \
+            --source-revision "$GITHUB_SHA"
+          scripts/open-packaging/verify-release-manifest.sh \
+            --manifest "$RESOURCE_DIR/release-manifest.yaml" \
+            --registry "$REGISTRY_PREFIX"
+          sha256sum "$RESOURCE_DIR/release-manifest.yaml" | tee "$RESOURCE_DIR/release-manifest.yaml.sha256"
+          cat "$RESOURCE_DIR/release-manifest.yaml"

@@ -47,7 +47,7 @@ func (f *externalContentFlags) String() string {
 
 func (f *externalContentFlags) Set(value string) error {
 	fields := map[string]string{}
-	for _, part := range strings.Split(value, ",") {
+	for part := range strings.SplitSeq(value, ",") {
 		key, val, ok := strings.Cut(part, "=")
 		if !ok {
 			return fmt.Errorf("external content part %q must be key=value", part)
@@ -68,7 +68,8 @@ func (f *externalContentFlags) Set(value string) error {
 	if content.Transport.Digest == "" {
 		content.Transport.Digest = fields["digest"]
 	}
-	if content.Name == "" || content.File == "" || content.Transport.Type == "" || content.Transport.Ref == "" || content.Transport.Digest == "" {
+	if content.Name == "" || content.File == "" || content.Transport.Type == "" ||
+		content.Transport.Ref == "" || content.Transport.Digest == "" {
 		return fmt.Errorf("external content requires name,file,transport,ref,digest or transportDigest")
 	}
 	*f = append(*f, content)
@@ -109,11 +110,15 @@ func parseFlags() options {
 	flag.StringVar(&opts.Arch, "arch", "amd64", "package architecture")
 	flag.StringVar(&opts.Registry, "registry", "", "OCI registry host:port")
 	flag.StringVar(&opts.Profile, "profile", "", "optional content profile override")
-	flag.Var(&opts.ExternalContents, "external-content", "external content descriptor: name=<name>,file=<file>,transport=<oci|helm-oci>,ref=<ref>,digest=<sha256>,mediaType=<type>")
+	flag.Var(&opts.ExternalContents, "external-content",
+		"external content descriptor: name=<name>,file=<file>,transport=<oci|helm-oci>,ref=<ref>,digest=<sha256>,mediaType=<type>")
 	flag.Parse()
 
-	if (opts.PackagePath == "" && len(opts.ExternalContents) == 0) || opts.Kind == "" || opts.Name == "" || opts.Version == "" || opts.Arch == "" || opts.Registry == "" {
-		fmt.Fprintf(os.Stderr, "usage: %s [--package <package.tar.gz>] --kind <kind> --name <name> --version <version> --arch <arch> --registry <host:port> [--profile <profile>] [--external-content <descriptor>]\n", os.Args[0])
+	if (opts.PackagePath == "" && len(opts.ExternalContents) == 0) || opts.Kind == "" || opts.Name == "" ||
+		opts.Version == "" || opts.Arch == "" || opts.Registry == "" {
+		fmt.Fprintf(os.Stderr, "usage: %s [--package <package.tar.gz>] --kind <kind> --name <name> "+
+			"--version <version> --arch <arch> --registry <host:port> [--profile <profile>] "+
+			"[--external-content <descriptor>]\n", os.Args[0])
 		os.Exit(2)
 	}
 	return opts

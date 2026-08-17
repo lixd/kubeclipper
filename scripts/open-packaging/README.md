@@ -11,8 +11,6 @@ The scripts intentionally use public or local inputs:
   runc, crictl, etcd, and Calico charts.
 - Source-built helper binaries for assets that do not have a stable upstream
   static release, such as `conntrack`.
-- Local legacy `resource` directory, such as `/opt/kubeclipper-server/resource`,
-  when migrating an already-built package set.
 - A target OCI Registry.
 
 They do not depend on `OFFLINE_URL_PREFIX`, static content servers, or private
@@ -20,7 +18,25 @@ download URLs.
 
 ## 0. Manifest-Driven Build
 
-The preferred entry point is the manifest-driven builder:
+The preferred entry point is the manifest-driven publisher:
+
+```bash
+scripts/open-packaging/build-offline-resources.sh \
+  --manifest packaging/resources.yaml \
+  --registry 10.0.0.10:5000 \
+  --image-registry 10.0.0.10:5000 \
+  --include-bootstrap \
+  --push
+```
+
+It reads `packaging/resources.yaml`, expands the version/architecture matrix,
+and calls the per-component publishers. Each publisher fetches upstream
+resources, builds a temporary package payload, pushes OCI package images or Helm
+charts, mirrors runtime images, and cleans up local temporary files.
+`--include-bootstrap` additionally publishes kubeclipper, etcd, console, and
+registry package images and includes them in the generated release manifest.
+
+For local debugging without pushing, omit `--push`:
 
 ```bash
 scripts/open-packaging/build-offline-resources.sh \
@@ -28,41 +44,109 @@ scripts/open-packaging/build-offline-resources.sh \
   --output /data/kc-resource
 ```
 
-It reads `packaging/resources.yaml`, expands the version/architecture matrix,
-calls the per-component builders, and writes release metadata:
-
-```text
-/data/kc-resource/
-  k8s/v1.36.1/amd64/configs.tar.gz
-  k8s/v1.36.1/amd64/images.txt
-  containerd/2.2.4/amd64/configs.tar.gz
-  calico/v3.31.5/amd64/charts.tgz
-  calico/v3.31.5/amd64/images.txt
-  images.lock
-  charts.lock
-  build-report.json
-```
-
-To publish the split OCI outputs in one command:
-
-```bash
-scripts/open-packaging/build-offline-resources.sh \
-  --manifest packaging/resources.yaml \
-  --output /data/kc-resource \
-  --registry 10.0.0.10:5000 \
-  --image-registry 10.0.0.10:5000 \
-  --push
-```
-
 Publishing is split by content type:
 
 - `configs.tar.gz` becomes a standard OCI package image under
   `kubeclipper/packages/...`. The image filesystem stores files under
-  `/package/`.
+  `/opt/kubeclipper/resource/`.
 - `charts.tgz` becomes a native Helm OCI chart under `kubeclipper/charts/...`.
 - `images.lock` is copied with `crane` or `skopeo` by
-  `push-runtime-images.sh`; the install path expects runtime images to already
-  exist in the image Registry.
+  `push-runtime-images.sh`. It is release-side metadata and is never consumed
+  by KubeClipper server during cluster creation.
+- `release-manifest.yaml` aggregates package images, Helm charts, and runtime
+  images into one synchronization/verification input.
+
+Generate or regenerate the release manifest from an existing resource build:
+
+```bash
+scripts/open-packaging/generate-release-manifest.sh \
+  --build-manifest packaging/resources.yaml \
+  --resource-dir /data/kc-resource
+```
+
+After all artifacts are published, release CI can pin their Registry digests:
+
+```bash
+scripts/open-packaging/generate-release-manifest.sh \
+  --build-manifest packaging/resources.yaml \
+  --resource-dir /data/kc-resource \
+  --resolve-digests \
+  --source-revision "$(git rev-parse HEAD)"
+```
+
+Package publishing records `KC_SOURCE_REVISION` in both the package manifest
+and the standard `org.opencontainers.image.revision` OCI label. Component
+workflows set it to `github.sha` automatically. Release assembly must pass the
+kcctl release commit to `--source-revision`; generation then requires every
+package platform to expose provenance, rejects mixed revisions inside a
+multi-architecture tag, and requires `bootstrap/kubeclipper` to match that
+release commit. Independently maintained third-party packages may come from a
+different recorded commit. The provenance gate requires `--resolve-digests`
+because it verifies the actual remote image config rather than trusting a local
+declaration.
+
+The revision is also part of Registry inventory. `kcctl deploy` selects the
+KubeClipper server/agent package built from the same commit as `kcctl`, and
+`kcctl join` selects an agent built from the running server's commit. This is
+intentional: publishing a newer mutable tag must not silently change an older
+installation. Deploy consumes the kubeclipper, etcd, and console bootstrap
+packages; the registry package is consumed only by `kcctl registry deploy` or
+offline Registry self-bootstrap.
+
+Verification is optional and does not block `kcctl create cluster`:
+
+```bash
+scripts/open-packaging/verify-release-manifest.sh \
+  --manifest kubeclipper-offline-registry-bundle-v2.0.0-amd64-release-manifest.yaml \
+  --registry 10.0.0.10:5000 \
+  --arch amd64 \
+  --insecure
+```
+
+`skopeo` can verify and mirror the standard package/runtime images. Helm OCI
+media types are not supported by every skopeo version; the verification script
+uses `crane` for Helm chart entries, and chart mirroring should use
+`crane`, `oras`, or Helm-compatible tooling.
+
+## GitHub Actions Publishing
+
+Each publishable component has its own workflow. The workflows share only the
+internal setup/publish implementation in `_publish-oci-component.yml`; they do
+not run an aggregate release build:
+
+| Workflow | Trigger | Output |
+| --- | --- | --- |
+| `publish-bootstrap-kubeclipper.yml` | Push to `main`, `master`, `release-*`, a `v*` tag, or manual | KubeClipper server/agent package image |
+| `publish-bootstrap-etcd.yml` | Manual | etcd package image |
+| `publish-bootstrap-console.yml` | Manual | Caddy/console package image |
+| `publish-bootstrap-registry.yml` | Manual | Distribution Registry package image |
+| `publish-resource-k8s.yml` | Manual | Kubernetes package image and runtime images |
+| `publish-resource-containerd.yml` | Manual | containerd package image |
+| `publish-resource-k8s-extension.yml` | Manual | Kubernetes helper package image and runtime images |
+| `publish-resource-calico.yml` | Manual | Tigera operator Helm OCI chart and Calico runtime images |
+| `publish-resource-kc-runtime.yml` | Manual | KubeClipper helper runtime images |
+| `publish-resource-nfs.yml` | Manual | NFS provisioner or NFS CSI runtime images |
+| `publish-resource-metallb.yml` | Manual | MetalLB runtime images |
+
+The automatic KubeClipper workflow derives its package tag from the Git ref:
+
+```text
+Git tag v2.0.0       -> v2.0.0
+main or master       -> latest
+release-1.8          -> release-1.8
+```
+
+Other branch names are converted to valid OCI tags by replacing unsupported
+characters such as `/` with `-`. `latest` is accepted only for the
+`bootstrap/kubeclipper` package; release policy and cluster resource packages
+still require explicit versions. All component workflows publish directly to
+GHCR with `GITHUB_TOKEN` and verify the resulting package, chart, and runtime
+image references. Leave `registry_prefix` empty to use
+`ghcr.io/<repository-owner>/kubeclipper`.
+
+`kcctl` remains a GitHub Release binary and is not included in a bootstrap
+package image. For an organization, make the resulting GHCR packages public or
+grant pull access before using the Registry as an installation source.
 
 Package images are built by `tools/oci-publish` through go-containerregistry.
 They do not need a Dockerfile. The generated image is still a normal OCI image:
@@ -72,12 +156,12 @@ manifest: application/vnd.oci.image.manifest.v1+json
 config:   application/vnd.oci.image.config.v1+json
 layer:    application/vnd.oci.image.layer.v1.tar+gzip
 
-/package/kc-package-manifest.json
-/package/configs.tar.gz
-/package/kubeclipper-agent
+/opt/kubeclipper/resource/kc-package-manifest.json
+/opt/kubeclipper/resource/configs.tar.gz
+/opt/kubeclipper/resource/kubeclipper-agent
 ```
 
-Use a Dockerfile only for real runnable component images, for example
+Use a Dockerfile only for real runnable images, for example
 `kubeclipper-server` as a container image or a registry helper image. For
 KubeClipper package images, Dockerfile-based builds would add an unnecessary
 dependency on Docker BuildKit and make GitHub Actions harder to run on minimal
@@ -94,8 +178,6 @@ Requirements:
   supplied.
 - `crane` or `skopeo` for `push-runtime-images.sh` real image copy. Dry-run
   does not require either tool.
-- `docker` or `podman` only when `--build-image-archives` is set for legacy
-  migration/debug artifacts.
 
 Useful network controls:
 
@@ -106,10 +188,12 @@ KC_DOWNLOAD_MAX_TIME=900
 KC_HELM_TIMEOUT=900
 ```
 
-If the build environment cannot reach an upstream source directly, put a public
-mirror URL or local input in `packaging/resources.yaml`, for example
-`chartFile`, `chartUrl`, `imagesFile`, `containerdUrlTemplate`,
-`etcdUrlTemplate`, or `helmUrlTemplate`.
+Versions and architectures are the normal inputs. Public upstream download
+locations are intentionally fixed inside each component script so the manifest
+does not become a second URL templating layer. If the build environment cannot
+reach an upstream source directly, use a network proxy/mirror at the environment
+level, or provide one of the supported local inputs such as `chartFile`,
+`imagesFile`, `kubeletServiceFile`, or `kubeletPreStartFile`.
 
 ## 1. Build Resource Offline Packages
 
@@ -138,8 +222,8 @@ scripts/open-packaging/resource-builders/build-calico-package.sh \
   --output /data/kc-resource
 
 scripts/open-packaging/resource-builders/build-addon-package.sh \
-  --name csi-driver-nfs \
-  --version v4.12.1 \
+  --name nvidia-gpu-operator \
+  --version v25.10.0 \
   --arch amd64 \
   --output /data/kc-resource
 ```
@@ -152,38 +236,47 @@ everything into one large static-server package:
 /data/kc-resource/
   k8s/v1.36.1/amd64/configs.tar.gz
   k8s/v1.36.1/amd64/images.txt
+  kc-runtime/v2.0.0/amd64/images.txt
+  nfs/v4.1.0/amd64/images.txt
+  metallb/v0.13.7/amd64/images.txt
   containerd/2.2.4/amd64/configs.tar.gz
   calico/v3.31.5/amd64/charts.tgz
   calico/v3.31.5/amd64/images.txt
-  csi-driver-nfs/v4.12.1/amd64/charts.tgz
-  csi-driver-nfs/v4.12.1/amd64/images.txt
 ```
 
 Notes:
 
 - The manifest-driven entry point builds `conntrack` from public netfilter
-  sources inside `build-k8s-package.sh`, then packages that binary into the
-  Kubernetes `configs.tar.gz`. If you call `build-k8s-package.sh` directly,
-  it uses the same default build path; pass `--conntrack-file` or
-  `--conntrack-url` only when you want to override the input.
+  sources inside `build-k8s-extension-package.sh`, then packages that binary
+  into the k8s-extension `configs.tar.gz`. There is no prebuilt-binary input;
+  each k8s-extension package build compiles conntrack from source.
+- The conntrack source builder installs compiler dependencies from the host
+  package manager and builds natively when the target architecture matches the
+  builder. Docker is only a cross-architecture fallback. The standard proxy
+  variables work for the native build; `KC_APT_MIRROR`, `KC_DOCKER_PROXY`, and
+  `KC_DOCKER_NETWORK` apply to the Docker fallback.
 - `build-calico-package.sh` ships image lists for `v3.26.1`, `v3.29.6`, and
   `v3.31.5`. Use `--images-file` for other versions.
-- `build-addon-package.sh` covers image/chart style components:
-  `csi-driver-nfs`, `kc-extension`, `kubectl-terminal`,
-  `nvidia-dra-driver-gpu`, and `nvidia-gpu-operator`.
-- `build-k8s-extension-package.sh` builds the debug-tool extension package
-  from public upstream downloads: Helm, nerdctl, CNI plugins, calicoctl, and
-  the bundled debug image list.
+- `build-addon-package.sh` covers optional image/chart style addons such as
+  `nvidia-dra-driver-gpu` and `nvidia-gpu-operator`. These are not part of the
+  default core cluster release manifest.
+- `build-runtime-image-set.sh` covers components whose Kubernetes manifests are
+  embedded in KubeClipper and therefore need only standard runtime images. NFS
+  and MetalLB use this path and do not publish package images.
+- `build-k8s-extension-package.sh` builds the Kubernetes helper tool package
+  from public upstream downloads: Helm, etcdctl, conntrack, nerdctl, CNI
+  plugins, calicoctl, and the bundled debug image list.
 - Some component charts are not available from a stable public Helm repo. For
-  those components, pass `--chart-file` or `--chart-url`; the scripts do not
-  fall back to private static servers.
-- The manifest-driven entry point skips image archives by default. It writes
-  `images.txt` and `images.lock`, then `push-runtime-images.sh` mirrors the
-  listed runtime images directly into the target Registry with `crane` or
-  `skopeo`.
-- Pass `--build-image-archives` only when you intentionally need legacy
-  `images.tar.gz` migration/debug artifacts. Installation never loads
-  `images.tar.gz` locally.
+  those components, pass `--chart-file`; the scripts do not fall back to
+  private static servers.
+- The manifest-driven entry point writes `images.txt` and `images.lock`, then
+  `push-runtime-images.sh` mirrors the listed runtime images directly into the
+  target Registry with `crane` or `skopeo`. It also writes
+  `release-manifest.yaml` for Registry mirroring, offline bundle construction,
+  and optional delivery verification.
+- Standard runtime images are never embedded into KubeClipper package images.
+  Installation never loads `images.tar.gz` locally and does not perform a
+  server-side runtime image precheck; actual node image pulls are authoritative.
 - The chart archives are build artifacts for `helm push`; installation pulls
   charts from Helm OCI instead of downloading `charts.tgz` from a KubeClipper
   package layer.
@@ -198,114 +291,141 @@ Old script mapping:
 | `tarball-containerd.sh` | `build-containerd-package.sh` |
 | `tarball-calico.sh` | `build-calico-package.sh` |
 | `tarball-k8s-extension.sh` | `build-k8s-extension-package.sh` |
-| `tarball-nfs.sh` | `build-addon-package.sh --name csi-driver-nfs` |
+| `nfs/v4.0.2` and `nfs/v4.1.0` image archives | `build-runtime-image-set.sh --name nfs` |
+| `metallb` image archive | `build-runtime-image-set.sh --name metallb` |
 | `tarball-nvidia-dra-driver-gpu.sh` | `build-addon-package.sh --name nvidia-dra-driver-gpu` |
 | `tarball-nvidia-gpu-operator.sh` | `build-addon-package.sh --name nvidia-gpu-operator` |
-| `tarball-kc-extension.sh` | `build-addon-package.sh --name kc-extension` |
-| default `kubectl-terminal` extension | `build-addon-package.sh --name kubectl-terminal` |
 
-## 2. Publish Bootstrap Binary Artifacts
+The old `kc-extension` package only wrapped `fanux/lvscare:v1.1.1` and
+`kubeclipper/kubectl:latest`. These are now split into the dedicated
+`kc-runtime` image list so KubeClipper helper images do not mix with native
+Kubernetes images and are still mirrored as normal runtime images.
 
-Build bootstrap binaries from public/source inputs first:
+## 2. Publish Bootstrap Package Images
 
-```bash
-scripts/open-packaging/bootstrap-builders/build-bootstrap-binaries.sh \
-  --output-dir /data/kc-bootstrap-bin \
-  --arch amd64 \
-  --kc-version v1.8.0
-```
-
-This builds `kcctl`, `kubeclipper-server`, and `kubeclipper-agent` from the
-current source tree, then downloads `etcd`, `etcdctl`, `etcdutl`, and `caddy`
-from public releases. The first Registry is still best bootstrapped from a
-registry image such as `registry:2`; if you also need a `binary/registry`
-artifact, pass `--registry-url` or `--registry-file`.
-
-Build or collect KubeClipper bootstrap binaries and publish each binary as a
-standard OCI package image:
+Build and publish the four standard OCI package images independently. Each
+script prepares its own inputs from source or public release assets, then pushes
+the resulting package image. `--registry-prefix` defaults to
+`ghcr.io/kubeclipper/kubeclipper`.
 
 ```bash
-scripts/open-packaging/publish-bootstrap-artifacts.sh \
-  --registry 10.0.0.10:5000 \
-  --version v1.8.0 \
-  --arch amd64 \
-  --build-core \
-  --bin-dir /data/kc-bootstrap-bin \
-  --console-dir /data/kc-console \
-  --dry-run
+scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
+  --version v2.0.0 \
+  --arch amd64
+
+scripts/open-packaging/publish-bootstrap-etcd.sh \
+  --arch amd64
+
+scripts/open-packaging/publish-bootstrap-console.sh \
+  --version v2.0.0 \
+  --arch amd64
+
+scripts/open-packaging/publish-bootstrap-registry.sh \
+  --arch amd64
 ```
 
-`--build-core` builds these binaries from the current source tree:
+Use `--registry-prefix 10.0.0.10:5000` when publishing to a private Registry
+instead of the default `ghcr.io/kubeclipper/kubeclipper`.
 
-- `kcctl`
-- `kubeclipper-server`
-- `kubeclipper-agent`
+Default inputs:
 
-Other bootstrap assets must be provided in `--bin-dir`:
+- `publish-bootstrap-kubeclipper.sh` builds `kubeclipper-server` and
+  `kubeclipper-agent` from this source tree.
+- `publish-bootstrap-etcd.sh` downloads `etcd`, `etcdctl`, and `etcdutl` from
+  the etcd GitHub release.
+- `publish-bootstrap-console.sh` downloads `caddy` from the Caddy GitHub
+  release and downloads `kc-console.tar.gz` from the matching
+  `kubeclipper/console` GitHub release. The package content name is
+  `kc-console`.
+- `publish-bootstrap-registry.sh` downloads `registry` from
+  `distribution/distribution` GitHub release.
 
-- `caddy`
-- `registry`
-- `etcd`
-- `etcdctl`
-- `etcdutl`
-
-`kc-console` can be provided by either:
-
-- `--console-archive /path/to/kc-console.tar.gz`
-- `--console-dir /path/to/kc-console`
+`kcctl registry deploy` detects the target node architecture over SSH when
+`--arch` is omitted, then selects the matching platform from the bootstrap
+Registry image. `--arch` remains available as an explicit override.
 
 The published image refs follow the KubeClipper package layout:
 
 ```text
-<registry>/kubeclipper/packages/binary/kcctl:<version>
-<registry>/kubeclipper/packages/binary/kubeclipper-server:<version>
-<registry>/kubeclipper/packages/binary/kubeclipper-agent:<version>
+<registry>/kubeclipper/packages/bootstrap/kubeclipper:<version> # server + agent
+<registry>/kubeclipper/packages/bootstrap/etcd:<version>        # etcd + etcdctl + etcdutl
+<registry>/kubeclipper/packages/bootstrap/console:<version>     # caddy + kc-console
+<registry>/kubeclipper/packages/bootstrap/registry:<version>    # registry
 ```
 
-## 3. Publish Resource Directory
+## 3. Publish Cluster Resource Packages
 
-Convert a generated or existing local resource directory to OCI-backed
-delivery images:
+Cluster resource publishers follow the bootstrap style: one script fetches
+upstream resources, builds the package payload, and publishes it to Registry.
+The local `resource/` tree is only an internal temporary directory.
 
 ```bash
-scripts/open-packaging/publish-resource-artifacts.sh \
-  --resource-dir /opt/kubeclipper-server/resource \
-  --registry 10.0.0.10:5000 \
-  --arch amd64 \
-  --dry-run
+scripts/open-packaging/publish-resource-k8s.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --version v1.36.1
+
+scripts/open-packaging/publish-resource-k8s-extension.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --version v1
+
+scripts/open-packaging/publish-resource-containerd.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --version 2.2.4
+
+scripts/open-packaging/publish-resource-calico.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --version v3.31.5
+
+scripts/open-packaging/publish-resource-kc-runtime.sh \
+  --image-registry-prefix 10.0.0.10:5000 \
+  --version v2.0.0
+
+scripts/open-packaging/publish-resource-nfs.sh \
+  --image-registry-prefix 10.0.0.10:5000 \
+  --version v4.1.0
+
+scripts/open-packaging/publish-resource-metallb.sh \
+  --image-registry-prefix 10.0.0.10:5000 \
+  --version v0.13.7
 ```
 
-Supported input layout:
+`publish-resource-calico.sh` publishes `charts.tgz` as the native Helm OCI
+chart `kubeclipper/charts/tigera-operator:<version>`. KubeClipper keeps
+`cni/calico:<version>` as the user-facing component name and maps it to that
+chart in the Registry inventory resolver; no manifest-only Calico package image
+is published.
 
-```text
-resource/
-  k8s/v1.36.1/amd64/configs.tar.gz
-  k8s/v1.36.1/amd64/images.tar.gz
-  containerd/2.2.4/amd64/configs.tar.gz
-  calico/v3.31.5/amd64/charts.tgz
-  calico/v3.31.5/amd64/images.tar.gz
-```
-
-To also publish `charts.tgz` archives as Helm OCI charts:
+Runtime images are mirrored separately from `images.lock`, also by component:
 
 ```bash
-scripts/open-packaging/publish-resource-artifacts.sh \
-  --resource-dir /opt/kubeclipper-server/resource \
-  --registry 10.0.0.10:5000 \
+scripts/open-packaging/push-runtime-images.sh \
+  --images-lock /opt/kubeclipper-server/resource/images.lock \
+  --image-registry 10.0.0.10:5000 \
+  --component k8s \
   --arch amd64 \
-  --push-charts
-```
+  --version v1.36.1
 
-`--push-images` still exists only for migrating an existing legacy resource
-directory that already contains `images.tar.gz`. The open build flow does not
-use it; it mirrors runtime images from `images.lock` with
-`push-runtime-images.sh`.
+scripts/open-packaging/push-runtime-images.sh \
+  --images-lock /opt/kubeclipper-server/resource/images.lock \
+  --image-registry 10.0.0.10:5000 \
+  --component kc-runtime \
+  --arch amd64 \
+  --version v2.0.0
+
+scripts/open-packaging/push-runtime-images.sh \
+  --images-lock /opt/kubeclipper-server/resource/images.lock \
+  --image-registry 10.0.0.10:5000 \
+  --component calico \
+  --arch amd64 \
+  --version v3.31.5
+```
 
 The publisher deliberately separates the old static-server payloads:
 
 - `configs.tar.gz` and bootstrap binaries are pushed as standard OCI package
   images under `kubeclipper/packages/...`. Each image contains
-  `/package/kc-package-manifest.json` plus `/package/<file>`.
+  `/opt/kubeclipper/resource/kc-package-manifest.json` plus
+  `/opt/kubeclipper/resource/<file>`.
 - Runtime images are not embedded in package images. In the open build flow,
   `images.lock` is mirrored as normal runtime images with
   `push-runtime-images.sh`.
@@ -315,16 +435,24 @@ The publisher deliberately separates the old static-server payloads:
   so HTTP/insecure registries work even when the installed Helm does not
   support `--plain-http`; if that binary is unavailable, the script falls back
   to `helm push`.
-- When a component only needs a chart, the KubeClipper package image is a tiny
-  manifest-only descriptor that points to the Helm OCI chart. It does not
-  contain the chart bytes.
-- Legacy extension resources (`k8s-extension`, `kc-extension`, and
-  `kubectl-terminal`) are skipped by default because they are not part of the
-  core cluster install path. Use `--include-extensions` only when publishing
-  those legacy resources intentionally.
+- Chart-only components are resolved from Helm OCI directly. For example,
+  `cni/calico:v3.31.5` maps to
+  `kubeclipper/charts/tigera-operator:v3.31.5`; no empty package image is
+  needed.
+- The old `kc-extension` and `kubectl-terminal` resource packages are replaced
+  by the `kc-runtime` image list. It keeps `fanux/lvscare:v1.1.1` and
+  `kubeclipper/kubectl:latest` separate from native Kubernetes images while
+  still mirroring them as normal runtime images. No `kc-runtime` package image
+  is published.
+- NFS and MetalLB manifests remain embedded in KubeClipper. Their Actions mirror
+  only the exact standard runtime images referenced by those manifests, so the
+  offline Registry bundle supports installing these existing addons without
+  restoring static-server image archives.
 
-Both scripts support `--dry-run` for local validation without pushing to a
-Registry.
+The resource publish scripts support `--dry-run` for local validation without
+pushing to a Registry. Bootstrap publish scripts are release-style entry points:
+they build temporary package tarballs internally and push standard OCI images
+directly to the configured Registry prefix.
 
 ## 3.1 Native Registry Sync
 
@@ -335,7 +463,7 @@ Registry implementation, including Harbor:
 skopeo sync \
   --src docker \
   --dest docker \
-  docker.io/kubeclipper/kubeclipper/packages/k8s/k8s \
+  ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s \
   harbor.local/kubeclipper/packages/k8s
 ```
 
@@ -343,18 +471,18 @@ Or copy one package image by digest/tag:
 
 ```bash
 skopeo copy --all \
-  docker://docker.io/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+  docker://ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
   docker://harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 ```
 
 For fully offline environments, users can also use native image archives:
 
 ```bash
-docker pull docker.io/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
-docker save docker.io/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+docker pull ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
+docker save ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
   -o kubeclipper-package-images.tar
 docker load -i kubeclipper-package-images.tar
-docker tag docker.io/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+docker tag ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
   harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 ```
@@ -362,11 +490,86 @@ docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
 Helm charts remain Helm OCI artifacts, but they were verified with
 `skopeo copy/sync` and can be mirrored with the same Registry tooling.
 
+For an official release, the preferred connected-site mirror command is:
+
+```bash
+kcctl registry sync \
+  --registry harbor.example.com/kubeclipper \
+  --registry-username 'robot$kubeclipper-writer' \
+  --registry-password-file harbor-token \
+  --registry-ca-file harbor-ca.pem
+```
+
+The command downloads the release manifest matching the `kcctl` version and
+verifies its SHA256 file, source digests, and package `sourceRevision`.
+`--manifest <file>` selects a local manifest. A matching target digest is
+skipped; an existing tag with a different digest is not overwritten.
+
+### 3.2 Offline Registry Bundle
+
+For an air-gapped site, generate `release-manifest.yaml` with all required
+package images, Helm OCI charts, and runtime images, then export one
+architecture into a portable bundle:
+
+```bash
+scripts/open-packaging/export-offline-registry-bundle.sh \
+  --manifest /data/kc-resource/release-manifest.yaml \
+  --arch amd64 \
+  --output kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
+```
+
+When the release manifest includes `bootstrap/registry`, the exported bundle is
+self-bootstrapping. It contains `bootstrap/registry-image.tar`, covered by the
+bundle `SHA256SUMS`, so a host without Docker, containerd, or an existing
+Registry can start the first Registry directly:
+
+```bash
+kcctl registry deploy \
+  --node 10.0.0.10 \
+  --offline-bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
+```
+
+After the Registry is healthy, import the same bundle with the command below.
+No separate registry binary or second archive is required.
+
+The tarball contains lossless Registry seed data, the original release
+manifest, an artifact index, and SHA256 checksums. Package images and Helm
+charts use OCI Layout. Runtime images use Skopeo's lossless directory transport
+because many upstream images still use Docker Schema 2 media types that cannot
+be read back from an OCI Layout without changing their digest. Shared
+content-addressed blobs are hard-linked before compression to avoid storing the
+same layer repeatedly. This is not a legacy KubeClipper Resource package and
+does not embed `images.tar.gz` in another image.
+
+After carrying the tarball into the offline environment, deploy KubeClipper's
+Registry or prepare Harbor, then import every object while preserving its
+repository path, tag, media type, and digest:
+
+```bash
+scripts/open-packaging/import-offline-registry-bundle.sh \
+  --bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz \
+  --registry registry.local:5000 \
+  --insecure-destination
+
+scripts/open-packaging/verify-release-manifest.sh \
+  --manifest /data/kc-resource/release-manifest.yaml \
+  --registry registry.local:5000 \
+  --arch amd64 \
+  --insecure
+```
+
+Both scripts use `skopeo`, so Docker/containerd does not need to be running on
+the export or import host. Registry credentials continue to use normal
+containers-auth configuration (`skopeo login`, Docker config, or an authfile).
+
 ## 4. Typical End-to-End Flow
 
 ```bash
 # 1. Prepare a Registry.
-kcctl registry deploy --node 10.0.0.10 --registry-port 5000
+kcctl registry deploy \
+  --node 10.0.0.10 \
+  --registry-port 5000 \
+  --package-registry ghcr.io/kubeclipper/kubeclipper
 
 # 2. Build and push Kubernetes/CRI/CNI package images, Helm charts, and runtime images.
 scripts/open-packaging/build-offline-resources.sh \
@@ -377,14 +580,21 @@ scripts/open-packaging/build-offline-resources.sh \
   --image-registry 10.0.0.10:5000 \
   --push
 
-# 3. Publish bootstrap binaries.
-scripts/open-packaging/publish-bootstrap-artifacts.sh \
-  --registry 10.0.0.10:5000 \
-  --version v1.8.0 \
-  --arch amd64 \
-  --build-core \
-  --bin-dir /data/kc-bootstrap-bin \
-  --console-dir /data/kc-console
+# 3. Publish bootstrap package images.
+scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --version v2.0.0 \
+  --arch amd64
+scripts/open-packaging/publish-bootstrap-etcd.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --arch amd64
+scripts/open-packaging/publish-bootstrap-console.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --version v2.0.0 \
+  --arch amd64
+scripts/open-packaging/publish-bootstrap-registry.sh \
+  --registry-prefix 10.0.0.10:5000 \
+  --arch amd64
 
 # 4. Deploy KubeClipper with OCI.
 kcctl deploy \
@@ -393,3 +603,41 @@ kcctl deploy \
   --pk-file ~/.ssh/id_rsa \
   --package-registry 10.0.0.10:5000
 ```
+
+For a production Harbor project, package publishers, verifiers, and `kcctl` use
+strict HTTPS by default and accept the same Registry client inputs: username or
+robot account, password/token file, custom CA, and an explicit TLS verification
+override. Keep the token file at mode `0600`; do not place it directly on the
+command line. A typical deployment is:
+
+```bash
+kcctl deploy \
+  --server 10.0.0.20 \
+  --agent 10.0.0.20 \
+  --pk-file ~/.ssh/id_rsa \
+  --package-registry harbor.example.com/kubeclipper \
+  --package-registry-username 'robot$kubeclipper-reader' \
+  --package-registry-password-file harbor-robot-token \
+  --package-registry-ca-file harbor-ca.pem
+
+go run ./tools/oci-verify \
+  --registry harbor.example.com/kubeclipper \
+  --registry-username 'robot$kubeclipper-reader' \
+  --registry-password-file harbor-robot-token \
+  --registry-ca-file harbor-ca.pem
+```
+
+For `kcctl registry sync`, grant a project-scoped writer robot only repository
+Pull and Push. Pull is needed for the pre-copy digest/conflict check; Push is
+needed to upload missing manifests and blobs. Use a different project-scoped
+runtime robot with repository Pull only for `kcctl deploy`, `kcctl join`,
+inventory refresh, and server/agent artifact fetches. Neither robot needs
+Delete, project administration, scanner, replication, or system administration
+permissions.
+
+`--registry-scheme http` / `--package-registry-scheme http` are only for an
+explicit plain-HTTP test Registry. `--registry-skip-tls-verify` and
+`--package-registry-skip-tls-verify` are qualification escape hatches, not the
+production policy. Dynamic inventory uses the Registry Catalog API and filters
+repositories to the configured project prefix; use Harbor or another Registry
+that implements `/v2/_catalog` because GHCR does not expose that API.

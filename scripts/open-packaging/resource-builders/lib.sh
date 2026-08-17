@@ -52,6 +52,7 @@ download() {
   local retries="${KC_DOWNLOAD_RETRIES:-3}"
   local connect_timeout="${KC_DOWNLOAD_CONNECT_TIMEOUT:-20}"
   local max_time="${KC_DOWNLOAD_MAX_TIME:-900}"
+  local partial="${dst}.part"
 
   mkdir -p "$(dirname "$dst")"
   if command -v curl >/dev/null 2>&1; then
@@ -59,20 +60,23 @@ download() {
     if curl --help all 2>/dev/null | grep -q -- '--retry-all-errors'; then
       curl_retry_all_errors=(--retry-all-errors)
     fi
-    curl -fL \
+    curl --http1.1 -fL \
+      --continue-at - \
       --retry "$retries" \
       --retry-delay 2 \
       --connect-timeout "$connect_timeout" \
       --max-time "$max_time" \
       "${curl_retry_all_errors[@]}" \
-      "$url" -o "$dst"
+      "$url" -o "$partial"
+    mv -f "$partial" "$dst"
     return
   fi
   if command -v wget >/dev/null 2>&1; then
-    wget --tries "$retries" \
+    wget --continue --tries "$retries" \
       --connect-timeout "$connect_timeout" \
       --timeout "$max_time" \
-      -O "$dst" "$url"
+      -O "$partial" "$url"
+    mv -f "$partial" "$dst"
     return
   fi
   die "curl or wget is required"
@@ -91,63 +95,6 @@ copy_or_download() {
   fi
   [[ -n "$url" ]] || die "missing input for $dst; pass a local file or URL"
   download "$url" "$dst"
-}
-
-image_tool() {
-  local requested=$1
-  if [[ -n "$requested" ]]; then
-    need_cmd "$requested"
-    echo "$requested"
-    return
-  fi
-  if command -v podman >/dev/null 2>&1; then
-    echo "podman"
-    return
-  fi
-  if command -v docker >/dev/null 2>&1; then
-    echo "docker"
-    return
-  fi
-  die "podman or docker is required to build images.tar.gz"
-}
-
-pull_image_for_arch() {
-  local tool=$1
-  local image=$2
-  local target_arch=$3
-
-  case "$tool" in
-  podman)
-    podman pull --platform "linux/$target_arch" "$image"
-    ;;
-  docker)
-    docker pull --platform "linux/$target_arch" "$image"
-    ;;
-  *)
-    die "unsupported image tool: $tool"
-    ;;
-  esac
-}
-
-save_images() {
-  local tool=$1
-  local output=$2
-  shift 2
-
-  [[ $# -gt 0 ]] || die "no images to save"
-  mkdir -p "$(dirname "$output")"
-  case "$tool" in
-  podman)
-    podman save -m "$@" > "${output%.gz}"
-    ;;
-  docker)
-    docker save "$@" > "${output%.gz}"
-    ;;
-  *)
-    die "unsupported image tool: $tool"
-    ;;
-  esac
-  gzip -f "${output%.gz}"
 }
 
 run_with_optional_timeout() {
@@ -203,7 +150,7 @@ generate_manifest() {
   printf '[' > "$output"
   while IFS= read -r file; do
     local rel dir name digest
-    rel="${file#$root/}"
+    rel="${file#"$root"/}"
     dir="$(dirname "$rel")"
     name="$(basename "$rel")"
     digest="$(md5_digest "$file")"

@@ -48,6 +48,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/user"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
@@ -103,6 +104,9 @@ type DeployOptions struct {
 	agents       []string // user input's agents,maybe with region,need to parse.
 	fips         []string // ip:fip
 	aio          bool
+
+	packageRegistryFiles  deliveryregistry.FileOptions
+	packageRegistryConfig *deliveryregistry.Config
 }
 
 func NewDeployOptions(streams options.IOStreams) *DeployOptions {
@@ -166,6 +170,7 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 		"login-history-maximum-entries defines how many entries of login history should be kept.")
 	flags.StringVar(&auth.InitialPassword, "initial-password", auth.InitialPassword, "admin user password")
 	o.deployConfig.AddFlags(cmd.Flags())
+	addPackageRegistryClientFlags(cmd, &o.packageRegistryFiles)
 	o.deployConfig.AuditOpts.AddFlags(cmd.Flags())
 
 	cmd.AddCommand(NewCmdDeployConfig(o))
@@ -215,8 +220,32 @@ func (d *DeployOptions) Complete() error {
 	if d.aio {
 		logger.Infof("run in aio mode.")
 	}
+	if d.deployConfig.PackageRegistry != "" {
+		var err error
+		if d.packageRegistryFiles.Specified() {
+			d.packageRegistryConfig, err = d.packageRegistryFiles.Resolve(d.deployConfig.PackageRegistry)
+		} else {
+			d.packageRegistryConfig, err = deliveryregistry.Resolve(d.deployConfig.PackageRegistry)
+		}
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
+}
+
+func addPackageRegistryClientFlags(cmd *cobra.Command, opts *deliveryregistry.FileOptions) {
+	cmd.Flags().StringVar(&opts.Scheme, "package-registry-scheme", opts.Scheme,
+		"Package Registry transport scheme: https or http (default https)")
+	cmd.Flags().StringVar(&opts.Username, "package-registry-username", opts.Username,
+		"Package Registry username or robot account")
+	cmd.Flags().StringVar(&opts.PasswordFile, "package-registry-password-file", opts.PasswordFile,
+		"File containing the Package Registry password or token")
+	cmd.Flags().StringVar(&opts.CAFile, "package-registry-ca-file", opts.CAFile,
+		"PEM CA file used to verify the Package Registry")
+	cmd.Flags().BoolVar(&opts.SkipTLSVerify, "package-registry-skip-tls-verify", opts.SkipTLSVerify,
+		"Skip Package Registry TLS verification (not recommended)")
 }
 
 func (d *DeployOptions) generateAuthenticationJWTSecret() error {
@@ -550,6 +579,9 @@ func (d *DeployOptions) RunDeploy() error {
 	if err := d.sendPackage(); err != nil {
 		return err
 	}
+	if err := d.sendPackageRegistryConfig(); err != nil {
+		return err
+	}
 	logger.Infof("------ Install kc-etcd ------")
 	d.deployEtcd()
 	if err := d.waitEtcdReady(); err != nil {
@@ -576,12 +608,72 @@ func (d *DeployOptions) RunDeploy() error {
 
 func (d *DeployOptions) sendPackage() error {
 	return InstallBootstrapAssetsFromRegistry(context.Background(), BootstrapInstallOptions{
-		Registry:  d.deployConfig.PackageRegistry,
-		Arch:      RuntimeArch(),
-		SSH:       d.deployConfig.SSHConfig,
-		Hosts:     d.allNodes,
-		NeedAgent: true,
+		Registry:       d.deployConfig.PackageRegistry,
+		Arch:           RuntimeArch(),
+		SSH:            d.deployConfig.SSHConfig,
+		Hosts:          d.allNodes,
+		NeedAgent:      true,
+		RegistryConfig: d.packageRegistryConfig,
 	})
+}
+
+func (d *DeployOptions) sendPackageRegistryConfig() error {
+	if err := InstallPackageRegistryConfig(
+		d.deployConfig.SSHConfig, d.deployConfig.ServerIPs, d.packageRegistryConfig, deliveryregistry.ServerConfigPath,
+	); err != nil {
+		return err
+	}
+	return InstallPackageRegistryConfig(
+		d.deployConfig.SSHConfig, d.deployConfig.Agents.ListIP(), d.packageRegistryConfig, deliveryregistry.AgentConfigPath,
+	)
+}
+
+// InstallPackageRegistryConfig writes the package registry credentials to the
+// protected configuration path used by server or agent processes.
+func InstallPackageRegistryConfig(
+	sshConfig *sshutils.SSH,
+	hosts []string,
+	registryConfig *deliveryregistry.Config,
+	remotePath string,
+) error {
+	localPath, cleanup, err := writeTemporaryPackageRegistryConfig(registryConfig)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	return copyPackageRegistryConfig(sshConfig, hosts, localPath, remotePath)
+}
+
+func writeTemporaryPackageRegistryConfig(registryConfig *deliveryregistry.Config) (localPath string, cleanup func(), err error) {
+	if registryConfig == nil {
+		return "", func() {}, fmt.Errorf("package registry config is required")
+	}
+	dir, err := os.MkdirTemp("", "kc-package-registry-")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create package registry config directory: %w", err)
+	}
+	localPath = filepath.Join(dir, "package-registry.json")
+	if err := deliveryregistry.Write(localPath, registryConfig); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", func() {}, err
+	}
+	return localPath, func() { _ = os.RemoveAll(dir) }, nil
+}
+
+func copyPackageRegistryConfig(sshConfig *sshutils.SSH, hosts []string, localPath, remotePath string) error {
+	for _, host := range hosts {
+		if err := sshConfig.CopySudo(host, localPath, remotePath); err != nil {
+			return fmt.Errorf("copy package registry config to %s: %w", host, err)
+		}
+		result, err := sshutils.SSHCmdWithSudo(sshConfig, host, fmt.Sprintf("chmod %o %s", deliveryregistry.PrivateFileMode, remotePath))
+		if err != nil {
+			return fmt.Errorf("set package registry config mode on %s: %w", host, err)
+		}
+		if err := result.Error(); err != nil {
+			return fmt.Errorf("set package registry config mode on %s: %w", host, err)
+		}
+	}
+	return nil
 }
 
 func (d *DeployOptions) generateAndSendCerts() error {
