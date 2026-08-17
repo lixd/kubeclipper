@@ -96,6 +96,7 @@ type handler struct {
 	operationV2Store operationv2store.Store
 	platformOperator platform.Operator
 	coreOperator     core.Operator
+	deliveryIndexer  RegistryPackageInventoryIndexer
 	tokenOperator    auth.TokenManagementInterface
 }
 
@@ -121,6 +122,7 @@ func newHandler(conf *generic.ServerRunOptions, clusterOperator cluster.Operator
 		platformOperator: platformOperator,
 		leaseOperator:    leaseOperator,
 		coreOperator:     coreOperator,
+		deliveryIndexer:  nil,
 		tokenOperator:    tokenOperator,
 	}
 }
