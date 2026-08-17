@@ -103,6 +103,8 @@ agents:
 #consolePort: 80
 # OCI registry containing KubeClipper packages.
 packageRegistry: ""
+# temporary directory for deployment files and extracted assets.
+#tempDir: /tmp
 
 # operation log config.
 opLog:

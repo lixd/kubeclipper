@@ -72,6 +72,7 @@ type BootstrapInstallOptions struct {
 	Hosts          []string
 	NeedAgent      bool
 	RegistryConfig *deliveryregistry.Config
+	RemoteTempDir  string
 }
 
 func RuntimeArch() string {
@@ -123,7 +124,7 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 		if localPath == "" {
 			return fmt.Errorf("fetched bootstrap asset %q has no binary payload", asset.Name)
 		}
-		if err = sendBootstrapAsset(opts.SSH, opts.Hosts, asset, localPath); err != nil {
+		if err := sendBootstrapAsset(opts.SSH, opts.Hosts, asset, localPath, opts.RemoteTempDir); err != nil {
 			return err
 		}
 	}
@@ -211,21 +212,24 @@ func hasBootstrapAssetContents(contents []deliveryapis.ArtifactContent, assets [
 	return true
 }
 
-func sendBootstrapAsset(sshConfig *sshutils.SSH, hosts []string, asset bootstrapAsset, localPath string) error {
-	remoteFile := filepath.Join(config.DefaultPkgPath, filepath.Base(localPath))
+func sendBootstrapAsset(sshConfig *sshutils.SSH, hosts []string, asset bootstrapAsset, localPath, remoteTempDir string) error {
+	if strings.TrimSpace(remoteTempDir) == "" {
+		remoteTempDir = config.DefaultPkgPath
+	}
+	remoteFile := filepath.Join(remoteTempDir, filepath.Base(localPath))
 	var hook string
 	if asset.ConsoleArchive {
 		hook = fmt.Sprintf("rm -rf %s && mkdir -p %s && tar -xf %s -C %s && test -d %s",
-			filepath.Join(config.DefaultPkgPath, "kc", "kc-console"),
-			filepath.Join(config.DefaultPkgPath, "kc"),
+			filepath.Join(remoteTempDir, "kc", "kc-console"),
+			filepath.Join(remoteTempDir, "kc"),
 			remoteFile,
-			filepath.Join(config.DefaultPkgPath, "kc"),
-			filepath.Join(config.DefaultPkgPath, "kc", "kc-console"),
+			filepath.Join(remoteTempDir, "kc"),
+			filepath.Join(remoteTempDir, "kc", "kc-console"),
 		)
 	} else {
 		hook = fmt.Sprintf("mkdir -p /usr/lib/systemd/system && install -m 0755 %s %s", remoteFile, asset.RemotePath)
 	}
-	if err := utils.SendPackageV2(sshConfig, localPath, hosts, config.DefaultPkgPath, nil, &hook); err != nil {
+	if err := utils.SendPackageV2WithTempDir(sshConfig, localPath, hosts, remoteTempDir, nil, &hook, remoteTempDir); err != nil {
 		return fmt.Errorf("send bootstrap asset %s: %w", asset.Name, err)
 	}
 	return nil

@@ -262,6 +262,7 @@ type DeployConfig struct {
 	PackageRegistry            string                         `json:"packageRegistry" yaml:"packageRegistry,omitempty"`
 	ServerPort                 int                            `json:"serverPort" yaml:"serverPort,omitempty"`
 	TLS                        bool                           `json:"tls" yaml:"tls,omitempty"`
+	TempDir                    string                         `json:"tempDir" yaml:"tempDir,omitempty"`
 	ConsolePort                int                            `json:"consolePort" yaml:"consolePort,omitempty"`
 	AuditOpts                  *option.AuditOptions           `json:"audit" yaml:"audit,omitempty"`
 	OpLog                      *OpLog                         `json:"opLog" yaml:"opLog,omitempty"`
@@ -322,6 +323,7 @@ func NewDeployOptions() *DeployConfig {
 		DefaultRegion: "default",
 		ServerPort:    8080,
 		TLS:           true,
+		TempDir:       config.DefaultPkgPath,
 		AuditOpts:     option.NewAuditOptions(),
 		ConsolePort:   80,
 		OpLog: &OpLog{
@@ -425,6 +427,7 @@ func (c *DeployConfig) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&c.PackageRegistry, "package-registry", c.PackageRegistry, "OCI registry for KubeClipper packages")
 	flags.BoolVar(&c.TLS, "tls", c.TLS, "Kc api server  use tls mode")
 	flags.IntVar(&c.ServerPort, "server-port", c.ServerPort, "Kc server port")
+	flags.StringVar(&c.TempDir, "temp-dir", c.TempDir, "Temporary directory used for deployment files (absolute path)")
 	flags.StringSliceVar(&c.ServerIPs, "server", c.ServerIPs, "Kc server ips")
 	flags.IntVar(&c.EtcdConfig.ClientPort, "etcd-port", c.EtcdConfig.ClientPort, "Etcd port")
 	flags.IntVar(&c.EtcdConfig.PeerPort, "etcd-peer-port", c.EtcdConfig.PeerPort, "Etcd peer port")
