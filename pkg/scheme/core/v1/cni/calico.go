@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/common"
@@ -120,7 +121,20 @@ func (runnable *CalicoRunnable) LoadImage(nodes []v1.StepNode) ([]v1.Step, error
 	return steps, nil
 }
 
+func (runnable *CalicoRunnable) PrepareImages(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error) {
+	applyResolvedCNI(ctx, &runnable.BaseCni, "calico")
+	if runnable.Offline && strings.TrimSpace(runnable.ResolvedImageRegistry) == "" {
+		return runnable.LoadImage(nodes)
+	}
+	return nil, nil
+}
+
 func (runnable *CalicoRunnable) InstallSteps(nodes []v1.StepNode, kubernetesVersion string) ([]v1.Step, error) {
+	return runnable.InstallStepsWithContext(context.TODO(), nodes, kubernetesVersion)
+}
+
+func (runnable *CalicoRunnable) InstallStepsWithContext(ctx context.Context, nodes []v1.StepNode, kubernetesVersion string) ([]v1.Step, error) {
+	applyResolvedCNI(ctx, &runnable.BaseCni, "calico")
 	var steps []v1.Step
 	bytes, err := json.Marshal(runnable)
 	if err != nil {
@@ -134,6 +148,11 @@ func (runnable *CalicoRunnable) InstallSteps(nodes []v1.StepNode, kubernetesVers
 			PkgName: "calico",
 			Version: runnable.Version,
 			Offline: runnable.Offline,
+		}
+		if resolved, ok := common.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cni", "calico", runnable.Version); ok {
+			if err := common.ApplyResolvedComponent(chart, resolved); err != nil {
+				return nil, err
+			}
 		}
 		cLoadSteps, err := chart.InstallStepsV2(nodes)
 		if err != nil {

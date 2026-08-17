@@ -33,6 +33,7 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/agent/config"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -189,6 +190,11 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 			Offline: extraMetadata.Offline,
 		},
 		DownloadImage: false,
+	}
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+		packageDownload.Arch = resolved.Arch
+		packageDownload.Transport = resolved.Transport
+		packageDownload.Contents = resolved.Contents
 	}
 	// master node only in this case will the image package be pulled
 	if extraMetadata.Offline && stepper.Kubeadm.ImageRegistry == "" && stepper.ImageRegistry == "" {
@@ -370,14 +376,24 @@ func (stepper *UpgradePackage) Install(ctx context.Context, opts component.Optio
 	if err != nil {
 		return nil, err
 	}
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
+	var instance *downloader.Downloader
+	if stepper.Transport.Type != "" {
+		if err = downloadAndUnpackResolvedPackage(ctx, stepper.Package, opts); err != nil {
+			return nil, err
+		}
+	} else {
+		instance, err = downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
+		if err != nil {
+			return nil, err
+		}
+		if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
+			return nil, err
+		}
 	}
 	if stepper.DownloadImage {
+		if instance == nil {
+			return nil, fmt.Errorf("local image archive is unavailable for OCI-delivered Kubernetes package")
+		}
 		imageSrc, err := instance.DownloadImages()
 		if err != nil {
 			return nil, err

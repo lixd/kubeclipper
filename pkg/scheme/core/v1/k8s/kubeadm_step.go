@@ -38,6 +38,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
@@ -116,7 +117,7 @@ func (runnable *Runnable) Validate() error {
 
 func (runnable *Runnable) GetInstallSteps(ctx context.Context) ([]v1.Step, error) {
 	metadata := component.GetExtraMetadata(ctx)
-	return runnable.makeInstallSteps(&metadata)
+	return runnable.makeInstallSteps(ctx, &metadata)
 }
 
 func (runnable *Runnable) GetUninstallSteps(ctx context.Context) ([]v1.Step, error) {
@@ -140,7 +141,7 @@ func (runnable *Runnable) GetUpgradeSteps(ctx context.Context) ([]v1.Step, error
 	}, nil
 }
 
-func (runnable *Runnable) makeInstallSteps(metadata *component.ExtraMetadata) ([]v1.Step, error) {
+func (runnable *Runnable) makeInstallSteps(ctx context.Context, metadata *component.ExtraMetadata) ([]v1.Step, error) {
 	// 1. package download and install
 	// 2. print kubeadm config(template step type)
 	// 3. kubeadm init cluster
@@ -161,14 +162,20 @@ func (runnable *Runnable) makeInstallSteps(metadata *component.ExtraMetadata) ([
 	installSteps = append(installSteps, steps...)
 
 	ext := Extension{}
-	steps, err = ext.InitStepper(&c).InstallSteps(nodes)
+	steps, err = ext.InitStepper(&c).InstallStepsWithContext(ctx, nodes)
 	if err != nil {
 		return nil, err
 	}
 	installSteps = append(installSteps, steps...)
 
 	pack := Package{}
-	steps, err = pack.InitStepper(&c).InstallSteps(nodes)
+	pack.InitStepper(&c)
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, runnable.KubernetesVersion); ok {
+		pack.Arch = resolved.Arch
+		pack.Transport = resolved.Transport
+		pack.Contents = resolved.Contents
+	}
+	steps, err = pack.InstallSteps(nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -241,13 +248,25 @@ func (runnable *Runnable) makeInstallSteps(metadata *component.ExtraMetadata) ([
 	}
 	cniStepper := cf.Create().InitStep(metadata, &c.CNI, &c.Networking)
 	if metadata.Offline {
-		steps, err = cniStepper.LoadImage(nodes)
+		if stepper, ok := cniStepper.(interface {
+			PrepareImages(context.Context, []v1.StepNode) ([]v1.Step, error)
+		}); ok {
+			steps, err = stepper.PrepareImages(ctx, nodes)
+		} else {
+			steps, err = cniStepper.LoadImage(nodes)
+		}
 		if err != nil {
 			return nil, err
 		}
 		installSteps = append(installSteps, steps...)
 	}
-	steps, err = cniStepper.InstallSteps([]v1.StepNode{masters[0]}, runnable.KubernetesVersion)
+	if stepper, ok := cniStepper.(interface {
+		InstallStepsWithContext(context.Context, []v1.StepNode, string) ([]v1.Step, error)
+	}); ok {
+		steps, err = stepper.InstallStepsWithContext(ctx, []v1.StepNode{masters[0]}, runnable.KubernetesVersion)
+	} else {
+		steps, err = cniStepper.InstallSteps([]v1.StepNode{masters[0]}, runnable.KubernetesVersion)
+	}
 	if err != nil {
 		return nil, err
 	}

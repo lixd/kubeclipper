@@ -1004,6 +1004,7 @@ func (h *handler) getNodeInfo(ctx context.Context, nodes v1.WorkerNodeList, skip
 			ID:       n.Name,
 			IPv4:     n.Status.Ipv4DefaultIP,
 			NodeIPv4: n.Status.NodeIpv4DefaultIP,
+			Arch:     n.Status.NodeInfo.Arch,
 			Region:   n.Labels[common.LabelTopologyRegion],
 			Hostname: n.Status.NodeInfo.Hostname,
 			Role:     n.Labels[common.LabelNodeRole],
