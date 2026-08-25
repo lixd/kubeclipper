@@ -24,7 +24,9 @@ jobs:
       - name: Setup Golang with cache
         uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          # golangci-lint v2.12.2 requires Go 1.25; keep the project and
+          # release toolchains at the Go version declared in go.mod.
+          go-version: '1.25.0'
           cache: true
       - name: Checkfmt
         shell: bash
