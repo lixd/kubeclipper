@@ -25,6 +25,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -48,6 +49,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/user"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
@@ -1351,6 +1353,7 @@ func (d *DeployOptions) uploadConfig() {
 		logger.Fatal(err)
 	}
 	uploadDeployConfig(c, d.deployConfig)
+	uploadDeliveryPolicy(c)
 	uploadCerts(c)
 	if err = cfg.Dump(); err != nil {
 		logger.Fatal(err)
@@ -1406,6 +1409,30 @@ func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
 		},
 	}
 	createOrUpdateConfigMap(client, dc)
+}
+
+func uploadDeliveryPolicy(client *kc.Client) {
+	existing, err := client.DescribeConfigMap(context.TODO(), deliveryapis.DeliveryPolicyConfigMapName)
+	if err == nil && len(existing.Items) > 0 {
+		return
+	}
+	policyData, err := json.MarshalIndent(deliveryapis.DefaultSupportPolicy(), "", "  ")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	policy := &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1.KindConfigMap,
+			APIVersion: v1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deliveryapis.DeliveryPolicyConfigMapName,
+		},
+		Data: map[string]string{
+			deliveryapis.DeliveryPolicyConfigMapKey: string(policyData),
+		},
+	}
+	createOrUpdateConfigMap(client, policy)
 }
 
 func uploadCerts(client *kc.Client) {

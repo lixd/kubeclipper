@@ -160,7 +160,8 @@ func (runnable *CalicoRunnable) InstallStepsWithContext(ctx context.Context, nod
 		}
 		steps = append(steps, cLoadSteps...)
 		steps = append(steps, RenderYaml("calico", bytes, nodes))
-		steps = append(steps, InstallCalicoRelease(downloader.ChartDir(chart.PkgName, runnable.Version), filepath.Join(manifestDir, "calico.yaml"), runnable.Version, nodes))
+		chartPath := downloader.ChartPath(chart.ArtifactKind(), chart.PkgName, chart.Version, chart.ArtifactPlatform())
+		steps = append(steps, InstallCalicoRelease(chartPath, filepath.Join(manifestDir, "calico.yaml"), runnable.Version, nodes))
 	} else {
 		steps = append(steps, RenderYaml("calico", bytes, nodes))
 		steps = append(steps, ApplyYaml(filepath.Join(manifestDir, "calico.yaml"), nodes))
