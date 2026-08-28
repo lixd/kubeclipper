@@ -132,11 +132,15 @@ func (stepper *Extension) InstallSteps(nodes []v1.StepNode) ([]v1.Step, error) {
 }
 
 func (stepper *Extension) InstallStepsWithContext(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error) {
-	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), k8sExtension, k8sExtension, stepper.Version); ok {
-		stepper.Arch = resolved.Arch
-		stepper.Transport = resolved.Transport
-		stepper.Contents = resolved.Contents
+	resolved, err := componentcommon.RequireResolvedComponent(
+		component.GetResolvedArtifactPlan(ctx), k8sExtension, k8sExtension, stepper.Version,
+	)
+	if err != nil {
+		return nil, err
 	}
+	stepper.Arch = resolved.Arch
+	stepper.Transport = resolved.Transport
+	stepper.Contents = resolved.Contents
 	bytes, err := json.Marshal(&stepper)
 	if err != nil {
 		return nil, err

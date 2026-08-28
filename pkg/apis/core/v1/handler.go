@@ -62,6 +62,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/controller"
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/client"
 	"github.com/kubeclipper/kubeclipper/pkg/controller/cloudprovidercontroller"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
 	"github.com/kubeclipper/kubeclipper/pkg/models/core"
@@ -273,6 +274,45 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 		case clusteroperation.NodesOperationRemove:
 			if !nodeSet.Has(n.ID) {
 				restplus.HandleBadRequest(response, request, fmt.Errorf("the node(%s) is not part of this cluster and cannot be removed", n.IPv4))
+				return
+			}
+		}
+	}
+
+	// Add-node operations are materialized later by the cluster controller. Reuse
+	// the package plan selected when the cluster was created/upgraded; resolving
+	// again here could select a different digest or architecture.
+	if pn.Operation == clusteroperation.NodesOperationAdd {
+		pn.ResolvedArtifactPlan, err = deliveryapis.DecodeResolvedArtifactPlan(c.Status.PackagePlan)
+		if err != nil {
+			restplus.HandleInternalError(response, request, err)
+			return
+		}
+		if pn.ResolvedArtifactPlan == nil {
+			restplus.HandleBadRequest(response, request, fmt.Errorf("cluster package plan is not initialized"))
+			return
+		}
+		if pn.ResolvedArtifactPlan.KubernetesVersion == "" || pn.ResolvedArtifactPlan.KubernetesVersion != c.KubernetesVersion {
+			restplus.HandleBadRequest(response, request, fmt.Errorf(
+				"cluster package plan version %q does not match cluster version %q",
+				pn.ResolvedArtifactPlan.KubernetesVersion, c.KubernetesVersion,
+			))
+			return
+		}
+		if pn.ResolvedArtifactPlan.Arch == "" {
+			restplus.HandleBadRequest(response, request, fmt.Errorf("cluster package plan architecture is not initialized"))
+			return
+		}
+		for _, node := range nodes {
+			if node.Arch == "" {
+				restplus.HandleBadRequest(response, request, fmt.Errorf("node %q architecture is not reported", node.ID))
+				return
+			}
+			if node.Arch != pn.ResolvedArtifactPlan.Arch {
+				restplus.HandleBadRequest(response, request, fmt.Errorf(
+					"node %q architecture %q does not match cluster package plan architecture %q",
+					node.ID, node.Arch, pn.ResolvedArtifactPlan.Arch,
+				))
 				return
 			}
 		}
@@ -1714,7 +1754,14 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		return
 	}
 
-	if err := upgradeComp.InitSteps(component.WithExtraMetadata(context.TODO(), *extraMeta)); err != nil {
+	upgradeCtx := component.WithExtraMetadata(request.Request.Context(), *extraMeta)
+	upgradeCtx, err = h.withResolvedArtifactPlan(upgradeCtx, extraMeta, clu, v1.ActionUpgrade)
+	if err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	err = upgradeComp.InitSteps(upgradeCtx)
+	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}

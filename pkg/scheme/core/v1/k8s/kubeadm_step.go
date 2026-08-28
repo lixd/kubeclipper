@@ -170,11 +170,15 @@ func (runnable *Runnable) makeInstallSteps(ctx context.Context, metadata *compon
 
 	pack := Package{}
 	pack.InitStepper(&c)
-	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, runnable.KubernetesVersion); ok {
-		pack.Arch = resolved.Arch
-		pack.Transport = resolved.Transport
-		pack.Contents = resolved.Contents
+	resolved, err := componentcommon.RequireResolvedComponent(
+		component.GetResolvedArtifactPlan(ctx), K8s, K8s, runnable.KubernetesVersion,
+	)
+	if err != nil {
+		return nil, err
 	}
+	pack.Arch = resolved.Arch
+	pack.Transport = resolved.Transport
+	pack.Contents = resolved.Contents
 	steps, err = pack.InstallSteps(nodes)
 	if err != nil {
 		return nil, err

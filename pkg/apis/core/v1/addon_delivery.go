@@ -46,7 +46,7 @@ func (h *handler) withResolvedAddonArtifacts(ctx context.Context, cluster *schem
 		return nil, err
 	}
 	if source.inventoryStore == nil || source.policyStore == nil {
-		return ctx, nil
+		return nil, fmt.Errorf("OCI package registry is not configured")
 	}
 	arch, ok := singleTargetArchFromContext(ctx)
 	if !ok {
