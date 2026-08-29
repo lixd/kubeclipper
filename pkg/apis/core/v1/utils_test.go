@@ -148,6 +148,43 @@ var (
 	}
 )
 
+func TestApplyClusterCreateDefaults(t *testing.T) {
+	masterTaint := []v1.Taint{{
+		Key:    "node-role.kubernetes.io/master",
+		Effect: v1.TaintEffectNoSchedule,
+	}}
+	tests := []struct {
+		name       string
+		masters    int
+		workers    int
+		wantTaints int
+	}{
+		{name: "standalone defaults untainted", masters: 1, wantTaints: 0},
+		{name: "worker topology keeps default taint", masters: 1, workers: 1, wantTaints: 1},
+		{name: "control plane only topology defaults untainted", masters: 3, wantTaints: 0},
+		{name: "ha topology with workers keeps default taint", masters: 3, workers: 1, wantTaints: 1},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cluster := &v1.Cluster{}
+			for range test.masters {
+				cluster.Masters = append(cluster.Masters, v1.WorkerNode{ID: "master", Taints: append([]v1.Taint(nil), masterTaint...)})
+			}
+			for range test.workers {
+				cluster.Workers = append(cluster.Workers, v1.WorkerNode{ID: "worker"})
+			}
+
+			applyClusterCreateDefaults(cluster)
+
+			for _, master := range cluster.Masters {
+				if got := len(master.Taints); got != test.wantTaints {
+					t.Fatalf("master taints = %d, want %d", got, test.wantTaints)
+				}
+			}
+		})
+	}
+}
+
 //const fakeKubeConfig = `
 //apiVersion: v1
 //clusters:

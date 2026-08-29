@@ -58,6 +58,17 @@ func getK8sSteps(ctx context.Context, c *v1.Cluster, action v1.StepAction) ([]v1
 	return runnable.GetStep(ctx, action)
 }
 
+// applyClusterCreateDefaults centralizes create-time behavior that must also
+// apply to API and front-end clients which do not use kcctl.
+func applyClusterCreateDefaults(c *v1.Cluster) {
+	if len(c.Masters) == 0 || len(c.Workers) != 0 {
+		return
+	}
+	for i := range c.Masters {
+		c.Masters[i].Taints = nil
+	}
+}
+
 func getSteps(c component.Interface, action v1.StepAction) ([]v1.Step, error) {
 	switch action {
 	case v1.ActionInstall:
