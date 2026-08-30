@@ -432,7 +432,6 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	if v := request.QueryParameter("timeout"); v != "" {
 		timeoutSecs = v
 	}
-	applyClusterCreateDefaults(&c)
 	c.Complete()
 	// validate node exist
 	extraMeta, err := h.getClusterMetadata(request.Request.Context(), &c, false)
