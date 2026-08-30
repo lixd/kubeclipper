@@ -24,6 +24,7 @@ import (
 	"testing"
 	"time"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -298,5 +299,67 @@ func TestTaskListIsBoundedAndWatchIsNot(t *testing.T) {
 	case <-client.watchCtx.Done():
 	case <-time.After(5 * time.Second):
 		t.Fatal("task Watch context does not follow the worker run context")
+	}
+}
+
+// statusRejectingClient accepts the Pending→Running claim but permanently
+// rejects every terminal status write with a 400, mirroring a server that
+// considers the computed result invalid.
+type statusRejectingClient struct {
+	fakeTaskClient
+	terminalPUTs int
+}
+
+func (c *statusRejectingClient) UpdateStatus(
+	_ context.Context,
+	task *operations.OperationTask,
+) (*operations.OperationTask, error) {
+	if task.Status.Phase != operations.TaskRunning {
+		c.terminalPUTs++
+		return nil, apierrors.NewBadRequest("terminal result rejected: invalid")
+	}
+	return c.fakeTaskClient.UpdateStatus(context.Background(), task)
+}
+
+type countingExecutor struct {
+	calls int
+}
+
+func (e *countingExecutor) Reconcile(_ context.Context, _ *operations.OperationTask, _ io.Writer) (operations.TaskResult, error) {
+	e.calls++
+	return operations.TaskResult{Message: "done"}, nil
+}
+
+// A terminal status that the server keeps rejecting must be retried as a
+// status write only: the executor — whose commands already produced their
+// side effects — must never run again, and a permanent 4xx stops the retry
+// loop instead of queueing forever.
+func TestTerminalWriteFailureDoesNotReexecuteExecutor(t *testing.T) {
+	client := &statusRejectingClient{fakeTaskClient: fakeTaskClient{task: newTestTask(operations.TaskPending)}}
+	executor := &countingExecutor{}
+	worker := newTestWorker(t, &client.fakeTaskClient, executor)
+	worker.client = client
+
+	// First sync: claims the task, runs the executor once, and hits the
+	// permanent rejection on the terminal status write.
+	if err := worker.sync(worker.runCtx); err != nil {
+		t.Fatalf("first sync: %v", err)
+	}
+	if executor.calls != 1 {
+		t.Fatalf("executor calls after first sync = %d, want 1", executor.calls)
+	}
+
+	// Second sync: only the status write may be retried.
+	if err := worker.sync(worker.runCtx); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+	if executor.calls != 1 {
+		t.Fatalf("executor re-executed: calls = %d, want 1", executor.calls)
+	}
+	if client.terminalPUTs != 2 {
+		t.Fatalf("terminal status writes = %d, want 2 (one per sync)", client.terminalPUTs)
+	}
+	if _, pending := worker.pendingTerminal[client.task.UID]; !pending {
+		t.Fatal("pending terminal state must be retained while the write is rejected")
 	}
 }

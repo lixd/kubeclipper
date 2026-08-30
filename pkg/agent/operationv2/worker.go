@@ -26,6 +26,8 @@ import (
 	"sync"
 	"time"
 
+	"net/http"
+
 	"golang.org/x/sys/unix"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -70,6 +72,13 @@ type WorkerOptions struct {
 	LockFile string
 }
 
+// pendingTerminalState is a terminal phase/result computed by an executor
+// whose status write has not been confirmed yet.
+type pendingTerminalState struct {
+	phase  operations.TaskPhase
+	result operations.TaskResult
+}
+
 type Worker struct {
 	agentID  string
 	nodeUID  types.UID
@@ -79,6 +88,12 @@ type Worker struct {
 	lockPath string
 	runCtx   context.Context
 	cancel   context.CancelFunc
+	// pendingTerminal remembers a terminal status that was computed but whose
+	// status write has not been confirmed yet. While an entry exists the
+	// worker retries only the status write and never re-runs the executor:
+	// re-running the command list would repeat side effects for a command
+	// that already finished. Accessed from the single worker goroutine only.
+	pendingTerminal map[types.UID]pendingTerminalState
 
 	informer cache.SharedIndexInformer
 	queue    workqueue.RateLimitingInterface
@@ -101,15 +116,16 @@ func NewWorker(opts *WorkerOptions) (*Worker, error) {
 	}
 	runCtx, cancel := context.WithCancel(context.Background())
 	w := &Worker{
-		agentID:  opts.AgentID,
-		nodeUID:  opts.NodeUID,
-		client:   opts.Client,
-		registry: opts.Registry,
-		oplog:    opts.OpLog,
-		lockPath: opts.LockFile,
-		runCtx:   runCtx,
-		cancel:   cancel,
-		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "operation-v2-agent"),
+		agentID:         opts.AgentID,
+		nodeUID:         opts.NodeUID,
+		client:          opts.Client,
+		registry:        opts.Registry,
+		oplog:           opts.OpLog,
+		lockPath:        opts.LockFile,
+		runCtx:          runCtx,
+		cancel:          cancel,
+		pendingTerminal: make(map[types.UID]pendingTerminalState),
+		queue:           workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "operation-v2-agent"),
 	}
 	selector := fields.OneTermEqualSelector("spec.nodeRef.name", opts.AgentID).String()
 	w.informer = cache.NewSharedIndexInformer(&cache.ListWatch{
@@ -303,6 +319,13 @@ func selectTask(tasks []*operations.OperationTask) (*operations.OperationTask, e
 }
 
 func (w *Worker) execute(parent context.Context, task *operations.OperationTask) error {
+	// A terminal status was already computed for this task but its write has
+	// not been confirmed: retry only the status write. Re-running the
+	// executor would repeat the command's side effects for a command that
+	// already finished.
+	if pending, ok := w.pendingTerminal[task.UID]; ok {
+		return w.finish(parent, task, pending.phase, pending.result)
+	}
 	executor, ok := w.registry.Get(task.Spec.Executor)
 	if !ok {
 		return w.finish(parent, task, operations.TaskFailed, operations.TaskResult{
@@ -367,13 +390,42 @@ func (w *Worker) finish(
 		latest, getErr := w.client.Get(getCtx, task.Name, metav1.GetOptions{})
 		getCancel()
 		if getErr == nil && latest.UID == task.UID && latest.Status.Phase.IsTerminal() {
+			delete(w.pendingTerminal, task.UID)
 			w.queue.Add(syncKey)
+			return nil
+		}
+		// Remember the computed terminal state: resync retries only this
+		// status write and never re-runs the executor, whose commands have
+		// already produced their side effects.
+		w.pendingTerminal[task.UID] = pendingTerminalState{phase: phase, result: result}
+		if isPermanentTerminalWriteFailure(err) {
+			// The server rejected the terminal status with a client error a
+			// retry cannot fix (invalid result, forbidden). Requeueing would
+			// loop without progress; the controller's deadline force-timeout
+			// converges the Running task on the server side instead.
+			logger.Errorf("task %s terminal status write rejected permanently, giving up: %v", task.Name, err)
 			return nil
 		}
 		return err
 	}
+	delete(w.pendingTerminal, task.UID)
 	w.queue.Add(syncKey)
 	return nil
+}
+
+// isPermanentTerminalWriteFailure reports whether the server rejected the
+// terminal status write with a client error that a retry cannot fix.
+func isPermanentTerminalWriteFailure(err error) bool {
+	if apierrors.IsConflict(err) || apierrors.IsNotFound(err) || apierrors.IsTooManyRequests(err) ||
+		apierrors.IsServerTimeout(err) || apierrors.IsServiceUnavailable(err) || apierrors.IsInternalError(err) {
+		return false
+	}
+	var status apierrors.APIStatus
+	if errors.As(err, &status) {
+		code := int(status.Status().Code)
+		return code >= http.StatusBadRequest && code < http.StatusInternalServerError
+	}
+	return false
 }
 
 func boundedMessage(message string) string {
