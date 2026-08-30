@@ -209,3 +209,65 @@ func Test_auditing_LogResponseObject(t *testing.T) {
 		})
 	}
 }
+
+func TestAuditingDoesNotRecordSensitiveResourceBodies(t *testing.T) {
+	a := &auditing{
+		auditOptions: &option.AuditOptions{AuditLevel: audit.LevelRequestResponse},
+	}
+	requestBody := []byte(`{"data":{"key":"test-sensitive-payload"}}`)
+	req := &http.Request{
+		Body:          io.NopCloser(bytes.NewReader(requestBody)),
+		Header:        http.Header{"Content-Type": {"application/json"}},
+		URL:           &url.URL{},
+		ContentLength: int64(len(requestBody)),
+	}
+
+	e := a.LogRequestObject(req, &request.Info{
+		IsResourceRequest: true,
+		Path:              "/api/core.kubeclipper.io/v1/configmaps",
+		Verb:              "create",
+		Resource:          "configmaps",
+		Name:              "deploy-config",
+	})
+	if e.RequestObject != nil {
+		t.Fatal("sensitive ConfigMap request body was recorded")
+	}
+
+	a.LogResponseObject(e, &ResponseCapture{
+		status: http.StatusCreated,
+		body:   bytes.NewBuffer(requestBody),
+	})
+	if e.ResponseObject != nil {
+		t.Fatal("sensitive ConfigMap response body was recorded")
+	}
+}
+
+func TestAuditingRecordsNonSensitiveResourceBodies(t *testing.T) {
+	a := &auditing{
+		auditOptions: &option.AuditOptions{AuditLevel: audit.LevelRequestResponse},
+	}
+	body := []byte(`{"spec":{"name":"test"}}`)
+	e := a.LogRequestObject(&http.Request{
+		Body:          io.NopCloser(bytes.NewReader(body)),
+		Header:        http.Header{"Content-Type": {"application/json"}},
+		URL:           &url.URL{},
+		ContentLength: int64(len(body)),
+	}, &request.Info{
+		IsResourceRequest: true,
+		Path:              "/api/core.kubeclipper.io/v1/projects",
+		Verb:              "create",
+		Resource:          "projects",
+		Name:              "test",
+	})
+	if e.RequestObject == nil {
+		t.Fatal("non-sensitive request body was not recorded")
+	}
+
+	a.LogResponseObject(e, &ResponseCapture{
+		status: http.StatusCreated,
+		body:   bytes.NewBuffer(body),
+	})
+	if e.ResponseObject == nil {
+		t.Fatal("non-sensitive response body was not recorded")
+	}
+}

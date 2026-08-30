@@ -27,6 +27,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	auditoptions "github.com/kubeclipper/kubeclipper/pkg/auditing/option"
@@ -204,7 +205,7 @@ func (a *auditing) LogRequestObject(req *http.Request, info *request.Info) *audi
 		_ = req.Body.Close()
 		req.Body = io.NopCloser(bytes.NewBuffer(body))
 
-		if e.Level.GreaterOrEqual(audit.LevelRequest) {
+		if e.Level.GreaterOrEqual(audit.LevelRequest) && !isSensitiveResource(info.Resource) {
 			if info.Path == "/oauth/login" {
 				obj := &LoginRequest{}
 				if err := json.Unmarshal(body, obj); err == nil {
@@ -228,10 +229,19 @@ func (a *auditing) LogRequestObject(req *http.Request, info *request.Info) *audi
 func (a *auditing) LogResponseObject(e *audit.Event, resp *ResponseCapture) {
 	e.StageTimestamp = metav1.NowMicro()
 	e.ResponseStatus = &metav1.Status{Code: int32(resp.StatusCode())}
-	if e.Level.GreaterOrEqual(audit.LevelRequestResponse) {
+	if e.Level.GreaterOrEqual(audit.LevelRequestResponse) && !isSensitiveResource(e.ObjectRef.Resource) {
 		e.ResponseObject = &runtime.Unknown{Raw: resp.Bytes()}
 	}
 	a.sendEvent(e)
+}
+
+func isSensitiveResource(resource string) bool {
+	switch strings.ToLower(resource) {
+	case "configmaps", "secrets":
+		return true
+	default:
+		return false
+	}
 }
 
 func (a *auditing) sendEvent(e *audit.Event) {
