@@ -20,9 +20,11 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -105,7 +107,7 @@ func newTestWorker(t *testing.T, client *fakeTaskClient, executor Executor) *Wor
 	if err := registry.Register("test/v1", executor); err != nil {
 		t.Fatal(err)
 	}
-	logStore, err := oplog.NewOperationLog(&oplog.Options{Dir: t.TempDir(), SingleThreshold: oplog.DefaultThreshold})
+	logStore, err := oplog.NewOperationLog(&oplog.Options{Dir: t.TempDir(), OplogThreshold: oplog.DefaultThreshold})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -226,6 +228,25 @@ func TestSelectTaskResumesRunningBeforePending(t *testing.T) {
 	}
 }
 
+func TestSelectTaskOrdersSameSecondByResourceVersion(t *testing.T) {
+	first := newTestTask(operations.TaskPending)
+	first.Name = "first"
+	first.UID = types.UID("z-first")
+	first.ResourceVersion = "2"
+	second := newTestTask(operations.TaskPending)
+	second.Name = "second"
+	second.UID = types.UID("a-second")
+	second.ResourceVersion = "3"
+
+	selected, err := selectTask([]*operations.OperationTask{second, first})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if selected.UID != first.UID {
+		t.Fatalf("selected %s, want lower resourceVersion task %s", selected.UID, first.UID)
+	}
+}
+
 // deadlineRecordingClient captures the contexts the worker uses for its
 // one-shot List and long-lived Watch round trips.
 type deadlineRecordingClient struct {
@@ -259,7 +280,7 @@ func TestTaskListIsBoundedAndWatchIsNot(t *testing.T) {
 	if err := registry.Register(NoopExecutorName, NoopExecutor{}); err != nil {
 		t.Fatal(err)
 	}
-	logStore, err := oplog.NewOperationLog(&oplog.Options{Dir: t.TempDir(), SingleThreshold: oplog.DefaultThreshold})
+	logStore, err := oplog.NewOperationLog(&oplog.Options{Dir: t.TempDir(), OplogThreshold: oplog.DefaultThreshold})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -298,5 +319,32 @@ func TestTaskListIsBoundedAndWatchIsNot(t *testing.T) {
 	case <-client.watchCtx.Done():
 	case <-time.After(5 * time.Second):
 		t.Fatal("task Watch context does not follow the worker run context")
+	}
+}
+
+func TestBoundedMessageKeepsValidUTF8(t *testing.T) {
+	// Three-byte rune (€) truncated mid-sequence must not leak invalid bytes.
+	message := "ok ok €€€€"
+	bounded := boundedMessage(message)
+	if bounded != message {
+		t.Fatalf("short message truncated: %q", bounded)
+	}
+	long := strings.Repeat("€", operations.MaxMessageSize/3+10)
+	bounded = boundedMessage(long)
+	if utf8.ValidString(bounded) == false {
+		t.Fatalf("bounded message is not valid UTF-8")
+	}
+	if len(bounded) > operations.MaxMessageSize {
+		t.Fatalf("bounded message length = %d, want <= %d", len(bounded), operations.MaxMessageSize)
+	}
+}
+
+func TestTaskResultMessageIncludesLogError(t *testing.T) {
+	if got, want := taskResultMessage("command failed", errors.New("permission denied")),
+		"command failed; agent task log unavailable: permission denied"; got != want {
+		t.Fatalf("message = %q, want %q", got, want)
+	}
+	if got, want := taskResultMessage("done", nil), "done"; got != want {
+		t.Fatalf("message without log error = %q, want %q", got, want)
 	}
 }
