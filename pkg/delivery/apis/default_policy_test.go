@@ -24,7 +24,7 @@ func TestDefaultSupportPolicy(t *testing.T) {
 		t.Fatalf("DefaultSupportPolicy() validation failed: %v", err)
 	}
 
-	wantVersions := []string{"v1.36.*", "v1.35.*", "v1.34.*"}
+	wantVersions := []string{"v1.37.*", "v1.36.*", "v1.35.*"}
 	if len(policy.Spec.Policies) != len(wantVersions) {
 		t.Fatalf("policy count = %d, want %d", len(policy.Spec.Policies), len(wantVersions))
 	}

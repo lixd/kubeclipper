@@ -18,9 +18,9 @@ bootstrap:
 resources:
   k8s:
     versions:
+      - v1.37.0
       - v1.36.1
       - v1.35.0
-      - v1.34.2
     kubeadmConfVersion: 0.16.2
   k8sExtension:
     versions:

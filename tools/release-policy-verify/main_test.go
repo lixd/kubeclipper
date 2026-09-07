@@ -16,7 +16,7 @@ func supportedManifest() buildManifest {
 	manifest.Bootstrap.ConsoleVersion = "v1.6.0"
 	manifest.Bootstrap.RegistryVersion = "3.1.1"
 	manifest.Bootstrap.EtcdVersion = "3.5.21"
-	manifest.Resources.K8s.Versions = []string{"v1.36.1", "v1.35.0", "v1.34.2"}
+	manifest.Resources.K8s.Versions = []string{"v1.37.0", "v1.36.1", "v1.35.0"}
 	manifest.Resources.K8sExtension.Versions = []string{"v1"}
 	manifest.Resources.CRI.Containerd.Versions = []string{"2.2.4", "1.7.29"}
 	manifest.Resources.CNI.Calico.Versions = []string{"v3.31.5", "v3.29.6"}

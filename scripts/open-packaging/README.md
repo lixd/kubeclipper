@@ -234,8 +234,8 @@ everything into one large static-server package:
 
 ```text
 /data/kc-resource/
-  k8s/v1.36.1/amd64/configs.tar.gz
-  k8s/v1.36.1/amd64/images.txt
+  k8s/v1.37.0/amd64/configs.tar.gz
+  k8s/v1.37.0/amd64/images.txt
   kc-runtime/v2.0.0/amd64/images.txt
   nfs/v4.1.0/amd64/images.txt
   metallb/v0.13.7/amd64/images.txt
@@ -362,7 +362,7 @@ The local `resource/` tree is only an internal temporary directory.
 ```bash
 scripts/open-packaging/publish-resource-k8s.sh \
   --registry-prefix 10.0.0.10:5000 \
-  --version v1.36.1
+  --version v1.37.0
 
 scripts/open-packaging/publish-resource-k8s-extension.sh \
   --registry-prefix 10.0.0.10:5000 \
@@ -403,7 +403,7 @@ scripts/open-packaging/push-runtime-images.sh \
   --image-registry 10.0.0.10:5000 \
   --component k8s \
   --arch amd64 \
-  --version v1.36.1
+  --version v1.37.0
 
 scripts/open-packaging/push-runtime-images.sh \
   --images-lock /opt/kubeclipper-server/resource/images.lock \
@@ -471,20 +471,20 @@ Or copy one package image by digest/tag:
 
 ```bash
 skopeo copy --all \
-  docker://ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
-  docker://harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
+  docker://ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0 \
+  docker://harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
 ```
 
 For fully offline environments, users can also use native image archives:
 
 ```bash
-docker pull ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
-docker save ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
+docker pull ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
+docker save ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0 \
   -o kubeclipper-package-images.tar
 docker load -i kubeclipper-package-images.tar
-docker tag ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1 \
-  harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
-docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.36.1
+docker tag ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0 \
+  harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
+docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
 ```
 
 Helm charts remain Helm OCI artifacts, but they were verified with

@@ -6,7 +6,7 @@ on:
       version:
         description: Kubernetes version.
         required: true
-        default: v1.36.1
+        default: v1.37.0
         type: string
       architecture:
         description: Target architecture.

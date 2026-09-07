@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib.sh"
 
 arch="amd64"
-version="v1.36.1"
+version="v1.37.0"
 kubeadm_conf_version="0.16.2"
 output="./resource"
 kubelet_service_file=""
@@ -21,7 +21,7 @@ Usage:
   build-k8s-package.sh [flags]
 
 Flags:
-  --version <vX.Y.Z>              Kubernetes version. Default: v1.36.1.
+  --version <vX.Y.Z>              Kubernetes version. Default: v1.37.0.
   --kubeadm-conf-version <ver>    kubernetes/release tag for 10-kubeadm.conf. Default: 0.16.2.
   --arch <amd64|arm64|all>        Target architecture. Default: amd64.
   --output <dir>                  Resource output root. Default: ./resource.

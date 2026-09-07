@@ -7,7 +7,7 @@ source "$SCRIPT_DIR/resource-packages/common.sh"
 
 registry_prefix="ghcr.io/kubeclipper/kubeclipper"
 image_registry_prefix=""
-version="v1.36.1"
+version="v1.37.0"
 arch="amd64"
 kubeadm_conf_version="0.16.2"
 kubelet_service_file=""
@@ -27,7 +27,7 @@ Builds and publishes:
 Flags:
   --registry-prefix <ref>       Package Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --image-registry-prefix <ref> Runtime image Registry prefix. Default: --registry-prefix.
-  --version <vX.Y.Z>            Kubernetes version. Default: v1.36.1.
+  --version <vX.Y.Z>            Kubernetes version. Default: v1.37.0.
   --arch <amd64|arm64>          Target architecture. Default: amd64.
   --kubeadm-conf-version <ver>  kubernetes/release tag for 10-kubeadm.conf. Default: 0.16.2.
   -h, --help                    Show this help.

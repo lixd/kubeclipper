@@ -21,9 +21,9 @@ package apis
 func DefaultSupportPolicy() *SupportPolicy {
 	policy := NewSupportPolicy("default")
 	policy.Spec.Policies = []KubernetesSupportPolicy{
+		defaultKubernetesSupportPolicy("k8s-v1.37", "v1.37.*", "2.2.4", "v3.31.5"),
 		defaultKubernetesSupportPolicy("k8s-v1.36", "v1.36.*", "2.2.4", "v3.31.5"),
 		defaultKubernetesSupportPolicy("k8s-v1.35", "v1.35.*", "1.7.29", "v3.29.6"),
-		defaultKubernetesSupportPolicy("k8s-v1.34", "v1.34.*", "1.7.29", "v3.29.6"),
 	}
 	return policy
 }
