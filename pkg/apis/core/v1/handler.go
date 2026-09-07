@@ -558,6 +558,10 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 	cluName := request.PathParameter(query.ParameterName)
 	ctx := request.Request.Context()
 	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
+	timeoutSecs := v1.DefaultOperationTimeoutSecs
+	if v := request.QueryParameter("timeout"); v != "" {
+		timeoutSecs = v
+	}
 	c, err := h.clusterOperator.GetCluster(ctx, cluName)
 	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
@@ -578,7 +582,7 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 	op.Name = uuid.New().String()
 	op.Labels = map[string]string{
 		common.LabelClusterName:      c.Name,
-		common.LabelTimeoutSeconds:   v1.DefaultOperationTimeoutSecs,
+		common.LabelTimeoutSeconds:   timeoutSecs,
 		common.LabelOperationAction:  v1.OperationUpdateCertification,
 		common.LabelOperationSponsor: buildOperationSponsor(h.genericConfig),
 	}

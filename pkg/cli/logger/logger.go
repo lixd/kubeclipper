@@ -74,6 +74,11 @@ var severityColorFunc = []func(format string, a ...interface{}) string{
 	fatalLog:   color.HiRedString,
 }
 
+// ColorizeError formats a command error for terminal output.
+func ColorizeError(message string) string {
+	return color.RedString(message)
+}
+
 type loggingT struct {
 	mu        sync.Mutex
 	verbosity Level // V logging level, the value of the -v flag/
