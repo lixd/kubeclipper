@@ -70,9 +70,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		m.ready = true
 		m.listModel = NewListModel(m.operations, m.width, m.height)
-		if m.currentView == viewLog {
-			m.logModel = NewLogModel(m.client, m.logModel.operation, m.width, m.height)
-		}
 
 	case selectOpMsg:
 		m.currentView = viewLog
@@ -122,7 +119,7 @@ func RunTUI(client *kc.Client, clusterName string, in io.Reader, out io.Writer) 
 	ctx := context.Background()
 
 	labelSelector := fmt.Sprintf("kubeclipper.io/cluster=%s", clusterName)
-	list, err := client.ListOperation(ctx, kc.Queries{
+	list, err := client.ListOperations(ctx, kc.OperationListOptions{
 		LabelSelector: labelSelector,
 	})
 	if err != nil {
