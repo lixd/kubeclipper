@@ -18,10 +18,8 @@ package doctor
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -126,102 +124,11 @@ func checkKCEtcd(_ context.Context, state *diagnosticState) Component {
 		return []Check{state.remote.service(host, "kc-etcd")}
 	})
 	component.Checks = append(component.Checks, serviceChecks...)
-	healthyHost := ""
-	for i := range serviceChecks {
-		if serviceChecks[i].Status == platformstatus.Healthy {
-			healthyHost = serviceChecks[i].Target
-			break
-		}
-	}
-	if healthyHost == "" {
-		component.Checks = append(component.Checks, Check{
-			Name: "endpoint-health", Status: platformstatus.Skipped, Message: "etcd endpoint checks skipped because no member service is available",
-		})
-	} else {
-		component.Checks = append(component.Checks, state.remote.etcdCluster(healthyHost, state.deployConfig))
-	}
+	// kc-server already checks every configured etcd endpoint with native Go
+	// code and publishes the result through PlatformStatus. Do not make
+	// diagnostics depend on the optional etcdctl binary on a server node.
 	component.Message = etcdSummary(servers, component.Checks, statusComponent)
 	return component
-}
-
-func (r *remoteRunner) etcdCluster(host string, deployConfig *options.DeployConfig) Check {
-	check := Check{Name: "endpoint-health", Target: host}
-	if deployConfig.EtcdConfig == nil {
-		check.Status = platformstatus.Unknown
-		check.Message = "etcd configuration is unavailable"
-		return check
-	}
-	var endpoints []string
-	for _, server := range sortedStrings(deployConfig.ServerIPs) {
-		endpoints = append(endpoints, "https://"+endpoint(server, deployConfig.EtcdConfig.ClientPort))
-	}
-	base := fmt.Sprintf("timeout %d env ETCDCTL_API=3 etcdctl --endpoints=%s --cacert=%s --cert=%s --key=%s",
-		remoteCommandTimeout,
-		shellQuote(strings.Join(endpoints, ",")),
-		shellQuote(filepath.Join(options.DefaultKcServerConfigPath, options.DefaultCaPath, options.Ca+".crt")),
-		shellQuote(filepath.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, options.EtcdKcClient+".crt")),
-		shellQuote(filepath.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, options.EtcdKcClient+".key")),
-	)
-	healthCommand := base + " endpoint health --cluster"
-	healthResult, healthErr := r.runCommand(host, healthCommand)
-	if healthResult.ExitCode == commandNotFoundExitCode {
-		check.Status = platformstatus.Unknown
-		check.Message = fmt.Sprintf("etcdctl is unavailable on %s", host)
-		check.Evidence = compactOutput(healthResult.Stdout, healthResult.Stderr)
-		check.Commands = []string{r.sshCommand(host, "command -v etcdctl")}
-		return check
-	}
-	if healthErr != nil || healthResult.ExitCode != 0 {
-		check.Status = platformstatus.Unhealthy
-		check.Message = "etcd cluster health check failed"
-		check.Evidence = compactOutput(healthResult.Stdout, healthResult.Stderr, errorString(healthErr))
-		if deployConfig.EtcdConfig.DataDir != "" {
-			diskCommand := fmt.Sprintf("timeout %d df -P %s", remoteCommandTimeout,
-				shellQuote(deployConfig.EtcdConfig.DataDir))
-			check.Evidence = append(check.Evidence, r.capture(host, diskCommand)...)
-		}
-		check.Logs = r.journal(host, "kc-etcd")
-		check.Commands = append([]string{r.sshCommand(host, healthCommand)}, r.serviceCommands(host, "kc-etcd")...)
-		return check
-	}
-	check.Status = platformstatus.Healthy
-	check.Message = "etcd cluster endpoints are healthy"
-	check.Evidence = compactOutput(healthResult.Stdout)
-
-	statusCommand := base + " endpoint status --cluster --write-out=json"
-	statusResult, statusErr := r.runCommand(host, statusCommand)
-	if statusErr != nil || statusResult.ExitCode != 0 {
-		check.Status = platformstatus.Degraded
-		check.Message = "etcd endpoints are healthy but member status is unavailable"
-		check.Evidence = append(check.Evidence, compactOutput(statusResult.Stdout, statusResult.Stderr, errorString(statusErr))...)
-		check.Commands = []string{r.sshCommand(host, statusCommand)}
-		return check
-	}
-	if leader := etcdLeader(statusResult.Stdout); leader != "" {
-		check.Evidence = append(check.Evidence, "leader="+leader)
-	}
-	return check
-}
-
-func etcdLeader(output string) string {
-	var statuses []struct {
-		Endpoint string `json:"Endpoint"`
-		Status   struct {
-			Header struct {
-				MemberID uint64 `json:"member_id"`
-			} `json:"header"`
-			Leader uint64 `json:"leader"`
-		} `json:"Status"`
-	}
-	if err := json.Unmarshal([]byte(output), &statuses); err != nil {
-		return ""
-	}
-	for _, candidate := range statuses {
-		if candidate.Status.Header.MemberID == candidate.Status.Leader && candidate.Status.Leader != 0 {
-			return candidate.Endpoint
-		}
-	}
-	return ""
 }
 
 type agentTarget struct {
@@ -471,20 +378,11 @@ func serverSummary(servers []string, checks []Check, status *platformstatus.Comp
 
 func etcdSummary(servers []string, checks []Check, status *platformstatus.Component) string {
 	healthy := healthyServices(checks, "kc-etcd-service")
-	clusterHealthy := hasHealthyCheck(checks, "endpoint-health")
+	clusterHealthy := status != nil && status.Status == platformstatus.Healthy
 	if healthy == len(servers) && clusterHealthy {
 		return fmt.Sprintf("%d/%d members healthy", healthy, len(servers))
 	}
 	return fmt.Sprintf("%d/%d member services running; %s", healthy, len(servers), statusMessage(status, "cluster status unavailable"))
-}
-
-func hasHealthyCheck(checks []Check, name string) bool {
-	for i := range checks {
-		if checks[i].Name == name && checks[i].Status == platformstatus.Healthy {
-			return true
-		}
-	}
-	return false
 }
 
 func agentSummary(targets []agentTarget, checks []Check, status *platformstatus.Component) string {

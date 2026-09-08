@@ -169,13 +169,33 @@ func TestSanitize(t *testing.T) {
 	}
 }
 
-func TestEtcdSummaryUsesNativeEndpointHealth(t *testing.T) {
+func TestEtcdSummaryUsesPlatformEndpointHealth(t *testing.T) {
 	checks := []Check{
 		{Name: "kc-etcd-service", Status: platformstatus.Healthy},
-		{Name: "endpoint-health", Status: platformstatus.Healthy},
 	}
-	if got, want := etcdSummary([]string{"192.0.2.10"}, checks, nil), "1/1 members healthy"; got != want {
+	status := &platformstatus.Component{Name: "kc-etcd", Status: platformstatus.Healthy}
+	if got, want := etcdSummary([]string{"192.0.2.10"}, checks, status), "1/1 members healthy"; got != want {
 		t.Fatalf("etcd summary = %q, want %q", got, want)
+	}
+}
+
+func TestCheckKCEtcdDoesNotRequireEtcdctl(t *testing.T) {
+	state := &diagnosticState{
+		platform: &platformstatus.PlatformStatus{Components: []platformstatus.Component{{
+			Name: "kc-etcd", Status: platformstatus.Healthy, Message: "etcd is healthy",
+		}}},
+		deployConfig: &options.DeployConfig{ServerIPs: []string{"192.0.2.10"}},
+		remote: &remoteRunner{run: func(_ context.Context, _ *sshutils.SSH, _ string, command string) (sshutils.Result, error) {
+			if strings.Contains(command, "etcdctl") {
+				t.Fatalf("doctor still invokes etcdctl: %q", command)
+			}
+			return sshutils.Result{Stdout: serviceOutput("active", "running", "enabled")}, nil
+		}},
+	}
+
+	component := checkKCEtcd(context.Background(), state)
+	if got, want := aggregateChecks(component.Checks), platformstatus.Healthy; got != want {
+		t.Fatalf("kc-etcd status = %s, want %s: %#v", got, want, component.Checks)
 	}
 }
 
