@@ -85,6 +85,7 @@ agents:
   #192.168.10.10:
      #region: us-west
      #fip: 172.20.150.199
+     #agentLogPort: 10260
   # with region metadata
   #192.168.10.11:
      #region: us-west

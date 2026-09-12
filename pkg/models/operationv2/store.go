@@ -94,20 +94,37 @@ type Store interface {
 	AcquireLock(ctx context.Context, lock *operations.ExecutionLock) (*operations.ExecutionLock, bool, error)
 	GetLock(ctx context.Context, name, resourceVersion string) (*operations.ExecutionLock, error)
 	ReleaseLock(ctx context.Context, name string, lockUID, holderUID types.UID) error
+
+	// CleanupByTargetUID is the controlled history purge for cluster deletion:
+	// it removes the target's safe-terminal Operations, their Tasks and the
+	// target's ExecutionLock, and refuses to touch anything while an Operation
+	// or Task is still active.
+	CleanupByTargetUID(ctx context.Context, targetUID types.UID) error
 }
 
 type StoreOptions struct {
 	Operations rest.StandardStorage
 	Tasks      rest.StandardStorage
 	Locks      rest.StandardStorage
-	Now        func() time.Time
+	// OperationsStrong/TasksStrong/LocksStrong serve safety-boundary reads
+	// (target ordering, attempt creation, lock acquisition/release checks) from
+	// storages that bypass the watch cache: the cache may lag behind etcd and
+	// must never back an irreversible conclusion. When nil, the cacher-backed
+	// storages above are used instead (test fakes).
+	OperationsStrong rest.StandardStorage
+	TasksStrong      rest.StandardStorage
+	LocksStrong      rest.StandardStorage
+	Now              func() time.Time
 }
 
 type store struct {
-	operations rest.StandardStorage
-	tasks      rest.StandardStorage
-	locks      rest.StandardStorage
-	now        func() time.Time
+	operations       rest.StandardStorage
+	tasks            rest.StandardStorage
+	locks            rest.StandardStorage
+	operationsStrong rest.StandardStorage
+	tasksStrong      rest.StandardStorage
+	locksStrong      rest.StandardStorage
+	now              func() time.Time
 }
 
 var _ Store = (*store)(nil)
@@ -119,7 +136,25 @@ func NewStore(opts StoreOptions) (Store, error) {
 	if opts.Now == nil {
 		opts.Now = time.Now
 	}
-	return &store{operations: opts.Operations, tasks: opts.Tasks, locks: opts.Locks, now: opts.Now}, nil
+	s := &store{
+		operations: opts.Operations,
+		tasks:      opts.Tasks,
+		locks:      opts.Locks,
+		now:        opts.Now,
+	}
+	s.operationsStrong = opts.OperationsStrong
+	if s.operationsStrong == nil {
+		s.operationsStrong = opts.Operations
+	}
+	s.tasksStrong = opts.TasksStrong
+	if s.tasksStrong == nil {
+		s.tasksStrong = opts.Tasks
+	}
+	s.locksStrong = opts.LocksStrong
+	if s.locksStrong == nil {
+		s.locksStrong = opts.Locks
+	}
+	return s, nil
 }
 
 func withNamespace(ctx context.Context) context.Context {
@@ -128,6 +163,18 @@ func withNamespace(ctx context.Context) context.Context {
 
 func (s *store) GetOperation(ctx context.Context, name, resourceVersion string) (*operations.Operation, error) {
 	obj, err := s.operations.Get(withNamespace(ctx), name, &metav1.GetOptions{ResourceVersion: resourceVersion})
+	if err != nil {
+		return nil, err
+	}
+	op, ok := obj.(*operations.Operation)
+	if !ok {
+		return nil, fmt.Errorf("operation storage returned %T", obj)
+	}
+	return op, nil
+}
+
+func (s *store) getOperationStrong(ctx context.Context, name string) (*operations.Operation, error) {
+	obj, err := s.operationsStrong.Get(withNamespace(ctx), name, &metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
@@ -153,12 +200,26 @@ func (s *store) CreateOperation(ctx context.Context, op *operations.Operation) (
 	return result, nil
 }
 
+// ListOperations is a safety-boundary read (target ordering, latest-operation
+// guards) and is served by the quorum storage, bypassing the watch cache.
 func (s *store) ListOperations(ctx context.Context, targetUID types.UID, resourceVersion string) (*operations.OperationList, error) {
 	options := metav1.ListOptions{ResourceVersion: resourceVersion}
 	if targetUID != "" {
 		options.FieldSelector = fields.OneTermEqualSelector("spec.targetRef.uid", string(targetUID)).String()
 	}
-	return s.ListOperationsWithOptions(ctx, &options)
+	internal, err := internalListOptions(&options)
+	if err != nil {
+		return nil, err
+	}
+	obj, err := s.operationsStrong.List(withNamespace(ctx), internal)
+	if err != nil {
+		return nil, err
+	}
+	list, ok := obj.(*operations.OperationList)
+	if !ok {
+		return nil, fmt.Errorf("operation storage returned %T", obj)
+	}
+	return list, nil
 }
 
 func (s *store) ListOperationsWithOptions(ctx context.Context, options *metav1.ListOptions) (*operations.OperationList, error) {
@@ -444,6 +505,18 @@ func (s *store) GetTask(ctx context.Context, name, resourceVersion string) (*ope
 	return task, nil
 }
 
+func (s *store) getTaskStrong(ctx context.Context, name string) (*operations.OperationTask, error) {
+	obj, err := s.tasksStrong.Get(withNamespace(ctx), name, &metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	task, ok := obj.(*operations.OperationTask)
+	if !ok {
+		return nil, fmt.Errorf("operation task storage returned %T", obj)
+	}
+	return task, nil
+}
+
 func (s *store) CreateTask(ctx context.Context, task *operations.OperationTask) (*operations.OperationTask, error) {
 	obj, err := s.tasks.Create(withNamespace(ctx), task, nil, &metav1.CreateOptions{})
 	if err != nil {
@@ -456,23 +529,53 @@ func (s *store) CreateTask(ctx context.Context, task *operations.OperationTask) 
 	return result, nil
 }
 
+// ListTasksByOperationUID is a safety-boundary read (terminal transition,
+// attempt creation, lock-release re-check) and is served by the quorum
+// storage, bypassing the watch cache.
 func (s *store) ListTasksByOperationUID(
 	ctx context.Context,
 	operationUID types.UID,
 	resourceVersion string,
 ) (*operations.OperationTaskList, error) {
-	return s.ListTasksWithOptions(
-		ctx,
-		"",
-		&metav1.ListOptions{
-			FieldSelector:   fields.OneTermEqualSelector("spec.operationRef.uid", string(operationUID)).String(),
-			ResourceVersion: resourceVersion,
-		},
-	)
+	options := metav1.ListOptions{
+		FieldSelector:   fields.OneTermEqualSelector("spec.operationRef.uid", string(operationUID)).String(),
+		ResourceVersion: resourceVersion,
+	}
+	internal, err := internalListOptions(&options)
+	if err != nil {
+		return nil, err
+	}
+	obj, err := s.tasksStrong.List(withNamespace(ctx), internal)
+	if err != nil {
+		return nil, err
+	}
+	list, ok := obj.(*operations.OperationTaskList)
+	if !ok {
+		return nil, fmt.Errorf("task storage returned %T", obj)
+	}
+	return list, nil
 }
 
+// ListTasksByNode backs the agent's task discovery and is served by the
+// quorum storage, bypassing the watch cache.
 func (s *store) ListTasksByNode(ctx context.Context, nodeName, resourceVersion string) (*operations.OperationTaskList, error) {
-	return s.ListTasksWithOptions(ctx, nodeName, &metav1.ListOptions{ResourceVersion: resourceVersion})
+	options := metav1.ListOptions{ResourceVersion: resourceVersion}
+	internal, err := internalListOptions(&options)
+	if err != nil {
+		return nil, err
+	}
+	if nodeName != "" {
+		internal.FieldSelector = fields.OneTermEqualSelector("spec.nodeRef.name", nodeName)
+	}
+	obj, err := s.tasksStrong.List(withNamespace(ctx), internal)
+	if err != nil {
+		return nil, err
+	}
+	list, ok := obj.(*operations.OperationTaskList)
+	if !ok {
+		return nil, fmt.Errorf("task storage returned %T", obj)
+	}
+	return list, nil
 }
 
 func (s *store) ListTasksWithOptions(
@@ -729,7 +832,11 @@ func (s *store) AcquireLock(ctx context.Context, lock *operations.ExecutionLock)
 }
 
 func (s *store) GetLock(ctx context.Context, name, resourceVersion string) (*operations.ExecutionLock, error) {
-	obj, err := s.locks.Get(withNamespace(ctx), name, &metav1.GetOptions{ResourceVersion: resourceVersion})
+	// Lock ownership is an irreversible safety boundary: AcquireLock uses this
+	// read after an AlreadyExists result and ReleaseLock uses it before Delete.
+	// A cacher can return a deleted predecessor after a lock is recreated, so
+	// this must read the quorum storage.
+	obj, err := s.locksStrong.Get(withNamespace(ctx), name, &metav1.GetOptions{ResourceVersion: resourceVersion})
 	if err != nil {
 		return nil, err
 	}
@@ -795,4 +902,127 @@ func internalListOptions(options *metav1.ListOptions) (*metainternalversion.List
 		return nil, apierrors.NewBadRequest(errs.ToAggregate().Error())
 	}
 	return internal, nil
+}
+
+// CleanupByTargetUID implements the controlled history purge required for
+// cluster deletion. There is no generic GC for Operation/Task/Lock objects, so
+// this is the only path that removes them. Enumeration uses list reads (a
+// stale view can only leave objects behind, never delete live ones), while
+// every terminal-state check re-reads the object from the strong storage, so
+// an irreversible delete is never backed by a lagging cache. The method
+// tolerates already-deleted objects and is safe to retry.
+func (s *store) CleanupByTargetUID(ctx context.Context, targetUID types.UID) error {
+	if targetUID == "" {
+		return fmt.Errorf("target UID is required")
+	}
+	ops, err := s.ListOperations(ctx, targetUID, "")
+	if err != nil {
+		return err
+	}
+	if err := s.verifyTerminalHistory(ctx, ops.Items); err != nil {
+		return err
+	}
+	if err := s.purgeHistory(ctx, ops.Items); err != nil {
+		return err
+	}
+	return s.deleteStaleLocks(ctx, targetUID)
+}
+
+// verifyTerminalHistory re-reads every Operation and Task of the target with a
+// quorum Get and refuses while anything is still active.
+func (s *store) verifyTerminalHistory(ctx context.Context, ops []operations.Operation) error {
+	for i := range ops {
+		op, err := s.getOperationStrong(ctx, ops[i].Name)
+		if err != nil {
+			return err
+		}
+		if !op.Status.Phase.IsTerminal() {
+			return fmt.Errorf("operation %s is not terminal", op.Name)
+		}
+		tasks, err := s.ListTasksByOperationUID(ctx, op.UID, "")
+		if err != nil {
+			return err
+		}
+		for j := range tasks.Items {
+			task, err := s.getTaskStrong(ctx, tasks.Items[j].Name)
+			if err != nil {
+				return err
+			}
+			if !task.Status.Phase.IsTerminal() {
+				return fmt.Errorf("task %s is not terminal", task.Name)
+			}
+		}
+	}
+	return nil
+}
+
+// purgeHistory deletes the tasks of every Operation first, then the Operations
+// themselves.
+func (s *store) purgeHistory(ctx context.Context, ops []operations.Operation) error {
+	for i := range ops {
+		tasks, err := s.ListTasksByOperationUID(ctx, ops[i].UID, "")
+		if err != nil {
+			return err
+		}
+		for j := range tasks.Items {
+			if err := s.deleteObject(ctx, s.tasks, tasks.Items[j].Name); err != nil {
+				return err
+			}
+		}
+		if err := s.deleteObject(ctx, s.operations, ops[i].Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// deleteStaleLocks removes ExecutionLock objects of a deleted target: a crash
+// between terminal-status write and lock release can leave the lock behind.
+func (s *store) deleteStaleLocks(ctx context.Context, targetUID types.UID) error {
+	locks, err := s.listLocks(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range locks.Items {
+		if locks.Items[i].Spec.TargetRef.UID == targetUID {
+			if err := s.deleteObject(ctx, s.locks, locks.Items[i].Name); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// deleteObject deletes by name and tolerates an already-deleted object, which
+// is what makes repeated cleanup calls safe.
+func (*store) deleteObject(ctx context.Context, storage rest.StandardStorage, name string) error {
+	// The apiserver storage implementation invokes the deletion validator
+	// unconditionally, so cleanup must provide a callback even without custom
+	// validation rules for these internal objects.
+	_, _, err := storage.Delete(
+		withNamespace(ctx),
+		name,
+		func(_ context.Context, _ runtime.Object) error { return nil },
+		&metav1.DeleteOptions{},
+	)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *store) listLocks(ctx context.Context) (*operations.ExecutionLockList, error) {
+	internal, err := internalListOptions(&metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	obj, err := s.locks.List(withNamespace(ctx), internal)
+	if err != nil {
+		return nil, err
+	}
+	list, ok := obj.(*operations.ExecutionLockList)
+	if !ok {
+		return nil, fmt.Errorf("lock storage returned %T", obj)
+	}
+	return list, nil
 }

@@ -23,8 +23,10 @@ import (
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"golang.org/x/sys/unix"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,6 +45,10 @@ import (
 const (
 	syncKey        = "tasks"
 	workerLockMode = 0600
+	// serverCallTimeout bounds each one-shot server round trip. The shared
+	// rest config carries no client-wide timeout because http.Client.Timeout
+	// would sever the informer's long-lived watch on every interval.
+	serverCallTimeout = 30 * time.Second
 )
 
 type TaskClient interface {
@@ -111,11 +117,11 @@ func NewWorker(opts *WorkerOptions) (*Worker, error) {
 	w.informer = cache.NewSharedIndexInformer(&cache.ListWatch{
 		ListFunc: func(listOptions metav1.ListOptions) (runtime.Object, error) {
 			listOptions.FieldSelector = selector
-			return w.client.List(context.Background(), &listOptions)
+			return w.listTasks(&listOptions)
 		},
 		WatchFunc: func(listOptions metav1.ListOptions) (watch.Interface, error) {
 			listOptions.FieldSelector = selector
-			return w.client.Watch(context.Background(), &listOptions)
+			return w.watchTasks(&listOptions)
 		},
 	}, &operations.OperationTask{}, 0, cache.Indexers{})
 	if _, err := w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -208,6 +214,23 @@ func (w *Worker) sync(ctx context.Context) error {
 	return w.execute(ctx, live)
 }
 
+// listTasks serves the reflector's initial List. It is a one-shot round trip
+// and carries its own deadline; a client-wide timeout must not be used because
+// it would also sever the long-lived watch below.
+func (w *Worker) listTasks(listOptions *metav1.ListOptions) (runtime.Object, error) {
+	ctx, cancel := context.WithTimeout(w.runCtx, serverCallTimeout)
+	defer cancel()
+	return w.client.List(ctx, listOptions)
+}
+
+// watchTasks serves the reflector's long-lived Watch. It inherits only the
+// worker's run context, so the stream lives until the worker stops and the
+// reflector owns reconnects; bounding it here would kill the watch on every
+// timeout and turn event delivery into polling.
+func (w *Worker) watchTasks(listOptions *metav1.ListOptions) (watch.Interface, error) {
+	return w.client.Watch(w.runCtx, listOptions)
+}
+
 func (w *Worker) eligibleTasks() []*operations.OperationTask {
 	objects := w.informer.GetStore().List()
 	tasks := make([]*operations.OperationTask, 0, len(objects))
@@ -222,7 +245,9 @@ func (w *Worker) eligibleTasks() []*operations.OperationTask {
 }
 
 func (w *Worker) getLiveTask(ctx context.Context, selected *operations.OperationTask) (*operations.OperationTask, error) {
-	live, err := w.client.Get(ctx, selected.Name, metav1.GetOptions{})
+	getCtx, cancel := context.WithTimeout(ctx, serverCallTimeout)
+	defer cancel()
+	live, err := w.client.Get(getCtx, selected.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil, nil
@@ -243,7 +268,9 @@ func (w *Worker) startPendingTask(ctx context.Context, live *operations.Operatio
 	if live.Status.Phase == operations.TaskPending {
 		runningTask := live.DeepCopy()
 		runningTask.Status = operations.OperationTaskStatus{Phase: operations.TaskRunning}
-		return w.client.UpdateStatus(ctx, runningTask)
+		putCtx, cancel := context.WithTimeout(ctx, serverCallTimeout)
+		defer cancel()
+		return w.client.UpdateStatus(putCtx, runningTask)
 	}
 	return live, nil
 }
@@ -270,6 +297,13 @@ func selectTask(tasks []*operations.OperationTask) (*operations.OperationTask, e
 	}
 	sort.Slice(pending, func(i, j int) bool {
 		if pending[i].CreationTimestamp.Equal(&pending[j].CreationTimestamp) {
+			// Second granularity is not enough for a deterministic order:
+			// the monotonic resourceVersion is the intended tiebreaker.
+			ri, errI := strconv.ParseUint(pending[i].ResourceVersion, 10, 64)
+			rj, errJ := strconv.ParseUint(pending[j].ResourceVersion, 10, 64)
+			if errI == nil && errJ == nil && ri != rj {
+				return ri < rj
+			}
 			return string(pending[i].UID) < string(pending[j].UID)
 		}
 		return pending[i].CreationTimestamp.Before(&pending[j].CreationTimestamp)
@@ -288,9 +322,9 @@ func (w *Worker) execute(parent context.Context, task *operations.OperationTask)
 	if err := w.oplog.CreateOperationDir(string(task.UID)); err != nil {
 		logger.Errorf("create Task log directory for %s: %v", task.Name, err)
 	}
-	logWriter, err := w.oplog.CreateStepLogFile(string(task.UID), "task")
-	if err != nil {
-		logger.Errorf("open Task log for %s: %v", task.Name, err)
+	logWriter, logErr := w.oplog.CreateStepLogFile(string(task.UID), "task")
+	if logErr != nil {
+		logger.Errorf("open Task log for %s: %v", task.Name, logErr)
 		logWriter = nil
 	}
 	if logWriter != nil {
@@ -302,6 +336,14 @@ func (w *Worker) execute(parent context.Context, task *operations.OperationTask)
 		writer = logWriter
 	}
 
+	if task.Spec.Deadline.Time.IsZero() {
+		// A zero deadline would expire the context immediately and kill the
+		// command before it ran; fail the task with an explicit reason.
+		return w.finish(parent, task, operations.TaskFailed, operations.TaskResult{
+			Reason:  operations.TaskReasonExecutionFailed,
+			Message: taskResultMessage("task has no deadline", logErr),
+		})
+	}
 	ctx, cancel := context.WithDeadline(parent, task.Spec.Deadline.Time)
 	defer cancel()
 	result, reconcileErr := executor.Reconcile(ctx, task.DeepCopy(), writer)
@@ -311,17 +353,19 @@ func (w *Worker) execute(parent context.Context, task *operations.OperationTask)
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) || errors.Is(reconcileErr, context.DeadlineExceeded) {
 		return w.finish(context.Background(), task, operations.TaskTimedOut, operations.TaskResult{
 			Reason:  operations.TaskReasonDeadlineExceeded,
-			Message: "task deadline exceeded",
+			Message: taskResultMessage("task deadline exceeded", logErr),
 		})
 	}
 	if reconcileErr != nil {
 		return w.finish(parent, task, operations.TaskFailed, operations.TaskResult{
 			Reason:  operations.TaskReasonExecutionFailed,
-			Message: boundedMessage(reconcileErr.Error()),
+			Message: taskResultMessage(reconcileErr.Error(), logErr),
 		})
 	}
 	result.Reason = ""
-	result.Message = boundedMessage(result.Message)
+	// The server-side log read would 404 without an explanation; surface the
+	// reason through the task result regardless of executor outcome.
+	result.Message = taskResultMessage(result.Message, logErr)
 	return w.finish(parent, task, operations.TaskSucceeded, result)
 }
 
@@ -334,9 +378,13 @@ func (w *Worker) finish(
 	updatedTask := task.DeepCopy()
 	updatedTask.Status.Phase = phase
 	updatedTask.Status.Result = &result
-	_, err := w.client.UpdateStatus(ctx, updatedTask)
+	putCtx, cancel := context.WithTimeout(ctx, serverCallTimeout)
+	defer cancel()
+	_, err := w.client.UpdateStatus(putCtx, updatedTask)
 	if err != nil {
-		latest, getErr := w.client.Get(context.Background(), task.Name, metav1.GetOptions{})
+		getCtx, getCancel := context.WithTimeout(ctx, serverCallTimeout)
+		latest, getErr := w.client.Get(getCtx, task.Name, metav1.GetOptions{})
+		getCancel()
 		if getErr == nil && latest.UID == task.UID && latest.Status.Phase.IsTerminal() {
 			w.queue.Add(syncKey)
 			return nil
@@ -351,7 +399,24 @@ func boundedMessage(message string) string {
 	if len(message) <= operations.MaxMessageSize {
 		return message
 	}
-	return message[:operations.MaxMessageSize]
+	truncated := message[:operations.MaxMessageSize]
+	// Do not split a rune: trim the invalid trailing bytes so the message
+	// stays valid UTF-8 after truncation.
+	for truncated != "" {
+		r, size := utf8.DecodeLastRuneInString(truncated)
+		if r != utf8.RuneError || size != 1 {
+			break
+		}
+		truncated = truncated[:len(truncated)-1]
+	}
+	return truncated
+}
+
+func taskResultMessage(message string, logErr error) string {
+	if logErr != nil {
+		message += "; agent task log unavailable: " + logErr.Error()
+	}
+	return boundedMessage(message)
 }
 
 var _ interface {

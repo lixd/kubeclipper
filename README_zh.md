@@ -90,8 +90,8 @@ KubeClipper 已通过 [CNCF Kubernetes 一致性认证](https://www.cncf.io/cert
 | Kubernetes | Calico | Containerd |
 |------------|--------|------------|
 | v1.37.0 (默认) | v3.31.5 | v2.2.4 |
-| v1.36.1 | v3.31.5 | v2.2.4 |
-| v1.35.0 | v3.29.6 | v1.7.29 |
+| v1.36.4 | v3.31.5 | v2.2.4 |
+| v1.35.8 | v3.31.5 | v2.2.4 |
 
 ## Roadmap & Todo list
 
@@ -141,8 +141,8 @@ KubeClipper 本身并不会占用太多资源，但是为了后续更好的运�
 
 #### 硬件推荐配置
 
-- 确保您的机器满足最低硬件要求：2 核 CPU、4GB 内存和 20GB 磁盘。
-- 操作系统：Ubuntu 22.04 / Ubuntu 24.04。
+- 确保您的机器满足最低硬件要求：CPU >= 2 核，内存 >= 2GB。
+- 操作系统：CentOS 7.x / Ubuntu 18.04 / Ubuntu 20.04。
 
 #### 节点要求
 

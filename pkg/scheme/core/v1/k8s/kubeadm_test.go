@@ -49,6 +49,29 @@ func TestNodeReady(t *testing.T) {
 	}
 }
 
+func TestClusterAccessStep(t *testing.T) {
+	step := ClusterAccessStep([]v1.StepNode{{ID: "master-1"}})
+	if step.ID != ClusterAccessStepID || step.Name != ClusterAccessStepID {
+		t.Fatalf("unexpected kubeconfig token step: %#v", step)
+	}
+	if len(step.Nodes) != 1 || step.Nodes[0].ID != "master-1" {
+		t.Fatalf("unexpected kubeconfig token targets: %#v", step.Nodes)
+	}
+}
+
+func TestKubeConfigTokenFromSecret(t *testing.T) {
+	token, err := kubeConfigTokenFromSecret(&corev1.Secret{Data: map[string][]byte{"token": []byte("cluster-token")}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(token); got != "cluster-token" {
+		t.Fatalf("service account token = %q, want cluster-token", got)
+	}
+	if _, err := kubeConfigTokenFromSecret(&corev1.Secret{}); err == nil {
+		t.Fatal("missing token must fail")
+	}
+}
+
 func TestAddedNodesReadyStepTargetsOnlyRequestedNodes(t *testing.T) {
 	steps, err := (&AddedNodesReady{NodeNames: []string{"worker-1", "worker-2"}}).InstallSteps([]v1.StepNode{{ID: "master-1"}})
 	if err != nil {
@@ -83,6 +106,19 @@ func TestKubeadmResetIsSafeWhenKubeadmIsAbsent(t *testing.T) {
 	}
 	if !strings.Contains(command.ShellCommand[2], "command -v kubeadm") {
 		t.Fatalf("reset command does not guard missing kubeadm: %q", command.ShellCommand[2])
+	}
+}
+
+func TestDeduplicateProcessIDs(t *testing.T) {
+	got := deduplicateProcessIDs([]string{"101", "202", "101", "303", "202"})
+	want := []string{"101", "202", "303"}
+	if len(got) != len(want) {
+		t.Fatalf("deduplicateProcessIDs() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("deduplicateProcessIDs() = %v, want %v", got, want)
+		}
 	}
 }
 

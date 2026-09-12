@@ -390,7 +390,6 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	op.Status.Status = v1.OperationStatusRunning
 	op.Labels[common.LabelTimeoutSeconds] = timeoutSecs
 	op.Labels[common.LabelOperationAction] = v1.OperationDeleteCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
@@ -477,7 +476,6 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	op.Labels[common.LabelTimeoutSeconds] = timeoutSecs
 	op.Labels[common.LabelOperationAction] = v1.OperationCreateCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
-	op.Status.Status = v1.OperationStatusRunning
 	if !dryRun {
 		err = h.createOperationV2(context.TODO(), &c, op)
 		if err != nil {
@@ -586,7 +584,6 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 		common.LabelOperationAction:  v1.OperationUpdateCertification,
 		common.LabelOperationSponsor: buildOperationSponsor(h.genericConfig),
 	}
-	op.Status.Status = v1.OperationStatusRunning
 	c.Status.Phase = v1.ClusterUpdating
 	if !dryRun {
 		err = h.createOperationV2(ctx, c, op)
@@ -1301,7 +1298,6 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 	op.Labels[common.LabelClusterName] = c.Name
 	op.Labels[common.LabelBackupName] = backup.Name
 	op.Labels[common.LabelTopologyRegion] = c.Masters[0].Labels[common.LabelTopologyRegion]
-	op.Status.Status = v1.OperationStatusRunning
 	// add backup
 	backup.Labels = make(map[string]string)
 	backup.Labels[common.LabelClusterName] = c.Name
@@ -1381,7 +1377,6 @@ func (h *handler) DeleteBackup(request *restful.Request, response *restful.Respo
 	op.Labels[common.LabelClusterName] = c.Name
 	op.Labels[common.LabelBackupName] = b.Name
 	op.Labels[common.LabelTopologyRegion] = c.Masters[0].Labels[common.LabelTopologyRegion]
-	op.Status.Status = v1.OperationStatusRunning
 
 	if b.Status.ClusterBackupStatus == v1.ClusterBackupRestoring || b.Status.ClusterBackupStatus == v1.ClusterBackupCreating {
 		restplus.HandleBadRequest(response, request, fmt.Errorf("backup is %s now, can't delete", b.Status.ClusterBackupStatus))
@@ -1528,7 +1523,6 @@ func (h *handler) CreateRecovery(request *restful.Request, response *restful.Res
 	o.Labels[common.LabelClusterName] = c.Name
 	o.Labels[common.LabelRecoveryName] = rName
 	o.Labels[common.LabelTopologyRegion] = c.Masters[0].Labels[common.LabelTopologyRegion]
-	o.Status.Status = v1.OperationStatusRunning
 	restoreDir := filepath.Join("/var/lib/kube-restore", c.Name)
 	steps, err := h.parseRecoverySteps(c, b, restoreDir, v1.ActionInstall)
 	if err != nil {
@@ -1625,7 +1619,6 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 	op.Labels[common.LabelTimeoutSeconds] = timeoutSecs
 	op.Labels[common.LabelOperationAction] = operationAction
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
-	op.Status.Status = v1.OperationStatusRunning
 
 	if !dryRun {
 		// cluster.Status.Registries will be updated
@@ -1759,7 +1752,6 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 	op.Labels[common.LabelOperationAction] = v1.OperationUpgradeCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
 	op.Labels[common.LabelUpgradeVersion] = body.Version
-	op.Status.Status = v1.OperationStatusRunning
 	if !dryRun {
 		err = h.createOperationV2(context.TODO(), clu, op)
 		if err != nil {

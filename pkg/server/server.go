@@ -104,6 +104,7 @@ type APIServer struct {
 	cache                 cache.Interface
 	RESTOptionsGetter     *etcdRESTOptions.StorageFactoryRestOptionsFactory
 	storageFactory        registry.SharedStorageFactory
+	strongStorageFactory  registry.SharedStorageFactory
 	rbacAuthorizer        authorizer.Authorizer
 	databaseAuditBackend  auditing.Backend
 	internalInformerUser  string
@@ -118,6 +119,13 @@ func (s *APIServer) PrepareRun(stopCh <-chan struct{}) error {
 	s.internalInformerUser = "system:kc-server"
 	s.InternalInformerToken = uuid.New().String()
 	s.storageFactory = registry.NewSharedStorageFactory(s.RESTOptionsGetter)
+	// Operation v2 safety-boundary checks (lock release, attempt creation,
+	// target ordering) must read quorum etcd state: the watch cache can lag
+	// behind etcd and must never back an irreversible conclusion. Build a
+	// second factory without the cacher for those reads.
+	strongOptionsGetter := *s.RESTOptionsGetter
+	strongOptionsGetter.Options.EnableWatchCache = false
+	s.strongStorageFactory = registry.NewSharedStorageFactory(&strongOptionsGetter)
 
 	var err error
 	switch s.Config.CacheOptions.CacheProvider {
@@ -143,7 +151,7 @@ func (s *APIServer) PrepareRun(stopCh <-chan struct{}) error {
 	s.container.DoNotRecover(false)
 	s.container.Filter(filters.LogRequestAndResponse)
 	s.container.Router(restful.CurlyRouter{})
-	s.container.RecoverHandler(func(panicReason interface{}, httpWriter http.ResponseWriter) {
+	s.container.RecoverHandler(func(panicReason any, httpWriter http.ResponseWriter) {
 		filters.LogStackOnRecover(panicReason, httpWriter)
 	})
 	if err := s.installAPIs(stopCh); err != nil {
@@ -285,9 +293,12 @@ func (s *APIServer) installAPIs(stopCh <-chan struct{}) error {
 
 	var err error
 	s.operationV2Store, err = operationv2.NewStore(operationv2.StoreOptions{
-		Operations: s.storageFactory.OperationV2(),
-		Tasks:      s.storageFactory.OperationTasksV2(),
-		Locks:      s.storageFactory.ExecutionLocksV2(),
+		Operations:       s.storageFactory.OperationV2(),
+		Tasks:            s.storageFactory.OperationTasksV2(),
+		Locks:            s.storageFactory.ExecutionLocksV2(),
+		OperationsStrong: s.strongStorageFactory.OperationV2(),
+		TasksStrong:      s.strongStorageFactory.OperationTasksV2(),
+		LocksStrong:      s.strongStorageFactory.ExecutionLocksV2(),
 	})
 	if err != nil {
 		return err

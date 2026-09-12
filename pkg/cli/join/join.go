@@ -98,9 +98,11 @@ agents:
   192.168.234.41:
     #region: default
     #floatIP:
+    #agentLogPort: 10260
   192.168.234.42:
     #region: default2
     #floatIP:
+    #agentLogPort: 10260
   kcctl join --join-config join-config.yaml
   Please read 'kcctl join -h' get more deploy flags`
 )
@@ -306,6 +308,17 @@ func (c *JoinOptions) preCheck() bool {
 		if !c.preCheckKcAgent(agent) {
 			return false
 		}
+		// kc-agent aborts startup when it cannot bind the task log port, so
+		// verify it is free before installing the node.
+		logPort, err := c.parseAgent[agent].LogPort()
+		if err != nil {
+			logger.Errorf("check node %s failed: %s", agent, err.Error())
+			return false
+		}
+		if err := deploy.PrecheckPortFunc(logPort, "kc-agent-log")(c.sshConfig, agent); err != nil {
+			logger.Errorf("check node %s failed: %s", agent, err.Error())
+			return false
+		}
 	}
 	return sudo.MultiNIC("ipDetect", c.sshConfig, c.IOStreams, c.parseAgent.ListIP(), c.ipDetect)
 }
@@ -468,6 +481,11 @@ func (c *JoinOptions) getKcAgentConfigTemplateContent(metadata options.Metadata)
 	var data = make(map[string]interface{})
 	data["Region"] = metadata.Region
 	data["FloatIP"] = metadata.FloatIP
+	logPort, err := metadata.LogPort()
+	if err != nil {
+		logger.Fatalf("invalid agent log port: %s", err.Error())
+	}
+	data["AgentLogPort"] = logPort
 	data["IPDetect"] = c.deployConfig.IPDetect
 	data["NodeIPDetect"] = c.deployConfig.NodeIPDetect
 	data["AgentID"] = metadata.AgentID

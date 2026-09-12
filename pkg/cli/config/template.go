@@ -258,10 +258,10 @@ apiServer:
   certFile: {{.AgentCertFile}}
   keyFile: {{.AgentKeyFile}}
   serverName: server.kubeclipper.io
-  logAddress: ":10260"
+  logAddress: ":{{.AgentLogPort}}"
 oplog:
   dir: {{.OpLogDir}}
-  singleThreshold: {{.OpLogThreshold}}
+  oplog-threshold: {{.OpLogThreshold}}
 backupStore:
   type: fs
   provider:

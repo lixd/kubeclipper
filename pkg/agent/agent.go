@@ -21,8 +21,10 @@ package agent
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"time"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -91,25 +93,30 @@ func (s *Server) PrepareRun(stopCh <-chan struct{}) error {
 	if s.Config.APIServer == nil {
 		return fmt.Errorf("apiServer configuration is required")
 	}
+	// No client-wide Timeout: http.Client.Timeout covers the whole response
+	// body and would sever the informer's long-lived task watch on every
+	// interval. One-shot calls carry per-call deadlines instead
+	// (nodeStatusUpdateTimeout here, serverCallTimeout in the task worker).
 	restConfig := &rest.Config{
 		Host: s.Config.APIServer.Endpoint,
 		TLSClientConfig: rest.TLSClientConfig{
 			CAFile: s.Config.APIServer.CAFile, CertFile: s.Config.APIServer.CertFile,
 			KeyFile: s.Config.APIServer.KeyFile, ServerName: s.Config.APIServer.ServerName,
 		},
-		Timeout: 30 * time.Second,
-		QPS:     20, Burst: 40,
+		QPS: 20, Burst: 40,
 	}
 	client, err := clientset.NewForConfig(restConfig)
 	if err != nil {
 		return fmt.Errorf("create kc-server client: %w", err)
 	}
 	s.client = client
-	node, err := client.CoreV1().Nodes().Get(context.Background(), s.Config.AgentID, metav1.GetOptions{})
+	nodeCtx, nodeCancel := context.WithTimeout(context.Background(), nodeStatusUpdateTimeout)
+	defer nodeCancel()
+	node, err := client.CoreV1().Nodes().Get(nodeCtx, s.Config.AgentID, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) && s.Config.RegisterNode {
-		node, err = client.CoreV1().Nodes().Create(context.Background(), s.initialNode(), &metav1.CreateOptions{})
+		node, err = client.CoreV1().Nodes().Create(nodeCtx, s.initialNode(), &metav1.CreateOptions{})
 		if apierrors.IsAlreadyExists(err) {
-			node, err = client.CoreV1().Nodes().Get(context.Background(), s.Config.AgentID, metav1.GetOptions{})
+			node, err = client.CoreV1().Nodes().Get(nodeCtx, s.Config.AgentID, metav1.GetOptions{})
 		}
 	}
 	if err != nil {
@@ -164,7 +171,10 @@ func (s *Server) initialNode() *corev1.Node {
 			common.LabelOSStable: runtime.GOOS, common.LabelArchStable: runtime.GOARCH,
 			common.LabelTopologyRegion: s.Config.Metadata.Region, common.LabelHostname: hostname,
 		}},
-		Status: corev1.NodeStatus{NodeInfo: corev1.NodeSystemInfo{Hostname: hostname, OS: runtime.GOOS, Arch: runtime.GOARCH}},
+		Status: corev1.NodeStatus{
+			AgentLogPort: s.agentLogPort(),
+			NodeInfo:     corev1.NodeSystemInfo{Hostname: hostname, OS: runtime.GOOS, Arch: runtime.GOARCH},
+		},
 	}
 	if ip, err := netutil.GetDefaultIP(true, s.Config.IPDetect); err == nil {
 		node.Status.Ipv4DefaultIP = ip.String()
@@ -178,6 +188,22 @@ func (s *Server) initialNode() *corev1.Node {
 		logger.Errorf("collect node machine information: %v", err)
 	}
 	return node
+}
+
+func (s *Server) agentLogPort() int32 {
+	address := operationv2.DefaultAgentLogAddress
+	if s.Config != nil && s.Config.APIServer != nil && s.Config.APIServer.LogAddress != "" {
+		address = s.Config.APIServer.LogAddress
+	}
+	_, rawPort, err := net.SplitHostPort(address)
+	if err != nil {
+		return 0
+	}
+	port, err := strconv.ParseInt(rawPort, 10, 32)
+	if err != nil || port < 1 || port > 65535 {
+		return 0
+	}
+	return int32(port)
 }
 
 func (s *Server) Run(stopCh <-chan struct{}) error {

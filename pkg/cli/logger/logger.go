@@ -74,11 +74,6 @@ var severityColorFunc = []func(format string, a ...interface{}) string{
 	fatalLog:   color.HiRedString,
 }
 
-// ColorizeError formats a command error for terminal output.
-func ColorizeError(message string) string {
-	return color.RedString(message)
-}
-
 type loggingT struct {
 	mu        sync.Mutex
 	verbosity Level // V logging level, the value of the -v flag/
@@ -319,6 +314,28 @@ func Error(args ...interface{}) {
 
 func Errorf(format string, args ...interface{}) {
 	_logging.printf(errorLog, format, args...)
+}
+
+// ColorizeError formats structured CLI errors for terminal output while preserving
+// plain text when color output is disabled.
+func ColorizeError(message string) string {
+	if !_logging.Colorful {
+		return message
+	}
+	lines := strings.Split(message, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(trimmed, "deploy precheck failed:"):
+			lines[i] = color.RedString(line)
+		case strings.HasPrefix(trimmed, "clean old environment before deploying"):
+			lines[i] = color.YellowString(line)
+		case strings.HasPrefix(trimmed, "check:"), strings.HasPrefix(trimmed, "node:"),
+			strings.HasPrefix(trimmed, "reason:"), strings.HasPrefix(trimmed, "state:"):
+			lines[i] = color.CyanString(line)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func Fatal(args ...interface{}) {
