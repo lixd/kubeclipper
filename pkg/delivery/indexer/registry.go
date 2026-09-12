@@ -26,8 +26,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -36,12 +38,34 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	containerv1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 )
+
+// repositoryNotFound reports whether the registry answered that the
+// repository itself does not exist (distribution NAME_UNKNOWN). This is a
+// normal state for registries that are populated incrementally or synced
+// partially, so callers index it as an empty repository instead of failing
+// the whole inventory.
+func repositoryNotFound(err error) bool {
+	var terr *transport.Error
+	if !errors.As(err, &terr) {
+		return false
+	}
+	if terr.StatusCode == http.StatusNotFound {
+		return true
+	}
+	for _, diagnostic := range terr.Errors {
+		if diagnostic.Code == transport.NameUnknownErrorCode {
+			return true
+		}
+	}
+	return false
+}
 
 type RegistryClient interface {
 	Catalog(ctx context.Context, registry string) ([]string, error)
@@ -212,6 +236,10 @@ func (i *RegistryPackageInventoryIndexer) indexPackageRepository(ctx context.Con
 	}
 	tags, err := i.Client.ListTags(ctx, registry, repository)
 	if err != nil {
+		if repositoryNotFound(err) {
+			logger.Warnf("package repository %s not found in %s, indexing as empty", repository, registry)
+			return nil
+		}
 		return err
 	}
 	for _, tag := range tags {
@@ -257,6 +285,10 @@ func (i *RegistryPackageInventoryIndexer) indexHelmChartRepository(ctx context.C
 	}
 	tags, err := i.Client.ListTags(ctx, registry, repository)
 	if err != nil {
+		if repositoryNotFound(err) {
+			logger.Warnf("helm chart repository %s not found in %s, indexing as empty", repository, registry)
+			return nil
+		}
 		return err
 	}
 	for _, tag := range tags {

@@ -24,7 +24,9 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -32,6 +34,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
@@ -691,6 +694,7 @@ func testGzipArchive(t *testing.T, content string) []byte {
 type fakeRegistryClient struct {
 	repositories []string
 	tags         map[string][]string
+	tagErrors    map[string]error
 	artifacts    map[string][]RegistryPackageArtifact
 	catalogCalls int
 	tagCalls     int
@@ -710,6 +714,9 @@ func (f *fakeRegistryClient) ListTags(ctx context.Context, registry, repository 
 		return nil, err
 	}
 	f.tagCalls++
+	if err, ok := f.tagErrors[repository]; ok {
+		return nil, err
+	}
 	return f.tags[repository], nil
 }
 
@@ -773,5 +780,78 @@ func TestRegistryPackageIndexerCachesResultsUntilRefresh(t *testing.T) {
 	}
 	if client.catalogCalls != 2 || client.tagCalls != 2 || client.resolveCalls != 2 {
 		t.Fatalf("client calls after refresh = catalog:%d tags:%d resolve:%d, want 2/2/2", client.catalogCalls, client.tagCalls, client.resolveCalls)
+	}
+}
+
+func TestIndexRepositoriesToleratesMissingRepositories(t *testing.T) {
+	nameUnknown := &transport.Error{
+		StatusCode: http.StatusNotFound,
+		Errors: []transport.Diagnostic{
+			{Code: transport.NameUnknownErrorCode, Message: "repository name not known to registry"},
+		},
+	}
+	img := testPackageImage(t, deliveryapis.PackageManifest{
+		SchemaVersion: 1,
+		Kind:          "k8s",
+		Name:          "k8s",
+		Version:       "v1.37.0",
+		Platform: deliveryapis.PackageManifestPlatform{
+			OS:   "linux",
+			Arch: "amd64",
+		},
+		Contents: []deliveryapis.PackageManifestFile{
+			{Name: deliveryapis.ContentConfigs, File: "configs.tar.gz", Digest: testDigest},
+		},
+	})
+	client := &fakeRegistryClient{
+		tags: map[string][]string{
+			"kubeclipper/packages/k8s/k8s": {"v1.37.0"},
+		},
+		tagErrors: map[string]error{
+			"kubeclipper/packages/k8s-extension/k8s-extension": nameUnknown,
+		},
+		artifacts: map[string][]RegistryPackageArtifact{
+			"registry.local/kubeclipper/packages/k8s/k8s:v1.37.0": {{
+				Digest: testDigest,
+				Image:  img,
+			}},
+		},
+	}
+	indexer := NewRegistryPackageInventoryIndexer(client)
+	inventory, err := indexer.IndexRepositories(context.Background(), "registry.local", []string{
+		"kubeclipper/packages/k8s/k8s",
+		"kubeclipper/packages/k8s-extension/k8s-extension",
+	})
+	if err != nil {
+		t.Fatalf("IndexRepositories() error: %+v", err)
+	}
+	if len(inventory.Spec.Packages) != 1 {
+		t.Fatalf("indexed packages = %d, want 1 (missing repository must be indexed as empty)", len(inventory.Spec.Packages))
+	}
+	if inventory.Spec.Packages[0].Name != "k8s" || inventory.Spec.Packages[0].Version != "v1.37.0" {
+		t.Fatalf("unexpected package entry %+v", inventory.Spec.Packages[0])
+	}
+}
+
+func TestIndexRepositoriesPropagatesRegistryErrors(t *testing.T) {
+	unauthorized := &transport.Error{
+		StatusCode: http.StatusUnauthorized,
+		Errors: []transport.Diagnostic{
+			{Code: transport.ErrorCode("UNAUTHORIZED"), Message: "authentication required"},
+		},
+	}
+	client := &fakeRegistryClient{
+		tagErrors: map[string]error{
+			"kubeclipper/packages/k8s/k8s": unauthorized,
+		},
+	}
+	indexer := NewRegistryPackageInventoryIndexer(client)
+	_, err := indexer.IndexRepositories(context.Background(), "registry.local", []string{"kubeclipper/packages/k8s/k8s"})
+	if err == nil {
+		t.Fatalf("IndexRepositories() expected error for unauthorized registry")
+	}
+	var terr *transport.Error
+	if !errors.As(err, &terr) || terr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("IndexRepositories() error = %+v, want unauthorized transport error", err)
 	}
 }

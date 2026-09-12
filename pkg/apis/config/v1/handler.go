@@ -109,7 +109,7 @@ func (h *handler) ListOfflineResource(request *restful.Request, response *restfu
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	result := kc.ComponentMeta{Rules: projection.Rules, Addons: projection.Addons}
+	result := kc.ComponentMeta{Rules: projection.Rules, Addons: projection.Addons, Unavailable: projection.Unavailable, Registry: source.Registry}
 	_ = response.WriteHeaderAndEntity(http.StatusOK, result)
 }
 

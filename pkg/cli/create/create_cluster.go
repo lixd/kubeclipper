@@ -341,6 +341,9 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	}
 	k8sVersions := l.listK8s("")
 	if !sliceutil.HasString(k8sVersions, l.K8sVersion) {
+		if missing := l.missingPackagesMessage(); missing != "" {
+			return utils.UsageErrorf(cmd, "k8s version %s unavailable, %s", l.K8sVersion, missing)
+		}
 		return utils.UsageErrorf(cmd, "unsupported k8s version,support %v now", k8sVersions)
 	}
 	criVersions := l.listCRI("")
@@ -699,12 +702,64 @@ func (l *CreateClusterOptions) componentVersions(component, toComplete string) [
 		return nil
 	}
 	set := sets.NewString()
+	if component == "k8s" {
+		// Kubernetes versions come from the delivery rules, which only list
+		// versions whose required component slots are all publishable, so a
+		// partially populated registry does not offer versions that would be
+		// rejected by the server anyway.
+		for _, rule := range metas.Rules {
+			if kind, _ := rule["type"].(string); kind != "k8s" {
+				continue
+			}
+			if version, _ := rule["version"].(string); strings.HasPrefix(version, toComplete) {
+				set.Insert(version)
+			}
+		}
+		return set.List()
+	}
 	for _, resource := range metas.Addons {
 		if resource.Name == component && strings.HasPrefix(resource.Version, toComplete) {
 			set.Insert(resource.Version)
 		}
 	}
 	return set.List()
+}
+
+// missingPackagesMessage explains why the requested Kubernetes version is not
+// offered: the delivery policy requires components whose packages are absent
+// from the configured OCI package registry. Returns "" when the server did
+// not report version-specific missing packages.
+func (l *CreateClusterOptions) missingPackagesMessage() string {
+	query := map[string][]string{"online": {"false"}}
+	if !l.Offline {
+		query = map[string][]string{"online": {"true"}}
+	}
+	metas, err := l.Client.GetComponentMeta(context.TODO(), query)
+	if err != nil {
+		return ""
+	}
+	missing := sets.NewString()
+	for _, item := range metas.Unavailable {
+		if item.KubernetesVersion != l.K8sVersion {
+			continue
+		}
+		pkg := item.Name
+		if item.Version != "" {
+			pkg = fmt.Sprintf("%s %s", pkg, item.Version)
+		}
+		if item.Arch != "" {
+			pkg = fmt.Sprintf("%s (%s)", pkg, item.Arch)
+		}
+		missing.Insert(pkg)
+	}
+	if missing.Len() == 0 {
+		return ""
+	}
+	target := "the OCI package registry"
+	if metas.Registry != "" {
+		target = fmt.Sprintf("OCI package registry %s", metas.Registry)
+	}
+	return fmt.Sprintf("missing packages: %s; publish or sync them to %s first", strings.Join(missing.List(), ", "), target)
 }
 
 func (l *CreateClusterOptions) listNode(toComplete string, exclude []string) []string {
