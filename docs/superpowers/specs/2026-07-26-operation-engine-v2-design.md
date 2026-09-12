@@ -10,7 +10,7 @@ supersedes: legacy in-process operation execution and all NATS-based agent proto
 
 # KubeClipper Operation Engine v2：基于 API 的最小可靠执行引擎
 
-> 实现注记（2026-08-07）：当前 server/agent 已按本文使用 mTLS HTTPS、etcd-backed Operation/OperationTask/ExecutionLock 和本地 Agent 日志代理；NATS runtime、配置和 Go 依赖已移除。`core/v1.Operation` 暂时只作为业务 plan 的内部输入供转换器使用，不再注册旧 Operation HTTP storage 或 controller。
+> 实现注记（2026-08-07）：当前 server/agent 已按本文使用 mTLS HTTPS、etcd-backed Operation/OperationTask/ExecutionLock 和本地 Agent 日志代理；NATS runtime、配置和 Go 依赖已移除。`core/v1.Operation` 暂时只作为业务 plan 的内部输入供转换器使用，不再注册旧 Operation HTTP storage 或 controller。OCI 安装制品计划在创建/升级时解析并固定，集群保存该计划快照，AddNodes 只复用快照。
 
 ## 1. 决策摘要
 
@@ -837,6 +837,14 @@ OCI Registry/cache
   -> Controller creates immutable node-bound Task
   -> Agent fetches/verifies digest, Reconcile, Verify, writes Task status
 ```
+
+运行时镜像和安装制品必须分开处理：
+
+- Kubernetes、Calico 和其他运行时镜像继续来自静态 manifest；`Cluster.ImageRegistry` 只改变镜像 Registry 前缀。`images.txt`/`images.lock` 是发布、镜像同步和校验输入，不是 Operation 的运行时镜像选择表；
+- kubeadm、kubelet、kubectl、containerd、CNI、k8s-extension 等安装文件通过 OCI package artifact 分发。`ResolvedArtifactPlan` 只包含选中的版本、目标 OS/架构、OCI ref/digest 和内容索引，不包含镜像 blob 或 Registry 凭据；
+- 创建 Cluster 和升级时，Server 在生成 Operation 前解析一次安装制品计划，并把同一份计划序列化到 `Cluster.status.packagePlan`。Operation/Task payload 仍携带执行所需的固定 digest；
+- AddNodes 不重新读取当前 package Registry，也不按新节点架构重新解析。Controller 从 `Cluster.status.packagePlan` 复制计划到 PendingOperation，再由 v2 Controller 将其写入节点 Task。缺少计划时直接拒绝 AddNodes，避免生成没有 transport 的 Task；
+- 升级会生成目标 Kubernetes 版本的新计划；人工 retry 复用原 Operation 中已经固定的 payload，不重新解析 tag。节点重新纳管必须使用与 Cluster 计划兼容的架构。
 
 集成规则：
 

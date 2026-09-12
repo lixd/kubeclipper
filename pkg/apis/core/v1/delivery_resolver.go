@@ -38,7 +38,7 @@ func (h *handler) withResolvedArtifactPlan(ctx context.Context, extra *component
 		return nil, err
 	}
 	if source.inventoryStore == nil || source.policyStore == nil {
-		return ctx, nil
+		return nil, fmt.Errorf("OCI package registry is not configured")
 	}
 	arch, ok := singleTargetArch(extra)
 	if !ok {
@@ -58,6 +58,15 @@ func (h *handler) withResolvedArtifactPlan(ctx context.Context, extra *component
 	if err != nil {
 		return nil, err
 	}
+	rawPlan, err := deliveryapis.EncodeResolvedArtifactPlan(plan)
+	if err != nil {
+		return nil, err
+	}
+	// Keep the exact package selection used to build this operation with the
+	// cluster.  Later operations (notably AddNodes) must reuse this snapshot
+	// instead of resolving against a moving inventory or a different node
+	// architecture.
+	cluster.Status.PackagePlan = rawPlan
 	return component.WithResolvedArtifactPlan(ctx, plan), nil
 }
 

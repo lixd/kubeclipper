@@ -523,6 +523,11 @@ func (in *ClusterStatus) DeepCopyInto(out *ClusterStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.PackagePlan != nil {
+		in, out := &in.PackagePlan, &out.PackagePlan
+		*out = new(runtime.RawExtension)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.ControlPlaneHealth != nil {
 		in, out := &in.ControlPlaneHealth, &out.ControlPlaneHealth
 		*out = make([]ControlPlaneHealth, len(*in))

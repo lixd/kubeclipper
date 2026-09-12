@@ -449,7 +449,7 @@ func CreateBasic(serverURL, clusterName, userName string, caCert []byte) *client
 func buildPendingOperation(operationType, operationSponsor, timeout, clusterResourceVersion string, extra interface{}) (v1.PendingOperation, error) {
 	extraData, err := json.Marshal(extra)
 	if err != nil {
-		return v1.PendingOperation{}, nil
+		return v1.PendingOperation{}, err
 	}
 
 	return v1.PendingOperation{
