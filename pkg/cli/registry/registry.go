@@ -222,6 +222,7 @@ func NewCmdRegistry(streams options.IOStreams) *cobra.Command {
 	cmd.AddCommand(NewCmdRegistryPush(o))
 	cmd.AddCommand(NewCmdRegistryList(o))
 	cmd.AddCommand(NewCmdRegistryDelete(o))
+	cmd.AddCommand(NewCmdRegistrySync(o))
 
 	return cmd
 }
