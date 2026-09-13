@@ -5,6 +5,16 @@ set -euo pipefail
 KC_RESOURCE_COMMON_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$KC_RESOURCE_COMMON_DIR/../../.." && pwd)"
 
+# Mirror the bootstrap packaging flow: publish from a git checkout records
+# the checked-out commit as the package source revision unless the caller
+# pinned one explicitly.
+if [[ -z "${KC_SOURCE_REVISION:-}" ]]; then
+  if ! command -v git >/dev/null 2>&1 || ! KC_SOURCE_REVISION="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)"; then
+    die "KC_SOURCE_REVISION is required when publishing outside a Git checkout"
+  fi
+  export KC_SOURCE_REVISION
+fi
+
 die() {
   echo "error: $*" >&2
   exit 1

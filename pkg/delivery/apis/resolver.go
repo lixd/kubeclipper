@@ -132,6 +132,11 @@ func filterClusterInstallComponents(components []selectedComponent) []selectedCo
 }
 
 func isClusterInstallSlot(slot string) bool {
+	// Bootstrap slots are platform-deployment materials consumed by
+	// `kcctl deploy`, and "extension*" slots (kubectl-terminal and friends)
+	// are standalone addons installed on demand — neither is part of the
+	// cluster install/upgrade plan. Note the asymmetry: the cluster
+	// component is "k8s-extension" and does participate.
 	return !strings.HasPrefix(slot, "bootstrap") && !strings.HasPrefix(slot, "extension")
 }
 
