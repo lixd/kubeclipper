@@ -22,8 +22,11 @@ import (
 	"testing"
 
 	"github.com/golang/mock/gomock"
+	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/kubeclipper/kubeclipper/pkg/logger"
 
 	clustermock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
 	operationv2store "github.com/kubeclipper/kubeclipper/pkg/models/operationv2"
@@ -159,6 +162,56 @@ func TestFinalizeClusterCleansOperationHistoryBeforeReleasingFinalizer(t *testin
 		}
 		if len(cluster.Finalizers) != 1 || cluster.Finalizers[0] != v1.ClusterFinalizer {
 			t.Fatalf("finalizers = %v, want cluster finalizer retained", cluster.Finalizers)
+		}
+	})
+}
+
+type nopLogging struct{}
+
+func (nopLogging) Debug(_ string, _ ...zap.Field)      {}
+func (nopLogging) Info(_ string, _ ...zap.Field)       {}
+func (nopLogging) Warn(_ string, _ ...zap.Field)       {}
+func (nopLogging) Error(_ string, _ ...zap.Field)      {}
+func (nopLogging) Fatal(_ string, _ ...zap.Field)      {}
+func (nopLogging) Debugf(_ string, _ ...interface{})   {}
+func (nopLogging) Infof(_ string, _ ...interface{})    {}
+func (nopLogging) Warnf(_ string, _ ...interface{})    {}
+func (nopLogging) Errorf(_ string, _ ...interface{})   {}
+func (nopLogging) Fatalf(_ string, _ ...interface{})   {}
+func (l nopLogging) WithName(_ string) logger.Logging  { return l }
+func (l nopLogging) WithFields(_ ...zap.Field) logger.Logging { return l }
+
+func TestSyncClusterClientSkipsPhasesWithoutUsableKubeconfig(t *testing.T) {
+	skipped := []v1.ClusterPhase{
+		v1.ClusterInstalling,
+		v1.ClusterInstallFailed,
+		v1.ClusterTerminating,
+		v1.ClusterTerminateFailed,
+	}
+	for _, phase := range skipped {
+		t.Run(string(phase), func(t *testing.T) {
+			// The store's embedded interface is nil: any attempt to reach the
+			// operation store (e.g. creating a kubeconfig sync operation)
+			// panics and fails the test.
+			reconciler := &ClusterReconciler{OperationStore: &recordingOperationStore{}}
+			cluster := &v1.Cluster{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster-a", UID: "cluster-uid"},
+				Status:     v1.ClusterStatus{Phase: phase},
+			}
+			if err := reconciler.syncClusterClient(context.Background(), nopLogging{}, cluster); err != nil {
+				t.Fatalf("syncClusterClient(phase=%s) error: %v", phase, err)
+			}
+		})
+	}
+
+	t.Run("running cluster still requires kubeconfig sync", func(t *testing.T) {
+		reconciler := &ClusterReconciler{OperationStore: &recordingOperationStore{}}
+		cluster := &v1.Cluster{
+			ObjectMeta: metav1.ObjectMeta{Name: "cluster-a", UID: "cluster-uid"},
+			Status:     v1.ClusterStatus{Phase: v1.ClusterRunning},
+		}
+		if err := reconciler.syncClusterClient(context.Background(), nopLogging{}, cluster); err == nil {
+			t.Fatal("syncClusterClient(phase=Running) unexpectedly succeeded with no kubeconfig")
 		}
 	})
 }
