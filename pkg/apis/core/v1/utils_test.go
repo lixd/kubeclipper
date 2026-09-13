@@ -29,7 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
-	nfsprovisioner "github.com/kubeclipper/kubeclipper/pkg/component/nfs"
+	nfscsi "github.com/kubeclipper/kubeclipper/pkg/component/nfscsi"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	mock_cluster "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
@@ -239,7 +239,7 @@ func Test_parseOperationFromComponent(t *testing.T) {
 		components []v1.Addon
 	}
 	h := newHandler(nil, nil, nil, nil, nil, nil, nil)
-	nfs := nfsprovisioner.NFSProvisioner{
+	nfs := nfscsi.NFS{
 		ManifestsDir:     "/tmp/.nfs",
 		Namespace:        "kube-system",
 		Replicas:         1,
@@ -248,13 +248,12 @@ func Test_parseOperationFromComponent(t *testing.T) {
 		StorageClassName: "nfs-sc",
 		IsDefault:        false,
 		ReclaimPolicy:    "Delete",
-		ArchiveOnDelete:  false,
 		MountOptions:     nil,
 	}
 	nfsByte, _ := json.Marshal(nfs)
 	com := []v1.Addon{
 		{
-			Name:    "nfs-provisioner",
+			Name:    "nfs-csi",
 			Version: "v1",
 			Config: runtime.RawExtension{
 				Raw:    nfsByte,
