@@ -638,3 +638,38 @@ func TestMapTargetOperationsUsesTargetUIDIndex(t *testing.T) {
 		t.Fatalf("mapped requests = %v, want the operation itself and its same-target sibling only", names)
 	}
 }
+
+func TestRunningOperationProceedsDespiteEarlierPendingOperation(t *testing.T) {
+	store := newFakeStore()
+	// Mirror the reported deadlock: the delete operation started (Running,
+	// holding the target lock) and the cluster controller then created an
+	// earlier kubeconfig sync operation that cannot run behind that lock.
+	syncOp := testOperation("sync-kubeconfig", "op-sync", testNow, oneStep("step", 0, "node-1"))
+	store.addOperation(syncOp)
+
+	deleteOp := runningOperation("delete", oneStep("step", 0, "node-1"))
+	deleteOp.UID = "op-delete"
+	deleteOp.CreationTimestamp = metav1.NewTime(testNow)
+	store.addOperation(deleteOp)
+	store.addOwnedLock(deleteOp)
+
+	// The delete deadline already passed while the operation was gated.
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(2 * time.Hour) }}
+
+	result := reconcileOK(t, r, "delete")
+	if result.RequeueAfter != 0 {
+		t.Fatalf("running operation was starved by the ordering gate: %+v", result)
+	}
+	if got := store.operation("delete").Status.Phase; got != operations.OperationTimedOut {
+		t.Fatalf("delete phase = %s, want TimedOut", got)
+	}
+	if len(store.locks) != 0 {
+		t.Fatalf("lock was not released after the timeout: %v", store.locks)
+	}
+
+	// With the lock released the earlier operation must now start.
+	reconcileOK(t, r, "sync-kubeconfig")
+	if got := store.operation("sync-kubeconfig").Status.Phase; got != operations.OperationRunning {
+		t.Fatalf("sync phase = %s, want Running after the lock was released", got)
+	}
+}

@@ -106,7 +106,12 @@ func (r *OperationReconciler) reconcileOperation(
 	if retryRequested && !isLatestOperation(op, targetOperations.Items) {
 		return r.skipRetry(ctx, op)
 	}
-	if !isEarliestRunnable(op, targetOperations.Items) {
+	// Only operations that have not started yet wait for their turn. A running
+	// operation already holds the target lock, and gating it here would starve
+	// its own cancellation, deadline and finish paths: it can then never reach
+	// a terminal phase, never release the lock, and permanently block the
+	// earlier operation it is waiting for.
+	if op.Status.Phase == operations.OperationPending && !isEarliestRunnable(op, targetOperations.Items) {
 		return reconcile.Result{RequeueAfter: defaultWaitRequeue}, nil
 	}
 
