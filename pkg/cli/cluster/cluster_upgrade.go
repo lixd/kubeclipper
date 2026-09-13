@@ -150,8 +150,11 @@ func (c *ClusterUpgradeOpts) Validates() error {
 	if err != nil {
 		return err
 	}
+	if c.Version == clu.KubernetesVersion {
+		return fmt.Errorf("cluster %s is already at version [%s], a different version is required to upgrade", clu.Name, clu.KubernetesVersion)
+	}
 	if c.Version <= clu.KubernetesVersion {
-		return fmt.Errorf("your current version [%s] is lower than the version [%s] you specify", clu.KubernetesVersion, c.Version)
+		return fmt.Errorf("cannot downgrade: cluster %s is at version [%s], downgrade to [%s] is not supported", clu.Name, clu.KubernetesVersion, c.Version)
 	}
 
 	return c.checkVersionSpan(&clu)
