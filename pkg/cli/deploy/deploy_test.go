@@ -30,6 +30,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
@@ -317,18 +318,49 @@ func TestDeployOptions_nodeRole(t *testing.T) {
 	}
 }
 
-func TestDeployOptionsValidateArgsRequiresPackageRegistry(t *testing.T) {
+func TestDeployOptionsValidateArgsDefaultsPackageRegistry(t *testing.T) {
 	d := NewDeployOptions(options.IOStreams{})
 	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
 	d.deployConfig.SSHConfig.Password = "secret"
 
-	if err := d.ValidateArgs(); err == nil {
-		t.Fatalf("ValidateArgs() expected package registry error")
+	if err := d.ValidateArgs(); err != nil {
+		t.Fatalf("ValidateArgs() unexpected error with unset package registry: %+v", err)
+	}
+	if d.deployConfig.PackageRegistry != deliveryregistry.DefaultPackageRegistry {
+		t.Fatalf("package registry = %q, want default %q", d.deployConfig.PackageRegistry, deliveryregistry.DefaultPackageRegistry)
+	}
+	if !d.packageRegistryDefaulted {
+		t.Fatal("ValidateArgs() did not mark the package registry as defaulted")
+	}
+	if got := d.packageRegistrySource(); got != "default" {
+		t.Fatalf("packageRegistrySource() = %q, want default", got)
 	}
 
-	d.deployConfig.PackageRegistry = "registry.local:5000"
-	if err := d.ValidateArgs(); err != nil {
+	explicit := NewDeployOptions(options.IOStreams{})
+	explicit.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	explicit.deployConfig.SSHConfig.Password = "secret"
+	explicit.deployConfig.PackageRegistry = "registry.local:5000"
+	if err := explicit.ValidateArgs(); err != nil {
 		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
+	}
+	if explicit.deployConfig.PackageRegistry != "registry.local:5000" {
+		t.Fatal("explicit package registry was overwritten")
+	}
+}
+
+func TestPrecheckPackageRegistryFailureGuidance(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.PackageRegistry = "127.0.0.1:1"
+	d.packageRegistryDefaulted = true
+	d.packageRegistryConfig = &deliveryregistry.Config{Registry: "127.0.0.1:1", Scheme: deliveryregistry.SchemeHTTP}
+	err := d.precheckPackageRegistry()
+	if err == nil {
+		t.Fatal("precheckPackageRegistry() succeeded against a dead registry")
+	}
+	for _, want := range []string{"127.0.0.1:1", "kcctl registry sync", "--package-registry"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("precheck error %q missing guidance fragment %q", err.Error(), want)
+		}
 	}
 }
 

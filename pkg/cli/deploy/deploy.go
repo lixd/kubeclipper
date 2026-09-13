@@ -41,6 +41,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,8 +108,9 @@ type DeployOptions struct {
 	fips         []string // ip:fip
 	aio          bool
 
-	packageRegistryFiles  deliveryregistry.FileOptions
-	packageRegistryConfig *deliveryregistry.Config
+	packageRegistryFiles     deliveryregistry.FileOptions
+	packageRegistryConfig    *deliveryregistry.Config
+	packageRegistryDefaulted bool
 }
 
 func NewDeployOptions(streams options.IOStreams) *DeployOptions {
@@ -222,7 +224,11 @@ func (d *DeployOptions) Complete() error {
 	if d.aio {
 		logger.Infof("run in aio mode.")
 	}
-	if d.deployConfig.PackageRegistry != "" {
+	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
+		d.deployConfig.PackageRegistry = deliveryregistry.DefaultPackageRegistry
+		d.packageRegistryDefaulted = true
+	}
+	{
 		var err error
 		if d.packageRegistryFiles.Specified() {
 			d.packageRegistryConfig, err = d.packageRegistryFiles.Resolve(d.deployConfig.PackageRegistry)
@@ -232,6 +238,7 @@ func (d *DeployOptions) Complete() error {
 		if err != nil {
 			return err
 		}
+		logger.Infof("package registry: %s (%s)", d.deployConfig.PackageRegistry, d.packageRegistrySource())
 	}
 
 	return nil
@@ -277,7 +284,8 @@ func (d *DeployOptions) ValidateArgs() error {
 		return fmt.Errorf("invalid node ip detect method,suppot [first-found,interface=xxx,cidr=xxx] now")
 	}
 	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
-		return fmt.Errorf("--package-registry must be specified")
+		d.deployConfig.PackageRegistry = deliveryregistry.DefaultPackageRegistry
+		d.packageRegistryDefaulted = true
 	}
 	if strings.TrimSpace(d.deployConfig.TempDir) == "" {
 		d.deployConfig.TempDir = config.DefaultPkgPath
@@ -629,6 +637,9 @@ func (d *DeployOptions) precheckPorts() error {
 }
 
 func (d *DeployOptions) preCheck() error {
+	if err := d.precheckPackageRegistry(); err != nil {
+		return err
+	}
 	if err := d.precheckService("kc-etcd", d.deployConfig.ServerIPs, precheckKcEtcdFunc); err != nil {
 		return err
 	}
@@ -1605,4 +1616,43 @@ func clientCertList(pki, caName string, altNames, organization []string, commonN
 		certConfig = append(certConfig, conf)
 	}
 	return certConfig
+}
+
+// packageRegistrySource reports where the effective package registry came from.
+func (d *DeployOptions) packageRegistrySource() string {
+	switch {
+	case d.packageRegistryDefaulted:
+		return "default"
+	case d.packageRegistryFiles.Specified():
+		return "flag"
+	default:
+		return "deploy-config"
+	}
+}
+
+// precheckPackageRegistry verifies the effective package registry is reachable
+// and carries the bootstrap catalog before touching any node. Offline or
+// mirror environments must fail here quickly with actionable guidance instead
+// of timing out later during package transfer.
+func (d *DeployOptions) precheckPackageRegistry() error {
+	logger.Infof("============>PACKAGE-REGISTRY PRECHECK ...")
+	if d.packageRegistryConfig == nil {
+		return fmt.Errorf("package registry configuration is not resolved")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	opts, err := d.packageRegistryConfig.CraneOptions(ctx)
+	if err != nil {
+		return d.packageRegistryPrecheckError(err)
+	}
+	if _, err = crane.ListTags(d.packageRegistryConfig.Registry+"/kubeclipper/packages/bootstrap/kubeclipper", opts...); err != nil {
+		return d.packageRegistryPrecheckError(err)
+	}
+	logger.Infof("============>PACKAGE-REGISTRY PRECHECK OK!")
+	return nil
+}
+
+func (d *DeployOptions) packageRegistryPrecheckError(cause error) error {
+	return fmt.Errorf("PACKAGE-REGISTRY PRECHECK FAILED: package registry %q (%s) is unreachable or missing the bootstrap catalog: %w; for offline or mirror deployments run 'kcctl registry sync' to mirror the release into a local registry and pass --package-registry <that registry>",
+		d.deployConfig.PackageRegistry, d.packageRegistrySource(), cause)
 }

@@ -56,6 +56,11 @@ type Config struct {
 	SkipTLSVerify bool   `json:"skipTLSVerify,omitempty"`
 }
 
+// DefaultPackageRegistry is the official OCI registry that KubeClipper
+// publishes release materials to. kcctl deploy falls back to it when neither
+// --package-registry nor a deploy-config packageRegistry is provided.
+const DefaultPackageRegistry = "ghcr.io/kubeclipper/kubeclipper"
+
 func SplitPrefix(registry string) (host, repositoryPrefix string) {
 	normalized := strings.Trim(strings.TrimSpace(registry), "/")
 	host, repositoryPrefix, _ = strings.Cut(normalized, "/")
