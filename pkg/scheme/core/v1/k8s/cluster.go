@@ -322,8 +322,11 @@ kubectl uncordon %s || true`,
 				ErrIgnore: true,
 				Commands: []v1.Command{
 					{
-						Type:         v1.CommandShell,
-						ShellCommand: []string{"kubectl", "drain", extraMetadata.GetWorkerHostname(workers[i].ID)},
+						Type: v1.CommandShell,
+						// The node always runs DaemonSet pods (CNI, kube-proxy):
+						// a plain drain can never succeed there.
+						ShellCommand: []string{"kubectl", "drain", extraMetadata.GetWorkerHostname(workers[i].ID),
+							"--ignore-daemonsets", "--delete-emptydir-data", "--force"},
 					},
 				},
 				RetryTimes: 0,
