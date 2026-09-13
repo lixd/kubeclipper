@@ -387,8 +387,13 @@ func (h *handler) parseAddonStep(ctx context.Context, clu *v1.Cluster, addons []
 		if err := h.initComponentExtraCluster(ctx, newComp); err != nil {
 			return []v1.Step{}, err
 		}
-		if err := newComp.Validate(); err != nil {
-			return []v1.Step{}, err
+		// Uninstall steps only tear the component down: they must not require
+		// the addon's connection parameters to still be valid, otherwise a
+		// cluster whose backend moved or a stale config can never be cleaned.
+		if action != v1.ActionUninstall {
+			if err := newComp.Validate(); err != nil {
+				return []v1.Step{}, err
+			}
 		}
 		resolvedCtx, err := h.withResolvedAddonArtifacts(ctx, clu, newComp, action)
 		if err != nil {

@@ -673,3 +673,33 @@ func TestRunningOperationProceedsDespiteEarlierPendingOperation(t *testing.T) {
 		t.Fatalf("sync phase = %s, want Running after the lock was released", got)
 	}
 }
+
+func TestErrIgnoreStepFailureDoesNotFailOperation(t *testing.T) {
+	store := newFakeStore()
+	// step-1 carries ErrIgnore and its single attempt fails; step-2 must still
+	// run and the operation must finish Succeeded.
+	ignored := testOperation("ignored", "op-1", testNow, oneStep("step-1", 0, "node-1"))
+	ignored.Spec.Steps[0].ErrIgnore = true
+	ignored.Spec.Steps = append(ignored.Spec.Steps, oneStep("step-2", 0, "node-1"))
+	store.addOperation(ignored)
+
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(time.Minute) }}
+	reconcileOK(t, r, "ignored") // creates the step-1 task
+	reconcileOK(t, r, "ignored") // task running → nothing yet
+
+	failed := store.tasks[TaskName("op-1", 0, "step-1", "node-1", 0)]
+	if failed == nil {
+		t.Fatal("step-1 task was not created")
+	}
+	failed.Status.Phase = operations.TaskFailed
+	failed.Status.Result = &operations.TaskResult{Reason: operations.TaskReasonExecutionFailed, Message: "drain blocked"}
+
+	reconcileOK(t, r, "ignored") // failed attempt consumed → create step-2 task
+	reconcileOK(t, r, "ignored") // step-2 task completes
+	store.tasks[TaskName("op-1", 0, "step-2", "node-1", 0)].Status.Phase = operations.TaskSucceeded
+
+	reconcileOK(t, r, "ignored")
+	if got := store.operation("ignored").Status.Phase; got != operations.OperationSucceeded {
+		t.Fatalf("operation phase = %s, want Succeeded (ErrIgnore step failure must not fail the operation)", got)
+	}
+}

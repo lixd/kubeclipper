@@ -119,7 +119,8 @@ func convertStep(
 		return operations.OperationStep{}, err
 	}
 	return operations.OperationStep{ID: step.ID, Targets: targets, Executor: operationv2.CommandStepExecutorName,
-		Payload: runtime.RawExtension{Raw: payload}, RetryLimit: min(step.RetryTimes, operations.MaxRetryLimit)}, nil
+		Payload: runtime.RawExtension{Raw: payload}, RetryLimit: min(step.RetryTimes, operations.MaxRetryLimit),
+		ErrIgnore: step.ErrIgnore}, nil
 }
 
 func resolveTargets(
