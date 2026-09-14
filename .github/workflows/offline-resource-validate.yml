@@ -98,8 +98,6 @@ jobs:
           scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
             --name nfs --version v4.1.0 --arch amd64 --output /tmp/kc-release-manifest
           scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
-            --name nfs --version v4.1.0 --arch amd64 --output /tmp/kc-release-manifest
-          scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
             --name metallb --version v0.13.7 --arch amd64 --output /tmp/kc-release-manifest
           scripts/open-packaging/generate-resource-metadata.sh \
             --resource-dir /tmp/kc-release-manifest \
@@ -119,7 +117,7 @@ jobs:
           assert len([item for item in artifacts if item['type'] == 'package-image']) == 5
           assert len([item for item in artifacts if item['type'] == 'helm-chart']) == 1
           runtime_images = [item for item in artifacts if item['type'] == 'runtime-image']
-          assert len(runtime_images) == 11
+          assert len(runtime_images) == 10
           assert {item['component']['name'] for item in runtime_images} == {
               'k8s', 'calico', 'nfs', 'metallb'
           }
