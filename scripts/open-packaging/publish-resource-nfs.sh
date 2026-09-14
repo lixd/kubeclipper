@@ -16,11 +16,11 @@ Usage:
   publish-resource-nfs.sh [flags]
 
 Builds and publishes the standard runtime images used by the embedded NFS
-provisioner (v4.0.2) or NFS CSI (v4.1.0) manifests.
+NFS CSI (v4.1.0) manifests.
 
 Flags:
   --image-registry-prefix <ref> Runtime image Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
-  --version <version>           v4.0.2 or v4.1.0. Default: v4.1.0.
+  --version <version>           v4.1.0. Default: v4.1.0.
   --arch <amd64|arm64>          Target architecture. Default: amd64.
   -h, --help                    Show this help.
 EOF
@@ -38,7 +38,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ "$arch" == "amd64" || "$arch" == "arm64" ]] || die "--arch must be amd64 or arm64"
-[[ "$version" == v4.0.2 || "$version" == v4.1.0 ]] || die "--version must be v4.0.2 or v4.1.0"
+[[ "$version" == "v4.1.0" ]] || die "--version must be v4.1.0"
 
 resource_dir="${KC_RESOURCE_DIR:-}"
 if [[ -z "$resource_dir" ]]; then

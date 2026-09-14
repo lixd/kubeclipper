@@ -96,7 +96,7 @@ jobs:
           printf 'registry.k8s.io/pause:3.10.2\n' > /tmp/kc-release-manifest/k8s/v1.37.0/amd64/images.txt
           printf 'docker.io/calico/node:v3.31.5\n' > /tmp/kc-release-manifest/calico/v3.31.5/amd64/images.txt
           scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
-            --name nfs --version v4.0.2 --arch amd64 --output /tmp/kc-release-manifest
+            --name nfs --version v4.1.0 --arch amd64 --output /tmp/kc-release-manifest
           scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
             --name nfs --version v4.1.0 --arch amd64 --output /tmp/kc-release-manifest
           scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
