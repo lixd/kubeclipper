@@ -132,8 +132,11 @@ func (m *Manifest) Validate() error { //nolint:gocyclo // Validation intentional
 	}
 	packageRegistry := strings.TrimRight(m.Registries.Package, "/")
 	imageRegistry := strings.TrimRight(m.Registries.Image, "/")
-	if packageRegistry != OfficialSourcePrefix || imageRegistry != OfficialSourcePrefix {
-		return fmt.Errorf("release manifest package and image registries must be %s", OfficialSourcePrefix)
+	if packageRegistry == "" {
+		return fmt.Errorf("release manifest registries.package is required")
+	}
+	if imageRegistry == "" {
+		return fmt.Errorf("release manifest registries.image is required")
 	}
 
 	seen := make(map[string]struct{}, len(m.Artifacts))
@@ -142,7 +145,7 @@ func (m *Manifest) Validate() error { //nolint:gocyclo // Validation intentional
 	bootstrapRevision := ""
 	for i := range m.Artifacts {
 		artifact := &m.Artifacts[i]
-		if err := artifact.validate(i); err != nil {
+		if err := artifact.validate(i, packageRegistry, imageRegistry); err != nil {
 			return err
 		}
 		key := artifact.Target + "\x00" + strings.Join(artifact.Platforms, ",")
@@ -172,7 +175,7 @@ func (m *Manifest) Validate() error { //nolint:gocyclo // Validation intentional
 	return nil
 }
 
-func (a *Artifact) validate(index int) error { //nolint:gocyclo // Artifact validation keeps field-specific errors for release diagnostics.
+func (a *Artifact) validate(index int, packageRegistry, imageRegistry string) error { //nolint:gocyclo // Artifact validation keeps field-specific errors for release diagnostics.
 	switch a.Type {
 	case ArtifactTypePackage, ArtifactTypeChart, ArtifactTypeRuntime:
 	default:
@@ -182,8 +185,17 @@ func (a *Artifact) validate(index int) error { //nolint:gocyclo // Artifact vali
 		return fmt.Errorf("artifact[%d].component kind, name, and version are required", index)
 	}
 	a.Source = strings.TrimPrefix(strings.TrimSpace(a.Source), "oci://")
-	if a.Source != OfficialSourcePrefix && !strings.HasPrefix(a.Source, OfficialSourcePrefix+"/") {
-		return fmt.Errorf("artifact[%d].source must be under %s", index, OfficialSourcePrefix)
+	// Self-consistency: every artifact must originate under the registry this
+	// manifest declares for its kind, so a qualification or private-channel
+	// manifest is as valid as the official one. The channel identity itself
+	// ("is this the official release?") is a release-gate decision, not a
+	// structural property of the manifest.
+	expectedSource := packageRegistry
+	if a.Type == ArtifactTypeRuntime {
+		expectedSource = imageRegistry
+	}
+	if a.Source != expectedSource && !strings.HasPrefix(a.Source, expectedSource+"/") {
+		return fmt.Errorf("artifact[%d].source must be under the manifest registry %q", index, expectedSource)
 	}
 	a.Target = strings.TrimSpace(a.Target)
 	cleanTarget := path.Clean(a.Target)

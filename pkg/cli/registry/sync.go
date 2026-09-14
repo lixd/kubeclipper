@@ -135,13 +135,13 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	sourceOptions, err := o.sourceCraneOptions()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	sourceOptions, err := o.sourceCraneOptions(ctx)
 	if err != nil {
 		return err
 	}
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
 
 	result, err := releasemanifest.Sync(ctx, manifest, &releasemanifest.SyncOptions{
 		Registry:      o.Target,
@@ -164,9 +164,7 @@ func (o *SyncOptions) resolveTargetConfig() (*deliveryregistry.Config, error) {
 	return deliveryregistry.Resolve(o.Target)
 }
 
-func (o *SyncOptions) sourceCraneOptions() ([]crane.Option, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+func (o *SyncOptions) sourceCraneOptions(ctx context.Context) ([]crane.Option, error) {
 	opts := []crane.Option{crane.WithContext(ctx), crane.WithAuth(authn.Anonymous)}
 	if o.SourceUser != "" {
 		password, err := os.ReadFile(o.SourcePassFil)

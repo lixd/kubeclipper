@@ -84,3 +84,19 @@ func TestParseRejectsDuplicateArtifact(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 }
+
+func TestValidateIsChannelSelfConsistent(t *testing.T) {
+	official := validManifestYAML()
+
+	qualified := strings.ReplaceAll(official, "ghcr.io/kubeclipper/kubeclipper", "ghcr.io/lixd/kubeclipper/qualification-abc1234")
+	if _, err := Parse([]byte(qualified)); err != nil {
+		t.Fatalf("qualification-channel manifest rejected: %v", err)
+	}
+
+	crossChannel := strings.Replace(official, "  package: ghcr.io/kubeclipper/kubeclipper", "  package: registry.internal/kubeclipper", 1)
+	if _, err := Parse([]byte(crossChannel)); err == nil {
+		t.Fatal("manifest accepted with artifact source outside its declared registries")
+	} else if !strings.Contains(err.Error(), "must be under the manifest registry") {
+		t.Fatalf("error = %v, want source-under-registries rejection", err)
+	}
+}
