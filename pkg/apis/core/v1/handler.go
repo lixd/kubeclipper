@@ -1297,8 +1297,10 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 	backup.Status.KubernetesVersion = c.KubernetesVersion
 	backup.Status.FileName = backup.Name
 	backup.BackupPointName = c.Labels[common.LabelBackupPoint]
-	_, ok := backup.Annotations[common.AnnotationDescription]
-	if !ok {
+	if backup.Annotations == nil {
+		backup.Annotations = map[string]string{}
+	}
+	if _, ok := backup.Annotations[common.AnnotationDescription]; !ok {
 		backup.Annotations[common.AnnotationDescription] = ""
 	}
 
@@ -2812,8 +2814,8 @@ func (h *handler) CreateBackupPoint(request *restful.Request, response *restful.
 	}
 
 	bp.StorageType = strings.ToLower(bp.StorageType)
-	if bp.StorageType == bs.S3Storage && len([]rune(bp.S3Config.Bucket)) <= 3 {
-		restplus.HandleBadRequest(response, request, fmt.Errorf("bucket name cannot be shorter than 3 characters"))
+	if err := validateBackupPoint(bp); err != nil {
+		restplus.HandleBadRequest(response, request, err)
 		return
 	}
 

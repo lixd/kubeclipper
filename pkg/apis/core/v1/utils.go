@@ -197,6 +197,9 @@ func (h *handler) parseRecoverySteps(c *v1.Cluster, b *v1.Backup, restoreDir str
 }
 
 func getRecoveryStep(c *v1.Cluster, bp *v1.BackupPoint, b *v1.Backup, restoreDir string, masters, workers []component.Node, nodeNames, nodeIPs []string, action v1.StepAction) (steps []v1.Step, err error) {
+	if err = validateBackupPoint(bp); err != nil {
+		return nil, err
+	}
 	meta := component.ExtraMetadata{
 		ClusterName:        c.Name,
 		ClusterStatus:      c.Status.Phase,
@@ -290,7 +293,37 @@ func (h *handler) parseActBackupSteps(c *v1.Cluster, b *v1.Backup, action v1.Ste
 	return steps, nil
 }
 
+// validateBackupPoint rejects backup points whose storage type (or the
+// config block it selects) cannot produce a usable backup store. It guards
+// both the create/update API and the step builders, which otherwise assume
+// the config pointer for the chosen type is present.
+func validateBackupPoint(bp *v1.BackupPoint) error {
+	switch strings.ToLower(bp.StorageType) {
+	case bs.FSStorage:
+		if bp.FsConfig == nil || bp.FsConfig.BackupRootDir == "" {
+			return fmt.Errorf("fs backup point requires fsConfig.backupRootDir")
+		}
+	case bs.S3Storage:
+		if bp.S3Config == nil {
+			return fmt.Errorf("s3 backup point requires s3Config")
+		}
+		if len([]rune(bp.S3Config.Bucket)) <= 3 {
+			return fmt.Errorf("bucket name cannot be shorter than 3 characters")
+		}
+		if bp.S3Config.Endpoint == "" {
+			return fmt.Errorf("s3 backup point requires s3Config.endpoint")
+		}
+	default:
+		return fmt.Errorf("unsupported backup storage type %q, only %q and %q are supported",
+			bp.StorageType, bs.FSStorage, bs.S3Storage)
+	}
+	return nil
+}
+
 func getActBackupStep(c *v1.Cluster, b *v1.Backup, bp *v1.BackupPoint, pNode *v1.Node, action v1.StepAction) (steps []v1.Step, err error) {
+	if err = validateBackupPoint(bp); err != nil {
+		return nil, err
+	}
 	var actBackup *k8s.ActBackup
 	meta := component.ExtraMetadata{
 		ClusterName:   c.Name,
@@ -320,6 +353,8 @@ func getActBackupStep(c *v1.Cluster, b *v1.Backup, bp *v1.BackupPoint, pNode *v1
 			BackupFileName:     b.Status.FileName,
 			BackupPointRootDir: bp.FsConfig.BackupRootDir,
 		}
+	default:
+		return nil, fmt.Errorf("unsupported backup point %s storage type %s", bp.Name, bp.StorageType)
 	}
 
 	if err = actBackup.InitSteps(ctx); err != nil {
