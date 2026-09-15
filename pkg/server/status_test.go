@@ -118,12 +118,7 @@ func TestAggregateServerChecks(t *testing.T) {
 		{name: "healthy", checks: []platformstatus.Check{
 			{Name: "api", Status: platformstatus.Healthy},
 			{Name: "controller-manager", Status: platformstatus.Healthy},
-			{Name: "static-resource", Status: platformstatus.Healthy},
 		}, wantStatus: platformstatus.Healthy, wantMsg: "all server subsystems ready"},
-		{name: "static resource degraded", checks: []platformstatus.Check{
-			{Name: "api", Status: platformstatus.Healthy},
-			{Name: "static-resource", Status: platformstatus.Unhealthy, Message: "resource service is unavailable"},
-		}, wantStatus: platformstatus.Degraded, wantMsg: "resource service is unavailable"},
 		{name: "core subsystem unhealthy", checks: []platformstatus.Check{
 			{Name: "api", Status: platformstatus.Healthy},
 			{Name: "controller-manager", Status: platformstatus.Unhealthy, Message: "active leader is not ready"},
@@ -131,8 +126,7 @@ func TestAggregateServerChecks(t *testing.T) {
 		{name: "multiple failures", checks: []platformstatus.Check{
 			{Name: "api", Status: platformstatus.Unhealthy},
 			{Name: "controller-manager", Status: platformstatus.Unhealthy},
-			{Name: "static-resource", Status: platformstatus.Healthy},
-		}, wantStatus: platformstatus.Unhealthy, wantMsg: "2/3 subsystems unhealthy"},
+		}, wantStatus: platformstatus.Unhealthy, wantMsg: "2/2 subsystems unhealthy"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

@@ -91,15 +91,6 @@ func (s *APIServer) kcServerStatus(ctx context.Context) platformstatus.Component
 			}
 			return platformstatus.Healthy, "active leader is ready"
 		}),
-		timedCheck("static-resource", func() (platformstatus.Status, string) {
-			if s.staticResourceService == nil {
-				return platformstatus.Unknown, "resource service status is unavailable"
-			}
-			if err := s.staticResourceService.Health(ctx); err != nil {
-				return platformstatus.Unhealthy, "resource service is unavailable"
-			}
-			return platformstatus.Healthy, "resource service available"
-		}),
 	}
 
 	component := platformstatus.Component{
@@ -119,13 +110,7 @@ func aggregateServerChecks(checks []platformstatus.Check) (status platformstatus
 			continue
 		}
 		failed = append(failed, check)
-		if check.Name == "static-resource" {
-			if status == platformstatus.Healthy {
-				status = platformstatus.Degraded
-			}
-		} else {
-			status = platformstatus.Unhealthy
-		}
+		status = platformstatus.Unhealthy
 	}
 	switch len(failed) {
 	case 0:

@@ -31,6 +31,8 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/scheme"
 	operationsv1alpha1 "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
@@ -237,6 +239,12 @@ func (n *ComponentMetas) TablePrint() ([]string, [][]string) {
 type ComponentMeta struct {
 	Rules  []map[string]interface{} `json:"rules"`
 	Addons []scheme.MetaResource    `json:"addons"`
+	// Unavailable lists required components without a publishable package for
+	// the matching Kubernetes version, so version lists stay explainable when
+	// the OCI registry is only partially populated.
+	Unavailable []deliveryapis.ComponentAvailability `json:"unavailable,omitempty"`
+	// Registry is the OCI package registry the inventory was derived from.
+	Registry string `json:"registry,omitempty"`
 }
 
 type BackupList struct {
