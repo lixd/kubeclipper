@@ -24,7 +24,8 @@ import (
 	"runtime"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
-	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
@@ -57,10 +58,28 @@ const (
 
 type BaseCni struct {
 	v1.CNI
-	ResolvedImageRegistry string `json:"imageRegistry,omitempty"`
-	DualStack             bool   `json:"dualStack"`
-	PodIPv4CIDR           string `json:"podIPv4CIDR"`
-	PodIPv6CIDR           string `json:"podIPv6CIDR"`
+	ResolvedImageRegistry string                         `json:"imageRegistry,omitempty"`
+	DualStack             bool                           `json:"dualStack"`
+	PodIPv4CIDR           string                         `json:"podIPv4CIDR"`
+	PodIPv6CIDR           string                         `json:"podIPv6CIDR"`
+	Arch                  string                         `json:"arch,omitempty"`
+	Transport             deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents              []deliveryapis.ArtifactContent `json:"contents,omitempty"`
+}
+
+func applyResolvedCNI(ctx context.Context, base *BaseCni, name string) {
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cni", name, base.Version); ok {
+		base.Arch = resolved.Arch
+		base.Transport = resolved.Transport
+		base.Contents = resolved.Contents
+	}
+}
+
+func archOrRuntime(arch string) string {
+	if arch != "" {
+		return deliveryapis.DefaultPackageOS + "-" + arch
+	}
+	return deliveryapis.DefaultPackageOS + "-" + runtime.GOARCH
 }
 
 type Stepper interface {
@@ -76,32 +95,11 @@ func (runnable *BaseCni) NewInstance() component.ObjectMeta {
 }
 
 func (runnable *BaseCni) Install(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, runnable.Type, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-
-	if runnable.Offline && runnable.ResolvedImageRegistry == "" {
-		dstFile, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		// load image package
-		if err = utils.LoadImage(ctx, opts.DryRun, dstFile, runnable.CriType); err != nil {
-			return nil, err
-		}
-		logger.Info("calico packages offline install successfully")
-	}
-
 	return nil, nil
 }
 
 func (runnable *BaseCni) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, runnable.Type, runnable.Version, runtime.GOARCH, !runnable.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if err = instance.RemoveImages(); err != nil {
+	if err := downloader.CleanupPackage("cni", runnable.Type, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
 		logger.Error("remove calico images compressed file failed", zap.Error(err))
 	}
 	return nil, nil

@@ -218,7 +218,7 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 	}
 	masters := utils.UnwrapNodeList(avaMasters)
 	if len(stepper.uninstallSteps) == 0 {
-		args := []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force"}
+		args := []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"}
 		for _, node := range patchNodes {
 			d := &Drain{}
 			steps, err := d.InitStepper(node.Hostname, args).UninstallSteps([]v1.StepNode{masters[0]})
@@ -412,6 +412,16 @@ func (stepper *Drain) NewInstance() component.ObjectMeta {
 	return &Drain{}
 }
 
+// nodeReady reports the status of the node's Ready condition.
+func (stepper *Drain) nodeReady(ctx context.Context, opts component.Options) (bool, error) {
+	ec, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubectl", "get", "node", stepper.Hostname,
+		"-o", `jsonpath={.status.conditions[?(@.type=="Ready")].status}`)
+	if err != nil {
+		return false, err
+	}
+	return strings.TrimSpace(ec.StdOut()) == "True", nil
+}
+
 func (stepper *Drain) Install(ctx context.Context, opts component.Options) (bytes []byte, err error) {
 	return
 }
@@ -435,6 +445,21 @@ func (stepper *Drain) Uninstall(ctx context.Context, opts component.Options) (by
 	if err != nil {
 		logErrMsg = "kubectl get nodes error"
 		return
+	}
+
+	// A node whose runtime is wedged (Ready != True) can never drain cleanly:
+	// its workloads are already gone or stuck, and disruption budgets have no
+	// live pods left to protect. Skip the drain for such nodes — blocking
+	// here would hang the removal until the operation deadline — and delete
+	// the node object, which is what actually completes the removal. For a
+	// Ready node the drain stays mandatory and its failure fails the step.
+	if ready, readyErr := stepper.nodeReady(ctx, opts); readyErr == nil && !ready {
+		logger.Warnf("node %s is not ready, skipping drain and deleting the node object", stepper.Hostname)
+		if ec, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubectl", "delete", "node", stepper.Hostname); err != nil {
+			logErrMsg = "kubectl delete node error"
+			return
+		}
+		return nil, nil
 	}
 
 	ec, err = cmdutil.RunCmdWithContext(
@@ -462,9 +487,8 @@ func (stepper *Drain) Uninstall(ctx context.Context, opts component.Options) (by
 	}
 
 	// kubectl delete node ${node_name}
-	_, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubectl", "delete", "node", stepper.Hostname)
+	ec, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubectl", "delete", "node", stepper.Hostname)
 	if err != nil {
-		// logger.Error("kubectl delete node error", zap.Error(err))
 		logErrMsg = "kubectl delete node error"
 		return
 	}

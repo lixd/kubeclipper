@@ -38,6 +38,7 @@ type (
 	oplogKey     struct{}
 	retryKey     struct{}
 	repoMirror   struct{}
+	resolvePlan  struct{}
 )
 
 type ExtraMetadata struct {
@@ -63,6 +64,7 @@ type Node struct {
 	ID       string
 	IPv4     string
 	NodeIPv4 string
+	Arch     string
 	Region   string
 	Hostname string
 	Role     string
@@ -230,6 +232,17 @@ func GetExtraMetadata(ctx context.Context) ExtraMetadata {
 		return v.(ExtraMetadata)
 	}
 	return ExtraMetadata{}
+}
+
+func WithResolvedArtifactPlan(ctx context.Context, plan interface{}) context.Context {
+	return context.WithValue(ctx, resolvePlan{}, plan)
+}
+
+func GetResolvedArtifactPlan(ctx context.Context) interface{} {
+	if v := ctx.Value(resolvePlan{}); v != nil {
+		return v
+	}
+	return nil
 }
 
 func WithOperationID(ctx context.Context, opID string) context.Context {

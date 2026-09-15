@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
@@ -106,9 +107,12 @@ var _ component.StepRunnable = (*ContainerdRunnable)(nil)
 var _ component.StepRunnable = (*DockerRunnable)(nil)
 
 type Base struct {
-	Version          string            `json:"version,omitempty"`
-	Offline          bool              `json:"offline"`
-	DataRootDir      string            `json:"rootDir"`
-	Registies        []v1.RegistrySpec `json:"registry,omitempty"`
-	RegistryWithAuth []v1.RegistrySpec `json:"registryWithAUth,omitempty"`
+	Version          string                         `json:"version,omitempty"`
+	Arch             string                         `json:"arch,omitempty"`
+	Offline          bool                           `json:"offline"`
+	DataRootDir      string                         `json:"rootDir"`
+	Registies        []v1.RegistrySpec              `json:"registry,omitempty"`
+	RegistryWithAuth []v1.RegistrySpec              `json:"registryWithAUth,omitempty"`
+	Transport        deliveryapis.TransportRef      `json:"transport,omitempty"`
+	Contents         []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }

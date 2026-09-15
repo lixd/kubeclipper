@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -33,6 +32,7 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/agent/config"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -190,6 +190,11 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 		},
 		DownloadImage: false,
 	}
+	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+		packageDownload.Arch = resolved.Arch
+		packageDownload.Transport = resolved.Transport
+		packageDownload.Contents = resolved.Contents
+	}
 	// master node only in this case will the image package be pulled
 	if extraMetadata.Offline && stepper.Kubeadm.ImageRegistry == "" && stepper.ImageRegistry == "" {
 		packageDownload.DownloadImage = true
@@ -317,8 +322,11 @@ kubectl uncordon %s || true`,
 				ErrIgnore: true,
 				Commands: []v1.Command{
 					{
-						Type:         v1.CommandShell,
-						ShellCommand: []string{"kubectl", "drain", extraMetadata.GetWorkerHostname(workers[i].ID)},
+						Type: v1.CommandShell,
+						// The node always runs DaemonSet pods (CNI, kube-proxy):
+						// a plain drain can never succeed there.
+						ShellCommand: []string{"kubectl", "drain", extraMetadata.GetWorkerHostname(workers[i].ID),
+							"--ignore-daemonsets", "--delete-emptydir-data", "--force"},
 					},
 				},
 				RetryTimes: 0,
@@ -370,40 +378,34 @@ func (stepper *UpgradePackage) Install(ctx context.Context, opts component.Optio
 	if err != nil {
 		return nil, err
 	}
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
-	if _, err = instance.DownloadAndUnpackConfigs(); err != nil {
-		return nil, err
+	if stepper.Transport.Type != "" {
+		if err = downloadAndUnpackResolvedPackage(ctx, stepper.Package, opts); err != nil {
+			return nil, err
+		}
+	} else {
+		if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
+			stepper.Arch = resolved.Arch
+			stepper.Transport = resolved.Transport
+			stepper.Contents = resolved.Contents
+			if err = downloadAndUnpackResolvedPackage(ctx, stepper.Package, opts); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, fmt.Errorf("upgrade Kubernetes %s requires resolved OCI artifact transport", stepper.Version)
+		}
 	}
 	if stepper.DownloadImage {
-		imageSrc, err := instance.DownloadImages()
-		if err != nil {
-			return nil, err
-		}
-		if err := utils.LoadImage(ctx, opts.DryRun, imageSrc, stepper.CriType); err != nil {
-			return nil, err
-		}
+		return nil, fmt.Errorf("upgrade Kubernetes image archives are not supported with OCI package delivery")
 	}
 	return nil, nil
 }
 
 func (stepper *UpgradePackage) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
-	instance, err := downloader.NewInstance(ctx, K8s, stepper.Version, runtime.GOARCH, !stepper.Offline, opts.DryRun)
-	if err != nil {
-		return nil, err
-	}
 	// remove upgrade package
-	if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -rf %s", filepath.Join(downloader.BaseDstDir, K8s))); err != nil {
+	if _, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -rf %s", filepath.Join(downloader.BaseDstDir, K8s))); err != nil {
 		return nil, err
 	}
 	// remove image file
-	if stepper.DownloadImage {
-		if err = instance.RemoveImages(); err != nil {
-			logger.Error("remove k8s upgrade images compressed file failed", zap.Error(err))
-		}
-	}
 	return nil, nil
 }
 

@@ -134,6 +134,13 @@ type ClusterStatus struct {
 	Certifications []Certification `json:"certifications,omitempty"`
 	// Registries all CRI registry
 	Registries []RegistrySpec `json:"registries,omitempty"`
+	// PackagePlan stores the resolved OCI installation package plan used by the
+	// current cluster generation. It is a serialized
+	// delivery/apis.ResolvedArtifactPlan so the core API does not depend on the
+	// delivery package (which would introduce an import cycle). Runtime images
+	// are not part of this field; they are selected by the static manifests and
+	// ImageRegistry.
+	PackagePlan *runtime.RawExtension `json:"packagePlan,omitempty"`
 	// ControlPlane Health
 	ControlPlaneHealth []ControlPlaneHealth `json:"controlPlaneHealth,omitempty"`
 }
