@@ -27,9 +27,10 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Golang with cache
-        uses: magnetikonline/action-golang-cache@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: true
       - name: Generate Kcctl Docs
         run:
           make cli
@@ -53,5 +54,4 @@ jobs:
       - name: Run buildx
         run: |
           docker buildx build --platform linux/amd64,linux/arm64 --push --file ./tools/kcctldocs-gen/generators/Dockerfile -t kubeclipper/kcctl-docs ./tools/kcctldocs-gen/generators
-
 

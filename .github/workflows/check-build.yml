@@ -26,9 +26,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Setup Golang with cache
-        uses: magnetikonline/action-golang-cache@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+          cache: true
       - name: Get tag or branch
         id: extract_branch
         shell: bash
