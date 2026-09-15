@@ -91,3 +91,75 @@ jobs:
             --registry "$REGISTRY_PREFIX"
           sha256sum "$RESOURCE_DIR/release-manifest.yaml" | tee "$RESOURCE_DIR/release-manifest.yaml.sha256"
           cat "$RESOURCE_DIR/release-manifest.yaml"
+
+      - name: Upload release manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: oci-release-manifest-${{ github.run_id }}
+          path: ${{ env.RESOURCE_DIR }}/release-manifest.yaml
+
+  # Round-trip the published qualification release through `kcctl registry
+  # sync` into a fresh local registry: proves the offline/mirror path users
+  # rely on (ghcr pull auth, digest verification, idempotent re-sync).
+  sync-roundtrip:
+    needs: manifest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    env:
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download release manifest
+        uses: actions/download-artifact@v7
+        with:
+          name: oci-release-manifest-${{ github.run_id }}
+          path: ${{ runner.temp }}/kc-manifest
+
+      - name: Build kcctl
+        run: go build -o "$RUNNER_TEMP/kcctl" ./cmd/kcctl
+
+      - name: Start local sync target registry
+        run: |
+          docker run -d --name kc-sync-target --publish 5000:5000 registry:2
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:5000/v2/ >/dev/null && exit 0
+            sleep 1
+          done
+          echo "local registry did not become ready" >&2
+          exit 1
+
+      - name: Sync release from ghcr into local registry
+        run: |
+          printf '%s' "$GITHUB_TOKEN" > "$RUNNER_TEMP/ghcr-token.pw"
+          "$RUNNER_TEMP/kcctl" registry sync \
+            --manifest "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" \
+            --source-username "$GITHUB_ACTOR" \
+            --source-password-file "$RUNNER_TEMP/ghcr-token.pw" \
+            --target 127.0.0.1:5000 \
+            --target-scheme http \
+            --arch amd64 \
+            | tee "$RUNNER_TEMP/sync.log"
+          grep -qE 'sync complete: [1-9][0-9]* copied' "$RUNNER_TEMP/sync.log"
+
+      - name: Verify idempotent re-sync
+        run: |
+          "$RUNNER_TEMP/kcctl" registry sync \
+            --manifest "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" \
+            --source-username "$GITHUB_ACTOR" \
+            --source-password-file "$RUNNER_TEMP/ghcr-token.pw" \
+            --target 127.0.0.1:5000 \
+            --target-scheme http \
+            --arch amd64 \
+            | tee "$RUNNER_TEMP/sync2.log"
+          grep -qE 'sync complete: 0 copied' "$RUNNER_TEMP/sync2.log"
+
+      - name: Show synced catalog
+        run: curl -sf http://127.0.0.1:5000/v2/_catalog | head -c 2000
