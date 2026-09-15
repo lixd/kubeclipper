@@ -1,0 +1,2 @@
+fanux/lvscare:v1.1.1
+kubeclipper/kubectl:latest

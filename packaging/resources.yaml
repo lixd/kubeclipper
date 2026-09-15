@@ -1,0 +1,70 @@
+apiVersion: packaging.kubeclipper.io/v1alpha1
+kind: OfflineResourceBuild
+release: v2.0.0
+architectures:
+  - amd64
+  - arm64
+registries:
+  package: ghcr.io/kubeclipper/kubeclipper
+  image: ghcr.io/kubeclipper/kubeclipper
+bootstrap:
+  kubeclipperVersion: v2.0.0
+  etcdVersion: 3.5.21
+  consoleVersion: v1.6.0
+  registryVersion: 3.1.1
+  caddyVersion: 2.10.2
+  registry:
+    bootstrapImage: registry:2
+resources:
+  k8s:
+    versions:
+      - v1.37.0
+      - v1.36.4
+      - v1.35.8
+    kubeadmConfVersion: 0.16.2
+  k8sExtension:
+    versions:
+      - v1
+    etcdVersion: 3.5.21
+    helmVersion: 3.18.6
+    nerdctlVersion: 1.4.0
+    cniPluginsVersion: 1.3.0
+    calicoVersion: 3.31.5
+    conntrack:
+      version: 1.4.9
+  kcRuntime:
+    versions:
+      - v2.0.0
+  runtimeImageSets:
+    nfs:
+      versions:
+        - v4.1.0
+    metallb:
+      versions:
+        - v0.13.7
+  cri:
+    containerd:
+      versions:
+        - 2.2.4
+        - 1.7.29
+      runcVersion: 1.3.3
+      crictlVersion: 1.35.0
+  cni:
+    calico:
+      versions:
+        - v3.31.5
+        - v3.29.6
+      chartName: tigera-operator
+addons:
+  nvidia-dra-driver-gpu:
+    enabled: false
+    versions:
+      - 25.8.0
+    chartName: nvidia-dra-driver-gpu
+    chartVersion: 25.8.0
+  nvidia-gpu-operator:
+    enabled: false
+    versions:
+      - v25.10.0
+    chartName: gpu-operator
+    chartVersion: 25.10.0
