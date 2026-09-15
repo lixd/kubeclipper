@@ -374,3 +374,43 @@ func TestDeployOptionsValidateArgsDoesNotRequirePackage(t *testing.T) {
 		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
 	}
 }
+
+func TestRetryConfigWriteSucceedsAfterTransient(t *testing.T) {
+	calls := 0
+	err := retryConfigWrite(func() error {
+		calls++
+		if calls < 3 {
+			return errors.New("etcdserver: request timed out")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("retryConfigWrite = %v, want nil", err)
+	}
+	if calls != 3 {
+		t.Fatalf("calls = %d, want 3", calls)
+	}
+}
+
+func TestRetryConfigWriteStopsOnPermanentError(t *testing.T) {
+	calls := 0
+	err := retryConfigWrite(func() error {
+		calls++
+		return errors.New("access denied by policy")
+	})
+	if err == nil || calls != 1 {
+		t.Fatalf("err=%v calls=%d, want immediate permanent failure", err, calls)
+	}
+}
+
+func TestIsTransientConfigWrite(t *testing.T) {
+	transient := []string{"etcdserver: request timed out", "503 Service Unavailable: Unavailable", "connection refused", "EOF", "etcdserver: no leader", "please try again"}
+	for _, msg := range transient {
+		if !isTransientConfigWrite(errors.New(msg)) {
+			t.Errorf("%q classified as permanent", msg)
+		}
+	}
+	if isTransientConfigWrite(errors.New("validation failed: bad kind")) {
+		t.Error("permanent error classified as transient")
+	}
+}

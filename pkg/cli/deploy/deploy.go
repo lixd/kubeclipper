@@ -1381,19 +1381,66 @@ func (d *DeployOptions) sendDefaultAdminConf() error {
 	return err
 }
 
+// configWriteAttempts / configWriteRetryGap keep retrying the very first
+// etcd writes after a fresh kc-server start: the API can answer /healthz
+// while etcd is still electing a leader, and "request timed out" must not
+// abort a deployment whose services are already installed (that used to
+// leave the platform between states where even a follow-up deploy/clean
+// could not proceed without manual surgery).
+const (
+	configWriteAttempts = 6
+	configWriteRetryGap = 5 * time.Second
+)
+
 func createOrUpdateConfigMap(client *kc.Client, cm *v1.ConfigMap) {
+	err := retryConfigWrite(func() error {
+		return putConfigMap(client, cm)
+	})
+	if err != nil {
+		logger.Fatalf("upload configmap %s failed: %v", cm.Name, err)
+	}
+}
+
+func putConfigMap(client *kc.Client, cm *v1.ConfigMap) error {
 	existing, err := client.DescribeConfigMap(context.TODO(), cm.Name)
 	if err == nil && len(existing.Items) > 0 {
 		existingCM := existing.Items[0]
 		existingCM.Data = cm.Data
 		if _, err = client.UpdateConfigMap(context.TODO(), &existingCM); err != nil {
-			logger.Fatalf("update configmap %s failed: %v", cm.Name, err)
+			return err
 		}
-		return
+		return nil
 	}
-	if _, err = client.CreateConfigMap(context.TODO(), cm); err != nil {
-		logger.Fatalf("create configmap %s failed: %v", cm.Name, err)
+	_, err = client.CreateConfigMap(context.TODO(), cm)
+	return err
+}
+
+func retryConfigWrite(put func() error) error {
+	var err error
+	for attempt := 1; attempt <= configWriteAttempts; attempt++ {
+		if err = put(); err == nil {
+			return nil
+		}
+		if !isTransientConfigWrite(err) || attempt == configWriteAttempts {
+			break
+		}
+		logger.Warnf("configmap write failed (attempt %d/%d): %v; retrying", attempt, configWriteAttempts, err)
+		time.Sleep(configWriteRetryGap)
 	}
+	return err
+}
+
+func isTransientConfigWrite(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, marker := range []string{"request timed out", "Unavailable", "connection refused", "EOF", "no leader", "try again"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
