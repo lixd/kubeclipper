@@ -36,12 +36,22 @@ import (
 
 type fakeEtcdHealthClient struct {
 	getErr error
+	putErr error
 	keys   []string
 }
 
 func (c *fakeEtcdHealthClient) Get(_ context.Context, key string, _ ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	c.keys = append(c.keys, key)
 	return &clientv3.GetResponse{}, c.getErr
+}
+
+func (c *fakeEtcdHealthClient) Put(_ context.Context, key, _ string, _ ...clientv3.OpOption) (*clientv3.PutResponse, error) {
+	c.keys = append(c.keys, key)
+	return &clientv3.PutResponse{}, c.putErr
+}
+
+func (*fakeEtcdHealthClient) Delete(_ context.Context, _ string, _ ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
+	return &clientv3.DeleteResponse{}, nil
 }
 
 func (*fakeEtcdHealthClient) Close() error {
@@ -112,17 +122,17 @@ func TestCheckEtcdEndpoints(t *testing.T) {
 			t.Fatalf("checkEtcdEndpoints() error = %v", err)
 		}
 		for _, client := range clients {
-			if !reflect.DeepEqual(client.keys, []string{"health"}) {
-				t.Fatalf("health check keys = %v, want [health]", client.keys)
+			if len(client.keys) != 1 || !strings.HasPrefix(client.keys[0], "__kc_deploy_healthcheck__/") {
+				t.Fatalf("write probe keys = %v, want one healthcheck probe key", client.keys)
 			}
 		}
 	})
 
 	t.Run("endpoint unhealthy", func(t *testing.T) {
-		clients := []etcdHealthClient{&fakeEtcdHealthClient{}, &fakeEtcdHealthClient{getErr: errors.New("connection refused")}}
+		clients := []etcdHealthClient{&fakeEtcdHealthClient{}, &fakeEtcdHealthClient{putErr: errors.New("etcdserver: request timed out")}}
 		err := checkEtcdEndpoints(context.Background(), clients, endpoints)
-		if err == nil || !strings.Contains(err.Error(), endpoints[1]) {
-			t.Fatalf("checkEtcdEndpoints() error = %v, want endpoint %q", err, endpoints[1])
+		if err == nil || !strings.Contains(err.Error(), endpoints[1]) || !strings.Contains(err.Error(), "write probe") {
+			t.Fatalf("checkEtcdEndpoints() error = %v, want endpoint %q write probe failure", err, endpoints[1])
 		}
 	})
 }

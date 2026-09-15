@@ -697,6 +697,9 @@ func (d *DeployOptions) RunDeploy() error {
 	logger.Infof("------ Dump configs ------")
 	d.dumpConfig()
 	logger.Infof("------ Upload configs ------")
+	if err := d.waitEtcdReady(); err != nil {
+		return err
+	}
 	d.uploadConfig()
 	if err := writeLocalDeployConfig(d.deployConfig); err != nil {
 		return fmt.Errorf("sync local deploy config: %w", err)
@@ -922,6 +925,8 @@ func (d *DeployOptions) deployEtcd() {
 
 type etcdHealthClient interface {
 	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
+	Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error)
+	Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error)
 	Close() error
 }
 
@@ -1011,11 +1016,20 @@ func checkEtcdEndpoints(ctx context.Context, clients []etcdHealthClient, endpoin
 	}
 	for i, endpoint := range endpoints {
 		requestCtx, cancel := context.WithTimeout(ctx, serviceHealthCheckTimeout)
-		_, err := clients[i].Get(requestCtx, "health")
-		cancel()
-		if err != nil {
-			return fmt.Errorf("endpoint %s is unhealthy: %w", endpoint, err)
+		// A linearizable read only proves a committed read-index; the very
+		// first writes after bootstrap can still time out while proposals
+		// cannot be committed (leader still settling, slow initial fsync).
+		// Probe the actual write path with a put+delete round trip.
+		probeKey := fmt.Sprintf("__kc_deploy_healthcheck__/%d", time.Now().UnixNano())
+		if _, err := clients[i].Put(requestCtx, probeKey, "1"); err != nil {
+			cancel()
+			return fmt.Errorf("endpoint %s is unhealthy (write probe): %w", endpoint, err)
 		}
+		if _, err := clients[i].Delete(requestCtx, probeKey); err != nil {
+			cancel()
+			return fmt.Errorf("endpoint %s is unhealthy (write probe cleanup): %w", endpoint, err)
+		}
+		cancel()
 	}
 	return nil
 }
