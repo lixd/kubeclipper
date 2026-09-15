@@ -29,11 +29,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
-	nfsprovisioner "github.com/kubeclipper/kubeclipper/pkg/component/nfs"
+	nfscsi "github.com/kubeclipper/kubeclipper/pkg/component/nfscsi"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	mock_cluster "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	bs "github.com/kubeclipper/kubeclipper/pkg/simple/backupstore"
 )
 
 var (
@@ -239,7 +240,7 @@ func Test_parseOperationFromComponent(t *testing.T) {
 		components []v1.Addon
 	}
 	h := newHandler(nil, nil, nil, nil, nil, nil, nil)
-	nfs := nfsprovisioner.NFSProvisioner{
+	nfs := nfscsi.NFS{
 		ManifestsDir:     "/tmp/.nfs",
 		Namespace:        "kube-system",
 		Replicas:         1,
@@ -248,13 +249,12 @@ func Test_parseOperationFromComponent(t *testing.T) {
 		StorageClassName: "nfs-sc",
 		IsDefault:        false,
 		ReclaimPolicy:    "Delete",
-		ArchiveOnDelete:  false,
 		MountOptions:     nil,
 	}
 	nfsByte, _ := json.Marshal(nfs)
 	com := []v1.Addon{
 		{
-			Name:    "nfs-provisioner",
+			Name:    "nfs-csi",
 			Version: "v1",
 			Config: runtime.RawExtension{
 				Raw:    nfsByte,
@@ -504,4 +504,66 @@ const (
 
 func IgnoreError(err error) bool {
 	return strings.Contains(err.Error(), availableMasterError) || strings.Contains(err.Error(), allAvailableMasterError)
+}
+
+func TestValidateBackupPoint(t *testing.T) {
+	cases := []struct {
+		name    string
+		bp      *v1.BackupPoint
+		wantErr bool
+	}{
+		{
+			name: "fs with root dir",
+			bp:   &v1.BackupPoint{StorageType: bs.FSStorage, FsConfig: &v1.FsConfig{BackupRootDir: "/srv/kc-backup"}},
+		},
+		{
+			name:    "fs missing config",
+			bp:      &v1.BackupPoint{StorageType: bs.FSStorage},
+			wantErr: true,
+		},
+		{
+			name:    "fs empty root dir",
+			bp:      &v1.BackupPoint{StorageType: bs.FSStorage, FsConfig: &v1.FsConfig{}},
+			wantErr: true,
+		},
+		{
+			name: "s3 complete",
+			bp: &v1.BackupPoint{StorageType: bs.S3Storage, S3Config: &v1.S3Config{
+				Bucket: "kc-backup", Endpoint: "minio.example.com:9000",
+			}},
+		},
+		{
+			name:    "s3 missing config",
+			bp:      &v1.BackupPoint{StorageType: bs.S3Storage},
+			wantErr: true,
+		},
+		{
+			name: "s3 short bucket",
+			bp: &v1.BackupPoint{StorageType: bs.S3Storage, S3Config: &v1.S3Config{
+				Bucket: "ab", Endpoint: "minio.example.com:9000",
+			}},
+			wantErr: true,
+		},
+		{
+			name:    "empty storage type",
+			bp:      &v1.BackupPoint{},
+			wantErr: true,
+		},
+		{
+			name:    "nfs storage type",
+			bp:      &v1.BackupPoint{StorageType: "nfs"},
+			wantErr: true,
+		},
+		{
+			name: "uppercase fs accepted",
+			bp:   &v1.BackupPoint{StorageType: "FS", FsConfig: &v1.FsConfig{BackupRootDir: "/srv"}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := validateBackupPoint(c.bp); (got != nil) != c.wantErr {
+				t.Fatalf("validateBackupPoint(%+v) = %v, wantErr %v", c.bp.StorageType, got, c.wantErr)
+			}
+		})
+	}
 }

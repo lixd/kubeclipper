@@ -176,6 +176,9 @@ func SetupWebService(h *handler) *restful.WebService {
 		Param(webservice.PathParameter(query.ParameterName, "cluster name").
 			Required(true).
 			DataType("string")).
+		Param(webservice.QueryParameter("timeout", "operation timeout in seconds").
+			Required(false).
+			DataType("string")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Cluster{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
 

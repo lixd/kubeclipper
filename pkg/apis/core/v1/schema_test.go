@@ -27,7 +27,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 
-	nfsprovisioner "github.com/kubeclipper/kubeclipper/pkg/component/nfs"
+	nfscsi "github.com/kubeclipper/kubeclipper/pkg/component/nfscsi"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -93,16 +93,16 @@ var (
 	}
 	addons = []v1.Addon{
 		{
-			Name:    "nfs-provisioner",
+			Name:    "nfs-csi",
 			Version: "v1",
-			Config:  runtime.RawExtension{Raw: []byte(`{"scName": "nfs-provisioner-v1"}`)},
+			Config:  runtime.RawExtension{Raw: []byte(`{"scName": "nfs-csi-v1"}`)},
 		},
 	}
 )
 
 func init() {
-	nfs := &nfsprovisioner.NFSProvisioner{}
-	_ = component.Register(fmt.Sprintf(component.RegisterFormat, "nfs-provisioner", "v1"), nfs)
+	nfs := &nfscsi.NFS{}
+	_ = component.Register(fmt.Sprintf(component.RegisterFormat, "nfs-csi", "v1"), nfs)
 
 }
 
@@ -124,7 +124,7 @@ func Test_checkComponents(t *testing.T) {
 					Uninstall: true,
 					Addons: []v1.Addon{
 						{
-							Name:    "nfs-provisioner",
+							Name:    "nfs-csi",
 							Version: "v1",
 						},
 					},
@@ -140,7 +140,7 @@ func Test_checkComponents(t *testing.T) {
 					Uninstall: false,
 					Addons: []v1.Addon{
 						{
-							Name:    "nfs-provisioner",
+							Name:    "nfs-csi",
 							Version: "v1",
 						},
 					},
@@ -192,10 +192,10 @@ func Test_addOrRemoveComponentFromCluster(t *testing.T) {
 					Uninstall: true,
 					Addons: []v1.Addon{
 						{
-							Name:    "nfs-provisioner",
+							Name:    "nfs-csi",
 							Version: "v1",
 							Config: runtime.RawExtension{
-								Raw: []byte(`{"scName": "nfs-provisioner-v1"}`),
+								Raw: []byte(`{"scName": "nfs-csi-v1"}`),
 							},
 						},
 					},

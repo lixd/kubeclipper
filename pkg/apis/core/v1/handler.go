@@ -62,6 +62,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/controller"
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/client"
 	"github.com/kubeclipper/kubeclipper/pkg/controller/cloudprovidercontroller"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
 	"github.com/kubeclipper/kubeclipper/pkg/models/core"
@@ -96,6 +97,7 @@ type handler struct {
 	operationV2Store operationv2store.Store
 	platformOperator platform.Operator
 	coreOperator     core.Operator
+	deliveryIndexer  RegistryPackageInventoryIndexer
 	tokenOperator    auth.TokenManagementInterface
 }
 
@@ -121,6 +123,7 @@ func newHandler(conf *generic.ServerRunOptions, clusterOperator cluster.Operator
 		platformOperator: platformOperator,
 		leaseOperator:    leaseOperator,
 		coreOperator:     coreOperator,
+		deliveryIndexer:  nil,
 		tokenOperator:    tokenOperator,
 	}
 }
@@ -271,6 +274,45 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 		case clusteroperation.NodesOperationRemove:
 			if !nodeSet.Has(n.ID) {
 				restplus.HandleBadRequest(response, request, fmt.Errorf("the node(%s) is not part of this cluster and cannot be removed", n.IPv4))
+				return
+			}
+		}
+	}
+
+	// Add-node operations are materialized later by the cluster controller. Reuse
+	// the package plan selected when the cluster was created/upgraded; resolving
+	// again here could select a different digest or architecture.
+	if pn.Operation == clusteroperation.NodesOperationAdd {
+		pn.ResolvedArtifactPlan, err = deliveryapis.DecodeResolvedArtifactPlan(c.Status.PackagePlan)
+		if err != nil {
+			restplus.HandleInternalError(response, request, err)
+			return
+		}
+		if pn.ResolvedArtifactPlan == nil {
+			restplus.HandleBadRequest(response, request, fmt.Errorf("cluster package plan is not initialized"))
+			return
+		}
+		if pn.ResolvedArtifactPlan.KubernetesVersion == "" || pn.ResolvedArtifactPlan.KubernetesVersion != c.KubernetesVersion {
+			restplus.HandleBadRequest(response, request, fmt.Errorf(
+				"cluster package plan version %q does not match cluster version %q",
+				pn.ResolvedArtifactPlan.KubernetesVersion, c.KubernetesVersion,
+			))
+			return
+		}
+		if pn.ResolvedArtifactPlan.Arch == "" {
+			restplus.HandleBadRequest(response, request, fmt.Errorf("cluster package plan architecture is not initialized"))
+			return
+		}
+		for _, node := range nodes {
+			if node.Arch == "" {
+				restplus.HandleBadRequest(response, request, fmt.Errorf("node %q architecture is not reported", node.ID))
+				return
+			}
+			if node.Arch != pn.ResolvedArtifactPlan.Arch {
+				restplus.HandleBadRequest(response, request, fmt.Errorf(
+					"node %q architecture %q does not match cluster package plan architecture %q",
+					node.ID, node.Arch, pn.ResolvedArtifactPlan.Arch,
+				))
 				return
 			}
 		}
@@ -554,6 +596,10 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 	cluName := request.PathParameter(query.ParameterName)
 	ctx := request.Request.Context()
 	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
+	timeoutSecs := v1.DefaultOperationTimeoutSecs
+	if v := request.QueryParameter("timeout"); v != "" {
+		timeoutSecs = v
+	}
 	c, err := h.clusterOperator.GetCluster(ctx, cluName)
 	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
@@ -574,7 +620,7 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 	op.Name = uuid.New().String()
 	op.Labels = map[string]string{
 		common.LabelClusterName:      c.Name,
-		common.LabelTimeoutSeconds:   v1.DefaultOperationTimeoutSecs,
+		common.LabelTimeoutSeconds:   timeoutSecs,
 		common.LabelOperationAction:  v1.OperationUpdateCertification,
 		common.LabelOperationSponsor: buildOperationSponsor(h.genericConfig),
 	}
@@ -999,6 +1045,7 @@ func (h *handler) getNodeInfo(ctx context.Context, nodes v1.WorkerNodeList, skip
 			ID:       n.Name,
 			IPv4:     n.Status.Ipv4DefaultIP,
 			NodeIPv4: n.Status.NodeIpv4DefaultIP,
+			Arch:     n.Status.NodeInfo.Arch,
 			Region:   n.Labels[common.LabelTopologyRegion],
 			Hostname: n.Status.NodeInfo.Hostname,
 			Role:     n.Labels[common.LabelNodeRole],
@@ -1250,8 +1297,10 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 	backup.Status.KubernetesVersion = c.KubernetesVersion
 	backup.Status.FileName = backup.Name
 	backup.BackupPointName = c.Labels[common.LabelBackupPoint]
-	_, ok := backup.Annotations[common.AnnotationDescription]
-	if !ok {
+	if backup.Annotations == nil {
+		backup.Annotations = map[string]string{}
+	}
+	if _, ok := backup.Annotations[common.AnnotationDescription]; !ok {
 		backup.Annotations[common.AnnotationDescription] = ""
 	}
 
@@ -1704,7 +1753,14 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		return
 	}
 
-	if err := upgradeComp.InitSteps(component.WithExtraMetadata(context.TODO(), *extraMeta)); err != nil {
+	upgradeCtx := component.WithExtraMetadata(request.Request.Context(), *extraMeta)
+	upgradeCtx, err = h.withResolvedArtifactPlan(upgradeCtx, extraMeta, clu, v1.ActionUpgrade)
+	if err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	err = upgradeComp.InitSteps(upgradeCtx)
+	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
@@ -2758,8 +2814,8 @@ func (h *handler) CreateBackupPoint(request *restful.Request, response *restful.
 	}
 
 	bp.StorageType = strings.ToLower(bp.StorageType)
-	if bp.StorageType == bs.S3Storage && len([]rune(bp.S3Config.Bucket)) <= 3 {
-		restplus.HandleBadRequest(response, request, fmt.Errorf("bucket name cannot be shorter than 3 characters"))
+	if err := validateBackupPoint(bp); err != nil {
+		restplus.HandleBadRequest(response, request, err)
 		return
 	}
 
