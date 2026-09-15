@@ -519,6 +519,8 @@ fixture
 
 - 动态 Addon 统一创建 Operation；
 - Addon/业务 Controller 在创建 Operation 前把 OCI tag 解析并锁定为 digest；Task 只携带 digest reference 和有界参数；
+- Cluster 创建/升级时解析出的安装制品计划保存为 `Cluster.status.packagePlan`；AddNodes 直接复用该快照并写入 PendingOperation，不重新按当前 Registry 或节点架构解析。缺少快照时拒绝创建 AddNodes 操作；
+- 运行时镜像不进入该计划：Kubernetes/Calico 等镜像仍由静态 manifest 选择，`Cluster.ImageRegistry` 只作为镜像 Registry 前缀；
 - reconcile 先 GET 稳定 Operation name，只有 NotFound 才解析 tag；已有 Operation 的 digest 不因 Catalog/tag 后续变化而重算；
 - Chart、镜像、备份和其他 blob 不进入 etcd；Registry credential 不进入 Operation、Task、outputs 或日志；
 - OCI executor 接入前明确复用 Node 本地凭证或实现按 Task/Agent 身份授权的运行时凭证读取，不为 Operation Engine 新增 Artifact/Secret 资源；
