@@ -118,6 +118,9 @@ type OperationStep struct {
 	Payload    runtime.RawExtension `json:"payload"`
 	Inputs     []StepInput          `json:"inputs,omitempty"`
 	RetryLimit int32                `json:"retryLimit,omitempty"`
+	// ErrIgnore keeps the operation running when this step fails: the failed
+	// attempt is recorded on the task and the plan moves to the next step.
+	ErrIgnore bool `json:"errIgnore,omitempty"`
 }
 
 type StepInput struct {

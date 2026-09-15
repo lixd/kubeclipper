@@ -129,6 +129,12 @@ func currentStepFacts(
 			})
 		}
 		for _, target := range step.Targets {
+			// ErrIgnore steps consume the target once an attempt reaches a
+			// terminal phase: the failure stays recorded on the task, but the
+			// plan continues with the next step instead of failing.
+			if step.ErrIgnore && nodeFinished(facts.ByNode[target.UID]) {
+				continue
+			}
 			if !nodeSucceeded(facts.ByNode[target.UID]) {
 				facts.Incomplete = append(facts.Incomplete, target)
 			}
@@ -154,6 +160,13 @@ func validateLaterStepsEmpty(op *operations.Operation, byStep map[string][]*oper
 		}
 	}
 	return nil
+}
+
+// nodeFinished reports whether the target's latest attempt reached a
+// terminal phase, regardless of the outcome.
+func nodeFinished(tasks []*operations.OperationTask) bool {
+	task := latestTask(tasks)
+	return task != nil && task.Status.Phase.IsTerminal()
 }
 
 func nodeSucceeded(tasks []*operations.OperationTask) bool {

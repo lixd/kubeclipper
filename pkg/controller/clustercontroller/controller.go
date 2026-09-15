@@ -307,7 +307,14 @@ func (r *ClusterReconciler) updateNodeRoleLabel(ctx context.Context, clusterName
 }
 
 func (r *ClusterReconciler) syncClusterClient(ctx context.Context, log logger.Logging, c *v1.Cluster) error {
-	if c.Status.Phase == v1.ClusterInstalling || c.Status.Phase == v1.ClusterInstallFailed {
+	switch c.Status.Phase {
+	case v1.ClusterInstalling, v1.ClusterInstallFailed:
+		return nil
+	case v1.ClusterTerminating, v1.ClusterTerminateFailed:
+		// Deleting clusters must not gate on kubeconfig sync. A canceled or
+		// partially created cluster has no kubeconfig; requiring the sync
+		// operation here leaves it Pending behind the cluster execution lock
+		// and permanently wedges cluster deletion.
 		return nil
 	}
 	var (

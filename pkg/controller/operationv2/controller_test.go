@@ -638,3 +638,68 @@ func TestMapTargetOperationsUsesTargetUIDIndex(t *testing.T) {
 		t.Fatalf("mapped requests = %v, want the operation itself and its same-target sibling only", names)
 	}
 }
+
+func TestRunningOperationProceedsDespiteEarlierPendingOperation(t *testing.T) {
+	store := newFakeStore()
+	// Mirror the reported deadlock: the delete operation started (Running,
+	// holding the target lock) and the cluster controller then created an
+	// earlier kubeconfig sync operation that cannot run behind that lock.
+	syncOp := testOperation("sync-kubeconfig", "op-sync", testNow, oneStep("step", 0, "node-1"))
+	store.addOperation(syncOp)
+
+	deleteOp := runningOperation("delete", oneStep("step", 0, "node-1"))
+	deleteOp.UID = "op-delete"
+	deleteOp.CreationTimestamp = metav1.NewTime(testNow)
+	store.addOperation(deleteOp)
+	store.addOwnedLock(deleteOp)
+
+	// The delete deadline already passed while the operation was gated.
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(2 * time.Hour) }}
+
+	result := reconcileOK(t, r, "delete")
+	if result.RequeueAfter != 0 {
+		t.Fatalf("running operation was starved by the ordering gate: %+v", result)
+	}
+	if got := store.operation("delete").Status.Phase; got != operations.OperationTimedOut {
+		t.Fatalf("delete phase = %s, want TimedOut", got)
+	}
+	if len(store.locks) != 0 {
+		t.Fatalf("lock was not released after the timeout: %v", store.locks)
+	}
+
+	// With the lock released the earlier operation must now start.
+	reconcileOK(t, r, "sync-kubeconfig")
+	if got := store.operation("sync-kubeconfig").Status.Phase; got != operations.OperationRunning {
+		t.Fatalf("sync phase = %s, want Running after the lock was released", got)
+	}
+}
+
+func TestErrIgnoreStepFailureDoesNotFailOperation(t *testing.T) {
+	store := newFakeStore()
+	// step-1 carries ErrIgnore and its single attempt fails; step-2 must still
+	// run and the operation must finish Succeeded.
+	ignored := testOperation("ignored", "op-1", testNow, oneStep("step-1", 0, "node-1"))
+	ignored.Spec.Steps[0].ErrIgnore = true
+	ignored.Spec.Steps = append(ignored.Spec.Steps, oneStep("step-2", 0, "node-1"))
+	store.addOperation(ignored)
+
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(time.Minute) }}
+	reconcileOK(t, r, "ignored") // creates the step-1 task
+	reconcileOK(t, r, "ignored") // task running → nothing yet
+
+	failed := store.tasks[TaskName("op-1", 0, "step-1", "node-1", 0)]
+	if failed == nil {
+		t.Fatal("step-1 task was not created")
+	}
+	failed.Status.Phase = operations.TaskFailed
+	failed.Status.Result = &operations.TaskResult{Reason: operations.TaskReasonExecutionFailed, Message: "drain blocked"}
+
+	reconcileOK(t, r, "ignored") // failed attempt consumed → create step-2 task
+	reconcileOK(t, r, "ignored") // step-2 task completes
+	store.tasks[TaskName("op-1", 0, "step-2", "node-1", 0)].Status.Phase = operations.TaskSucceeded
+
+	reconcileOK(t, r, "ignored")
+	if got := store.operation("ignored").Status.Phase; got != operations.OperationSucceeded {
+		t.Fatalf("operation phase = %s, want Succeeded (ErrIgnore step failure must not fail the operation)", got)
+	}
+}
