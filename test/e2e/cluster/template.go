@@ -24,14 +24,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	nfsprovisioner "github.com/kubeclipper/kubeclipper/pkg/component/nfs"
 	"github.com/kubeclipper/kubeclipper/pkg/component/nfscsi"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
 const (
-	nameNFSProvider = "nfs-provisioner"
 	nameNFSCSI      = "nfs-csi"
 
 	Storage = "storage"
@@ -54,15 +52,6 @@ func initAddonList() ([]addonE2E, error) {
 	list := make([]addonE2E, 0)
 
 	v := addonE2E{
-		name:      nameNFSProvider,
-		labels:    initAddonLabelV1(Storage, nameNFSProvider),
-		data:      dataList[nameNFSProvider],
-		component: nameNFSProvider,
-		category:  Storage,
-	}
-	list = append(list, v)
-
-	v = addonE2E{
 		name:      nameNFSCSI,
 		labels:    initAddonLabelV1(Storage, nameNFSCSI),
 		data:      dataList[nameNFSCSI],
@@ -76,13 +65,6 @@ func initAddonList() ([]addonE2E, error) {
 
 func initAddonDataList() (map[string][]byte, error) {
 	list := make(map[string][]byte)
-
-	nfsProvider := nfsprovisioner.NFSProvisioner{}
-	nfsProviderData, err := json.Marshal(nfsProvider)
-	if err != nil {
-		return nil, err
-	}
-	list[nameNFSProvider] = nfsProviderData
 
 	nfsCsi := nfscsi.NFS{}
 	nfsCsiData, err := json.Marshal(nfsCsi)
@@ -125,14 +107,6 @@ func editReplace(t *corev1.Template) error {
 	)
 
 	switch t.Labels[common.LabelComponentName] {
-	case nameNFSProvider:
-		v := &nfsprovisioner.NFSProvisioner{}
-		err = json.Unmarshal(t.Config.Raw, v)
-		if err != nil {
-			return err
-		}
-		v.Replicas = 3
-		data, err = json.Marshal(v)
 	case nameNFSCSI:
 		v := &nfscsi.NFS{}
 		err = json.Unmarshal(t.Config.Raw, v)

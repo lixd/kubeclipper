@@ -23,13 +23,6 @@ authentication:
 #        - openid
 #        - email
 #        redirectURL: http://localhost:8089/oauth/redirect/keycloak
-staticServer:
-  bindAddress: 0.0.0.0
-  insecurePort: 8090
-  securePort: 0
-  tlsCertFile: ""
-  tlsPrivateKey: ""
-  path: /tmp/kubeclipper-server/resource
 log:
   logFile: ""
   logFileMaxSizeMB: 100

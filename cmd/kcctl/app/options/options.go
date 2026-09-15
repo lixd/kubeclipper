@@ -271,12 +271,10 @@ type DeployConfig struct {
 	NodeIPDetect               string                         `json:"nodeIPDetect" yaml:"nodeIPDetect,omitempty"`
 	Debug                      bool                           `json:"debug" yaml:"debug,omitempty"`
 	DefaultRegion              string                         `json:"defaultRegion" yaml:"defaultRegion,omitempty"`
+	PackageRegistry            string                         `json:"packageRegistry" yaml:"packageRegistry,omitempty"`
 	ServerPort                 int                            `json:"serverPort" yaml:"serverPort,omitempty"`
 	TLS                        bool                           `json:"tls" yaml:"tls,omitempty"`
-	StaticServerPort           int                            `json:"staticServerPort" yaml:"staticServerPort,omitempty"`
-	StaticServerPath           string                         `json:"staticServerPath" yaml:"staticServerPath,omitempty"`
 	TempDir                    string                         `json:"tempDir" yaml:"tempDir,omitempty"`
-	Pkg                        string                         `json:"pkg" yaml:"pkg,omitempty"`
 	ConsolePort                int                            `json:"consolePort" yaml:"consolePort,omitempty"`
 	AuditOpts                  *option.AuditOptions           `json:"audit" yaml:"audit,omitempty"`
 	OpLog                      *OpLog                         `json:"opLog" yaml:"opLog,omitempty"`
@@ -333,15 +331,13 @@ func NewDeployOptions() *DeployConfig {
 			MetricsPort: 12381,
 			DataDir:     "/var/lib/kc-etcd",
 		},
-		Debug:            false,
-		DefaultRegion:    "default",
-		ServerPort:       8080,
-		TLS:              true,
-		StaticServerPort: 8081,
-		StaticServerPath: "/opt/kubeclipper-server/resource",
-		TempDir:          config.DefaultPkgPath,
-		AuditOpts:        option.NewAuditOptions(),
-		ConsolePort:      80,
+		Debug:         false,
+		DefaultRegion: "default",
+		ServerPort:    8080,
+		TLS:           true,
+		TempDir:       config.DefaultPkgPath,
+		AuditOpts:     option.NewAuditOptions(),
+		ConsolePort:   80,
 		OpLog: &OpLog{
 			Dir:       "/var/log/kc-agent",
 			Threshold: 1048576,
@@ -440,17 +436,15 @@ func (c *DeployConfig) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVar(&c.NodeIPDetect, "node-ip-detect", c.NodeIPDetect, fmt.Sprintf("Kc agent node ip detect method. Used for routing between nodes in the kubernetes cluster. If not specified, ip-detect is inherited. \n%s", IPDetectDescription))
 	flags.BoolVar(&c.Debug, "debug", c.Debug, "Deploy kc use debug mode")
 	flags.StringVarP(&c.DefaultRegion, "region", "r", c.DefaultRegion, "Kc agent default region")
+	flags.StringVar(&c.PackageRegistry, "package-registry", c.PackageRegistry, "OCI registry for KubeClipper packages")
 	flags.BoolVar(&c.TLS, "tls", c.TLS, "Kc api server  use tls mode")
 	flags.IntVar(&c.ServerPort, "server-port", c.ServerPort, "Kc server port")
-	flags.IntVar(&c.StaticServerPort, "static-server-port", c.StaticServerPort, "Kc static server port")
-	flags.StringVar(&c.StaticServerPath, "static-server-path", c.StaticServerPath, "Kc static server path(absolute path")
 	flags.StringVar(&c.TempDir, "temp-dir", c.TempDir, "Temporary directory used for deployment files (absolute path)")
 	flags.StringSliceVar(&c.ServerIPs, "server", c.ServerIPs, "Kc server ips")
 	flags.IntVar(&c.EtcdConfig.ClientPort, "etcd-port", c.EtcdConfig.ClientPort, "Etcd port")
 	flags.IntVar(&c.EtcdConfig.PeerPort, "etcd-peer-port", c.EtcdConfig.PeerPort, "Etcd peer port")
 	flags.IntVar(&c.EtcdConfig.MetricsPort, "etcd-metric-port", c.EtcdConfig.MetricsPort, "Etcd metric port")
 	flags.StringVar(&c.EtcdConfig.DataDir, "etcd-data-dir", c.EtcdConfig.DataDir, "Etcd data dir(absolute path)")
-	flags.StringVar(&c.Pkg, "pkg", c.Pkg, "Package resource url (path or http url)")
 	flags.IntVar(&c.ConsolePort, "console-port", c.ConsolePort, "kc console port")
 	flags.StringVar(&c.OpLog.Dir, "oplog-dir", c.OpLog.Dir, "kc agent operation log dir")
 	flags.IntVar(&c.OpLog.Threshold, "oplog-threshold", c.OpLog.Threshold, "kc agent operation log single threshold")
@@ -492,8 +486,6 @@ func (c *DeployConfig) GetKcServerConfigTemplateContent(ip string) (string, erro
 	data["AuthenticateRateLimiterDuration"] = c.AuthenticationOpts.AuthenticateRateLimiterDuration
 	data["LoginHistoryMaximumEntries"] = c.AuthenticationOpts.LoginHistoryMaximumEntries
 	data["LoginHistoryRetentionPeriod"] = c.AuthenticationOpts.LoginHistoryRetentionPeriod
-	data["StaticServerPort"] = c.StaticServerPort
-	data["StaticServerPath"] = c.StaticServerPath
 	if c.Debug {
 		data["LogLevel"] = "debug"
 	} else {
@@ -527,7 +519,6 @@ func (c *DeployConfig) GetKcAgentConfigTemplateContent(metadata Metadata) (strin
 	data["AgentLogPort"] = logPort
 	data["IPDetect"] = c.IPDetect
 	data["NodeIPDetect"] = c.NodeIPDetect
-	data["StaticServerAddress"] = fmt.Sprintf("http://%s:%d", c.ServerIPs[0], c.StaticServerPort)
 	data["APIServerEndpoint"] = fmt.Sprintf("https://%s:%d", c.ServerIPs[0], c.ServerPort)
 	data["APIServerCAFile"] = filepath.Join(DefaultKcAgentConfigPath, DefaultAgentPKIPath, "ca.crt")
 	data["AgentCertFile"] = filepath.Join(DefaultKcAgentConfigPath, DefaultAgentPKIPath, "agent.crt")

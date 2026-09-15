@@ -19,12 +19,30 @@
 package deploy
 
 import (
+	"strings"
 	"testing"
 
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 )
+
+func TestDeployConfigTemplateUsesPackageRegistry(t *testing.T) {
+	if !strings.Contains(configTemplate, "\npackageRegistry:") {
+		t.Fatalf("config template must include packageRegistry as a YAML field")
+	}
+	if strings.Contains(configTemplate, "\n#packageRegistry:") {
+		t.Fatalf("config template must not hide required packageRegistry behind a comment")
+	}
+	for _, legacy := range []string{"staticServer", "StaticServer", "CloudStaticServer"} {
+		if strings.Contains(configTemplate, legacy) {
+			t.Fatalf("config template contains legacy resource field %q", legacy)
+		}
+	}
+	if strings.Contains(configTemplate, "deploy resource package") {
+		t.Fatalf("config template should not describe deploy pkg as a resource package")
+	}
+}
 
 func TestDeployOptions_GenDefaultConfig(t *testing.T) {
 	omitempty, err := options.Omitempty([]byte(configTemplate))

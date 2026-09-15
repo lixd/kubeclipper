@@ -25,6 +25,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -33,7 +34,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -41,18 +41,17 @@ import (
 	"text/template"
 	"time"
 
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"k8s.io/component-base/version"
-
-	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
-
+	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/uuid"
+	clientv3 "go.etcd.io/etcd/client/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
 
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/user"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
@@ -79,7 +78,6 @@ import (
 )
 
 const (
-	deployExamplePkg              = constatns.KubeClipperReleaseBaseURL + "/v1.4.0/kc-amd64.tar.gz"
 	kcServerClientIdentity        = "system:kc-server"
 	serviceHealthCheckTimeout     = 5 * time.Second
 	authenticationJWTSecretLength = 24
@@ -93,59 +91,12 @@ const (
   If you want to deploy kc-server and kc-agent on the same node, it is better to change etcd port configuration,
   in order to be able to deploy k8s on this node
 
-  Now only support offline install, so the --pkg parameter must be valid`
+	Packages are fetched from the OCI package registry before installation.`
 	deployExample = `
-  # Deploy All-In-One use local host, etcd port will be set automatically. (client-12379 | peer-12380 | metrics-12381)
-  kcctl deploy
-
-  # Deploy AIO env and change etcd port
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381
-
-  # Deploy HA env
-  kcctl deploy --server 192.168.234.3,192.168.234.4,192.168.234.5 --agent 192.168.234.3 --passwd 'YOUR-SSH-PASSWORD' --etcd-port 12379 --etcd-peer-port 12380 --etcd-metric-port 12381
-
-  # Deploy env use SSH key instead of password
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 --pk-file ~/.ssh/id_rsa --pkg kc-minimal.tar.gz
-
-  # Deploy env use remove http/https resource server
   kcctl deploy --server 192.168.234.3 --agent 192.168.234.3 \
-    --pk-file ~/.ssh/id_rsa \
-    --pkg ` + deployExamplePkg + `
+    --pk-file ~/.ssh/id_rsa --package-registry registry.example.com/kubeclipper
 
-  # Deploy env with many agent node in same region.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:192.168.10.123,192.168.10.124 \
-    --pk-file ~/.ssh/id_rsa \
-    --pkg ` + deployExamplePkg + `
-
-  # Deploy env with many agent node in different region.
-  kcctl deploy --server 192.168.234.3 \
-    --agent us-west-1:1.1.1.1,1.1.1.2 --agent us-west-2:1.1.1.3 \
-    --pk-file ~/.ssh/id_rsa \
-    --pkg ` + deployExamplePkg + `
-
-  # Deploy env with many agent node which has orderly ip.
-  # this will add 10 agent,1.1.1.1, 1.1.1.2, ... 1.1.1.10.
-  kcctl deploy --server 192.168.234.3 --agent us-west-1:1.1.1.1-1.1.1.10 \
-    --pk-file ~/.ssh/id_rsa \
-    --pkg ` + deployExamplePkg + `
-  
-  # Deploy env with many agent nodes and specify ip detect method for these nodes
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 \
-    --ip-detect=interface=eth0 --pk-file ~/.ssh/id_rsa \
-    --pkg ` + deployExamplePkg + `
-
-  # Deploy env with many agent nodes and specify node ip detect method for these nodes, used for routing between nodes in the kubernetes cluster
-  kcctl deploy --server 192.168.234.3 --agent 192.168.234.3,192.168.234.4 \
-    --node-ip-detect=interface=eth1 --pk-file ~/.ssh/id_rsa \
-    --pkg ` + deployExamplePkg + `
-
-  # Deploy from config.
-  kcctl deploy --deploy-config deploy-config.yaml
-  # Deploy and config fip to agent node.
-  kcctl deploy --server 172.20.149.198 --agent us-west-1:10.0.0.10 --agent us-west-2:20.0.0.11 --fip 10.0.0.10:172.20.149.199 --fip 20.0.0.11:172.20.149.200
-
-  Please read 'kcctl deploy -h' get more deploy flags`
-	defaultPkg = constatns.KubeClipperReleaseBaseURL + "/%s/kc-%s.tar.gz"
+  kcctl deploy --deploy-config deploy-config.yaml`
 )
 
 type DeployOptions struct {
@@ -156,6 +107,10 @@ type DeployOptions struct {
 	agents       []string // user input's agents,maybe with region,need to parse.
 	fips         []string // ip:fip
 	aio          bool
+
+	packageRegistryFiles     deliveryregistry.FileOptions
+	packageRegistryConfig    *deliveryregistry.Config
+	packageRegistryDefaulted bool
 }
 
 func NewDeployOptions(streams options.IOStreams) *DeployOptions {
@@ -219,6 +174,7 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 		"login-history-maximum-entries defines how many entries of login history should be kept.")
 	flags.StringVar(&auth.InitialPassword, "initial-password", auth.InitialPassword, "admin user password")
 	o.deployConfig.AddFlags(cmd.Flags())
+	addPackageRegistryClientFlags(cmd, &o.packageRegistryFiles)
 	o.deployConfig.AuditOpts.AddFlags(cmd.Flags())
 
 	cmd.AddCommand(NewCmdDeployConfig(o))
@@ -233,18 +189,6 @@ func (d *DeployOptions) Complete() error {
 	if err := d.generateAuthenticationJWTSecret(); err != nil {
 		return err
 	}
-	if d.deployConfig.Pkg == "" {
-		v := os.Getenv("KC_VERSION")
-		var ok bool
-		if v == "" {
-			v, ok = strutil.ParseGitDescribeInfo(version.Get().GitVersion)
-			if !ok {
-				v = "v1.7.0"
-			}
-		}
-		d.deployConfig.Pkg = fmt.Sprintf(defaultPkg, v, runtime.GOARCH)
-	}
-
 	// if both the server and agent are empty, set the all-in-one environment
 	if d.deployConfig.ServerIPs == nil && d.agents == nil {
 		d.aio = true
@@ -280,8 +224,37 @@ func (d *DeployOptions) Complete() error {
 	if d.aio {
 		logger.Infof("run in aio mode.")
 	}
+	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
+		d.deployConfig.PackageRegistry = deliveryregistry.DefaultPackageRegistry
+		d.packageRegistryDefaulted = true
+	}
+	{
+		var err error
+		if d.packageRegistryFiles.Specified() {
+			d.packageRegistryConfig, err = d.packageRegistryFiles.Resolve(d.deployConfig.PackageRegistry)
+		} else {
+			d.packageRegistryConfig, err = deliveryregistry.Resolve(d.deployConfig.PackageRegistry)
+		}
+		if err != nil {
+			return err
+		}
+		logger.Infof("package registry: %s (%s)", d.deployConfig.PackageRegistry, d.packageRegistrySource())
+	}
 
 	return nil
+}
+
+func addPackageRegistryClientFlags(cmd *cobra.Command, opts *deliveryregistry.FileOptions) {
+	cmd.Flags().StringVar(&opts.Scheme, "package-registry-scheme", opts.Scheme,
+		"Package Registry transport scheme: https or http (default https)")
+	cmd.Flags().StringVar(&opts.Username, "package-registry-username", opts.Username,
+		"Package Registry username or robot account")
+	cmd.Flags().StringVar(&opts.PasswordFile, "package-registry-password-file", opts.PasswordFile,
+		"File containing the Package Registry password or token")
+	cmd.Flags().StringVar(&opts.CAFile, "package-registry-ca-file", opts.CAFile,
+		"PEM CA file used to verify the Package Registry")
+	cmd.Flags().BoolVar(&opts.SkipTLSVerify, "package-registry-skip-tls-verify", opts.SkipTLSVerify,
+		"Skip Package Registry TLS verification (not recommended)")
 }
 
 func (d *DeployOptions) generateAuthenticationJWTSecret() error {
@@ -310,10 +283,11 @@ func (d *DeployOptions) ValidateArgs() error {
 	if d.deployConfig.NodeIPDetect != "" && !autodetection.CheckMethod(d.deployConfig.NodeIPDetect) {
 		return fmt.Errorf("invalid node ip detect method,suppot [first-found,interface=xxx,cidr=xxx] now")
 	}
-	if d.deployConfig.Pkg == "" {
-		return fmt.Errorf("--pkg must be specified")
+	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
+		d.deployConfig.PackageRegistry = deliveryregistry.DefaultPackageRegistry
+		d.packageRegistryDefaulted = true
 	}
-	if d.deployConfig.TempDir == "" {
+	if strings.TrimSpace(d.deployConfig.TempDir) == "" {
 		d.deployConfig.TempDir = config.DefaultPkgPath
 	}
 	if !filepath.IsAbs(d.deployConfig.TempDir) {
@@ -636,7 +610,6 @@ func (d *DeployOptions) precheckPorts() error {
 		{d.deployConfig.EtcdConfig.PeerPort, "kc-etcd-peer"},
 		{d.deployConfig.EtcdConfig.MetricsPort, "kc-etcd-metrics"},
 		{d.deployConfig.ServerPort, "kc-server"},
-		{d.deployConfig.StaticServerPort, "kc-server-static"},
 		{d.deployConfig.ConsolePort, "kc-console"},
 	}
 	for _, p := range serverPorts {
@@ -664,6 +637,9 @@ func (d *DeployOptions) precheckPorts() error {
 }
 
 func (d *DeployOptions) preCheck() error {
+	if err := d.precheckPackageRegistry(); err != nil {
+		return err
+	}
 	if err := d.precheckService("kc-etcd", d.deployConfig.ServerIPs, precheckKcEtcdFunc); err != nil {
 		return err
 	}
@@ -699,7 +675,12 @@ func (d *DeployOptions) RunDeploy() error {
 		return err
 	}
 	logger.Infof("------ Send packages ------")
-	d.sendPackage()
+	if err := d.sendPackage(); err != nil {
+		return err
+	}
+	if err := d.sendPackageRegistryConfig(); err != nil {
+		return err
+	}
 	logger.Infof("------ Install kc-etcd ------")
 	d.deployEtcd()
 	if err := d.waitEtcdReady(); err != nil {
@@ -716,6 +697,9 @@ func (d *DeployOptions) RunDeploy() error {
 	logger.Infof("------ Dump configs ------")
 	d.dumpConfig()
 	logger.Infof("------ Upload configs ------")
+	if err := d.waitEtcdReady(); err != nil {
+		return err
+	}
 	d.uploadConfig()
 	if err := writeLocalDeployConfig(d.deployConfig); err != nil {
 		return fmt.Errorf("sync local deploy config: %w", err)
@@ -724,19 +708,80 @@ func (d *DeployOptions) RunDeploy() error {
 	return nil
 }
 
-func (d *DeployOptions) sendPackage() {
-	tar := fmt.Sprintf("rm -rf %s && tar -xvf %s -C %s", filepath.Join(d.deployConfig.TempDir, "kc"),
-		filepath.Join(d.deployConfig.TempDir, path.Base(d.deployConfig.Pkg)), d.deployConfig.TempDir)
-	cp := sshutils.WrapSh(fmt.Sprintf("cp -rf %s /usr/local/bin/", filepath.Join(d.deployConfig.TempDir, "kc", "bin", "*")))
-	mkdir := "mkdir -p /usr/lib/systemd/system"
-	// rm -rf /root/kc && tar -xvf /root/kc/pkg/kc.tar -C ~/kc/pkg && /bin/bash -c 'cp -rf /root/kc/pkg/kc/bin/* /usr/local/bin/' && mkdir -p /usr/lib/systemd/system
-	hook := sshutils.Combine([]string{tar, cp, mkdir})
-	err := utils.SendPackageWithTempDir(
-		d.deployConfig.SSHConfig, d.deployConfig.Pkg, d.allNodes, d.deployConfig.TempDir, nil, &hook, d.deployConfig.TempDir,
-	)
-	if err != nil {
-		logger.Fatalf("sendPackage err:%s", err.Error())
+func (d *DeployOptions) sendPackage() error {
+	return InstallBootstrapAssetsFromRegistry(context.Background(), BootstrapInstallOptions{
+		Registry:       d.deployConfig.PackageRegistry,
+		Arch:           RuntimeArch(),
+		SSH:            d.deployConfig.SSHConfig,
+		Hosts:          d.allNodes,
+		NeedAgent:      true,
+		RegistryConfig: d.packageRegistryConfig,
+		RemoteTempDir:  d.deployConfig.TempDir,
+	})
+}
+
+func (d *DeployOptions) sendPackageRegistryConfig() error {
+	if err := InstallPackageRegistryConfig(
+		d.deployConfig.SSHConfig, d.deployConfig.ServerIPs, d.packageRegistryConfig, deliveryregistry.ServerConfigPath, d.deployConfig.TempDir,
+	); err != nil {
+		return err
 	}
+	return InstallPackageRegistryConfig(
+		d.deployConfig.SSHConfig, d.deployConfig.Agents.ListIP(), d.packageRegistryConfig,
+		deliveryregistry.AgentConfigPath, d.deployConfig.TempDir,
+	)
+}
+
+// InstallPackageRegistryConfig writes the package registry credentials to the
+// protected configuration path used by server or agent processes.
+func InstallPackageRegistryConfig(
+	sshConfig *sshutils.SSH,
+	hosts []string,
+	registryConfig *deliveryregistry.Config,
+	remotePath string,
+	tempDir string,
+) error {
+	localPath, cleanup, err := writeTemporaryPackageRegistryConfig(registryConfig)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	return copyPackageRegistryConfig(sshConfig, hosts, localPath, remotePath, tempDir)
+}
+
+func writeTemporaryPackageRegistryConfig(registryConfig *deliveryregistry.Config) (localPath string, cleanup func(), err error) {
+	if registryConfig == nil {
+		return "", func() {}, fmt.Errorf("package registry config is required")
+	}
+	dir, err := os.MkdirTemp("", "kc-package-registry-")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create package registry config directory: %w", err)
+	}
+	localPath = filepath.Join(dir, "package-registry.json")
+	if err := deliveryregistry.Write(localPath, registryConfig); err != nil {
+		_ = os.RemoveAll(dir)
+		return "", func() {}, err
+	}
+	return localPath, func() { _ = os.RemoveAll(dir) }, nil
+}
+
+func copyPackageRegistryConfig(sshConfig *sshutils.SSH, hosts []string, localPath, remotePath, tempDir string) error {
+	if strings.TrimSpace(tempDir) == "" {
+		tempDir = config.DefaultPkgPath
+	}
+	for _, host := range hosts {
+		if err := sshConfig.CopySudoWithTempDir(host, localPath, remotePath, tempDir); err != nil {
+			return fmt.Errorf("copy package registry config to %s: %w", host, err)
+		}
+		result, err := sshutils.SSHCmdWithSudo(sshConfig, host, fmt.Sprintf("chmod %o %s", deliveryregistry.PrivateFileMode, remotePath))
+		if err != nil {
+			return fmt.Errorf("set package registry config mode on %s: %w", host, err)
+		}
+		if err := result.Error(); err != nil {
+			return fmt.Errorf("set package registry config mode on %s: %w", host, err)
+		}
+	}
+	return nil
 }
 
 func (d *DeployOptions) generateAndSendCerts() error {
@@ -880,6 +925,8 @@ func (d *DeployOptions) deployEtcd() {
 
 type etcdHealthClient interface {
 	Get(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.GetResponse, error)
+	Put(ctx context.Context, key, val string, opts ...clientv3.OpOption) (*clientv3.PutResponse, error)
+	Delete(ctx context.Context, key string, opts ...clientv3.OpOption) (*clientv3.DeleteResponse, error)
 	Close() error
 }
 
@@ -969,11 +1016,20 @@ func checkEtcdEndpoints(ctx context.Context, clients []etcdHealthClient, endpoin
 	}
 	for i, endpoint := range endpoints {
 		requestCtx, cancel := context.WithTimeout(ctx, serviceHealthCheckTimeout)
-		_, err := clients[i].Get(requestCtx, "health")
-		cancel()
-		if err != nil {
-			return fmt.Errorf("endpoint %s is unhealthy: %w", endpoint, err)
+		// A linearizable read only proves a committed read-index; the very
+		// first writes after bootstrap can still time out while proposals
+		// cannot be committed (leader still settling, slow initial fsync).
+		// Probe the actual write path with a put+delete round trip.
+		probeKey := fmt.Sprintf("__kc_deploy_healthcheck__/%d", time.Now().UnixNano())
+		if _, err := clients[i].Put(requestCtx, probeKey, "1"); err != nil {
+			cancel()
+			return fmt.Errorf("endpoint %s is unhealthy (write probe): %w", endpoint, err)
 		}
+		if _, err := clients[i].Delete(requestCtx, probeKey); err != nil {
+			cancel()
+			return fmt.Errorf("endpoint %s is unhealthy (write probe cleanup): %w", endpoint, err)
+		}
+		cancel()
 	}
 	return nil
 }
@@ -1063,9 +1119,6 @@ func (d *DeployOptions) deployKcServer() {
 	cmdList := []string{
 		"mkdir -pv /etc/kubeclipper-server",
 		sshutils.WrapEcho(config.KcServerService, "/usr/lib/systemd/system/kc-server.service"),
-		fmt.Sprintf("mkdir -pv %s/kc", d.deployConfig.StaticServerPath),
-		sshutils.WrapSh(fmt.Sprintf("cp -rf %s/kc/resource/* %s/", d.deployConfig.TempDir, d.deployConfig.StaticServerPath)),
-		sshutils.WrapSh(fmt.Sprintf("cp -rf %s/kc/bin/* %s/kc/", d.deployConfig.TempDir, d.deployConfig.StaticServerPath)),
 	}
 	for _, cmd := range cmdList {
 		err := sshutils.CmdBatchWithSudo(d.deployConfig.SSHConfig, d.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
@@ -1319,6 +1372,7 @@ func (d *DeployOptions) uploadConfig() {
 		logger.Fatal(err)
 	}
 	uploadDeployConfig(c, d.deployConfig)
+	uploadDeliveryPolicy(c)
 	uploadCerts(c)
 	if err = cfg.Dump(); err != nil {
 		logger.Fatal(err)
@@ -1341,19 +1395,66 @@ func (d *DeployOptions) sendDefaultAdminConf() error {
 	return err
 }
 
+// configWriteAttempts / configWriteRetryGap keep retrying the very first
+// etcd writes after a fresh kc-server start: the API can answer /healthz
+// while etcd is still electing a leader, and "request timed out" must not
+// abort a deployment whose services are already installed (that used to
+// leave the platform between states where even a follow-up deploy/clean
+// could not proceed without manual surgery).
+const (
+	configWriteAttempts = 6
+	configWriteRetryGap = 5 * time.Second
+)
+
 func createOrUpdateConfigMap(client *kc.Client, cm *v1.ConfigMap) {
+	err := retryConfigWrite(func() error {
+		return putConfigMap(client, cm)
+	})
+	if err != nil {
+		logger.Fatalf("upload configmap %s failed: %v", cm.Name, err)
+	}
+}
+
+func putConfigMap(client *kc.Client, cm *v1.ConfigMap) error {
 	existing, err := client.DescribeConfigMap(context.TODO(), cm.Name)
 	if err == nil && len(existing.Items) > 0 {
 		existingCM := existing.Items[0]
 		existingCM.Data = cm.Data
 		if _, err = client.UpdateConfigMap(context.TODO(), &existingCM); err != nil {
-			logger.Fatalf("update configmap %s failed: %v", cm.Name, err)
+			return err
 		}
-		return
+		return nil
 	}
-	if _, err = client.CreateConfigMap(context.TODO(), cm); err != nil {
-		logger.Fatalf("create configmap %s failed: %v", cm.Name, err)
+	_, err = client.CreateConfigMap(context.TODO(), cm)
+	return err
+}
+
+func retryConfigWrite(put func() error) error {
+	var err error
+	for attempt := 1; attempt <= configWriteAttempts; attempt++ {
+		if err = put(); err == nil {
+			return nil
+		}
+		if !isTransientConfigWrite(err) || attempt == configWriteAttempts {
+			break
+		}
+		logger.Warnf("configmap write failed (attempt %d/%d): %v; retrying", attempt, configWriteAttempts, err)
+		time.Sleep(configWriteRetryGap)
 	}
+	return err
+}
+
+func isTransientConfigWrite(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	for _, marker := range []string{"request timed out", "Unavailable", "connection refused", "EOF", "no leader", "try again"} {
+		if strings.Contains(msg, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
@@ -1374,6 +1475,30 @@ func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
 		},
 	}
 	createOrUpdateConfigMap(client, dc)
+}
+
+func uploadDeliveryPolicy(client *kc.Client) {
+	existing, err := client.DescribeConfigMap(context.TODO(), deliveryapis.DeliveryPolicyConfigMapName)
+	if err == nil && len(existing.Items) > 0 {
+		return
+	}
+	policyData, err := json.MarshalIndent(deliveryapis.DefaultSupportPolicy(), "", "  ")
+	if err != nil {
+		logger.Fatal(err)
+	}
+	policy := &v1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1.KindConfigMap,
+			APIVersion: v1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: deliveryapis.DeliveryPolicyConfigMapName,
+		},
+		Data: map[string]string{
+			deliveryapis.DeliveryPolicyConfigMapKey: string(policyData),
+		},
+	}
+	createOrUpdateConfigMap(client, policy)
 }
 
 func uploadCerts(client *kc.Client) {
@@ -1552,4 +1677,43 @@ func clientCertList(pki, caName string, altNames, organization []string, commonN
 		certConfig = append(certConfig, conf)
 	}
 	return certConfig
+}
+
+// packageRegistrySource reports where the effective package registry came from.
+func (d *DeployOptions) packageRegistrySource() string {
+	switch {
+	case d.packageRegistryDefaulted:
+		return "default"
+	case d.packageRegistryFiles.Specified():
+		return "flag"
+	default:
+		return "deploy-config"
+	}
+}
+
+// precheckPackageRegistry verifies the effective package registry is reachable
+// and carries the bootstrap catalog before touching any node. Offline or
+// mirror environments must fail here quickly with actionable guidance instead
+// of timing out later during package transfer.
+func (d *DeployOptions) precheckPackageRegistry() error {
+	logger.Infof("============>PACKAGE-REGISTRY PRECHECK ...")
+	if d.packageRegistryConfig == nil {
+		return fmt.Errorf("package registry configuration is not resolved")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	opts, err := d.packageRegistryConfig.CraneOptions(ctx)
+	if err != nil {
+		return d.packageRegistryPrecheckError(err)
+	}
+	if _, err = crane.ListTags(d.packageRegistryConfig.Registry+"/kubeclipper/packages/bootstrap/kubeclipper", opts...); err != nil {
+		return d.packageRegistryPrecheckError(err)
+	}
+	logger.Infof("============>PACKAGE-REGISTRY PRECHECK OK!")
+	return nil
+}
+
+func (d *DeployOptions) packageRegistryPrecheckError(cause error) error {
+	return fmt.Errorf("PACKAGE-REGISTRY PRECHECK FAILED: package registry %q (%s) is unreachable or missing the bootstrap catalog: %w; for offline or mirror deployments run 'kcctl registry sync' to mirror the release into a local registry and pass --package-registry <that registry>",
+		d.deployConfig.PackageRegistry, d.packageRegistrySource(), cause)
 }

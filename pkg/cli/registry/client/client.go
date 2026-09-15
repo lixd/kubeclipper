@@ -26,7 +26,12 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/match"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/logger"
@@ -82,6 +87,102 @@ func Delete(registry, repository, tag string) error {
 		return errors.WithMessage(err, "get digest")
 	}
 	return crane.Delete(fmt.Sprintf("%s/%s@%s", registry, repository, digest), crane.Insecure)
+}
+
+func DeleteRef(ref, digest string) error {
+	if ref == "" {
+		return fmt.Errorf("delete ref is empty")
+	}
+	if digest != "" {
+		if strings.Contains(ref, "@") {
+			return crane.Delete(ref, crane.Insecure)
+		}
+		deletedFromIndex, err := DeletePackageManifestFromIndex(ref, digest)
+		if err != nil {
+			return err
+		}
+		if deletedFromIndex {
+			return nil
+		}
+		return crane.Delete(fmt.Sprintf("%s@%s", ref, digest), crane.Insecure)
+	}
+	reference, err := name.ParseReference(ref, name.Insecure)
+	if err != nil {
+		return errors.WithMessage(err, "parse ref")
+	}
+	if digestRef, ok := reference.(name.Digest); ok {
+		return crane.Delete(digestRef.Name(), crane.Insecure)
+	}
+	tag, ok := reference.(name.Tag)
+	if !ok {
+		return fmt.Errorf("unsupported ref %q", ref)
+	}
+	resolvedDigest, err := crane.Digest(tag.Name(), crane.Insecure)
+	if err != nil {
+		return errors.WithMessage(err, "get digest")
+	}
+	return crane.Delete(fmt.Sprintf("%s@%s", tag.Repository.Name(), resolvedDigest), crane.Insecure)
+}
+
+func DeletePackageManifestFromIndex(ref, digest string) (bool, error) {
+	opts := crane.GetOptions(crane.Insecure)
+	reference, err := name.ParseReference(ref, opts.Name...)
+	if err != nil {
+		return false, errors.WithMessage(err, "parse ref")
+	}
+	tag, ok := reference.(name.Tag)
+	if !ok {
+		return false, nil
+	}
+	desc, err := crane.Get(ref, crane.Insecure)
+	if err != nil {
+		return false, err
+	}
+	switch desc.MediaType {
+	case types.OCIImageIndex, types.DockerManifestList:
+	default:
+		return false, nil
+	}
+	index, err := desc.ImageIndex()
+	if err != nil {
+		return false, err
+	}
+	updated, removed, remaining, err := RemoveManifestFromIndex(index, digest)
+	if err != nil || !removed {
+		return removed, err
+	}
+	if remaining == 0 {
+		return true, crane.Delete(fmt.Sprintf("%s@%s", tag.Repository.Name(), desc.Digest.String()), crane.Insecure)
+	}
+	return true, remote.WriteIndex(tag, updated, opts.Remote...)
+}
+
+func RemoveManifestFromIndex(index v1.ImageIndex, digest string) (v1.ImageIndex, bool, int, error) {
+	hash, err := v1.NewHash(digest)
+	if err != nil {
+		return nil, false, 0, err
+	}
+	manifest, err := index.IndexManifest()
+	if err != nil {
+		return nil, false, 0, err
+	}
+	removed := false
+	for _, descriptor := range manifest.Manifests {
+		if descriptor.Digest == hash {
+			removed = true
+			break
+		}
+	}
+	if !removed {
+		return index, false, len(manifest.Manifests), nil
+	}
+	updated := mutate.RemoveManifests(index, match.Digests(hash))
+	updated = mutate.IndexMediaType(updated, manifest.MediaType)
+	updatedManifest, err := updated.IndexManifest()
+	if err != nil {
+		return nil, false, 0, err
+	}
+	return updated, true, len(updatedManifest.Manifests), nil
 }
 
 // Catalog return repositories in registry.

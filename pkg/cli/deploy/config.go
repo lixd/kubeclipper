@@ -22,7 +22,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
-	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 )
 
 const (
@@ -103,17 +102,10 @@ agents:
 #serverPort: 8080
 # kubeclipper frontend server port.
 #consolePort: 80
-# kubeclipper static server port.
-#staticServerPort: 8081
-# static package directory.
-#staticServerPath: /opt/kubeclipper-server/resource
-
-# temporary directory for deployment packages and extracted files.
+# OCI registry containing KubeClipper packages.
+packageRegistry: ""
+# temporary directory for deployment files and extracted assets.
 #tempDir: /tmp
-
-# deploy resource package,support url or file absolute path.
-#pkg: ` + constatns.KubeClipperReleaseBaseURL + `/v1.1.0/kc-amd64.tar.gz
-pkg: /tmp/kc-minimal.tar.gz
 
 # operation log config.
 opLog:

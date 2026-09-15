@@ -25,8 +25,8 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"gopkg.in/yaml.v2"
@@ -36,6 +36,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/deploy"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/autodetection"
@@ -122,14 +123,22 @@ type JoinOptions struct {
 
 	joinConfigPath string
 
-	Pkg string `json:"pkg" yaml:"pkg,omitempty"`
+	packageRegistry       string
+	packageRegistryFiles  deliveryregistry.FileOptions
+	packageRegistryConfig *deliveryregistry.Config
 }
 
 type JoinConfig struct {
-	Agents       options.Agents `json:"agents,omitempty"       yaml:"agents,omitempty"`
-	IPDetect     string         `json:"ipDetect,omitempty"     yaml:"ipDetect,omitempty"`
-	NodeIPDetect string         `json:"nodeIPDetect,omitempty" yaml:"nodeIPDetect,omitempty"`
-	SSHConfig    *sshutils.SSH  `json:"ssh,omitempty"          yaml:"ssh,omitempty"`
+	Agents                       options.Agents `json:"agents,omitempty"          yaml:"agents,omitempty"`
+	IPDetect                     string         `json:"ipDetect,omitempty"        yaml:"ipDetect,omitempty"`
+	NodeIPDetect                 string         `json:"nodeIPDetect,omitempty"    yaml:"nodeIPDetect,omitempty"`
+	PackageRegistry              string         `json:"packageRegistry,omitempty" yaml:"packageRegistry,omitempty"`
+	PackageRegistryScheme        string         `json:"packageRegistryScheme,omitempty" yaml:"packageRegistryScheme,omitempty"`
+	PackageRegistryUsername      string         `json:"packageRegistryUsername,omitempty" yaml:"packageRegistryUsername,omitempty"`
+	PackageRegistryPasswordFile  string         `json:"packageRegistryPasswordFile,omitempty" yaml:"packageRegistryPasswordFile,omitempty"`
+	PackageRegistryCAFile        string         `json:"packageRegistryCAFile,omitempty" yaml:"packageRegistryCAFile,omitempty"`
+	PackageRegistrySkipTLSVerify bool           `json:"packageRegistrySkipTLSVerify,omitempty" yaml:"packageRegistrySkipTLSVerify,omitempty"`
+	SSHConfig                    *sshutils.SSH  `json:"ssh,omitempty"             yaml:"ssh,omitempty"`
 }
 
 func NewJoinOptions(streams options.IOStreams) *JoinOptions {
@@ -171,7 +180,17 @@ func NewCmdJoin(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringVar(&o.nodeIPDetect, "node-ip-detect", o.nodeIPDetect, nodeIPDetectDescription)
 	cmd.Flags().StringArrayVar(&o.agents, "agent", o.agents, "join agent node.")
 	cmd.Flags().StringArrayVar(&o.floatIPs, "float-ip", o.floatIPs, "Kc agent ip and float ip.")
-	cmd.Flags().StringVar(&o.Pkg, "pkg", o.Pkg, "Package resource url (path or http url). Default is inherited from the deploy config.")
+	cmd.Flags().StringVar(&o.packageRegistry, "package-registry", "", "OCI registry for KubeClipper packages. Default is inherited from the deploy config.")
+	cmd.Flags().StringVar(&o.packageRegistryFiles.Scheme, "package-registry-scheme", o.packageRegistryFiles.Scheme,
+		"Package Registry transport scheme: https or http (default https)")
+	cmd.Flags().StringVar(&o.packageRegistryFiles.Username, "package-registry-username", o.packageRegistryFiles.Username,
+		"Package Registry username or robot account")
+	cmd.Flags().StringVar(&o.packageRegistryFiles.PasswordFile, "package-registry-password-file", o.packageRegistryFiles.PasswordFile,
+		"File containing the Package Registry password or token")
+	cmd.Flags().StringVar(&o.packageRegistryFiles.CAFile, "package-registry-ca-file", o.packageRegistryFiles.CAFile,
+		"PEM CA file used to verify the Package Registry")
+	cmd.Flags().BoolVar(&o.packageRegistryFiles.SkipTLSVerify, "package-registry-skip-tls-verify", o.packageRegistryFiles.SkipTLSVerify,
+		"Skip Package Registry TLS verification (not recommended)")
 	cmd.Flags().StringVar(&o.joinConfigPath, "join-config", "", "path to the join config file to use for join")
 
 	options.AddFlagsToSSH(o.sshConfig, cmd.Flags())
@@ -207,6 +226,16 @@ func (c *JoinOptions) Complete() error {
 		if joinConfig.NodeIPDetect != "" {
 			c.nodeIPDetect = joinConfig.NodeIPDetect
 		}
+		if joinConfig.PackageRegistry != "" {
+			c.packageRegistry = joinConfig.PackageRegistry
+		}
+		c.packageRegistryFiles = deliveryregistry.FileOptions{
+			Scheme:        joinConfig.PackageRegistryScheme,
+			Username:      joinConfig.PackageRegistryUsername,
+			PasswordFile:  joinConfig.PackageRegistryPasswordFile,
+			CAFile:        joinConfig.PackageRegistryCAFile,
+			SkipTLSVerify: joinConfig.PackageRegistrySkipTLSVerify,
+		}
 		if joinConfig.SSHConfig != nil {
 			c.sshConfig = joinConfig.SSHConfig
 		}
@@ -228,6 +257,22 @@ func (c *JoinOptions) Complete() error {
 	c.deployConfig, err = deploy.GetDeployConfig(context.Background(), c.client, true)
 	if err != nil {
 		return errors.WithMessage(err, "get online deploy-config failed")
+	}
+	if strings.TrimSpace(c.deployConfig.TempDir) == "" {
+		c.deployConfig.TempDir = config.DefaultPkgPath
+	}
+	if c.packageRegistry != "" {
+		c.deployConfig.PackageRegistry = c.packageRegistry
+	}
+	if c.deployConfig.PackageRegistry != "" {
+		if c.packageRegistryFiles.Specified() {
+			c.packageRegistryConfig, err = c.packageRegistryFiles.Resolve(c.deployConfig.PackageRegistry)
+		} else {
+			c.packageRegistryConfig, err = deliveryregistry.Resolve(c.deployConfig.PackageRegistry)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	// overwrite by specify
 	if c.ipDetect != "" {
@@ -296,16 +341,14 @@ func (c *JoinOptions) ValidateArgs(cmd *cobra.Command) error {
 		logger.Info("example: kcctl join --agent 172.10.10.20 --server 172.10.10.10")
 		return utils.UsageErrorf(cmd, "join an agent node requires specifying at least one server node")
 	}
+	if c.deployConfig.PackageRegistry == "" {
+		return utils.UsageErrorf(cmd, "join an agent node requires packageRegistry in deploy-config")
+	}
 	return nil
 }
 
 func (c *JoinOptions) RunJoinFunc() error {
-	err := c.RunJoinNode()
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return c.RunJoinNode()
 }
 
 func (c *JoinOptions) RunJoinNode() error {
@@ -360,22 +403,23 @@ func (c *JoinOptions) preCheckKcAgent(ip string) bool {
 }
 
 func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata) error {
-	// send agent binary
-	pkg := c.deployConfig.Pkg
-	if c.Pkg != "" {
-		pkg = c.Pkg
+	if err := deploy.InstallBootstrapAssetsFromRegistry(context.Background(), deploy.BootstrapInstallOptions{
+		Registry:       c.deployConfig.PackageRegistry,
+		Arch:           deploy.RuntimeArch(),
+		SSH:            c.sshConfig,
+		Hosts:          []string{node},
+		NeedAgent:      false,
+		RegistryConfig: c.packageRegistryConfig,
+		RemoteTempDir:  c.deployConfig.TempDir,
+	}); err != nil {
+		return errors.Wrap(err, "install bootstrap agent from registry")
 	}
-	hook := fmt.Sprintf("rm -rf %s && tar -xvf %s -C %s && cp -rf %s /usr/local/bin/",
-		filepath.Join(config.DefaultPkgPath, "kc"),
-		filepath.Join(config.DefaultPkgPath, path.Base(pkg)),
-		config.DefaultPkgPath,
-		filepath.Join(config.DefaultPkgPath, "kc/bin/kubeclipper-agent"))
-	logger.V(3).Info("join agent node hook:", hook)
-	err := utils.SendPackageV2(c.sshConfig, pkg, []string{node}, config.DefaultPkgPath, nil, &hook)
-	if err != nil {
-		return errors.Wrap(err, "SendPackageV2")
+	if err := deploy.InstallPackageRegistryConfig(
+		c.sshConfig, []string{node}, c.packageRegistryConfig, deliveryregistry.AgentConfigPath, c.deployConfig.TempDir,
+	); err != nil {
+		return errors.Wrap(err, "install package registry config")
 	}
-	err = c.sendCerts(node, metadata.AgentID)
+	err := c.sendCerts(node, metadata.AgentID)
 	if err != nil {
 		return err
 	}
@@ -445,7 +489,6 @@ func (c *JoinOptions) getKcAgentConfigTemplateContent(metadata options.Metadata)
 	data["IPDetect"] = c.deployConfig.IPDetect
 	data["NodeIPDetect"] = c.deployConfig.NodeIPDetect
 	data["AgentID"] = metadata.AgentID
-	data["StaticServerAddress"] = fmt.Sprintf("http://%s:%d", c.deployConfig.ServerIPs[0], c.deployConfig.StaticServerPort)
 	data["APIServerEndpoint"] = fmt.Sprintf("https://%s:%d", c.deployConfig.ServerIPs[0], c.deployConfig.ServerPort)
 	data["APIServerCAFile"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath, "ca.crt")
 	data["AgentCertFile"] = filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath, "agent.crt")
@@ -495,7 +538,7 @@ func (c *JoinOptions) sendCerts(ip, agentID string) error {
 		filepath.Join(certConfig.Path, "agent.key"),
 	}
 	for _, source := range sources {
-		if err := utils.SendPackageV2(c.sshConfig, source, []string{ip}, destination, nil, nil); err != nil {
+		if err := utils.SendPackageV2WithTempDir(c.sshConfig, source, []string{ip}, destination, nil, nil, c.deployConfig.TempDir); err != nil {
 			return err
 		}
 	}

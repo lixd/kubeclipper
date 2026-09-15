@@ -30,17 +30,28 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
 type fakeEtcdHealthClient struct {
 	getErr error
+	putErr error
 	keys   []string
 }
 
 func (c *fakeEtcdHealthClient) Get(_ context.Context, key string, _ ...clientv3.OpOption) (*clientv3.GetResponse, error) {
 	c.keys = append(c.keys, key)
 	return &clientv3.GetResponse{}, c.getErr
+}
+
+func (c *fakeEtcdHealthClient) Put(_ context.Context, key, _ string, _ ...clientv3.OpOption) (*clientv3.PutResponse, error) {
+	c.keys = append(c.keys, key)
+	return &clientv3.PutResponse{}, c.putErr
+}
+
+func (*fakeEtcdHealthClient) Delete(_ context.Context, _ string, _ ...clientv3.OpOption) (*clientv3.DeleteResponse, error) {
+	return &clientv3.DeleteResponse{}, nil
 }
 
 func (*fakeEtcdHealthClient) Close() error {
@@ -111,17 +122,17 @@ func TestCheckEtcdEndpoints(t *testing.T) {
 			t.Fatalf("checkEtcdEndpoints() error = %v", err)
 		}
 		for _, client := range clients {
-			if !reflect.DeepEqual(client.keys, []string{"health"}) {
-				t.Fatalf("health check keys = %v, want [health]", client.keys)
+			if len(client.keys) != 1 || !strings.HasPrefix(client.keys[0], "__kc_deploy_healthcheck__/") {
+				t.Fatalf("write probe keys = %v, want one healthcheck probe key", client.keys)
 			}
 		}
 	})
 
 	t.Run("endpoint unhealthy", func(t *testing.T) {
-		clients := []etcdHealthClient{&fakeEtcdHealthClient{}, &fakeEtcdHealthClient{getErr: errors.New("connection refused")}}
+		clients := []etcdHealthClient{&fakeEtcdHealthClient{}, &fakeEtcdHealthClient{putErr: errors.New("etcdserver: request timed out")}}
 		err := checkEtcdEndpoints(context.Background(), clients, endpoints)
-		if err == nil || !strings.Contains(err.Error(), endpoints[1]) {
-			t.Fatalf("checkEtcdEndpoints() error = %v, want endpoint %q", err, endpoints[1])
+		if err == nil || !strings.Contains(err.Error(), endpoints[1]) || !strings.Contains(err.Error(), "write probe") {
+			t.Fatalf("checkEtcdEndpoints() error = %v, want endpoint %q write probe failure", err, endpoints[1])
 		}
 	})
 }
@@ -162,7 +173,7 @@ func TestDeployOptionsValidateTempDir(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d := NewDeployOptions(options.IOStreams{})
 			d.aio = true
-			d.deployConfig.Pkg = "/tmp/kc-amd64.tar.gz"
+			d.deployConfig.PackageRegistry = "registry.example.test/kubeclipper"
 			d.deployConfig.ServerIPs = []string{"192.0.2.10"}
 			d.deployConfig.TempDir = tt.tempDir
 
@@ -314,5 +325,102 @@ func TestDeployOptions_nodeRole(t *testing.T) {
 				t.Errorf("nodeRole(%q) = %q, want %q", tt.queryIP, got, tt.wantRole)
 			}
 		})
+	}
+}
+
+func TestDeployOptionsValidateArgsDefaultsPackageRegistry(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	d.deployConfig.SSHConfig.Password = "secret"
+
+	if err := d.ValidateArgs(); err != nil {
+		t.Fatalf("ValidateArgs() unexpected error with unset package registry: %+v", err)
+	}
+	if d.deployConfig.PackageRegistry != deliveryregistry.DefaultPackageRegistry {
+		t.Fatalf("package registry = %q, want default %q", d.deployConfig.PackageRegistry, deliveryregistry.DefaultPackageRegistry)
+	}
+	if !d.packageRegistryDefaulted {
+		t.Fatal("ValidateArgs() did not mark the package registry as defaulted")
+	}
+	if got := d.packageRegistrySource(); got != "default" {
+		t.Fatalf("packageRegistrySource() = %q, want default", got)
+	}
+
+	explicit := NewDeployOptions(options.IOStreams{})
+	explicit.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	explicit.deployConfig.SSHConfig.Password = "secret"
+	explicit.deployConfig.PackageRegistry = "registry.local:5000"
+	if err := explicit.ValidateArgs(); err != nil {
+		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
+	}
+	if explicit.deployConfig.PackageRegistry != "registry.local:5000" {
+		t.Fatal("explicit package registry was overwritten")
+	}
+}
+
+func TestPrecheckPackageRegistryFailureGuidance(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.PackageRegistry = "127.0.0.1:1"
+	d.packageRegistryDefaulted = true
+	d.packageRegistryConfig = &deliveryregistry.Config{Registry: "127.0.0.1:1", Scheme: deliveryregistry.SchemeHTTP}
+	err := d.precheckPackageRegistry()
+	if err == nil {
+		t.Fatal("precheckPackageRegistry() succeeded against a dead registry")
+	}
+	for _, want := range []string{"127.0.0.1:1", "kcctl registry sync", "--package-registry"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("precheck error %q missing guidance fragment %q", err.Error(), want)
+		}
+	}
+}
+
+func TestDeployOptionsValidateArgsDoesNotRequirePackage(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
+	d.deployConfig.SSHConfig.Password = "secret"
+	d.deployConfig.PackageRegistry = "registry.local:5000"
+
+	if err := d.ValidateArgs(); err != nil {
+		t.Fatalf("ValidateArgs() unexpected error: %+v", err)
+	}
+}
+
+func TestRetryConfigWriteSucceedsAfterTransient(t *testing.T) {
+	calls := 0
+	err := retryConfigWrite(func() error {
+		calls++
+		if calls < 3 {
+			return errors.New("etcdserver: request timed out")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("retryConfigWrite = %v, want nil", err)
+	}
+	if calls != 3 {
+		t.Fatalf("calls = %d, want 3", calls)
+	}
+}
+
+func TestRetryConfigWriteStopsOnPermanentError(t *testing.T) {
+	calls := 0
+	err := retryConfigWrite(func() error {
+		calls++
+		return errors.New("access denied by policy")
+	})
+	if err == nil || calls != 1 {
+		t.Fatalf("err=%v calls=%d, want immediate permanent failure", err, calls)
+	}
+}
+
+func TestIsTransientConfigWrite(t *testing.T) {
+	transient := []string{"etcdserver: request timed out", "503 Service Unavailable: Unavailable", "connection refused", "EOF", "etcdserver: no leader", "please try again"}
+	for _, msg := range transient {
+		if !isTransientConfigWrite(errors.New(msg)) {
+			t.Errorf("%q classified as permanent", msg)
+		}
+	}
+	if isTransientConfigWrite(errors.New("validation failed: bad kind")) {
+		t.Error("permanent error classified as transient")
 	}
 }

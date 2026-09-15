@@ -22,6 +22,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -63,6 +64,9 @@ const (
 )
 
 type CleanOptions struct {
+	// failures records per-node clean command errors instead of only warning,
+	// so a partially-failed clean cannot report success.
+	failures []string
 	options.IOStreams
 	cliOpts      *options.CliOptions
 	deployConfig *options.DeployConfig
@@ -94,7 +98,7 @@ func NewCmdClean(streams options.IOStreams) *cobra.Command {
 			if !o.preCheck() {
 				return
 			}
-			o.RunClean()
+			utils.CheckErr(o.RunClean())
 			fmt.Printf("\033[1;40;36m%s\033[0m\n", options.Contact)
 		},
 	}
@@ -140,7 +144,7 @@ func (c *CleanOptions) preCheck() bool {
 	return sudo.PreCheck("sudo", c.deployConfig.SSHConfig, c.IOStreams, c.allNodes)
 }
 
-func (c *CleanOptions) RunClean() {
+func (c *CleanOptions) RunClean() error {
 	if c.cleanAll {
 		c.cleanKcAgent()
 		c.cleanKcServer()
@@ -149,7 +153,12 @@ func (c *CleanOptions) RunClean() {
 		c.cleanKcEnv()
 		c.cleanKcConfig()
 	}
+	if len(c.failures) > 0 {
+		return fmt.Errorf("clean did not complete: %d node command(s) failed:\n  %s",
+			len(c.failures), strings.Join(c.failures, "\n  "))
+	}
 	logger.Info("clean successful")
+	return nil
 }
 
 func (c *CleanOptions) cleanKcAgent() {
@@ -169,6 +178,7 @@ func (c *CleanOptions) cleanKcAgent() {
 		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.Agents.ListIP(), cmd, sshutils.DefaultWalk)
 		if err != nil {
 			logger.Warn("clean kc agent failed,reason: ", err)
+			c.failures = append(c.failures, fmt.Sprintf("kc-agent: %v", err))
 		}
 	}
 }
@@ -186,7 +196,6 @@ func (c *CleanOptions) cleanKcServer() {
 		"rm -rf /usr/lib/systemd/system/kc-etcd.service",
 		"rm -rf /etc/kubeclipper-server",
 		fmt.Sprintf("rm -rf %s", c.deployConfig.EtcdConfig.DataDir),
-		fmt.Sprintf("rm -rf %s", c.deployConfig.StaticServerPath),
 		"systemctl reset-failed kc-etcd || true",
 		"systemctl reset-failed kc-server || true",
 	}
@@ -194,6 +203,7 @@ func (c *CleanOptions) cleanKcServer() {
 		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
 		if err != nil {
 			logger.Warn("clean kc server failed,reason: ", err)
+			c.failures = append(c.failures, fmt.Sprintf("kc-server: %v", err))
 		}
 	}
 }
@@ -214,6 +224,7 @@ func (c *CleanOptions) cleanKcConsole() {
 		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
 		if err != nil {
 			logger.Warn("clean kc console failed,reason: ", err)
+			c.failures = append(c.failures, fmt.Sprintf("kc-console: %v", err))
 		}
 	}
 }
@@ -232,6 +243,7 @@ func (c *CleanOptions) cleanBinaries() {
 		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.allNodes, cmd, sshutils.DefaultWalk)
 		if err != nil {
 			logger.Warn("clean kc binary failed,reason: ", err)
+			c.failures = append(c.failures, fmt.Sprintf("binaries: %v", err))
 		}
 	}
 }
@@ -250,6 +262,7 @@ func (c *CleanOptions) cleanKcEnv() {
 		err := sshutils.CmdBatchWithSudo(c.deployConfig.SSHConfig, c.deployConfig.ServerIPs, cmd, sshutils.DefaultWalk)
 		if err != nil {
 			logger.Warn("clean kc env failed,reason: ", err)
+			c.failures = append(c.failures, fmt.Sprintf("env: %v", err))
 		}
 	}
 }
@@ -257,5 +270,6 @@ func (c *CleanOptions) cleanKcEnv() {
 func (c *CleanOptions) cleanKcConfig() {
 	if err := sshutils.Cmd("rm", "-rf", filepath.Dir(options.DefaultDeployConfigPath)); err != nil {
 		logger.Warn("clean kc config failed,reason: ", err)
+		c.failures = append(c.failures, fmt.Sprintf("config: %v", err))
 	}
 }
