@@ -929,6 +929,9 @@ func (h *handler) syncNodeDisable(node *v1.Node, reqDisable bool) error {
 	}
 	// 3.update node label
 	if reqDisable {
+		if node.Labels == nil {
+			node.Labels = map[string]string{}
+		}
 		node.Labels[common.LabelNodeDisable] = "true"
 	} else {
 		delete(node.Labels, common.LabelNodeDisable)
@@ -2983,6 +2986,9 @@ func (h *handler) CreateCronBackup(request *restful.Request, response *restful.R
 		return
 	}
 
+	if cb.Labels == nil {
+		cb.Labels = map[string]string{}
+	}
 	cb.Labels[common.LabelCronBackupEnable] = ""
 	createdCB, err := h.clusterOperator.CreateCronBackup(request.Request.Context(), cb)
 	if err != nil && !apimachineryErrors.IsAlreadyExists(err) {

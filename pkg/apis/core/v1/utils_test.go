@@ -567,3 +567,18 @@ func TestValidateBackupPoint(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateCronBackupNilLabels(t *testing.T) {
+	cb := &v1.CronBackup{}
+	if cb.Labels != nil {
+		t.Fatal("fixture must start with nil labels")
+	}
+	// the handler's write path must tolerate a nil Labels map
+	if cb.Labels == nil {
+		cb.Labels = map[string]string{}
+	}
+	cb.Labels[common.LabelCronBackupEnable] = ""
+	if _, ok := cb.Labels[common.LabelCronBackupEnable]; !ok {
+		t.Fatal("enable label not set")
+	}
+}
