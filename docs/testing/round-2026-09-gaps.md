@@ -1,6 +1,6 @@
 # Round 4 — Remaining Gaps (carried over, do later)
 
-来源：round 2/3 覆盖对账（case 编号见 2026-09-16-core-feature-checklist.md）。按建议执行顺序排列。
+来源：round 2/3 覆盖对账（case 编号见 [core-feature-checklist.md](core-feature-checklist.md)）。按建议执行顺序排列。
 完成一项请在 checklist 文档同步更新对应 case 的状态与轮次标记。
 
 ## 高优先（核心场景缺口）
