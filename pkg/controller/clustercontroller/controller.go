@@ -30,6 +30,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 
 	"github.com/kubeclipper/kubeclipper/pkg/clusteroperation"
 
@@ -622,6 +623,7 @@ func criRegistryUpdateStep(cluster *v1.Cluster, registries []v1.RegistrySpec, no
 		return nil, fmt.Errorf("step marshal:%w", err)
 	}
 	return &v1.Step{
+		ID:     strutil.GetUUID(),
 		Name:   "update-cri-registry-config",
 		Nodes:  allNodes,
 		Action: v1.ActionInstall,

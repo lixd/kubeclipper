@@ -1787,16 +1787,8 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		clu.Status.Registries = statusRegistries
 	}
 
-	// TODO: make dry run path to etcd
-	if !dryRun {
-		clu.Status.Phase = v1.ClusterUpgrading
-		_, err = h.clusterOperator.UpdateCluster(request.Request.Context(), clu)
-		if err != nil {
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
-	}
-
+	// Create the operation before flipping the cluster phase: plan conversion
+	// failures must not leave the cluster stuck in Upgrading with no operation.
 	op.Labels[common.LabelTimeoutSeconds] = timeoutSecs
 	op.Labels[common.LabelOperationAction] = v1.OperationUpgradeCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
@@ -1804,6 +1796,11 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 	if !dryRun {
 		err = h.createOperationV2(context.TODO(), clu, op)
 		if err != nil {
+			restplus.HandleInternalError(response, request, err)
+			return
+		}
+		clu.Status.Phase = v1.ClusterUpgrading
+		if _, err = h.clusterOperator.UpdateCluster(request.Request.Context(), clu); err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
