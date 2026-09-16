@@ -427,7 +427,7 @@ func (r *OperationReconciler) createAttempts(
 		}
 		candidates = append(candidates, candidate{node: node, attempt: attempt})
 	}
-	payload, err := materializePayload(facts.Step, allTasks)
+	payload, err := materializePayload(facts.Step, op.Spec.Steps, allTasks)
 	if err != nil {
 		return false, false, &invalidExecutionFactsError{cause: err}
 	}
