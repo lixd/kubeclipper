@@ -66,6 +66,13 @@
 | 2.1-08 | proxyMode ipvs | ✅ | R2/R3 |
 | 2.1-09 | proxyMode iptables | ❌ | |
 | 2.1-10 | 矩阵外版本 / 同版本 / 降级拒绝 | ✅ | R3 |
+| 2.1-11 | 网络自定义（pod/service 网段、DNS 域） | ✅ | R3 即用即验（172.25/16 + cluster.local） |
+| 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ❌ | |
+| 2.1-13 | feature-gates | ⚠️ | R1 验过 20 项（前 agent）；R3 未复跑 |
+| 2.1-14 | untaint-master（master 允许调度） | ❌ | |
+| 2.1-15 | only-install-kubernetes-component（只装组件不建集群） | ❌ | |
+| 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
+| 2.1-17 | kubeadm preflight ignore 定制（annotation） | ⚠️ | R2 场景隐含，无显式用例 |
 
 ### 2.2 节点操作
 
@@ -77,6 +84,7 @@
 | 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
 | 2.2-05 | 节点 disable / enable | ❌ | |
 | 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
+| 2.2-07 | agent 节点注销（未入集群的 /nodes 删除与残留清理） | ❌ | 平台侧，区别于集群 remove |
 
 ### 2.3 升级与证书
 
@@ -145,11 +153,17 @@
 | 4-05 | addons：uninstall 容错（空 config / ErrIgnore 链） | ✅ | R3 三修复合验 |
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
 | 4-07 | **console UI 端到端（含任务失败展示）** | ❌ | fork console 分支未配镜验证 |
-| 4-08 | 用户 / RBAC / OAuth / 鉴权拦截 | ❌ | 建议与 UI 单独立项 |
+| 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ❌ | 建议与 UI 单独立项 |
+| 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ❌ | 同上 |
+| 4-08c | 登录方式：密码 / 验证码 / 第三方 OAuth 回调 | ❌ | 同上 |
+| 4-08d | 长期 token / kubeconfig 签发（/tokens） | ❌ | 同上 |
 | 4-09 | 集群模板 templates | ❌ | 同上 |
 | 4-10 | DNS domains / records | ❌ | 同上 |
 | 4-11 | cloudproviders 云厂商纳管 | ❌ | 同上 |
 | 4-12 | Web 终端 / pod exec / kubeconfig 下载 | ❌ / ❌ / ⚠️ | UI 侧 |
+| 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ⚠️ | doctor/config 间接用过，无直查用例 |
+| 4-14 | 审计事件查询（/events，auditing 组） | ❌ | |
+| 4-15 | PlatformSetting（镜像仓库模板、web 终端密钥） | ❌ | |
 
 ## 当前缺口速览
 
