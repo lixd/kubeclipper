@@ -286,7 +286,18 @@ func executedAttempts(tasks []*operations.OperationTask, generation int64) int32
 	return executed
 }
 
-func materializePayload(step *operations.OperationStep, tasks []operations.OperationTask) (runtime.RawExtension, error) {
+// sourceStep reports the plan step a StepInput reads from, so input resolution
+// can honour that step's ErrIgnore contract.
+func sourceStep(steps []operations.OperationStep, id string) (operations.OperationStep, bool) {
+	for _, candidate := range steps {
+		if candidate.ID == id {
+			return candidate, true
+		}
+	}
+	return operations.OperationStep{}, false
+}
+
+func materializePayload(step *operations.OperationStep, steps []operations.OperationStep, tasks []operations.OperationTask) (runtime.RawExtension, error) {
 	if len(step.Inputs) == 0 {
 		return *step.Payload.DeepCopy(), nil
 	}
@@ -309,6 +320,13 @@ func materializePayload(step *operations.OperationStep, tasks []operations.Opera
 			}
 		}
 		if len(matches) != 1 || matches[0].Status.Result == nil {
+			// ErrIgnore steps advance the plan even when their task failed, so a
+			// dependent step has no output to read. Feed it the empty string
+			// rather than failing the whole operation at materialize time.
+			if src, ok := sourceStep(steps, input.FromStepID); ok && src.ErrIgnore {
+				payload[input.Field] = json.RawMessage(`""`)
+				continue
+			}
 			return runtime.RawExtension{}, fmt.Errorf(
 				"input %q for step %q has %d successful source tasks",
 				input.Field,
@@ -318,6 +336,10 @@ func materializePayload(step *operations.OperationStep, tasks []operations.Opera
 		}
 		value, exists := matches[0].Status.Result.Outputs[input.OutputKey]
 		if !exists {
+			if src, ok := sourceStep(steps, input.FromStepID); ok && src.ErrIgnore {
+				payload[input.Field] = json.RawMessage(`""`)
+				continue
+			}
 			return runtime.RawExtension{}, fmt.Errorf("output %q is missing for input %q in step %q", input.OutputKey, input.Field, step.ID)
 		}
 		encoded, err := json.Marshal(value)
