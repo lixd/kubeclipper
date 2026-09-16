@@ -84,7 +84,7 @@
 | 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
 | 2.2-05 | 节点 disable / enable | ❌ | |
 | 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
-| 2.2-07 | agent 节点注销（未入集群的 /nodes 删除与残留清理） | ❌ | 平台侧，区别于集群 remove |
+| 2.2-07 | agent 节点注销（/nodes 记录删除与残留清理） | ❌ | 纯 REST（DELETE /nodes/{name}），kcctl delete 无 node 入口；API 无集群占用校验，可直接删在集群中的节点（危险操作） |
 
 ### 2.3 升级与证书
 
