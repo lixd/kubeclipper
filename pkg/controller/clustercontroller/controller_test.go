@@ -215,3 +215,19 @@ func TestSyncClusterClientSkipsPhasesWithoutUsableKubeconfig(t *testing.T) {
 		}
 	})
 }
+
+func TestCRIRegistryUpdateStepHasID(t *testing.T) {
+	cluster := &v1.Cluster{}
+	cluster.Name = "c1"
+	cluster.ContainerRuntime = v1.ContainerRuntime{Type: v1.CRIContainerd, Version: "1.7.0"}
+	registries := []v1.RegistrySpec{{Scheme: "https", Host: "registry.example.com"}}
+	node := &v1.Node{}
+	node.Name = "n1"
+	step, err := CRIRegistryUpdateStep(cluster, registries, []*v1.Node{node})
+	if err != nil {
+		t.Fatalf("CRIRegistryUpdateStep: %v", err)
+	}
+	if step.ID == "" {
+		t.Fatal("step must carry an ID: the operation v2 converter rejects steps without ID")
+	}
+}
