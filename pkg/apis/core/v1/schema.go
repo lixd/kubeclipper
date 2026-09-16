@@ -66,7 +66,7 @@ func (p *PatchComponents) checkComponents(cluster *corev1.Cluster) error {
 			}
 			// resolves the config of current component to be operated
 			currentCompMeta := itf.NewInstance()
-			if err := json.Unmarshal(v.Config.Raw, currentCompMeta); err != nil {
+			if err := decodeAddonConfig(v.Config.Raw, currentCompMeta); err != nil {
 				return fmt.Errorf("%s-%s component configuration resolution error: %s", v.Name, v.Version, err.Error())
 			}
 			currentNewComp, _ := currentCompMeta.(component.Interface)
@@ -74,7 +74,7 @@ func (p *PatchComponents) checkComponents(cluster *corev1.Cluster) error {
 				// resolve that the cluster already has the same type of component config
 				existCompItf, _ := component.Load(fmt.Sprintf(component.RegisterFormat, existedComp.Name, existedComp.Version))
 				existCompMeta := existCompItf.NewInstance()
-				if err := json.Unmarshal(existedComp.Config.Raw, existCompMeta); err != nil {
+				if err := decodeAddonConfig(existedComp.Config.Raw, existCompMeta); err != nil {
 					return fmt.Errorf("%s-%s component configuration resolution error: %s", v.Name, v.Version, err.Error())
 				}
 				existNewComp, _ := existCompMeta.(component.Interface)
@@ -87,6 +87,17 @@ func (p *PatchComponents) checkComponents(cluster *corev1.Cluster) error {
 	return nil
 }
 
+// decodeAddonConfig unmarshals an addon's raw config into target. A missing
+// (empty) config is not an error: callers fall back to the component's
+// default instance, which keeps uninstall requests working when the console
+// sends only name and version.
+func decodeAddonConfig(raw []byte, target interface{}) error {
+	if len(raw) == 0 {
+		return nil
+	}
+	return json.Unmarshal(raw, target)
+}
+
 // addOrRemoveComponentFromCluster update cluster components slice
 func (p *PatchComponents) addOrRemoveComponentFromCluster(cluster *corev1.Cluster) (*corev1.Cluster, error) {
 	if p.Uninstall {
@@ -96,14 +107,14 @@ func (p *PatchComponents) addOrRemoveComponentFromCluster(cluster *corev1.Cluste
 				return nil, fmt.Errorf("kubeclipper does not support %s-%s component", v.Name, v.Version)
 			}
 			currentCompMeta := itf.NewInstance()
-			if err := json.Unmarshal(v.Config.Raw, currentCompMeta); err != nil {
+			if err := decodeAddonConfig(v.Config.Raw, currentCompMeta); err != nil {
 				return nil, fmt.Errorf("%s-%s component configuration resolution error: %s", v.Name, v.Version, err.Error())
 			}
 			currentNewComp, _ := currentCompMeta.(component.Interface)
 			for k, comp := range cluster.Addons {
 				existCompItf, _ := component.Load(fmt.Sprintf(component.RegisterFormat, comp.Name, comp.Version))
 				existCompMeta := existCompItf.NewInstance()
-				if err := json.Unmarshal(comp.Config.Raw, existCompMeta); err != nil {
+				if err := decodeAddonConfig(comp.Config.Raw, existCompMeta); err != nil {
 					return nil, fmt.Errorf("%s-%s component configuration resolution error: %s", v.Name, v.Version, err.Error())
 				}
 				existNewComp, _ := existCompMeta.(component.Interface)
