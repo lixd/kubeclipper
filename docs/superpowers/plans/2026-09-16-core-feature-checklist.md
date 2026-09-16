@@ -1,126 +1,148 @@
-# KubeClipper 平台核心功能清单与覆盖对账（2026-09-16）
+# KubeClipper 核心功能测试清单（按四大块，2026-09-16）
 
-用途：round 4+ 测试的覆盖基准。事实来源 = 代码命令树/API 路由（kcctl `cmd/kcctl/app/root.go`、
-`pkg/apis/*/registry.go`）+ 两轮实测记录。
+用途：round 4+ 覆盖基准。状态：✅ 已实测 · ⚠️ 部分 · ❌ 未测。
 
-状态图例：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · ➖ 本轮范围外（非 OCI 迁移重点）
+## 1. 平台本身的部署（deploy）
 
-## A. 平台部署与生命周期（kcctl deploy/join/clean/upgrade/doctor）
+### 1.1 部署物料来源（三种方式）
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| 在线部署：默认 ghcr 直装 | ⚠️ | 预检✅；真从 ghcr 直装未走（都先 sync） |
+| 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路 |
+| 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ❌ | 脚本 CI 绿，真机未演练（带箱入网场景） |
+| 自定义私有仓库：http | ✅ | R3 |
+| 自定义私有仓库：https + 自签 CA | ❌ | |
+| 仓库带账号密码认证（deploy 侧 username/password） | ❌ | sync 源认证✅，部署侧未测 |
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| A1 | deploy 3 节点（server+agent+etcd+console） | ✅ | R2/R3 各 2 次 |
-| A2 | deploy 指定 http 私有 registry | ✅ | R3（:5003 全程） |
-| A3 | deploy 默认 ghcr + 预检失败路径 | ✅ | R2/R3 + 单测 |
-| A4 | deploy **多 server HA**（etcd 奇数集群） | ❌ | 两轮全部单 server —— **重点缺口** |
-| A5 | console 部署（服务/静态资源自 OCI bootstrap） | ⚠️ | 服务起得来；页面未验 |
-| A6 | kcctl doctor | ✅ | R3（19 项） |
-| A7 | clean --all 全节点（含响亮失败） | ✅ | R3 |
-| A8 | clean 单组件/部分节点 | ❌ | |
-| A9 | join 纳管新节点到运行中平台 | ⚠️ | 集群 add nodes 隐含装过 agent；独立 join 未测 |
-| A10 | kcctl upgrade（平台自身组件热升级） | ❌ | **缺口**（binary/online 两模式） |
-| A11 | 重新 deploy 幂等（clean 后/未 clean） | ⚠️ | clean 后 ✅；直接重跑未测 |
-| A12 | deploy 自定义端口/数据目录 | ➖ | |
+### 1.2 部署拓扑
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| 单 server + 多 agent（3 台） | ✅ | R2/R3 |
+| server 与 agent/k8s 节点混部同机 | ✅ | R2/R3（dev-2） |
+| **多 server HA（3× kc-server，etcd 奇数集群）** | ❌ | **头号缺口** |
+| console 组件部署与访问 | ⚠️ | 服务起✅；页面未验 |
 
-## B. 计算集群生命周期（create/upgrade/delete/nodes）
+### 1.3 容错与增量运维
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| 预检失败引导（不可达/缺包报错） | ✅ | R2/R3 |
+| etcd 冷启动竞态（写探针+重试） | ✅ | R3 |
+| clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
+| 不 clean 直接重复 deploy | ❌ | |
+| `kcctl join` 向运行中平台纳管新节点 | ⚠️ | 集群 add nodes 隐含走过，独立命令未测 |
+| `kcctl clean` 单节点/部分清理 | ❌ | |
+| **`kcctl upgrade` 平台自身升级**（--pkg binary / --online） | ❌ | **缺口** |
+| `kcctl doctor` | ✅ | R3 |
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| B1 | 创建 1M+2W（v1.36.4 / v1.37.0） | ✅ | R3 |
-| B2 | 创建 v1.35.8（containerd 1.7.29+calico v3.29.6 组合） | ✅ | R2 |
-| B3 | 创建 3M HA（workerNodeVip/lvscare） | ✅ | R2 P2′-5 |
-| B4 | 创建失败 → 删除 → 重建（InstallFailed 路径） | ✅ | R3（真实失败 3 次走通） |
-| B5 | 版本矩阵外拒绝 | ✅ | R3（v9.9.9） |
-| B6 | worker add / remove（含不可 drain） | ✅ | R3 / R2 |
-| B7 | master add / remove、master↔worker 转换 | ❌ | **缺口** |
-| B8 | 集群升级（真实滚动 1.36.4→1.37.0） | ✅ | R2 + R3 补跑（修 3 个 bug） |
-| B9 | 同版本/降级拒绝 | ✅ | R3 |
-| B10 | 集群删除（并发 SyncKubeConfig 死锁回归） | ✅ | R2/R3 |
-| B11 | 删除失败重试（TerminateFailed→retry） | ✅ | R2 |
-| B12 | node disable/enable | ❌ | API 存在未测 |
-| B13 | kubeconfig 获取（/kubeconfig、CLI 下载） | ⚠️ | admin.conf 一直在用；API 路由未显式测 |
-| B14 | 证书更新（/certification） | ❌ | **缺口** |
-| B15 | Web 终端（/terminal、terminal.key）、pod exec | ❌ | ➖ UI 侧 |
-| B16 | proxyMode ipvs ✅ / iptables ❌ | ⚠️ | |
-| B17 | CRI containerd 1.7.29 ✅ / 2.2.4 ✅ / docker ❌ | ⚠️ | docker 无发布物料，可能已事实下线 |
-| B18 | CNI calico 双版本 ✅ / 其他 CNI ➖ | | |
+## 2. 集群相关操作
 
-## C. OCI 制品分发（本轮主题）
+### 2.1 创建集群
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| 1 master + 2 worker | ✅ | R3 |
+| 1 master + 1 worker / 单节点（master 兼 worker） | ❌ | 最小规格未测 |
+| 3 master HA（含 lvscare workerNodeVip） | ✅ | R2 |
+| 版本矩阵 v1.35.8 / 1.36.4 / 1.37.0 | ✅ | R2/R3 |
+| CRI containerd 1.7.29 / 2.2.4 | ✅ | R2/R3 |
+| CNI calico v3.29.6 / v3.31.5 | ✅ | R2/R3 |
+| 镜像/物料 100% 来自指定仓库（离线保证） | ✅ | R3 验证法可复用 |
+| proxyMode ipvs | ✅ | R2/R3 |
+| proxyMode iptables | ❌ | |
+| 矩阵外版本/降级/同版本拒绝 | ✅ | R3 |
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| C1 | ghcr→本地 registry sync（含幂等重跑） | ✅ | R2/R3 + CI roundtrip |
-| C2 | bootstrap 包驱动平台安装 | ✅ | R3 |
-| C3 | 集群安装物料按 plan 解析（digest 固定） | ✅ | R2/R3（AddNodes/删除后 plan 不变） |
-| C4 | 缺包/坏 registry 的报错清晰度 | ✅ | R2 P5′ |
-| C5 | 离线 bundle export/import 真机演练 | ❌ | CI ✅，lab 未复跑 |
-| C6 | delivery-policy **自定义**（版本白名单收紧→创建被拒） | ❌ | **缺口**（只测过默认策略） |
-| C7 | kcctl resource refresh / componentmeta | ⚠️ | 索引器行为 R2 验过；CLI 命令未跑 |
-| C8 | https+认证私有仓库 | ❌ | 全程 http |
-| C9 | addon 物料（chart+runtime image set）自 registry | ✅ | R3（nfs/metallb） |
+### 2.2 节点操作
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| worker 添加 | ✅ | R2/R3（plan 不变性同步验证） |
+| worker 移除（含不可 drain 节点容错） | ✅ | R2/R3 |
+| **master 添加 / 移除** | ❌ | 缺口 |
+| master↔worker 角色转换（convertNodes） | ❌ | 缺口 |
+| 节点 disable / enable | ❌ | |
+| 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
 
-## D. 备份与恢复
+### 2.3 升级
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2 + R3 新 tip 复验（修 3 bug） |
+| 升级中途失败 → op retry | ❌ | |
+| 升级失败 → 集群状态恢复（reset status） | ✅ | R3（逃生门实际使用） |
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| D1 | backuppoint（fs；非法类型拒绝） | ✅ | R3（含校验修复回归） |
-| D2 | 手动备份 + 恢复（marker 回滚证明） | ✅ | R2/R3 |
-| D3 | 备份删除（NFS 文件清掉） | ✅ | R3 |
-| D4 | 删除集群前的备份保护 | ✅ | R3 |
-| D5 | cronbackup runAt 单次触发 | ✅ | R3 |
-| D6 | cronbackup **周期调度真实命中**（等到 schedule 时刻） | ⚠️ | 只看 NextScheduleTime 滚动，未等真实周期 |
-| D7 | cronbackup disable/enable | ❌ | |
-| D8 | maxBackupNum 超限自动轮转旧备份 | ❌ | **缺口** |
-| D9 | S3 backuppoint（minio） | ❌ | **缺口** |
-| D10 | 恢复期间的 operation 可观测（logs/cancel） | ⚠️ | logs ✅；cancel ❌ |
+### 2.4 证书
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| **集群证书更新（/certification）** | ❌ | 缺口 |
+| agent 重新签发（重 join） | ⚠️ | join 未独立测 |
 
-## E. Addons / 组件
+### 2.5 删除集群
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| 正常删除（含与 SyncKubeConfig 并发，死锁回归） | ✅ | R2/R3 |
+| InstallFailed 状态删除 | ✅ | R3 |
+| 删除失败 TerminateFailed → 重试 | ✅ | R2 |
+| 有备份时删除保护（引导先删备份） | ✅ | R3 |
+| 删除后 ops 账本清理 | ✅ | R3 |
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| E1 | nfs-csi 安装/动态供给读写/卸载 | ✅ | R2/R3（读写闭环 R3） |
-| E2 | metallb L2 安装/卸载 | ✅ | R3 |
-| E3 | metallb BGP | ❌ | 需邻居 AS 环境 |
-| E4 | uninstall 不校验连接参数（4705fbf0）+ 空 config（46b42953） | ✅ | R2 修/R3 复验+新用例 |
-| E5 | 多组件同时卸载的 steps 链（ErrIgnore 输入 6b760692） | ✅ | R3 |
-| E6 | 同 addon 多实例（不同 scName，checkComponents 唯一性） | ❌ | |
+### 2.6 备份与恢复
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| backuppoint：fs 型 | ✅ | R3 |
+| backuppoint：**S3 型（minio）** | ❌ | 缺口 |
+| 手动备份 → 恢复（etcd 回滚证据） | ✅ | R2/R3 |
+| 备份删除（文件连带清除） | ✅ | R3 |
+| cronbackup runAt 单次触发 | ✅ | R3 |
+| cronbackup **真实周期命中** | ⚠️ | 只验调度时间滚动 |
+| cronbackup enable/disable 子资源 | ❌ | |
+| **maxBackupNum 超限自动轮转** | ❌ | 缺口 |
+| 恢复后集群可用性（addons/节点完整） | ✅ | R3 |
 
-## F. 用户/RBAC/OAuth
+## 3. kcctl 命令覆盖（每条至少跑通一次核心路径）
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| F1 | 用户/角色 CRUD、密码修改、enable/disable | ❌ | 全程 admin 证书 —— ➖ 非本轮主题但属核心功能 |
-| F2 | RBAC 实际鉴权拦截 | ❌ | ➖ |
-| F3 | OAuth 登录（/oauth、tokens） | ❌ | ➖ |
+| 命令 | 子命令 | 状态 |
+|---|---|---|
+| deploy / clean / doctor | — | ✅（clean 单节点模式 ❌） |
+| join | — | ❌ 独立未测 |
+| create | cluster（CLI 方式） | ⚠️（建集群走的 API，CLI 入口未跑） |
+| create | registry / role / user | ❌（registry ✅） |
+| delete | cluster / 其他资源 | ⚠️（CLI `kcctl delete cluster` 未跑，API ✅） |
+| get | clusters/nodes/operations（含 --watch、分页） | ⚠️ watch 未长跑 |
+| operation | list/describe/logs/retry | ✅ |
+| operation | **cancel** | ❌ 仅单测 |
+| cluster | upgrade | ✅ R3 |
+| set | cluster | ❌ |
+| drain | （节点驱逐独立使用） | ❌ |
+| upgrade | **平台自升级** | ❌ |
+| registry | sync | ✅ R2/R3 |
+| registry | list/deploy/clean/push（本地仓库管理） | ❌ |
+| resource | list/inspect/refresh | ❌ |
+| delivery-policy | template/get/apply/diff/validate | ❌（默认策略注入✅，命令面全未测） |
+| status / config / login / version / completion | — | ⚠️ version/config✅，login 用证书绕过 |
 
-## G. 其他资源面
+## 4. 其他常用功能
 
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| G1 | 集群模板 templates CRUD | ❌ | |
-| G2 | DNS domains/records 管理 | ❌ | ➖（与 K8s 集群解耦的平台功能） |
-| G3 | cloudproviders（云厂商纳管） | ❌ | ➖ |
-| G4 | regions | ⚠️ | 单一 default region 隐式在用 |
-| G5 | events/审计查询 | ❌ | ➖ |
-| G6 | configmaps 直读（策略/配置） | ⚠️ | delivery-policy 注入验证过 |
-| G7 | 注册镜像仓库 /registries CRUD + 集群绑定 | ✅ | R3（含缺省沿用修复 c2773127） |
-
-## H. 可观测/操作面
-
-| # | 功能 | 状态 | 证据/缺口 |
-|---|---|---|---|
-| H1 | operation list/describe | ✅ | R2/R3 |
-| H2 | operation logs（server→agent mTLS 代理） | ✅ | R3 全程排障在用 |
-| H3 | operation retry | ✅ | R3 |
-| H4 | operation cancel | ❌ | 仅单测 |
-| H5 | --watch/彩色输出/分页 cursor | ⚠️ | 分页 ✅ R2；watch 未长跑 |
-| H6 | 失败展示（message/result.reason）→ console | ⚠️ | API 侧 ✅；UI ❌ |
+| 功能 | 状态 | 备注 |
+|---|---|---|
+| addons：nfs-csi 安装/读写/卸载 | ✅ | R2/R3 |
+| addons：metallb L2 | ✅ | R3 |
+| addons：metallb BGP | ❌ | 需邻居环境 |
+| addons：同组件多实例（scName 唯一性） | ❌ | |
+| addons：uninstall 容错（空 config/参数校验跳过/ErrIgnore 链） | ✅ | R3 三修复合验 |
+| 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
+| console UI 端到端（含任务失败展示） | ❌ | fork console 分支未配镜验证 |
+| 用户/RBAC/OAuth（users/roles/tokens/鉴权拦截） | ❌ | 平台既有能力，建议与 UI 一起单独立项 |
+| 集群模板 templates | ❌ | 同上 |
+| DNS domains/records | ❌ | 同上（与 apiserver 域名发布相关） |
+| cloudproviders 云厂商纳管 | ❌ | 同上 |
+| Web 终端 / pod exec | ❌ | UI 侧 |
+| kubeconfig 下载接口 | ⚠️ | 隐式在用 |
 
 ---
 
-## 汇总：下一轮优先补的空白
-- **A4 多 server HA deploy**、**A10 平台自升级**、**B7 master 增删/转换**
-- **C6 delivery-policy 自定义生效**、**C5 离线 bundle 真机**
-- **D8 maxBackupNum 轮转**、**D9 S3 备份**、D6 真实周期触发
-- H4 cancel、B14 证书更新、B12 disable/enable 节点
-- F/G 大块（RBAC、模板、DNS、云厂商）属平台既有能力但与 OCI 迁移弱相关，建议单独立项
+## Round 4 优先级建议（对应缺口）
+1. **1.2 多 server HA 部署**（三台机器正好够）
+2. **2.6 maxBackupNum 轮转 + cron 真实周期**（低成本，改 schedule 等触发）
+3. **3. delivery-policy 命令组 + 自定义策略生效**（OCI 主题核心）
+4. **1.1 纯离线 bundle 真机演练**
+5. **2.2/2.4 master 增删 + 证书更新**
+6. **1.3 kcctl upgrade 平台自升级**
+7. 3 章其余未测命令扫一遍（cancel、set、drain、resource、registry 子命令）
+8. 4 章 UI/RBAC/模板/DNS 单独立项
