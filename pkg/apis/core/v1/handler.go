@@ -1726,7 +1726,12 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 	if v := request.QueryParameter("timeout"); v != "" {
 		timeoutSecs = v
 	}
-	clu.ImageRegistry = body.ImageRegistry
+	// An upgrade that does not name a different image registry keeps the
+	// cluster's current one; clearing it would push the plan onto the legacy
+	// offline image-archive path, which OCI delivery rejects at run time.
+	if body.ImageRegistry != "" {
+		clu.ImageRegistry = body.ImageRegistry
+	}
 	extraMeta, err := h.getClusterMetadata(request.Request.Context(), clu, false)
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) || err == ErrNodesRegionDifferent {
@@ -1736,7 +1741,7 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	registry, err := utils.ResolveImageRegistryForMode(request.Request.Context(), body.Offline, body.ImageRegistry, h.clusterOperator)
+	registry, err := utils.ResolveImageRegistryForMode(request.Request.Context(), body.Offline, clu.ImageRegistry, h.clusterOperator)
 	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
