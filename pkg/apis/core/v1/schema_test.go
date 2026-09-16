@@ -241,3 +241,22 @@ func Test_addOrRemoveComponentFromCluster(t *testing.T) {
 		})
 	}
 }
+
+func TestDecodeAddonConfigToleratesEmptyRaw(t *testing.T) {
+	type cfg struct {
+		Server string `json:"server"`
+	}
+	var got cfg
+	if err := decodeAddonConfig(nil, &got); err != nil {
+		t.Fatalf("empty raw must decode without error, got %v", err)
+	}
+	if err := decodeAddonConfig([]byte(`{"server":"1.2.3.4"}`), &got); err != nil {
+		t.Fatalf("valid raw must decode, got %v", err)
+	}
+	if got.Server != "1.2.3.4" {
+		t.Fatalf("decoded %+v", got)
+	}
+	if err := decodeAddonConfig([]byte(`{`), &got); err == nil {
+		t.Fatal("invalid raw must still error")
+	}
+}

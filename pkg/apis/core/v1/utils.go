@@ -412,8 +412,14 @@ func (h *handler) parseAddonStep(ctx context.Context, clu *v1.Cluster, addons []
 			continue
 		}
 		instance := cInterface.NewInstance()
-		if err := json.Unmarshal(comp.Config.Raw, instance); err != nil {
-			return []v1.Step{}, err
+		// An addon without config must still be tearable down: skip the
+		// unmarshal so the component's built-in defaults are used instead of
+		// failing json.Unmarshal on empty raw bytes ("unexpected end of JSON
+		// input", which surfaced as a 500 on uninstall requests).
+		if len(comp.Config.Raw) > 0 {
+			if err := json.Unmarshal(comp.Config.Raw, instance); err != nil {
+				return []v1.Step{}, err
+			}
 		}
 		newComp, ok := instance.(component.Interface)
 		if !ok {
