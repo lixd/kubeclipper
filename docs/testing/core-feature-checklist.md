@@ -70,7 +70,7 @@
 | 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ❌ | |
 | 2.1-13 | feature-gates | ⚠️ | R1 验过 20 项（前 agent）；R3 未复跑 |
 | 2.1-14 | untaint-master（master 允许调度） | ❌ | |
-| 2.1-15 | only-install-kubernetes-component（只装组件不建集群） | ❌ | |
+| 2.1-15 | `--only-install-kubernetes-component`：建集群跳过 CNI（自带网络场景，建后手动装 CNI 恢复 Ready） | ❌ | CLI flag → annotation → step 跳过链路存在 |
 | 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
 | 2.1-17 | kubeadm preflight ignore 定制（annotation） | ⚠️ | R2 场景隐含，无显式用例 |
 
