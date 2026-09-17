@@ -122,6 +122,9 @@ Pod、Service DNS 和 apiserver 烟测。因此 `2.1-18` 标记 ✅，`2.1-20` �
 - 节点角色标签收敛后，disable/enable 请求均 HTTP 200，禁用标签出现并清除；
 - 最终集群回到 Running，所有 Kubernetes Node Ready。
 
+另外用 Master 角色尝试节点添加，API 返回 HTTP 400 `invalid node role`；这证明当前入口会
+明确拒绝该请求，但不构成 Master 添加/移除功能通过，Case `2.2-03` 仍为 ❌。
+
 ### 3.5 证书更新（2.3-04）
 
 对 `p-up` 调用 `/api/core.kubeclipper.io/v1/clusters/p-up/certification`，

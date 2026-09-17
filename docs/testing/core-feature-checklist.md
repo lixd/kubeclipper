@@ -110,7 +110,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 |---|---|---|---|
 | 2.2-01 | worker 添加（含 packagePlan 不变性） | ✅ | R2/R3 |
 | 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3 |
-| 2.2-03 | **master 添加 / 移除** | ❌ | |
+| 2.2-03 | **master 添加 / 移除** | ❌ | R4 尝试 Master add 被 API 以 `invalid node role` 拒绝；当前实现不支持该路径，未安排 Master E2E |
 | 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
 | 2.2-05 | 节点 disable / enable | ✅ | R3/R4：节点从集群移除后执行 disable/enable，HTTP 200，禁用标签出现并清除；尚未验证仍被其他集群占用时的保护 |
 | 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
