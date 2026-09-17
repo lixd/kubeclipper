@@ -50,6 +50,7 @@ Operation ID、故障注入和清理证据见
 ## P2：扩展能力与环境矩阵
 
 - `4-03`：MetalLB BGP，需要可控的 BGP 邻居环境。
+- `2.1-32`：IPv4/IPv6 dual-stack，需要双栈主机、双 Pod/Service CIDR、Calico 双栈和跨节点/Service 验收；当前三机没有可控 IPv6 环境。
 - `4-04`：Addon 同组件多实例及实例隔离。
 - `4-09`～`4-11`：模板、DNS、CloudProvider/外部集群纳管。
 - `4-12a`、`4-12b`、`4-15`：Web Terminal、Pod exec、PlatformSetting。

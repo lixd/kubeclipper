@@ -98,7 +98,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-22 | 私有 CRI Registry 配置下发 | ⚠️ | R6：HTTP CRI Registry 引用下发到 `/etc/containerd/certs.d/.../hosts.toml` 并可消费；账号认证、自签 CA 和独立端点未测 |
 | 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
 | 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4：`min-core-20260917` 两节点 Ready，跨节点 Pod 网络通过，删除后平台 3/3 Agent 恢复健康 |
-| 2.1-25 | 集群在线安装 | ❌ | 与平台在线部署分开验证；目标集群按配置在线获取所需物料 |
+| 2.1-25 | 集群在线安装 | ✅ | R6：`r6-online-cluster-20260917` 使用 `--offline=false` 建群，Cluster 无 offline annotation，CreateCluster `e11f819e-05ed-403c-8ccf-01a3c2c1263f` 与 SyncKubeConfig 均 Succeeded，packagePlan 落库后删除 |
 | 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | R5：已占用节点创建前拒绝且无新 Operation/Cluster；R6：同一 IP 同时指定 Master/Worker 返回 `master and worker conflict`，无对象残留 |
 | 2.1-27 | Master/Worker 跨 Region | ❌ | 按当前同 Region 约束拒绝，并指出冲突节点和 Region |
 | 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ❌ | R6：`10.96.0.0/16` 与 `10.96.0.0/12` 被接受并创建 Installing Cluster，未在创建前拒绝；健康检查未收敛 |
@@ -298,4 +298,5 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-13 | Kubernetes feature-gates 透传 | ⚠️ | R1 验过 20 项；R3 未复跑 |
 | 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ❌ | 自带网络场景；安装第三方 CNI 后恢复 Ready |
 | 2.1-17 | kubeadm preflight ignore 定制 | ⚠️ | R2 隐含使用，无显式用例 |
+| 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ❌ | API/CNI 路径要求同时提供 IPv4、IPv6 Pod CIDR；现有 sh-dev 主机无可控 IPv6 环境，未安排真机 E2E |
 | 4-04 | Addon 同组件多实例 | ❌ | 以 StorageClassName/实例名区分，状态和卸载互不影响 |

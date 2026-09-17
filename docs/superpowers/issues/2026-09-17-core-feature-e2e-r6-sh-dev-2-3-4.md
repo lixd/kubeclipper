@@ -201,6 +201,11 @@ kcctl drain --agent 61baec0e-8319-4cb5-8081-49df7cbd119d
 - `kcctl completion bash/zsh` 均生成成功并通过 shell 语法检查，`fish` 按 help 返回不支持；
   清单已按实际支持面改为 bash/zsh。另查得 `/root/.kc/config` 和 `deploy-config.yaml` 权限均为
   0644，Package Registry/mTLS 敏感配置未达到 0600，2.6-07/4-16 保持 ❌。
+- 目标集群在线安装补测：`r6-online-cluster-20260917` 使用 `--offline=false`，Cluster 无
+  `kubeclipper.io/offline` annotation，CreateCluster Operation
+  `e11f819e-05ed-403c-8ccf-01a3c2c1263f`（15 steps）和 SyncKubeConfig 均 Succeeded，
+  `status.packagePlan` 存在；删除后无对象残留，2.1-25 可标记 ✅。这不替代平台纯离线 bundle 与
+  断公网验证。
 - 内置只读用户登录后可读取 Cluster，创建 Registry 被 403 拒绝，证明内置 RBAC 拦截生效；完整
   CRUD、验证码、token、限流和自定义 role 修复仍是缺口。
 
@@ -219,5 +224,5 @@ Operation  none
 
 以下项目本轮没有伪装为通过：纯离线 bundle/export-import、HTTPS/公共 CA/认证 Package Registry、
 平台自身 `upgrade`、Master 增删和角色转换、升级中断 retry、
-缓存损坏/Registry 断连、maxBackupNum 孤儿文件修复、Console E2E，以及模板/DNS/CloudProvider
+缓存损坏/Registry 断连、maxBackupNum 孤儿文件修复、IPv4/IPv6 dual-stack、Console E2E，以及模板/DNS/CloudProvider
 等扩展能力。Docker CRI 仍按废弃入口处理，不安排 Docker E2E。
