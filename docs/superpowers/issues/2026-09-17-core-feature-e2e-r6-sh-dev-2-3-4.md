@@ -166,9 +166,36 @@ kcctl drain --agent 61baec0e-8319-4cb5-8081-49df7cbd119d
 - `registry push` 使用非法归档返回 rc=1、`load manifest: unexpected EOF`。三机没有运行 Docker
   Engine，且不能占用共享 Registry，因此未执行 valid push、独立 registry deploy/clean/delete；
   3-19 保持 ⚠️。
-- 内置只读用户登录后可读取 Cluster，创建 Registry 被 403 拒绝，证明基本 RBAC 拦截生效；自定义
-  role 的 binding 仍需补 subjects/越权矩阵，角色删除后用户 annotation 可能悬挂，4-08b 保持 ⚠️，
-  4-08/4-08c 的完整 CRUD、验证码、token 和限流仍是缺口。
+- Delivery Policy 另做缺失 repository 负向：将 v1.37 策略的 `calico` 替换为不存在的
+  `missing-calico` 后，`validate/apply` 均成功，创建请求在 Operation 前返回
+  `k8s version v1.37.0 unavailable, missing packages: missing-calico v3.31.5`，rc=1，
+  无 Cluster/Operation；默认策略 SHA-256 恢复为
+  `13a55a29ead6099245498d1fb923b9dde3154a2544253a9de6307ba2427a4d28`。缺失 blob 和冲突选择
+  仍未覆盖，2.6-10 保持 ⚠️。
+- 临时 registry `r6-cri-reg-2-20260917` 与镜像 Registry `aio-img-reg` 分别用于同一建群
+  `r6-reg-separation-2-20260917`；CreateCluster Operation
+  `92fcb071-b324-4c99-b452-3d3b48ce2e6d` 成功，Cluster 同时保留 `imageRegistry` 和 CRI
+  `registryRef`，dev2 的 containerd 生成对应 HTTP `hosts.toml`。两资源当前同端点，不能替代
+  不同端点、认证和 CA 的隔离验证。
+- API 直接创建 `r6-iptables-api-20260917`，dry-run/真实 POST 均为 200；CreateCluster Operation
+  `a16b1a64-02cb-46ce-bdf1-f2a6ff46df87` 成功，Cluster `networking.proxyMode=iptables`，
+  `/etc/kubernetes` 中 kube-proxy ConfigMap 的 `mode: iptables`，删除后无残留，2.1-09 可标记 ✅。
+- 使用非法 `--cri docker --cri-version 20.10.24` 创建请求返回 rc=1、
+  `unsupported cri version,support [] now`，无 Cluster/Operation。该结果只证明 OCI 矩阵拒绝
+  Docker，不恢复 Docker CRI；help 和参数校验仍暴露废弃入口。
+- `kcctl get` 已扫过 cluster/node/user/role/configmap/registry 的 singular list、JSON 形状、Node
+  label selector 和 User field selector；User label selector 未按预期过滤，且 registry/user 的
+  JSON 输出存在单对象与列表形状差异，3-09 继续保持 ⚠️。
+- 临时 role/user 的 CLI CRUD、重复 user 名称拒绝和正确密码登录均通过；但自定义 role 登录后
+  `get cluster`、`get node` 仍为 403，说明 role annotation 未产生预期授权，4-08b 记录为问题。
+- `kcctl upgrade all --pkg /tmp/kc-r6-no-such-upgrade-package.tar.gz` 在本地返回 rc=1，平台
+  仍 Healthy；这只覆盖无效包拒绝，不替代平台升级 E2E。`kcctl deploy config` 生成成功，非法
+  YAML 在解析阶段 rc=1；顶层 `kcctl config` 命令不存在。
+- `kcctl completion bash/zsh` 均生成成功并通过 shell 语法检查，`fish` 按 help 返回不支持；
+  清单已按实际支持面改为 bash/zsh。另查得 `/root/.kc/config` 和 `deploy-config.yaml` 权限均为
+  0644，Package Registry/mTLS 敏感配置未达到 0600，2.6-07/4-16 保持 ❌。
+- 内置只读用户登录后可读取 Cluster，创建 Registry 被 403 拒绝，证明内置 RBAC 拦截生效；完整
+  CRUD、验证码、token、限流和自定义 role 修复仍是缺口。
 
 ## 8. 最终状态与未执行边界
 

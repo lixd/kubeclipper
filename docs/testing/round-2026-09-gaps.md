@@ -18,7 +18,7 @@
 | 6 | `2.3-05` | Agent 证书重新签发 | 集群证书更新已由 R6 用 serial/有效期前后对比证明；仍需覆盖 Agent 证书重新签发、重连、旧证书行为和有效期 |
 | 7 | `2.5-08` | `maxBackupNum` 存储对象轮转 | R5 已验证 Backup 对象轮转，但旧 FS 备份文件仍残留；需同时轮转 Backup 记录、FS 文件和 S3 对象，且重试不留下孤儿文件 |
 | 8 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛 |
-| 9 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | 覆盖缓存损坏、digest 不符、Registry 断连、配置优先级、0600 权限和凭据脱敏；不得回退到 tag |
+| 9 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | R6 已确认 `/root/.kc/config`、`deploy-config.yaml` 均为 0644，未达到敏感配置 0600；仍需覆盖缓存损坏、digest 不符、Registry 断连、配置优先级和凭据脱敏，不得回退到 tag |
 | 10 | `1.1-05`、`1.1-06`、`1.1-10` | HTTPS/认证 Package Registry | 公共 CA、自签 CA、账号密码分别覆盖 deploy、join、Agent 拉取及失败重试，日志不泄露凭据 |
 
 R4/R5/R6 已完成或部分完成的 HA、最小拓扑、Calico 自动探测、S3 备份、Cron、Policy 白名单和独立 join
@@ -33,14 +33,14 @@ Operation ID、故障注入和清理证据见
 | 顺序 | Case | 缺口 | 完成条件 |
 |---:|---|---|---|
 | 1 | `1.3-05`、`3-04` | `kcctl join` 独立纳管的负向与安全边界 | R6 已完成空闲 dev4 的独立 join 主路径；仍需重复 join、错误凭据、HTTPS/自签 CA 和失败清理 |
-| 2 | `2.1-21`、`2.1-22` | 镜像 Registry 与 Package Registry 分工 | 两类 Registry 分别配置并生效；私有 CRI Registry 的 HTTP、认证和自签 CA 正确下发到 containerd |
+| 2 | `2.1-21`、`2.1-22` | 镜像 Registry 与 Package Registry 分工 | R6 已用不同资源名分别落库并确认 CRI `hosts.toml` 下发，但两者仍指向同一 HTTP 端点；还需不同端点、认证和自签 CA，并验证 Pod 拉取 |
 | 3 | `2.1-12`、`2.1-27`～`2.1-30` | 创建集群负向与恢复 | R6 已验证合法外部 IP/SAN、占用节点、Master/Worker 重复和非法端口/域名前置拒绝；仍需域名代理连通性、跨 Region、CIDR 冲突修复、完整主机预检及中断 retry/安全删除 |
 | 4 | `2.2-06`、`2.2-07`、`2.2-11`～`2.2-13` | 节点管理边界 | R6 已验证空闲 Agent drain/delete 后 join 恢复；仍需掉线注入、集群占用保护、Lease/证书残留、Agent 身份保护和 Region 约束；disable/enable 已在 R4 覆盖 |
 | 5 | `2.3-02`、`2.3-07`、`2.3-09` | 集群升级故障与可用性 | 注入中断后安全 retry；Registry tag 变化不影响固定 digest；滚动顺序、PDB 和业务连续性明确 |
 | 6 | `2.5-11` | Backup 详情查询 API | 已有 Backup 的 `GET /backups/{name}` 必须返回对应对象，不存在才返回 404；R5 复现已有 Backup 也 404，列表和集群范围查询不受影响 |
-| 7 | `4-08`～`4-08d`、`4-18` | 用户、登录和 RBAC | 用户/角色 CRUD、enable/disable、密码/验证码、Token、越权 403 和登录限流闭环 |
+| 7 | `4-08`～`4-08d`、`4-18` | 用户、登录和 RBAC | R6 已完成临时 user/role CLI CRUD、重复名拒绝和正确密码登录；内置只读用户越权 403 通过，但自定义 role 登录后读取 Cluster/Node 仍 403，需修复绑定授权并补 enable/disable、验证码、Token 和限流闭环 |
 | 8 | `4-07` | Console 核心 E2E | 登录、建群、升级、备份、删除、Operation 进度和失败原因展示与 API 状态一致 |
-| 9 | `3-09`、`3-10`、`3-12`、`3-15`、`3-19`、`3-24`、`3-25`、`3-27` | 未覆盖或未闭环的 `kcctl` 命令 | R6 已补 registry list/image/非法 push、drain 和部分登录/RBAC；仍需每条命令成功/典型失败闭环，修复 `get --watch`，补 cancel 自动收敛、valid registry 生命周期、login TLS 和 deploy config 优先级 |
+| 9 | `3-09`、`3-10`、`3-12`、`3-15`、`3-19`、`3-24`、`3-25`、`3-27` | 未覆盖或未闭环的 `kcctl` 命令 | R6 已补 get 资源扫尾、registry list/image/非法 push、drain、completion、无效升级包和部分登录/RBAC；仍需每条命令成功/典型失败闭环，修复 `get --watch`，补 cancel 自动收敛、valid registry 生命周期、login TLS 和 deploy config 优先级 |
 | 10 | `5-13`、`5-14` | 重复提交与超时收敛 | 重复请求不产生并发副作用；timeout 后 Task、Cluster 和 ExecutionLock 按既定语义收敛 |
 
 补充的命令缺陷：`3-10 kcctl get --watch` 已在 R4 复测为失败项。CLI 虽然展示 `-w/--watch`，
@@ -64,7 +64,7 @@ Operation ID、故障注入和清理证据见
 
 | 项目 | 当前事实 | 建议 |
 |---|---|---|
-| Docker CRI（`6-12`） | 当前产品不支持 Docker CRI（包括 dockershim/外置 Docker），现行 Kubernetes 版本也没有可用的 Docker CRI 支持；但 `kcctl create cluster --cri docker` 仍被 help/参数校验接受，代码还保留 Docker 分支，而 OCI 发布矩阵只有 containerd | 这是应删除的废弃入口，不是待补测能力：从 CLI help/校验、策略输出和运行分支中移除 Docker；只验证传入 Docker 会明确拒绝，不安排 Docker E2E。独立 Docker Registry 管理命令与 Docker CRI 不是同一功能 |
+| Docker CRI（`6-12`） | 当前产品不支持 Docker CRI（包括 dockershim/外置 Docker），现行 Kubernetes 版本也没有可用的 Docker CRI 支持；R6 传入 `--cri docker --cri-version 20.10.24` 已 rc=1 拒绝，但 help/参数校验和代码仍保留 Docker 分支，而 OCI 发布矩阵只有 containerd | 这是应删除的废弃入口，不是待补测能力：从 CLI help/校验、策略输出和运行分支中移除 Docker；保留“传入 Docker 明确拒绝”的静态/负向门禁，不安排 Docker E2E。独立 Docker Registry 管理命令与 Docker CRI 不是同一功能 |
 | legacy static server/tar downloader | 当前正式交付路径已经移除，旧节点不支持原地混用 | 不恢复兼容路径；只验证全新部署不依赖旧服务，以及旧节点必须清理后重新 deploy/join 的边界 |
 | `nfs-provisioner` | 已退休，由 `nfs-csi` 替代 | 不保留功能 Case；只做默认策略、资源清单和 Console 不再暴露旧组件的静态门禁 |
 | legacy package 迁移工具 | 仓库仍保留 `migrate-legacy-packages-to-oci.sh` 一次性导入工具 | 若当前版本不承诺旧包迁移，直接删除脚本和相关说明，不保留长期兼容或迁移流程；不计入核心回归 |

@@ -85,7 +85,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-06 | CNI calico v3.29.6 / v3.31.5 | ✅ | R2/R3 |
 | 2.1-07 | 镜像/物料 100% 来自指定仓库（离线保证） | ✅ | R3 验证法可复用 |
 | 2.1-08 | proxyMode ipvs | ✅ | R2/R3 |
-| 2.1-09 | proxyMode iptables | ❌ | |
+| 2.1-09 | proxyMode iptables | ✅ | R6：API dry-run 与真实创建均接受 `proxyMode=iptables`；CreateCluster `a16b1a64-02cb-46ce-bdf1-f2a6ff46df87` 成功，kube-proxy ConfigMap 的 `mode` 为 `iptables`。当前 CLI 未暴露该参数，因此用 API 验证，删除已完成 |
 | 2.1-10 | 创建集群时拒绝支持矩阵外版本 | ✅ | R3；同版本/降级属于升级校验，见 2.3-08 |
 | 2.1-11 | 网络自定义（pod/service 网段、DNS 域） | ✅ | R3 即用即验（172.25/16 + cluster.local） |
 | 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ⚠️ | R6：合法参数落库，apiserver 证书 SAN 含外部 IP/域名，kubeconfig 使用 external-ip；域名 DNS/代理端口连通性未验证 |
@@ -94,8 +94,8 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：集群对象为 `Overlay-Vxlan-All`，1M1W 与 3M/0W 均完成跨节点 Pod ping、Service DNS 和 apiserver 访问 |
 | 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ✅ | R5：`Overlay-Vxlan-Cross-Subnet` AIO 建群和网络烟测通过；非法网络模式在创建前被 CLI 拒绝，未留下 Cluster |
 | 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ✅ | R4 覆盖 `interface=ens3`；R5 覆盖 `first-found` 与 `can-reach=172.16.131.146`，各自完成 1M1W 建群、配置落库、跨节点 Pod ping 和删除 |
-| 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ❌ | Kubernetes/CNI 镜像源与 OCI package 源各自生效，不得串用 |
-| 2.1-22 | 私有 CRI Registry 配置下发 | ❌ | HTTP、认证、自签 CA 配置正确下发到 containerd，Pod 可拉取镜像 |
+| 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ⚠️ | R6：`r6-reg-separation-2-20260917` 的 `imageRegistry=aio-img-reg`、CRI `registryRef=r6-cri-reg-2-20260917` 分别落库并完成建群；两资源当前指向同一 HTTP 端点，不足以证明不同端点的隔离 |
+| 2.1-22 | 私有 CRI Registry 配置下发 | ⚠️ | R6：HTTP CRI Registry 引用下发到 `/etc/containerd/certs.d/.../hosts.toml` 并可消费；账号认证、自签 CA 和独立端点未测 |
 | 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
 | 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4：`min-core-20260917` 两节点 Ready，跨节点 Pod 网络通过，删除后平台 3/3 Agent 恢复健康 |
 | 2.1-25 | 集群在线安装 | ❌ | 与平台在线部署分开验证；目标集群按配置在线获取所需物料 |
@@ -174,10 +174,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效 |
 | 2.6-05 | 缓存损坏或 digest 不符 | ❌ | 不得执行损坏制品；重新拉取或明确失败；不得回退到 tag |
 | 2.6-06 | Registry 暂时不可达时的缓存行为 | ❌ | 已缓存 digest 可继续，未缓存 digest 明确失败 |
-| 2.6-07 | Package Registry 配置优先级与文件权限 | ❌ | flag/deploy config/default 优先级明确；敏感配置权限 0600 |
+| 2.6-07 | Package Registry 配置优先级与文件权限 | ❌ | R6：`/root/.kc/config` 与 `deploy-config.yaml` 实测权限均为 0644（不满足敏感配置 0600）；flag/deploy config/default 优先级仍未专项验证 |
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
 | 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6：白名单内 v1.37 建群成功；白名单外 v1.36 在创建 Operation 前拒绝且无对象；策略精确恢复 |
-| 2.6-10 | Delivery Policy 缺失 slot/repository | ⚠️ | R6：移除 `cni` slot 后创建前报 `UnsupportedComponentSlot` 且无 Cluster/Operation；缺失 repository/blob/冲突选择未测 |
+| 2.6-10 | Delivery Policy 缺失 slot/repository | ⚠️ | R6：移除 `cni` slot、将 `calico` 改为不存在的 `missing-calico` 后，均在创建前拒绝且无 Cluster/Operation；缺失 blob、多个候选冲突尚未测 |
 | 2.6-11 | bootstrap/standalone extension 与集群 packagePlan 隔离 | ⚠️ | 单测/代码有门禁，缺真实命令和对象证据 |
 
 ## 3. `kcctl` 命令覆盖（每条至少跑通一次核心路径）
@@ -192,10 +192,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-03 | `kcctl doctor` | ✅ | R3/R4；R4 为 25 项，异常项、节点和退出码准确 |
 | 3-04 | `kcctl join` | ⚠️ | R6：dev4 独立 join 成功并 Ready；重复 join、错误凭据、Package Registry 认证/CA 失败路径未测 |
 | 3-05 | `kcctl create cluster` | ✅ | R4：CLI 实建 `ha-core-20260917`（3M/0W）和 `min-core-20260917`（1M/1W），参数与 packagePlan 落库；3M/0W 需显式 untaint 才能调度 CoreDNS |
-| 3-06 | `kcctl create/delete user`、`role` | ❌ | CRUD、重复名称、绑定关系和错误退出码 |
+| 3-06 | `kcctl create/delete user`、`role` | ⚠️ | R6：临时 role/user 创建、查询、删除和重复 user 名称拒绝均通过，user 表显示 role 绑定；自定义 role 登录后读取 Cluster/Node 仍 403，绑定授权需修复并补完整 CRUD |
 | 3-07 | `kcctl create/delete registry` | ✅ | 管理平台中的集群镜像 Registry 资源；基础 CRUD 已验证 |
 | 3-08 | `kcctl delete cluster` | ✅ | R4：CLI 删除 `ha-core-20260917`、`min-core-20260917` 均返回成功并最终 NotFound；删除后平台 doctor 仍为 Healthy |
-| 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | cluster/node 基础查询已用；其余资源、输出格式和 selector 需逐项扫尾 |
+| 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | R6：六类资源的 singular list、JSON 形状、Node label selector 和 field selector 已扫过；User label selector 未按预期过滤，且 JSON 输出在单对象/列表间不一致，需修复并补 name/selector 矩阵 |
 | 3-10 | `kcctl get --watch` | ❌ | R4 复测：`kcctl get cluster -w`/列表形式均一次输出后 rc=0 退出；`pkg/cli/get/get.go` 只声明 Watch flag，未传入 query 或建立 watch 流，长连接/断线恢复未实现 |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
 | 3-12 | `kcctl operation cancel` | ⚠️ | R5：`e290a5f7-ddba-4994-b3d3-8bf03eb088af` 重启 Server 后才 Canceled；R6 CIDR 创建取消后又出现孤立 Running Operation/Installing Cluster，需人工清理 |
@@ -232,7 +232,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-12 | kubeconfig 下载 | ⚠️ | 文件可用、权限正确；集群未就绪或凭据过期时明确失败 |
 | 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6：管理员 mTLS 直查四个 endpoint 均 200，status 返回 Healthy |
 | 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6：列表与详情 200，不存在事件 404；分页参数已带 limit/page |
-| 4-16 | 敏感信息脱敏 | ❌ | CLI、server、agent、Operation 和审计日志不泄露密码、token、CA key |
+| 4-16 | 敏感信息脱敏 | ❌ | R6：`/metrics` 未命中 password/token/secret/private-key 字段名，但 `/root/.kc/config` 实测为 0644 且含 mTLS 私钥材料；CLI、server、agent、Operation 和审计日志仍需全链路验证 |
 | 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：`/healthz` 和 `/metrics` 均 200，108 行指标未命中 password/token/secret/private-key；标签约束未专项验证 |
 | 4-18 | 登录失败限流与恢复 | ❌ | 连续错误密码触发限流；窗口结束或成功登录后行为符合设计 |
 | 4-19 | Addon OCI chart/runtime-image-set 来源与 digest | ✅ | R2/R3；NFS CSI、MetalLB 主路径来源检查可复用 |
@@ -275,7 +275,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-09 | linux/amd64 主路径 | ✅ | 当前主要实测架构；覆盖平台部署、建群、升级和删除 |
 | 6-10 | linux/arm64 主路径 | ⚠️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据 |
 | 6-11 | Tier 1 OS 矩阵 | ⚠️ | 需先固定正式支持 OS 清单，再逐项跑部署、建群和删除 |
-| 6-12 | Docker CRI 废弃入口清理 | ❌ | 当前 CLI 仍接受 `--cri docker`，与正式支持矩阵冲突；应从 help、校验、策略和运行分支移除 |
+| 6-12 | Docker CRI 废弃入口清理 | ❌ | R6：`--cri docker --cri-version 20.10.24` 返回 rc=1、`unsupported cri version,support [] now` 且无对象；但 help/参数校验/代码仍暴露 Docker，需移除入口。Docker CRI 不安排 E2E |
 | 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ⚠️ | 代码/发布清单已有静态门禁；需检查部署进程、默认策略和 Console 无旧入口 |
 
 ## 7. 扩展能力
@@ -293,7 +293,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-12b | Pod exec | ❌ | namespace/pod/container 选择、鉴权和断连 |
 | 4-15 | PlatformSetting（镜像仓库模板、Web 终端密钥） | ❌ | CRUD、权限、持久化和敏感字段保护 |
 | 7-01 | 第三方 OAuth/OIDC 登录 | ❌ | 回调、用户映射、token 过期和登出 |
-| 7-02 | `kcctl completion` | ❌ | bash/zsh/fish 生成结果可加载 |
+| 7-02 | `kcctl completion` | ✅ | R6：bash、zsh 生成 rc=0，分别通过 `bash -n`/`zsh -n`；当前 help 明确只支持 bash/zsh，fish 返回 Unsupported shell，不再作为产品能力要求 |
 | 7-03 | 多节点并发任务基础容量 | ❌ | 先定义目标规模和资源上限，再执行性能验证 |
 | 2.1-13 | Kubernetes feature-gates 透传 | ⚠️ | R1 验过 20 项；R3 未复跑 |
 | 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ❌ | 自带网络场景；安装第三方 CNI 后恢复 Ready |
