@@ -66,7 +66,7 @@ UpdateCertifications Operation `4c17aa37-8e17-4df7-929a-91712c493676` 为 Succee
 回到 Running，两个节点 Ready，16 个系统 Pod 均 Running。删除集群后平台恢复 Healthy。
 
 Cluster 的 `status.certifications` 仍为空，但直接读取 apiserver 证书已证明 serial/有效期确实变化，
-Case 2.3-04 ✅；Agent 证书重新签发仍未覆盖。
+Case 2.3-04 ✅；Agent 证书重新签发在第 5 节补测。
 
 ## 3. HA 故障窗口（1.2-07）
 
@@ -142,6 +142,13 @@ kcctl drain --agent 61baec0e-8319-4cb5-8081-49df7cbd119d
 - 2.2-07：空闲节点路径部分通过，保持 ⚠️；
 - 3-15：应按 Agent drain 重新描述，不能声称支持 PDB/Pod eviction，保持 ⚠️。
 
+随后为验证 Agent 证书重新签发，再次对该空闲节点执行 drain→join。旧 Node
+`0d34b764-711d-4899-89e1-bfb96569ae53` 的本地 Agent 证书 serial 为
+`78F9713DAE238241`；重新 join 后新 Node
+`b2624211-4362-40b1-96fa-10edc78d108f` 的 serial 为 `1E4A069745BA2B08`，
+远端 `/etc/kubeclipper-agent/pki/agent/agent.crt` 的 CN/serial 与新 Node 一致，3/3 Agent
+恢复 Healthy。该路径证明 2.3-05 的重新签发主路径；旧证书失效行为和仅保留旧 Node 身份的重连边界仍未专项验证。
+
 ## 6. 平台自省、审计与指标
 
 使用管理员 mTLS 客户端直接访问：
@@ -211,6 +218,6 @@ Operation  none
 ```
 
 以下项目本轮没有伪装为通过：纯离线 bundle/export-import、HTTPS/公共 CA/认证 Package Registry、
-平台自身 `upgrade`、Master 增删和角色转换、Agent 证书重新签发、升级中断 retry、
+平台自身 `upgrade`、Master 增删和角色转换、升级中断 retry、
 缓存损坏/Registry 断连、maxBackupNum 孤儿文件修复、Console E2E，以及模板/DNS/CloudProvider
 等扩展能力。Docker CRI 仍按废弃入口处理，不安排 Docker E2E。
