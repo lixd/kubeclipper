@@ -131,7 +131,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2 + R3 新 tip 复验（修 3 bug） |
 | 2.3-02 | 升级中途失败 → op retry | ❌ | |
 | 2.3-03 | 升级失败 → 集群状态恢复（reset status） | ✅ | R3 实际使用 |
-| 2.3-04 | **集群证书更新（/certification）** | ⚠️ | R4：`UpdateCertifications` Operation 成功且集群回到 Running，但 `status.certifications` 为空，尚无 serial/有效期前后对比，不能标满通过 |
+| 2.3-04 | **集群证书更新（/certification）** | ✅ | R6：`UpdateCertifications` Operation `4c17aa37-8e17-4df7-929a-91712c493676` 成功；apiserver serial `5278093305A4E031`→`53A1E953A93DDC13`、有效期刷新，节点与系统 Pod 保持正常。`status.certifications` 仍为空但不影响实际证书更新 |
 | 2.3-05 | agent 证书重新签发 | ⚠️ | 依赖 join 测试 |
 | 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R3 升级已通过；需确认只更新目标版本相关 slot，其他 digest 不漂移 |
 | 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | retry 必须复用 Task/Plan 固定引用，不重新解析 tag |

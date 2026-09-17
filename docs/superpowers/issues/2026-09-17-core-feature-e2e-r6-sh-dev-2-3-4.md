@@ -56,6 +56,18 @@ UnsupportedComponentSlot: slot "cni" is not declared
 `get cluster` 返回 NotFound，Operation 列表为空。默认策略已恢复且 diff 无变化。
 缺失 repository、内容 blob 和冲突选择尚未单独验证，因此 Case 2.6-10 保持 ⚠️。
 
+### 2.3 集群证书更新（2.3-04）
+
+临时创建 `r6-cert-20260917`（dev2 Master、dev3 Worker）并记录更新前证书：serial
+`5278093305A4E031`，有效期 `2026-09-17 09:11:38`～`2027-09-17 09:16:38` UTC。调用
+`POST /api/core.kubeclipper.io/v1/clusters/r6-cert-20260917/certification` 后，
+UpdateCertifications Operation `4c17aa37-8e17-4df7-929a-91712c493676` 为 Succeeded；更新后 serial
+为 `53A1E953A93DDC13`，有效期刷新为 `2026-09-17 09:14:27`～`2027-09-17 09:19:27` UTC，Cluster
+回到 Running，两个节点 Ready，16 个系统 Pod 均 Running。删除集群后平台恢复 Healthy。
+
+Cluster 的 `status.certifications` 仍为空，但直接读取 apiserver 证书已证明 serial/有效期确实变化，
+Case 2.3-04 ✅；Agent 证书重新签发仍未覆盖。
+
 ## 3. HA 故障窗口（1.2-07）
 
 创建 `ha-op-r6-20260917`（dev2 Master、dev3 Worker），在 CreateCluster Operation
@@ -172,6 +184,6 @@ Operation  none
 ```
 
 以下项目本轮没有伪装为通过：纯离线 bundle/export-import、HTTPS/公共 CA/认证 Package Registry、
-平台自身 `upgrade`、Master 增删和角色转换、证书 serial/有效期前后证明、升级中断 retry、
+平台自身 `upgrade`、Master 增删和角色转换、Agent 证书重新签发、升级中断 retry、
 缓存损坏/Registry 断连、maxBackupNum 孤儿文件修复、Console E2E，以及模板/DNS/CloudProvider
 等扩展能力。Docker CRI 仍按废弃入口处理，不安排 Docker E2E。

@@ -15,7 +15,7 @@
 | 3 | `2.1-28`、`2.1-30` | 非法 CIDR 与创建中断的安全收敛 | R6 复现 Pod/Service CIDR 重叠仍可创建 Installing Cluster；取消后 Cluster/Operation、节点标签和主机副作用未自动清理，需修复创建前校验、cancel、retry 和安全删除 |
 | 4 | `1.3-07`、`1.3-09`、`1.3-10`、`3-16`、`3-17` | 平台自身升级 | `all --pkg`、`all --online --version` 以及组件独立升级至少各跑一次；数据、配置和已有集群保持可用，失败可恢复 |
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛 |
-| 6 | `2.3-04`、`2.3-05` | 集群与 Agent 证书更新 | 更新前后证书 serial/有效期可证明变化；API、kubelet、Agent 重连正常；旧证书行为符合设计 |
+| 6 | `2.3-05` | Agent 证书重新签发 | 集群证书更新已由 R6 用 serial/有效期前后对比证明；仍需覆盖 Agent 证书重新签发、重连、旧证书行为和有效期 |
 | 7 | `2.5-08` | `maxBackupNum` 存储对象轮转 | R5 已验证 Backup 对象轮转，但旧 FS 备份文件仍残留；需同时轮转 Backup 记录、FS 文件和 S3 对象，且重试不留下孤儿文件 |
 | 8 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛 |
 | 9 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | 覆盖缓存损坏、digest 不符、Registry 断连、配置优先级、0600 权限和凭据脱敏；不得回退到 tag |
