@@ -13,9 +13,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
   不再变更或复用。功能下线时把状态标为 `🗑 废弃` 并保留编号，新增 Case 在小节末尾追加。
 - **状态含义**：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · 🗑 废弃。
   状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
-- **轮次记号**：备注中 R1/R2/R3 指验证发生的轮次；每轮详细证据记录在
+- **轮次记号**：备注中 R1～R5 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告里，本文档只留结论与指针。
-- 本轮三机实测（R4）报告：[`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)。
+- 三机实测报告：R4 [`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)，
+  R5 [`2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)。
 - **每轮测试的闭环动作**：① 圈定本轮要覆盖的编号 → ② 执行 → ③ 回填状态与轮次 →
   ④ 未覆盖项转入缺口文档 → ⑤ 新发现的功能面补编号。
 - 当前缺口、优先级和待确认移除项统一维护在
@@ -59,7 +60,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-01 | 预检失败引导（不可达/缺包报错） | ✅ | R2/R3 |
 | 1.3-02 | etcd 冷启动竞态（写探针+重试） | ✅ | R3 |
 | 1.3-03 | clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
-| 1.3-04 | 不 clean 直接重复 deploy | ❌ | |
+| 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：已有平台执行 `kcctl deploy` 在预检阶段明确拒绝，平台仍为 Healthy。已验证拒绝路径，不是重复 deploy 幂等成功 |
 | 1.3-05 | `kcctl join` 独立纳管新节点 | ⚠️ | add nodes 隐含走过，独立命令未测；需覆盖 Package Registry 地址、认证和 CA |
 | 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
 | 1.3-07 | **`kcctl upgrade all --pkg` 平台离线升级** | ❌ | 保留数据和配置，失败可恢复 |
@@ -76,7 +77,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 2.1-01 | 1 master + 2 worker | ✅ | R3 |
-| 2.1-02 | 单节点（master 兼 worker）最小规格 | ❌ | AIO 场景 |
+| 2.1-02 | 单节点（master 兼 worker）最小规格 | ✅ | R5：`aio-core-20260917` 为 1 Master/0 Worker；Node Ready、CoreDNS/Calico、API、DNS 和 Pod 烟测通过，删除后节点可复用 |
 | 2.1-03 | 3 master + worker HA（lvscare workerNodeVip） | ✅ | R2 已验证 3M+Worker；R4 另验证 3M/0W 边界（需 untaint 才能调度），不替代有 Worker 的 HA 验收 |
 | 2.1-04 | 版本矩阵 v1.35.8 / v1.36.4 / v1.37.0 | ✅ | R2/R3 |
 | 2.1-05 | CRI containerd 1.7.29 / 2.2.4 | ✅ | R2/R3 |
@@ -87,11 +88,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-10 | 创建集群时拒绝支持矩阵外版本 | ✅ | R3；同版本/降级属于升级校验，见 2.3-08 |
 | 2.1-11 | 网络自定义（pod/service 网段、DNS 域） | ✅ | R3 即用即验（172.25/16 + cluster.local） |
 | 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ❌ | |
-| 2.1-14 | untaint-master（master 允许调度） | ❌ | |
+| 2.1-14 | untaint-master（master 允许调度） | ✅ | R5：AIO 创建使用 `--untaint-master`，CoreDNS 和测试 Pod 均成功调度到 Master |
 | 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
 | 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：集群对象为 `Overlay-Vxlan-All`，1M1W 与 3M/0W 均完成跨节点 Pod ping、Service DNS 和 apiserver 访问 |
-| 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ❌ | 至少覆盖一种非默认正式支持模式和非法模式拒绝 |
-| 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ⚠️ | R4 实测 `interface=ens3`：参数落入 Cluster/Calico 配置，三节点 Agent 正常；first-found/can-reach 未在本轮覆盖 |
+| 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ✅ | R5：`Overlay-Vxlan-Cross-Subnet` AIO 建群和网络烟测通过；非法网络模式在创建前被 CLI 拒绝，未留下 Cluster |
+| 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ✅ | R4 覆盖 `interface=ens3`；R5 覆盖 `first-found` 与 `can-reach=172.16.131.146`，各自完成 1M1W 建群、配置落库、跨节点 Pod ping 和删除 |
 | 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ❌ | Kubernetes/CNI 镜像源与 OCI package 源各自生效，不得串用 |
 | 2.1-22 | 私有 CRI Registry 配置下发 | ❌ | HTTP、认证、自签 CA 配置正确下发到 containerd，Pod 可拉取镜像 |
 | 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
@@ -150,16 +151,17 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 2.5-01 | backuppoint fs 型（含非法类型拒绝） | ✅ | R3 |
-| 2.5-02 | backuppoint **S3 型（minio）** | ❌ | |
+| 2.5-01 | backuppoint fs 型（含非法类型拒绝） | ✅ | R3；R5 另复验 FS 手动备份 |
+| 2.5-02 | backuppoint **S3 型（MinIO）** | ✅ | R5：备份 Operation 成功、Backup 为 Available、对象已写入 MinIO；删除 Backup 后 API 记录和 S3 对象均消失 |
 | 2.5-03 | 手动备份 → 恢复（marker 回滚证明） | ✅ | R2/R3 |
-| 2.5-04 | 备份删除（连带存储文件清除） | ✅ | R3 |
+| 2.5-04 | 备份删除（连带存储文件清除） | ✅ | R3（FS）；R5 另验证 S3 对象随 Backup 删除 |
 | 2.5-05 | cronbackup runAt 单次触发 | ✅ | R3 |
-| 2.5-06 | cronbackup 真实周期命中 | ⚠️ | 只验了调度时间滚动 |
-| 2.5-07 | cronbackup enable / disable 子资源 | ❌ | |
-| 2.5-08 | **maxBackupNum 超限自动轮转** | ❌ | |
+| 2.5-06 | cronbackup 真实周期命中 | ✅ | R5：分钟级 Cron 实际创建 Backup，不只检查 next schedule 滚动 |
+| 2.5-07 | cronbackup enable / disable 子资源 | ✅ | R5：enable/disable 均生效；禁用期间不再创建，重新启用后恢复调度 |
+| 2.5-08 | **maxBackupNum 超限自动轮转** | ❌ | R5：`maxBackupNum=1` 只轮转 Backup 对象，旧 FS 备份文件仍残留；需连带清理 FS/S3 存储对象 |
 | 2.5-09 | 恢复后集群可用性（addons/节点完整） | ✅ | R3 |
 | 2.5-10 | 备份损坏或错误 S3/FS 凭据 | ❌ | 明确失败，不产生 Available 假状态，不破坏原集群 |
+| 2.5-11 | Backup 详情查询 API（`GET /backups/{name}`） | ❌ | R5：已有 Backup 仍返回 404；列表和集群范围查询正常。当前 `DescribeBackup` 把 path name 和 resourceVersion 错传给 `GetBackupEx`，需修复并补成功/不存在用例 |
 
 ### 2.6 OCI 制品解析、缓存与消费
 
@@ -195,7 +197,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | cluster/node 基础查询已用；其余资源、输出格式和 selector 需逐项扫尾 |
 | 3-10 | `kcctl get --watch` | ❌ | R4 复测：`kcctl get cluster -w`/列表形式均一次输出后 rc=0 退出；`pkg/cli/get/get.go` 只声明 Watch flag，未传入 query 或建立 watch 流，长连接/断线恢复未实现 |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
-| 3-12 | `kcctl operation cancel` | ❌ | Pending 不执行；Running Task 完成后不再调度后续 Task；状态、锁和退出码正确 |
+| 3-12 | `kcctl operation cancel` | ⚠️ | R5：Operation `e290a5f7-ddba-4994-b3d3-8bf03eb088af` 最终 Canceled，Running Task 完成且后续 Pending Task 被取消；但 cancel 请求不能自行收敛，重启一个 `kc-server` 后才推进 |
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
 | 3-14 | `kcctl set cluster` | ✅ | R3/R4：external IP/port 设置与 clear 均成功，get 输出中的 labels 随之出现/清除 |
 | 3-15 | `kcctl drain` | ❌ | 正常驱逐、PDB 阻塞、force 和重复执行 |
@@ -244,7 +246,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 5-03 | Server/Agent 重启后的 Operation 恢复 | ✅ | R2/R3；已完成 Task 不重复，锁最终释放 |
 | 5-04 | Agent Watch 410/EOF 后 relist | ✅ | R2 有真实 410 样本，不漏任务、不重复并发执行 |
 | 5-05 | 多节点 Step barrier 与输出传递 | ⚠️ | 单测存在，真机故障注入不足 |
-| 5-06 | Operation cancel | ❌ | Pending 不执行；Running Task 允许完成，但不得再调度后续 Task；状态和锁最终收敛 |
+| 5-06 | Operation cancel | ⚠️ | R5：取消后的 Task 终态符合协作式取消方向，但 Controller 需重启 `kc-server` 才继续归约到 Canceled；自动收敛和锁释放仍未闭环 |
 | 5-07 | 自动 retry 与人工 retry | ⚠️ | retry 已实测；副作用安全分类、generation 和 digest 固定仍需专项验证 |
 | 5-08 | 同集群危险操作互斥 | ⚠️ | ExecutionLock 已实现，需覆盖 create/add/upgrade/backup/delete 组合 |
 | 5-09 | Task 终态写入成功但响应丢失 | ⚠️ | 单测覆盖；真机网络注入未做，不得重复执行 executor |

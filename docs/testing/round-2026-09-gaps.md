@@ -16,29 +16,30 @@
 | 4 | `1.3-07`、`1.3-09`、`1.3-10`、`3-16`、`3-17` | 平台自身升级 | `all --pkg`、`all --online --version` 以及组件独立升级至少各跑一次；数据、配置和已有集群保持可用，失败可恢复 |
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛 |
 | 6 | `2.3-04`、`2.3-05` | 集群与 Agent 证书更新 | 更新前后证书 serial/有效期可证明变化；API、kubelet、Agent 重连正常；旧证书行为符合设计 |
-| 7 | `2.5-02`、`2.5-06`～`2.5-08` | S3 备份与周期轮转 | MinIO Backuppoint、真实周期触发、enable/disable、`maxBackupNum` 文件和对象同步轮转全部通过 |
-| 8 | `5-06`、`3-12` | Operation cancel | Pending Operation 不执行；Running Task 允许完成但不再调度后续 Task；Operation、Cluster 和 ExecutionLock 最终一致 |
+| 7 | `2.5-08` | `maxBackupNum` 存储对象轮转 | R5 已验证 Backup 对象轮转，但旧 FS 备份文件仍残留；需同时轮转 Backup 记录、FS 文件和 S3 对象，且重试不留下孤儿文件 |
+| 8 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 中取消请求仅在重启一个 `kc-server` 后才继续推进；无需重启即可取消 Pending、等待 Running Task 完成、停止后续调度，并让 Operation、Cluster 和 ExecutionLock 一致收敛 |
 | 9 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | 覆盖缓存损坏、digest 不符、Registry 断连、配置优先级、0600 权限和凭据脱敏；不得回退到 tag |
 | 10 | `1.1-05`、`1.1-06`、`1.1-10` | HTTPS/认证 Package Registry | 公共 CA、自签 CA、账号密码分别覆盖 deploy、join、Agent 拉取及失败重试，日志不泄露凭据 |
 
-本轮已完成的 HA/最小拓扑和 CLI 项不再列为缺口；详细命令、Operation ID、故障注入和清理证据见
-[`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)。
+R4/R5 已完成的 HA、最小拓扑、Calico 自动探测、S3 备份和 Cron 项不再列为缺口；详细命令、
+Operation ID、故障注入和清理证据见
+[`R4 报告`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md) 和
+[`R5 报告`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)。
 
 ## P1：核心能力补全
 
 | 顺序 | Case | 缺口 | 完成条件 |
 |---:|---|---|---|
 | 1 | `1.3-05`、`3-04` | `kcctl join` 独立纳管 | 对未安装 KC 组件的节点完成 join、重复 join、失败清理及 Package Registry 认证/CA 验证 |
-| 2 | `2.1-02` | AIO 最小拓扑 | 单节点 Master 兼 Worker 完成创建、工作负载、网络、删除和节点复用 |
-| 3 | `2.1-19`、`2.1-20` | Calico 非默认网络 | 至少覆盖一个 IPIP/BGP/cross-subnet 模式及 first-found/interface/can-reach 自动探测；非法值应拒绝 |
-| 4 | `2.1-21`、`2.1-22` | 镜像 Registry 与 Package Registry 分工 | 两类 Registry 分别配置并生效；私有 CRI Registry 的 HTTP、认证和自签 CA 正确下发到 containerd |
-| 5 | `2.1-26`～`2.1-30` | 创建集群负向与恢复 | 覆盖节点占用、跨 Region、CIDR 冲突、主机预检失败和创建中断，不产生危险的半成品状态 |
-| 6 | `2.2-06`、`2.2-07`、`2.2-11`～`2.2-13` | 节点管理边界 | 掉线恢复、注销残留、Agent 身份保护、Lease 和 Region 约束形成完整证据；disable/enable 已在 R4 覆盖 |
-| 7 | `2.3-02`、`2.3-07`、`2.3-09` | 集群升级故障与可用性 | 注入中断后安全 retry；Registry tag 变化不影响固定 digest；滚动顺序、PDB 和业务连续性明确 |
-| 8 | `4-08`～`4-08d`、`4-18` | 用户、登录和 RBAC | 用户/角色 CRUD、enable/disable、密码/验证码、Token、越权 403 和登录限流闭环 |
-| 9 | `4-07` | Console 核心 E2E | 登录、建群、升级、备份、删除、Operation 进度和失败原因展示与 API 状态一致 |
-| 10 | `3-09`、`3-10`、`3-12`、`3-15`、`3-19`、`3-24`、`3-25`、`3-27` | 未覆盖或未闭环的 `kcctl` 命令 | 每条命令至少验证一次成功、一次典型失败和退出码；不得用 API 测试代替 CLI 通过；`kcctl login` 还需补正确登录和服务端 TLS 校验 |
-| 11 | `5-13`、`5-14` | 重复提交与超时收敛 | 重复请求不产生并发副作用；timeout 后 Task、Cluster 和 ExecutionLock 按既定语义收敛 |
+| 2 | `2.1-21`、`2.1-22` | 镜像 Registry 与 Package Registry 分工 | 两类 Registry 分别配置并生效；私有 CRI Registry 的 HTTP、认证和自签 CA 正确下发到 containerd |
+| 3 | `2.1-26`～`2.1-30` | 创建集群负向与恢复 | 覆盖节点占用、跨 Region、CIDR 冲突、主机预检失败和创建中断，不产生危险的半成品状态 |
+| 4 | `2.2-06`、`2.2-07`、`2.2-11`～`2.2-13` | 节点管理边界 | 掉线恢复、注销残留、Agent 身份保护、Lease 和 Region 约束形成完整证据；disable/enable 已在 R4 覆盖 |
+| 5 | `2.3-02`、`2.3-07`、`2.3-09` | 集群升级故障与可用性 | 注入中断后安全 retry；Registry tag 变化不影响固定 digest；滚动顺序、PDB 和业务连续性明确 |
+| 6 | `2.5-11` | Backup 详情查询 API | 已有 Backup 的 `GET /backups/{name}` 必须返回对应对象，不存在才返回 404；R5 复现已有 Backup 也 404，列表和集群范围查询不受影响 |
+| 7 | `4-08`～`4-08d`、`4-18` | 用户、登录和 RBAC | 用户/角色 CRUD、enable/disable、密码/验证码、Token、越权 403 和登录限流闭环 |
+| 8 | `4-07` | Console 核心 E2E | 登录、建群、升级、备份、删除、Operation 进度和失败原因展示与 API 状态一致 |
+| 9 | `3-09`、`3-10`、`3-12`、`3-15`、`3-19`、`3-24`、`3-25`、`3-27` | 未覆盖或未闭环的 `kcctl` 命令 | 每条命令至少验证一次成功、一次典型失败和退出码；不得用 API 测试代替 CLI 通过；`kcctl operation cancel` 还需无需重启的自动收敛；`kcctl login` 还需补正确登录和服务端 TLS 校验 |
+| 10 | `5-13`、`5-14` | 重复提交与超时收敛 | 重复请求不产生并发副作用；timeout 后 Task、Cluster 和 ExecutionLock 按既定语义收敛 |
 
 补充的命令缺陷：`3-10 kcctl get --watch` 已在 R4 复测为失败项。CLI 虽然展示 `-w/--watch`，
 但当前实现未把该 flag 传入查询或建立 watch 流，命令一次输出后退出；应修复或从 CLI 暴露面移除，
