@@ -15,6 +15,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
   状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
 - **轮次记号**：备注中 R1/R2/R3 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告里，本文档只留结论与指针。
+- 本轮三机实测（R4）报告：[`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)。
 - **每轮测试的闭环动作**：① 圈定本轮要覆盖的编号 → ② 执行 → ③ 回填状态与轮次 →
   ④ 未覆盖项转入缺口文档 → ⑤ 新发现的功能面补编号。
 - 当前缺口、优先级和待确认移除项统一维护在
@@ -45,11 +46,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 |---|---|---|---|
 | 1.2-01 | 单 server + 多 agent | ✅ | R2/R3，3 个 agent |
 | 1.2-02 | server 与 agent/k8s 节点混部同机 | ✅ | R2/R3 |
-| 1.2-03 | **多 server HA（3× server，etcd 奇数集群）** | ❌ | 头号缺口 |
+| 1.2-03 | **多 server HA（3× server，etcd 奇数集群）** | ✅ | R4：sh-dev-2/3/4 三 Server、三 etcd、三 Agent 实测；etcd 成员均 started/non-learner，三端点写入和 `/healthz` 通过。运行包 revision 为 `1a70255b...`，见 R4 报告的版本边界 |
 | 1.2-04 | console 组件部署与访问 | ⚠️ | 服务起✅，页面未验 |
 | 1.2-05 | 单 server + 单 agent | ✅ | R2/R3，server/agent/k8s 节点混部 |
 | 1.2-06 | server 与 agent 分离部署 | ⚠️ | 多机环境隐含覆盖，缺少独立验收证据 |
-| 1.2-07 | HA server/etcd 单点故障与滚动重启 | ❌ | API、Watch 和运行中 Operation 不应丢失 |
+| 1.2-07 | HA server/etcd 单点故障与滚动重启 | ⚠️ | R4：分别停止/恢复 dev4 的 `kc-server`、`kc-etcd`，其余 API、集群状态和 quorum 保持可用；未在故障窗口运行 Watch/Operation，故不宣称完整通过 |
 
 ### 1.3 容错与增量运维
 
@@ -60,9 +61,9 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-03 | clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
 | 1.3-04 | 不 clean 直接重复 deploy | ❌ | |
 | 1.3-05 | `kcctl join` 独立纳管新节点 | ⚠️ | add nodes 隐含走过，独立命令未测；需覆盖 Package Registry 地址、认证和 CA |
-| 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 当前命令不支持单节点或按角色清理，不应按此立 Case |
+| 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
 | 1.3-07 | **`kcctl upgrade all --pkg` 平台离线升级** | ❌ | 保留数据和配置，失败可恢复 |
-| 1.3-08 | `kcctl doctor` | ✅ | R3（19 项） |
+| 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |
 | 1.3-09 | **`kcctl upgrade all --online --version` 平台在线升级** | ❌ | 下载正确版本，升级后 doctor 通过 |
 | 1.3-10 | `kcctl upgrade kcctl/agent/server/console` 组件独立升级 | ❌ | 只升级目标组件，版本和运行状态准确 |
 | 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ⚠️ | 已使用部分 SSH 配置；需分别验证认证失败、sudo 失败和修正后重试 |
@@ -76,7 +77,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 |---|---|---|---|
 | 2.1-01 | 1 master + 2 worker | ✅ | R3 |
 | 2.1-02 | 单节点（master 兼 worker）最小规格 | ❌ | AIO 场景 |
-| 2.1-03 | 3 master + worker HA（lvscare workerNodeVip） | ✅ | R2 |
+| 2.1-03 | 3 master + worker HA（lvscare workerNodeVip） | ✅ | R2 已验证 3M+Worker；R4 另验证 3M/0W 边界（需 untaint 才能调度），不替代有 Worker 的 HA 验收 |
 | 2.1-04 | 版本矩阵 v1.35.8 / v1.36.4 / v1.37.0 | ✅ | R2/R3 |
 | 2.1-05 | CRI containerd 1.7.29 / 2.2.4 | ✅ | R2/R3 |
 | 2.1-06 | CNI calico v3.29.6 / v3.31.5 | ✅ | R2/R3 |
@@ -88,13 +89,13 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ❌ | |
 | 2.1-14 | untaint-master（master 允许调度） | ❌ | |
 | 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
-| 2.1-18 | Calico 默认 VXLAN 网络模式 | ⚠️ | 已随默认建群使用，需固定检查实际配置和跨节点通信 |
+| 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：集群对象为 `Overlay-Vxlan-All`，1M1W 与 3M/0W 均完成跨节点 Pod ping、Service DNS 和 apiserver 访问 |
 | 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ❌ | 至少覆盖一种非默认正式支持模式和非法模式拒绝 |
-| 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ❌ | 参数应落入 Calico 配置，选择的节点地址正确 |
+| 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ⚠️ | R4 实测 `interface=ens3`：参数落入 Cluster/Calico 配置，三节点 Agent 正常；first-found/can-reach 未在本轮覆盖 |
 | 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ❌ | Kubernetes/CNI 镜像源与 OCI package 源各自生效，不得串用 |
 | 2.1-22 | 私有 CRI Registry 配置下发 | ❌ | HTTP、认证、自签 CA 配置正确下发到 containerd，Pod 可拉取镜像 |
 | 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
-| 2.1-24 | 1 master + 1 worker 最小多节点规格 | ❌ | 两节点 Ready，Pod 跨节点通信，删除后节点可复用 |
+| 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4：`min-core-20260917` 两节点 Ready，跨节点 Pod 网络通过，删除后平台 3/3 Agent 恢复健康 |
 | 2.1-25 | 集群在线安装 | ❌ | 与平台在线部署分开验证；目标集群按配置在线获取所需物料 |
 | 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ❌ | 创建前拒绝，不产生 Operation，原集群不受影响 |
 | 2.1-27 | Master/Worker 跨 Region | ❌ | 按当前同 Region 约束拒绝，并指出冲突节点和 Region |
@@ -111,7 +112,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3 |
 | 2.2-03 | **master 添加 / 移除** | ❌ | |
 | 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
-| 2.2-05 | 节点 disable / enable | ❌ | |
+| 2.2-05 | 节点 disable / enable | ✅ | R3/R4：节点从集群移除后执行 disable/enable，HTTP 200，禁用标签出现并清除；尚未验证仍被其他集群占用时的保护 |
 | 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
 | 2.2-07 | agent 节点注销（`DELETE /nodes/{name}`） | ❌ | 当前主要删除平台 Node 记录；需验证集群占用保护以及 Lease、证书等残留行为，不能预设会自动完整清理 |
 | 2.2-08 | Worker 添加时复用原 `status.packagePlan` | ✅ | R2/R3；各 slot digest 不随 Registry tag 漂移 |
@@ -128,7 +129,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2 + R3 新 tip 复验（修 3 bug） |
 | 2.3-02 | 升级中途失败 → op retry | ❌ | |
 | 2.3-03 | 升级失败 → 集群状态恢复（reset status） | ✅ | R3 实际使用 |
-| 2.3-04 | **集群证书更新（/certification）** | ❌ | |
+| 2.3-04 | **集群证书更新（/certification）** | ⚠️ | R4：`UpdateCertifications` Operation 成功且集群回到 Running，但 `status.certifications` 为空，尚无 serial/有效期前后对比，不能标满通过 |
 | 2.3-05 | agent 证书重新签发 | ⚠️ | 依赖 join 测试 |
 | 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R3 升级已通过；需确认只更新目标版本相关 slot，其他 digest 不漂移 |
 | 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | retry 必须复用 Task/Plan 固定引用，不重新解析 tag |
@@ -185,30 +186,30 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 |---|---|---|---|
 | 3-01 | `kcctl deploy` | ⚠️ | 在线、同步仓库、纯离线分别记录；目前纯离线未通过，不能整体标 ✅ |
 | 3-02 | `kcctl clean --all` | ✅ | R3；清理后可重部署。当前不支持单节点/按角色 clean |
-| 3-03 | `kcctl doctor` | ✅ | R3，19 项；异常项、节点和退出码准确 |
+| 3-03 | `kcctl doctor` | ✅ | R3/R4；R4 为 25 项，异常项、节点和退出码准确 |
 | 3-04 | `kcctl join` | ❌ | 独立纳管、重复 join、错误凭据、Package Registry 认证/CA |
-| 3-05 | `kcctl create cluster` | ⚠️ | API 建过，CLI 尚未独立跑通并验证参数落库 |
+| 3-05 | `kcctl create cluster` | ✅ | R4：CLI 实建 `ha-core-20260917`（3M/0W）和 `min-core-20260917`（1M/1W），参数与 packagePlan 落库；3M/0W 需显式 untaint 才能调度 CoreDNS |
 | 3-06 | `kcctl create/delete user`、`role` | ❌ | CRUD、重复名称、绑定关系和错误退出码 |
 | 3-07 | `kcctl create/delete registry` | ✅ | 管理平台中的集群镜像 Registry 资源；基础 CRUD 已验证 |
-| 3-08 | `kcctl delete cluster` | ⚠️ | API 已验证；CLI 需等待终态并正确返回失败退出码 |
+| 3-08 | `kcctl delete cluster` | ✅ | R4：CLI 删除 `ha-core-20260917`、`min-core-20260917` 均返回成功并最终 NotFound；删除后平台 doctor 仍为 Healthy |
 | 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | cluster/node 基础查询已用；其余资源、输出格式和 selector 需逐项扫尾 |
-| 3-10 | `kcctl get --watch` | ⚠️ | 长连接、断线恢复和 Ctrl-C 退出；`get` CLI 没有分页参数 |
+| 3-10 | `kcctl get --watch` | ❌ | R4 复测：`kcctl get cluster -w`/列表形式均一次输出后 rc=0 退出；`pkg/cli/get/get.go` 只声明 Watch flag，未传入 query 或建立 watch 流，长连接/断线恢复未实现 |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
 | 3-12 | `kcctl operation cancel` | ❌ | Pending 不执行；Running Task 完成后不再调度后续 Task；状态、锁和退出码正确 |
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
-| 3-14 | `kcctl set cluster` | ❌ | 仅验证当前支持的 external IP/domain/port 等字段及 clear 语义 |
+| 3-14 | `kcctl set cluster` | ✅ | R3/R4：external IP/port 设置与 clear 均成功，get 输出中的 labels 随之出现/清除 |
 | 3-15 | `kcctl drain` | ❌ | 正常驱逐、PDB 阻塞、force 和重复执行 |
 | 3-16 | `kcctl upgrade all --pkg/--online` | ❌ | 平台离线/在线升级，配置数据保留，失败可恢复 |
 | 3-17 | `kcctl upgrade kcctl/agent/server/console` | ❌ | 各组件独立升级，未选组件不受影响 |
 | 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 |
 | 3-19 | `kcctl registry list/deploy/clean/push/delete` | ❌ | 管理独立 Docker Registry 和镜像；不得与平台 Registry 资源混淆 |
-| 3-20 | `kcctl resource list` | ❌ | 列举指定 OCI Registry 中的 package inventory，过滤结果准确 |
-| 3-21 | `kcctl resource inspect` | ❌ | 展示 repository、tag、digest、platform 和内容画像 |
-| 3-22 | `kcctl resource refresh` | ❌ | 本次命令强制重新扫描指定 Registry 并输出结果；不宣称更新平台持久缓存 |
-| 3-23 | `kcctl delivery-policy template/get/apply/diff` | ❌ | 模板合法；策略变更持久化；diff 准确；非法策略拒绝 |
-| 3-24 | `kcctl delivery-policy validate` | ❌ | 验证 schema、slot、默认值、版本约束和冲突；不负责探测远端制品是否存在 |
-| 3-25 | `kcctl login` | ❌ | 正确/错误密码、token 保存、过期、重新登录及服务端 TLS 校验；当前实现会跳过 TLS 验证 |
-| 3-26 | `kcctl status` | ❌ | 准确报告 `kc-server`、`kc-etcd`、`kc-agent`；Console 另测 |
+| 3-20 | `kcctl resource list` | ✅ | R3/R4：针对 `172.16.131.146:5003` 列出 14 个 OCI package，结果含仓库/版本/平台信息 |
+| 3-21 | `kcctl resource inspect` | ✅ | R3/R4：指定 package 可展示 repository、tag、digest、platform 和内容画像 |
+| 3-22 | `kcctl resource refresh` | ✅ | R3/R4：强制扫描指定 Registry，输出 `refreshed 14 OCI packages`；不将其解释为持久缓存更新 |
+| 3-23 | `kcctl delivery-policy template/get/apply/diff` | ✅ | R4：模板生成、custom `allowedVersions` apply/get、diff 和恢复均通过；策略文件的非法 selection 被拒绝 |
+| 3-24 | `kcctl delivery-policy validate` | ⚠️ | R4：合法模板通过，`selection: many` 被拒绝；未知 slot 名称当前按可扩展字段接受，白名单制品存在性/冲突尚未覆盖 |
+| 3-25 | `kcctl login` | ⚠️ | R3/R4 只验证错误密码返回 unauthorized、rc=1 且不落配置；正确登录、token 过期及 TLS 校验仍未完成 |
+| 3-26 | `kcctl status` | ✅ | R4：准确报告三台 `kc-server`、三台 `kc-etcd`、三台 `kc-agent`，平台 Healthy |
 | 3-27 | `kcctl deploy config` | ⚠️ | 生成配置、读取、覆盖优先级和非法配置；不存在顶层 `kcctl config` |
 | 3-28 | `kcctl version` | ✅ | client/server 版本和 Git revision 准确 |
 
