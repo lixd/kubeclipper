@@ -48,11 +48,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 |---|---|---|---|
 | 1.2-01 | 单 server + 多 agent | ✅ | R2/R3，3 个 agent |
 | 1.2-02 | server 与 agent/k8s 节点混部同机 | ✅ | R2/R3 |
-| 1.2-03 | **多 server HA（3× server，etcd 奇数集群）** | ✅ | R4：sh-dev-2/3/4 三 Server、三 etcd、三 Agent 实测；etcd 成员均 started/non-learner，三端点写入和 `/healthz` 通过。运行包 revision 为 `1a70255b...`，见 R4 报告的版本边界 |
+| 1.2-03 | **多 server HA（3× server，etcd 奇数集群）** | ✅ | R4：三 Server/三 etcd/三 Agent 实测；R7：新候选 `e9e95f4` 重新部署并验收（doctor 25/25、etcd 3 成员 non-learner、三台 /healthz ok），运行包 provenance 已更新 |
 | 1.2-04 | console 组件部署与访问 | ⚠️ | 服务起✅，页面未验 |
 | 1.2-05 | 单 server + 单 agent | ✅ | R2/R3，server/agent/k8s 节点混部 |
 | 1.2-06 | server 与 agent 分离部署 | ⚠️ | 多机环境隐含覆盖，缺少独立验收证据 |
-| 1.2-07 | HA server/etcd 单点故障与滚动重启 | ⚠️ | R4：停止/恢复 dev4 的 `kc-server`、`kc-etcd`；R6 在运行中 CreateCluster 期间停止 dev4 `kc-server`，Operation 仍成功且 API/quorum 可用。故障窗口 Watch、Console 尚未验证 |
+| 1.2-07 | HA server/etcd 单点故障与滚动重启 | ⚠️ | R4/R6 停止/恢复 dev4 `kc-server`、`kc-etcd`；R7 在新候选上复测 server/etcd 两种故障窗口均通过。另发现：卡在健康检查重试环的创建 Operation 无法取消（R7 新问题 5） |
 
 ### 1.3 容错与增量运维
 
@@ -61,7 +61,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-01 | 预检失败引导（不可达/缺包报错） | ✅ | R2/R3 |
 | 1.3-02 | etcd 冷启动竞态（写探针+重试） | ✅ | R3 |
 | 1.3-03 | clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
-| 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：已有平台执行 `kcctl deploy` 在预检阶段明确拒绝，平台仍为 Healthy。已验证拒绝路径，不是重复 deploy 幂等成功 |
+| 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：预检明确拒绝且平台 Healthy；R7 在新候选上复测一致（`kc-etcd.service already exists`），平台保持 Healthy |
 | 1.3-05 | `kcctl join` 独立纳管新节点 | ⚠️ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready；重复 join、认证失败、自签 CA 和失败清理未测 |
 | 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
 | 1.3-07 | **`kcctl upgrade all --pkg` 平台离线升级** | ❌ | 保留数据和配置，失败可恢复 |
@@ -78,31 +78,31 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 2.1-01 | 1 master + 2 worker | ✅ | R3 |
-| 2.1-02 | 单节点（master 兼 worker）最小规格 | ✅ | R5：`aio-core-20260917` 为 1 Master/0 Worker；Node Ready、CoreDNS/Calico、API、DNS 和 Pod 烟测通过，删除后节点可复用 |
+| 2.1-02 | 单节点（master 兼 worker）最小规格 | ✅ | R5：AIO 建群+烟测通过；R7：`r7-aio-20260919`（untaint+cross-subnet+first-found）复测通过并删除 |
 | 2.1-03 | 3 master + worker HA（lvscare workerNodeVip） | ✅ | R2 已验证 3M+Worker；R4 另验证 3M/0W 边界（需 untaint 才能调度），不替代有 Worker 的 HA 验收 |
 | 2.1-04 | 版本矩阵 v1.35.8 / v1.36.4 / v1.37.0 | ✅ | R2/R3 |
 | 2.1-05 | CRI containerd 1.7.29 / 2.2.4 | ✅ | R2/R3 |
 | 2.1-06 | CNI calico v3.29.6 / v3.31.5 | ✅ | R2/R3 |
 | 2.1-07 | 镜像/物料 100% 来自指定仓库（离线保证） | ✅ | R3 验证法可复用 |
-| 2.1-08 | proxyMode ipvs | ✅ | R2/R3 |
+| 2.1-08 | proxyMode ipvs | ✅ | R2/R3；R7 复测 kube-proxy ConfigMap `mode: ipvs` |
 | 2.1-09 | proxyMode iptables | ✅ | R6：API dry-run 与真实创建均接受 `proxyMode=iptables`；CreateCluster `a16b1a64-02cb-46ce-bdf1-f2a6ff46df87` 成功，kube-proxy ConfigMap 的 `mode` 为 `iptables`。当前 CLI 未暴露该参数，因此用 API 验证，删除已完成 |
 | 2.1-10 | 创建集群时拒绝支持矩阵外版本 | ✅ | R3；同版本/降级属于升级校验，见 2.3-08 |
 | 2.1-11 | 网络自定义（pod/service 网段、DNS 域） | ✅ | R3 即用即验（172.25/16 + cluster.local） |
 | 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ⚠️ | R6：合法参数落库，apiserver 证书 SAN 含外部 IP/域名，kubeconfig 使用 external-ip；域名 DNS/代理端口连通性未验证 |
 | 2.1-14 | untaint-master（master 允许调度） | ✅ | R5：AIO 创建使用 `--untaint-master`，CoreDNS 和测试 Pod 均成功调度到 Master |
 | 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
-| 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：集群对象为 `Overlay-Vxlan-All`，1M1W 与 3M/0W 均完成跨节点 Pod ping、Service DNS 和 apiserver 访问 |
-| 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ✅ | R5：`Overlay-Vxlan-Cross-Subnet` AIO 建群和网络烟测通过；非法网络模式在创建前被 CLI 拒绝，未留下 Cluster |
-| 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ✅ | R4 覆盖 `interface=ens3`；R5 覆盖 `first-found` 与 `can-reach=172.16.131.146`，各自完成 1M1W 建群、配置落库、跨节点 Pod ping 和删除 |
+| 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：`Overlay-Vxlan-All` 建群+烟测；R7 复测（r7-min 1M1W，跨节点 ping 0% 丢包、DNS、API via svc） |
+| 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ✅ | R5：cross-subnet AIO 通过；R7 复测 `Overlay-Vxlan-Cross-Subnet` 落库+烟测通过 |
+| 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ✅ | R4/R5 三方法通过；R7 复测 interface（r7-min）、can-reach（r7-matrix，落库验证）、first-found（r7-aio） |
 | 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ⚠️ | R6：`r6-reg-separation-2-20260917` 的 `imageRegistry=aio-img-reg`、CRI `registryRef=r6-cri-reg-2-20260917` 分别落库并完成建群；两资源当前指向同一 HTTP 端点，不足以证明不同端点的隔离 |
 | 2.1-22 | 私有 CRI Registry 配置下发 | ⚠️ | R6：HTTP CRI Registry 引用下发到 `/etc/containerd/certs.d/.../hosts.toml` 并可消费；账号认证、自签 CA 和独立端点未测 |
 | 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
-| 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4：`min-core-20260917` 两节点 Ready，跨节点 Pod 网络通过，删除后平台 3/3 Agent 恢复健康 |
+| 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4 通过；R7 复测 `r7-min-20260919`（新候选包，~2.5 分钟 Running），删除后节点复用 |
 | 2.1-25 | 集群在线安装 | ✅ | R6：`r6-online-cluster-20260917` 使用 `--offline=false` 建群，Cluster 无 offline annotation，CreateCluster `e11f819e-05ed-403c-8ccf-01a3c2c1263f` 与 SyncKubeConfig 均 Succeeded，packagePlan 落库后删除 |
-| 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | R5：已占用节点创建前拒绝且无新 Operation/Cluster；R6：同一 IP 同时指定 Master/Worker 返回 `master and worker conflict`，无对象残留 |
+| 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | R5/R6 通过；R7 复测占用节点拒绝 `some nodes in used or disabled` |
 | 2.1-27 | Master/Worker 跨 Region | ❌ | 按当前同 Region 约束拒绝，并指出冲突节点和 Region |
-| 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ❌ | R6：`10.96.0.0/16` 与 `10.96.0.0/12` 被接受并创建 Installing Cluster，未在创建前拒绝；健康检查未收敛 |
-| 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ⚠️ | R6：非法 external/domain 端口和域名均在 CLI 前置拒绝且无对象；磁盘、时间同步、主机名等主机检查未覆盖 |
+| 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ❌ | R6：重叠网段被接受创建 Installing Cluster；R7 复测新候选 `e9e95f4` 仍在创建前接受（本轮按约定未执行破坏性全流程，集群经 cancel→delete 收敛清理） |
+| 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ⚠️ | R6/R7：非法 external 端口/域名、master/worker 同 IP、未知 image-registry、docker CRI 均前置拒绝且无对象；主机级预检仍未覆盖 |
 | 2.1-30 | 创建中断后的 retry 或安全删除 | ⚠️ | R6：取消 CIDR 创建后 Cluster/Operation、节点标签和主机副作用未自动清理，需 reset/精确清理；retry 未验证 |
 | 2.1-31 | 创建成功后的固定健康验收 | ✅ | API Server、etcd、controller、scheduler、CoreDNS、CNI、kube-proxy、Node Ready |
 
@@ -110,13 +110,13 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 2.2-01 | worker 添加（含 packagePlan 不变性） | ✅ | R2/R3 |
-| 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3 |
+| 2.2-01 | worker 添加（含 packagePlan 不变性） | ✅ | R2/R3；R7 复测（API add，Operation Succeeded，4 个 slot digest 前后一致） |
+| 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3；R7 复测（remove Operation 20 秒收敛） |
 | 2.2-03 | **master 添加 / 移除** | ❌ | R4 尝试 Master add 被 API 以 `invalid node role` 拒绝；当前实现不支持该路径，未安排 Master E2E |
 | 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
-| 2.2-05 | 节点 disable / enable | ✅ | R3/R4：节点从集群移除后执行 disable/enable，HTTP 200，禁用标签出现并清除；尚未验证仍被其他集群占用时的保护 |
+| 2.2-05 | 节点 disable / enable | ✅ | R3/R4 通过；R7 复测（`PATCH /nodes/{name}/disable|enable` 均 200，禁用期建群被拒，label 实际键 `kubeclipper.io/nodeDisable`） |
 | 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
-| 2.2-07 | agent 节点注销（`DELETE /nodes/{name}`） | ⚠️ | R6：空闲 dev4 通过 `kcctl drain` 删除 Node 后独立 join 恢复；集群占用保护、Lease、证书残留和自动重注册未完整验证 |
+| 2.2-07 | agent 节点注销（`DELETE /nodes/{name}`） | ⚠️ | R6：drain 后独立 join 恢复；R7 复测 drain→join 主路径通过（新 Node `049e40a2`，3/3 恢复） |
 | 2.2-08 | Worker 添加时复用原 `status.packagePlan` | ✅ | R2/R3；各 slot digest 不随 Registry tag 漂移 |
 | 2.2-09 | Master 添加后 etcd/control-plane quorum | ❌ | 新成员健康，API 高可用，packagePlan 不漂移 |
 | 2.2-10 | Master 移除后的 etcd 成员与 VIP 收敛 | ❌ | 不破坏 quorum；成员、证书和负载入口无残留 |
@@ -128,14 +128,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2 + R3 新 tip 复验（修 3 bug） |
+| 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2/R3；R7 在新候选上复测 ~90 秒完成，两节点 v1.37.0 Ready |
 | 2.3-02 | 升级中途失败 → op retry | ❌ | |
 | 2.3-03 | 升级失败 → 集群状态恢复（reset status） | ✅ | R3 实际使用 |
-| 2.3-04 | **集群证书更新（/certification）** | ✅ | R6：`UpdateCertifications` Operation `4c17aa37-8e17-4df7-929a-91712c493676` 成功；apiserver serial `5278093305A4E031`→`53A1E953A93DDC13`、有效期刷新，节点与系统 Pod 保持正常。`status.certifications` 仍为空但不影响实际证书更新 |
-| 2.3-05 | agent 证书重新签发 | ✅ | R6：dev4 旧 Node `0d34b764-711d-4899-89e1-bfb96569ae53` drain 后重新 join 为 `b2624211-4362-40b1-96fa-10edc78d108f`；Agent 证书 serial `78F9713DAE238241`→`1E4A069745BA2B08`，远端证书 CN/serial 与新 Node 一致，3/3 Agent 恢复 Healthy |
+| 2.3-04 | **集群证书更新（/certification）** | ✅ | R6 通过；R7 复测 serial `2F3488595FA57564`→`3E1B08278426788C`、有效期+1y，节点 Ready |
+| 2.3-05 | agent 证书重新签发 | ✅ | R6 通过；R7 复测 drain→join 后 serial `33644819B666ED24`→`35C8E2A87BEB075B`，CN 与新 Node 一致 |
 | 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R3 升级已通过；需确认只更新目标版本相关 slot，其他 digest 不漂移 |
 | 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | retry 必须复用 Task/Plan 固定引用，不重新解析 tag |
-| 2.3-08 | 同版本、降级、跨越不支持版本升级拒绝 | ✅ | R3；必须在创建升级 Operation 前失败 |
+| 2.3-08 | 同版本、降级、跨越不支持版本升级拒绝 | ✅ | R3；R7 复测同版本/降级均在创建 Operation 前拒绝 |
 | 2.3-09 | Master/Worker 滚动顺序与业务可用性 | ⚠️ | R3 升级成功；需固定验证顺序、drain、PDB 和服务连续性 |
 
 ### 2.4 删除集群
@@ -152,31 +152,31 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 2.5-01 | backuppoint fs 型（含非法类型拒绝） | ✅ | R3；R5 另复验 FS 手动备份 |
-| 2.5-02 | backuppoint **S3 型（MinIO）** | ✅ | R5：备份 Operation 成功、Backup 为 Available、对象已写入 MinIO；删除 Backup 后 API 记录和 S3 对象均消失 |
-| 2.5-03 | 手动备份 → 恢复（marker 回滚证明） | ✅ | R2/R3 |
-| 2.5-04 | 备份删除（连带存储文件清除） | ✅ | R3（FS）；R5 另验证 S3 对象随 Backup 删除 |
+| 2.5-01 | backuppoint fs 型（含非法类型拒绝） | ✅ | R3/R5；R7 复测 FS 手动备份 `available`（11,440,160 bytes） |
+| 2.5-02 | backuppoint **S3 型（MinIO）** | ✅ | R5：MinIO 全链路通过；R7 因 MinIO 停止分发二进制改用 seaweedfs S3，手动备份 `available`；endpoint 须为裸 host:port（入口校验缺失见 R7 新问题 8） |
+| 2.5-03 | 手动备份 → 恢复（marker 回滚证明） | ✅ | R2/R3；R7 复测（恢复 Operation Succeeded，marker ConfigMap 回滚消失） |
+| 2.5-04 | 备份删除（连带存储文件清除） | ✅ | R3/R5；R7 复测 FS 文件随对象删除同步消失（对照 2.5-08 轮转不清理） |
 | 2.5-05 | cronbackup runAt 单次触发 | ✅ | R3 |
-| 2.5-06 | cronbackup 真实周期命中 | ✅ | R5：分钟级 Cron 实际创建 Backup，不只检查 next schedule 滚动 |
-| 2.5-07 | cronbackup enable / disable 子资源 | ✅ | R5：enable/disable 均生效；禁用期间不再创建，重新启用后恢复调度 |
-| 2.5-08 | **maxBackupNum 超限自动轮转** | ❌ | R5：`maxBackupNum=1` 只轮转 Backup 对象，旧 FS 备份文件仍残留；需连带清理 FS/S3 存储对象 |
+| 2.5-06 | cronbackup 真实周期命中 | ✅ | R5；R7 复测分钟级 Cron 连续触发多次 |
+| 2.5-07 | cronbackup enable / disable 子资源 | ✅ | R5；R7 复测（禁用 90 秒无新增，启用后恢复） |
+| 2.5-08 | **maxBackupNum 超限自动轮转** | ❌ | R5：对象轮转但旧 FS 文件残留；R7 在含 CronBackup 修复的新候选 `e9e95f4` 上复测仍残留（4 个 cron 文件累积，集群删除后仍在），该修复未覆盖存储对象 |
 | 2.5-09 | 恢复后集群可用性（addons/节点完整） | ✅ | R3 |
 | 2.5-10 | 备份损坏或错误 S3/FS 凭据 | ❌ | 明确失败，不产生 Available 假状态，不破坏原集群 |
-| 2.5-11 | Backup 详情查询 API（`GET /backups/{name}`） | ❌ | R5：已有 Backup 仍返回 404；列表和集群范围查询正常。当前 `DescribeBackup` 把 path name 和 resourceVersion 错传给 `GetBackupEx`，需修复并补成功/不存在用例 |
+| 2.5-11 | Backup 详情查询 API（`GET /backups/{name}`） | ❌ | R5：已有 Backup 仍 404；R7 在新候选上复测仍 404（列表与集群范围查询正常） |
 
 ### 2.6 OCI 制品解析、缓存与消费
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 2.6-01 | 创建集群解析并持久化 `status.packagePlan` | ✅ | R2/R3；Kubernetes/CRI/CNI/extension 使用 `repository@sha256` |
+| 2.6-01 | 创建集群解析并持久化 `status.packagePlan` | ✅ | R2/R3；R7 验证新候选包 digest（`ebe86ff7` 等）落库并被扩容 Operation 复用 |
 | 2.6-02 | packagePlan 不保存 blob 或 Registry 凭据 | ⚠️ | 代码/对象检查需形成固定证据 |
 | 2.6-03 | Agent 首次按 digest 拉取、校验、解包和执行 | ✅ | R2/R3 建群主路径 |
 | 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效 |
 | 2.6-05 | 缓存损坏或 digest 不符 | ❌ | 不得执行损坏制品；重新拉取或明确失败；不得回退到 tag |
 | 2.6-06 | Registry 暂时不可达时的缓存行为 | ❌ | 已缓存 digest 可继续，未缓存 digest 明确失败 |
-| 2.6-07 | Package Registry 配置优先级与文件权限 | ❌ | R6：`/root/.kc/config` 与 `deploy-config.yaml` 实测权限均为 0644（不满足敏感配置 0600）；flag/deploy config/default 优先级仍未专项验证 |
+| 2.6-07 | Package Registry 配置优先级与文件权限 | ❌ | R6：两个配置文件实测 0644；R7 在新候选上复测仍 0644（B3 未修复） |
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
-| 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6：白名单内 v1.37 建群成功；白名单外 v1.36 在创建 Operation 前拒绝且无对象；策略精确恢复 |
+| 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6 通过；R7 复测（`v1.36.*`→`v1.34.*` 后创建 v1.36.4 在 Operation 前拒绝，策略精确恢复） |
 | 2.6-10 | Delivery Policy 缺失 slot/repository | ⚠️ | R6：移除 `cni` slot、将 `calico` 改为不存在的 `missing-calico` 后，均在创建前拒绝且无 Cluster/Operation；缺失 blob、多个候选冲突尚未测 |
 | 2.6-11 | bootstrap/standalone extension 与集群 packagePlan 隔离 | ⚠️ | 单测/代码有门禁，缺真实命令和对象证据 |
 
@@ -192,11 +192,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-03 | `kcctl doctor` | ✅ | R3/R4；R4 为 25 项，异常项、节点和退出码准确 |
 | 3-04 | `kcctl join` | ⚠️ | R6：dev4 独立 join 成功并 Ready；重复 join、错误凭据、Package Registry 认证/CA 失败路径未测 |
 | 3-05 | `kcctl create cluster` | ✅ | R4：CLI 实建 `ha-core-20260917`（3M/0W）和 `min-core-20260917`（1M/1W），参数与 packagePlan 落库；3M/0W 需显式 untaint 才能调度 CoreDNS |
-| 3-06 | `kcctl create/delete user`、`role` | ⚠️ | R6：临时 role/user 创建、查询、删除和重复 user 名称拒绝均通过，user 表显示 role 绑定；自定义 role 登录后读取 Cluster/Node 仍 403，绑定授权需修复并补完整 CRUD |
+| 3-06 | `kcctl create/delete user`、`role` | ⚠️ | R6：CRUD/重名拒绝通过；R7 复测 CRUD 与重名拒绝（重名以 500 返回，宜 409），自定义 role 登录后读取仍 403（4-08b 未修复） |
 | 3-07 | `kcctl create/delete registry` | ✅ | 管理平台中的集群镜像 Registry 资源；基础 CRUD 已验证 |
 | 3-08 | `kcctl delete cluster` | ✅ | R4：CLI 删除 `ha-core-20260917`、`min-core-20260917` 均返回成功并最终 NotFound；删除后平台 doctor 仍为 Healthy |
 | 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | R6：六类资源的 singular list、JSON 形状、Node label selector 和 field selector 已扫过；User label selector 未按预期过滤，且 JSON 输出在单对象/列表间不一致，需修复并补 name/selector 矩阵 |
-| 3-10 | `kcctl get --watch` | ❌ | R4 复测：`kcctl get cluster -w`/列表形式均一次输出后 rc=0 退出；`pkg/cli/get/get.go` 只声明 Watch flag，未传入 query 或建立 watch 流，长连接/断线恢复未实现 |
+| 3-10 | `kcctl get --watch` | ❌ | R4：一次输出后 rc=0 退出；R7 在新候选上复测行为不变（`--watch` 仍未实现长连接） |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
 | 3-12 | `kcctl operation cancel` | ⚠️ | R5：`e290a5f7-ddba-4994-b3d3-8bf03eb088af` 重启 Server 后才 Canceled；R6 CIDR 创建取消后又出现孤立 Running Operation/Installing Cluster，需人工清理 |
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
@@ -205,15 +205,15 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-16 | `kcctl upgrade all --pkg/--online` | ❌ | 平台离线/在线升级，配置数据保留，失败可恢复 |
 | 3-17 | `kcctl upgrade kcctl/agent/server/console` | ❌ | 各组件独立升级，未选组件不受影响 |
 | 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 |
-| 3-19 | `kcctl registry list/deploy/clean/push/delete` | ⚠️ | R6：共享 Registry list/image、缺失仓库和非法 push 已测；无 Docker Engine 且不能占用共享 Registry，valid push 与 deploy/clean/delete 未测 |
-| 3-20 | `kcctl resource list` | ✅ | R3/R4：针对 `172.16.131.146:5003` 列出 14 个 OCI package，结果含仓库/版本/平台信息 |
+| 3-19 | `kcctl registry list/deploy/clean/push/delete` | ⚠️ | R6：list/image/非法 push 已测；R7 补充 `--registry-port 5003` 下 repository/image 列表正常 |
+| 3-20 | `kcctl resource list` | ✅ | R3/R4：14 个 OCI package；R7 复测（新候选包同步后仍 14 个，digest 为新构建） |
 | 3-21 | `kcctl resource inspect` | ✅ | R3/R4：指定 package 可展示 repository、tag、digest、platform 和内容画像 |
 | 3-22 | `kcctl resource refresh` | ✅ | R3/R4：强制扫描指定 Registry，输出 `refreshed 14 OCI packages`；不将其解释为持久缓存更新 |
 | 3-23 | `kcctl delivery-policy template/get/apply/diff` | ✅ | R4：模板生成、custom `allowedVersions` apply/get、diff 和恢复均通过；策略文件的非法 selection 被拒绝 |
 | 3-24 | `kcctl delivery-policy validate` | ⚠️ | R4：合法模板通过，`selection: many` 被拒绝；未知 slot 名称当前按可扩展字段接受，白名单制品存在性/冲突尚未覆盖 |
-| 3-25 | `kcctl login` | ⚠️ | R3/R4 只验证错误密码返回 unauthorized、rc=1 且不落配置；正确登录、token 过期及 TLS 校验仍未完成 |
+| 3-25 | `kcctl login` | ⚠️ | R3/R4：错误密码 unauthorized；R7 复测错误密码拒绝路径一致，正确登录仍待闭环 |
 | 3-26 | `kcctl status` | ✅ | R4：准确报告三台 `kc-server`、三台 `kc-etcd`、三台 `kc-agent`，平台 Healthy |
-| 3-27 | `kcctl deploy config` | ⚠️ | 生成配置、读取、覆盖优先级和非法配置；不存在顶层 `kcctl config` |
+| 3-27 | `kcctl deploy config` | ⚠️ | R6：生成/非法 YAML 拒绝；R7 复测生成成功 |
 | 3-28 | `kcctl version` | ✅ | client/server 版本和 Git revision 准确 |
 
 ## 4. 其他核心平台功能
@@ -226,14 +226,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
 | 4-07 | **console UI 端到端（含任务失败展示）** | ❌ | fork console 分支未配镜验证 |
 | 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ❌ | 基础身份管理属于核心平台能力 |
-| 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ⚠️ | R6：内置只读用户可读 Cluster，创建 Registry 返回 403；自定义 role binding/删除保护和 WebSocket 一致性未闭环 |
+| 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ❌ | R6：自定义 role 登录后读取 Cluster/Node 403；R7 在新候选上复测 `role-template-view-clusters` 的自定义 role 登录后连授权内读取仍 403，越权拦截存在但授权放行缺失 |
 | 4-08c | 密码登录与验证码登录 | ⚠️ | R6：正确密码登录路径已成功；验证码过期/重复使用、失败限流及第三方 OAuth 未测 |
 | 4-08d | 长期 token 创建、查询、撤销与过期 | ❌ | token 不得出现在普通日志和审计正文 |
 | 4-12 | kubeconfig 下载 | ⚠️ | 文件可用、权限正确；集群未就绪或凭据过期时明确失败 |
-| 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6：管理员 mTLS 直查四个 endpoint 均 200，status 返回 Healthy |
-| 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6：列表与详情 200，不存在事件 404；分页参数已带 limit/page |
+| 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6 四端点 200；R7 复测一致 |
+| 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6 通过；R7 复测（本轮全部操作均有审计记录） |
 | 4-16 | 敏感信息脱敏 | ❌ | R6：`/metrics` 未命中 password/token/secret/private-key 字段名，但 `/root/.kc/config` 实测为 0644 且含 mTLS 私钥材料；CLI、server、agent、Operation 和审计日志仍需全链路验证 |
-| 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：`/healthz` 和 `/metrics` 均 200，108 行指标未命中 password/token/secret/private-key；标签约束未专项验证 |
+| 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：均 200、108 行无敏感字段名；R7 复测一致 |
 | 4-18 | 登录失败限流与恢复 | ❌ | 连续错误密码触发限流；窗口结束或成功登录后行为符合设计 |
 | 4-19 | Addon OCI chart/runtime-image-set 来源与 digest | ✅ | R2/R3；NFS CSI、MetalLB 主路径来源检查可复用 |
 | 4-20 | Addon 安装失败后的 retry/卸载清理 | ❌ | 状态准确；已创建资源可重试或安全清理 |
