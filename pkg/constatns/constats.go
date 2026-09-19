@@ -29,6 +29,10 @@ const (
 
 	KcCertsConfigMapName     = "kc-ca"
 	KcEtcdCertsConfigMapName = "kc-etcd"
+
+	// DefaultImageRegistryName is the cluster image Registry resource seeded
+	// by kcctl deploy, mirroring the Package Registry endpoint.
+	DefaultImageRegistryName = "kc-package-registry"
 )
 
 const (

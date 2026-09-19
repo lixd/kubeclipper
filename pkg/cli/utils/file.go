@@ -28,16 +28,21 @@ func FileExist(path string) bool {
 	return !os.IsNotExist(err)
 }
 
+// WriteToFile writes data to path with 0600 permissions. The only current
+// caller persists deploy-config.yaml, which embeds registry credentials, so
+// pre-existing wider-permission files are tightened as well.
 func WriteToFile(path string, data []byte) error {
-	err := os.MkdirAll(filepath.Dir(path), 0777)
-	if err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	if err := f.Chmod(0600); err != nil {
+		return err
+	}
 	_, err = f.Write(data)
 	if err != nil {
 		return err

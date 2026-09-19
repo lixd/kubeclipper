@@ -582,3 +582,34 @@ func TestCreateCronBackupNilLabels(t *testing.T) {
 		t.Fatal("enable label not set")
 	}
 }
+
+func TestValidateBackupPointS3Endpoint(t *testing.T) {
+	cases := []struct {
+		name     string
+		endpoint string
+		wantErr  bool
+	}{
+		{"host with port", "172.16.131.146:5003", false},
+		{"localhost", "127.0.0.1:9000", false},
+		{"scheme rejected", "http://172.16.131.146:5003", true},
+		{"https rejected", "https://s3.example.com", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			bp := &v1.BackupPoint{
+				StorageType: bs.S3Storage,
+				S3Config: &v1.S3Config{
+					Bucket:   "bucket",
+					Endpoint: tc.endpoint,
+				},
+			}
+			err := validateBackupPoint(bp)
+			if tc.wantErr && err == nil {
+				t.Fatalf("endpoint %q: expected error, got nil", tc.endpoint)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("endpoint %q: unexpected error %v", tc.endpoint, err)
+			}
+		})
+	}
+}

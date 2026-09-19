@@ -313,6 +313,12 @@ func validateBackupPoint(bp *v1.BackupPoint) error {
 		if bp.S3Config.Endpoint == "" {
 			return fmt.Errorf("s3 backup point requires s3Config.endpoint")
 		}
+		// The S3 client rejects endpoints carrying a scheme with
+		// "Endpoint url cannot have fully qualified paths" only at backup
+		// time; reject it up front instead.
+		if strings.Contains(bp.S3Config.Endpoint, "://") {
+			return fmt.Errorf("s3Config.endpoint must be host[:port] without a scheme (e.g. 172.16.131.146:5003), got %q", bp.S3Config.Endpoint)
+		}
 	default:
 		return fmt.Errorf("unsupported backup storage type %q, only %q and %q are supported",
 			bp.StorageType, bs.FSStorage, bs.S3Storage)

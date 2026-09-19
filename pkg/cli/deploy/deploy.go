@@ -1373,6 +1373,7 @@ func (d *DeployOptions) uploadConfig() {
 	}
 	uploadDeployConfig(c, d.deployConfig)
 	uploadDeliveryPolicy(c)
+	uploadDefaultRegistry(c, d.packageRegistryConfig)
 	uploadCerts(c)
 	if err = cfg.Dump(); err != nil {
 		logger.Fatal(err)
@@ -1475,6 +1476,57 @@ func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
 		},
 	}
 	createOrUpdateConfigMap(client, dc)
+}
+
+// uploadDefaultRegistry seeds the cluster image Registry resource named
+// constatns.DefaultImageRegistryName, mirroring the Package Registry endpoint
+// so offline cluster creation resolves images without a hand-created registry
+// (a fresh deploy otherwise renders kubeadm configs with registry.k8s.io and
+// hangs).
+func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
+	if reg == nil || reg.Registry == "" {
+		return
+	}
+	if existing, err := client.DescribeRegistries(context.TODO(), constatns.DefaultImageRegistryName); err == nil &&
+		len(existing.Items) > 0 && existing.Items[0].Name == constatns.DefaultImageRegistryName {
+		if existing.Items[0].Host == reg.Registry {
+			return
+		}
+		if err := client.DeleteRegistry(context.TODO(), constatns.DefaultImageRegistryName); err != nil {
+			logger.Fatalf("delete outdated default image registry failed: %v", err)
+		}
+	}
+	registry := &v1.Registry{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v1.KindRegistry,
+			APIVersion: v1.SchemeGroupVersion.String(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: constatns.DefaultImageRegistryName,
+		},
+		RegistrySpec: v1.RegistrySpec{
+			Scheme:     reg.Scheme,
+			Host:       reg.Registry,
+			SkipVerify: reg.SkipTLSVerify,
+			CA:         reg.CA,
+		},
+	}
+	if reg.Username != "" {
+		registry.RegistryAuth = &v1.RegistryAuth{
+			Username: reg.Username,
+			Password: reg.Password,
+		}
+	}
+	// The first etcd writes race the leader election the same way the
+	// configmap uploads do; reuse the same retry policy.
+	err := retryConfigWrite(func() error {
+		_, createErr := client.CreateRegistry(context.TODO(), registry)
+		return createErr
+	})
+	if err != nil {
+		logger.Fatalf("create default image registry failed: %v", err)
+	}
+	logger.Infof("default image registry %q (%s %s) initialized", constatns.DefaultImageRegistryName, reg.Scheme, reg.Registry)
 }
 
 func uploadDeliveryPolicy(client *kc.Client) {

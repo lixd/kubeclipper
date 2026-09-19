@@ -1121,6 +1121,12 @@ func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
 			return fmt.Errorf("the cluster is enabled in dual-stack mode, requiring both ipv4 and ipv6")
 		}
 	}
+	// Reject malformed or overlapping pod/service subnets before any object
+	// is created; R6/R7 showed they used to slip through and leave the
+	// cluster stuck in Installing.
+	if err := netutil.ValidateSubnetOverlap(c.Networking.Pods.CIDRBlocks, c.Networking.Services.CIDRBlocks); err != nil {
+		return fmt.Errorf("invalid cluster networking: %v", err)
+	}
 	if len(c.Masters) == 0 {
 		return fmt.Errorf("cluster must have one master node")
 	}
@@ -1212,8 +1218,7 @@ func (h *handler) ListBackups(request *restful.Request, response *restful.Respon
 
 func (h *handler) DescribeBackup(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter(query.ParameterName)
-	resourceVersion := strutil.StringDefaultIfEmpty("0", request.QueryParameter(query.ParameterResourceVersion))
-	c, err := h.clusterOperator.GetBackupEx(request.Request.Context(), name, resourceVersion)
+	backup, err := h.findBackup(request.Request.Context(), name)
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			restplus.HandleNotFound(response, request, err)
@@ -1222,7 +1227,25 @@ func (h *handler) DescribeBackup(request *restful.Request, response *restful.Res
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+	_ = response.WriteHeaderAndEntity(http.StatusOK, backup)
+}
+
+// findBackup looks up a backup by its globally unique name. Unlike the
+// cluster-scoped endpoints that query by (cluster, name), the describe route
+// carries the full backup name only; the previous implementation passed the
+// resourceVersion into GetBackupEx as the name, so every existing backup was
+// reported as NotFound.
+func (h *handler) findBackup(ctx context.Context, name string) (*v1.Backup, error) {
+	backups, err := h.clusterOperator.ListBackups(ctx, query.New())
+	if err != nil {
+		return nil, err
+	}
+	for i := range backups.Items {
+		if backups.Items[i].Name == name {
+			return &backups.Items[i], nil
+		}
+	}
+	return nil, apimachineryErrors.NewNotFound(v1.Resource("backup"), name)
 }
 
 func (h *handler) watchBackups(req *restful.Request, resp *restful.Response, q *query.Query) {
@@ -2896,8 +2919,10 @@ func (h *handler) UpdateBackupPoint(req *restful.Request, resp *restful.Response
 	}
 
 	if bp.StorageType == bs.S3Storage && obp.StorageType == bs.S3Storage && bp.FsConfig == nil {
-		obp.S3Config.AccessKeyID = bp.S3Config.AccessKeyID
-		obp.S3Config.AccessKeySecret = bp.S3Config.AccessKeySecret
+		// S3 settings (endpoint/bucket/region/ssl included) are fully
+		// updatable; the previous implementation only copied the access keys,
+		// silently dropping endpoint changes while still returning 200.
+		obp.S3Config = bp.S3Config
 		obp.Description = bp.Description
 	}
 

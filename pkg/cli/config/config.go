@@ -117,15 +117,21 @@ func (c *Config) Dump() error {
 	fpath := filepath.Join(homedir.HomeDir(), DefaultConfigPath)
 
 	if _, err := os.Stat(fpath); os.IsNotExist(err) {
-		if err := os.MkdirAll(fpath, os.ModeDir|0755); err != nil {
+		if err := os.MkdirAll(fpath, 0700); err != nil {
 			return err
 		}
 	}
-	f, err := os.Create(filepath.Join(fpath, "config"))
+	cfgPath := filepath.Join(fpath, "config")
+	// The config embeds mTLS keys and tokens; always 0600, and tighten
+	// pre-existing files that were created with wider permissions.
+	f, err := os.OpenFile(cfgPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
+	if err := f.Chmod(0600); err != nil {
+		return err
+	}
 	_, err = f.Write(cfgBytes)
 	return err
 }

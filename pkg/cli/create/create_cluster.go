@@ -354,8 +354,29 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	if !sliceutil.HasString(cniVersions, l.CNIVersion) {
 		return utils.UsageErrorf(cmd, "unsupported cni version,support %v now", cniVersions)
 	}
+	// R6/R7 found overlapping pod/service CIDRs were accepted pre-creation
+	// and left the cluster stuck in Installing; reject them here.
+	if err := netutil.ValidateSubnetOverlap([]string{l.PodSubnet}, []string{l.ServiceSubnet}); err != nil {
+		return utils.UsageErrorf(cmd, "%v", err)
+	}
 
 	criRegistries := l.listCRIRegistry()
+	if l.ImageRegistry == "" && l.Offline {
+		// deploy seeds constatns.DefaultImageRegistryName mirroring the
+		// Package Registry; without an explicit --image-registry an offline
+		// cluster would otherwise render kubeadm configs with registry.k8s.io
+		// and hang pulling on air-gapped hosts (R7 finding).
+		switch {
+		case sliceutil.HasString(criRegistries, constatns.DefaultImageRegistryName):
+			l.ImageRegistry = constatns.DefaultImageRegistryName
+			logger.Infof("use default image registry %s", l.ImageRegistry)
+		case len(criRegistries) == 1:
+			l.ImageRegistry = criRegistries[0]
+			logger.Infof("use image registry %s", l.ImageRegistry)
+		case len(criRegistries) == 0:
+			return utils.UsageErrorf(cmd, "offline cluster requires an image registry resource but none exists; create one with 'kcctl create registry --name myregistry --host <host:port>' or pass --offline=false")
+		}
+	}
 	if l.ImageRegistry != "" && !sliceutil.HasString(criRegistries, l.ImageRegistry) {
 		return utils.UsageErrorf(cmd, "image registry [%s] not found,has %v now,use [kcctl get registry] to show", l.ImageRegistry, criRegistries)
 	}

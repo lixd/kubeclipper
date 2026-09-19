@@ -20,6 +20,8 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
@@ -105,5 +107,40 @@ func TestConfig_Merge(t *testing.T) {
 
 	if !reflect.DeepEqual(cfgCert, cfgTarget) {
 		t.Fatalf("merge fail,want %v got %v", cfgCert, cfgTarget)
+	}
+}
+
+func TestDumpFilePermissions(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("KUBECONFIG", filepath.Join(home, ".kc", "config"))
+
+	if err := (&Config{
+		CurrentContext: "test",
+	}).Dump(); err != nil {
+		t.Fatalf("Dump failed: %v", err)
+	}
+	cfgPath := filepath.Join(home, ".kc", "config")
+	info, err := os.Stat(cfgPath)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("config perm = %v, want 0600", got)
+	}
+
+	// Overwriting an existing wider-permission config must tighten it.
+	if err := os.Chmod(cfgPath, 0644); err != nil {
+		t.Fatalf("chmod seed failed: %v", err)
+	}
+	if err := (&Config{CurrentContext: "test2"}).Dump(); err != nil {
+		t.Fatalf("Dump overwrite failed: %v", err)
+	}
+	info, err = os.Stat(cfgPath)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0600 {
+		t.Fatalf("existing config perm = %v, want tightened to 0600", got)
 	}
 }
