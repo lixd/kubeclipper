@@ -64,10 +64,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：预检明确拒绝且平台 Healthy；R7 在新候选上复测一致（`kc-etcd.service already exists`），平台保持 Healthy |
 | 1.3-05 | `kcctl join` 独立纳管新节点 | ⚠️ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready；重复 join、认证失败、自签 CA 和失败清理未测 |
 | 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
-| 1.3-07 | **`kcctl upgrade all --pkg` 平台离线升级** | ❌ | 保留数据和配置，失败可恢复 |
+| 1.3-07 | **`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）** | ✅ | B1 E2E（2026-09-20，R7 报告 §11）：三机 server+agent 实际升级 rc.3→`057f45e1`，逐台 stop→backup→install→start→healthz，成功后 staging 清理；错 digest/repointed tag 在触碰节点前拒绝；升级后 Healthy、doctor 25/25、配置数据保留 |
 | 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |
-| 1.3-09 | **`kcctl upgrade all --online --version` 平台在线升级** | ❌ | 下载正确版本，升级后 doctor 通过 |
-| 1.3-10 | `kcctl upgrade kcctl/agent/server/console` 组件独立升级 | ❌ | 只升级目标组件，版本和运行状态准确 |
+| 1.3-09 | **`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）** | ⚠️ | `--version` 路径复用 ReleaseManifest 下载+checksum 校验（单测覆盖），但环境无公网 Release 服务，在线下载未实测；`--manifest` 同路径已三机实测通过（B1，R7 报告 §11） |
+| 1.3-10 | `kcctl upgrade server/agent/console/kcctl` 组件独立升级 | ⚠️ | `server`/`agent` 独立升级已三机实测（B1 E2E：server 先、agent 后，逐台替换，只更新目标组件）；`console`/`kcctl` 明确报 not supported yet（B1 step 2 交付） |
 | 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ⚠️ | 已使用部分 SSH 配置；需分别验证认证失败、sudo 失败和修正后重试 |
 | 1.3-12 | 初始化管理员密码 | ❌ | 自定义初始密码可登录；敏感值不出现在配置回显和日志中 |
 
@@ -202,8 +202,8 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
 | 3-14 | `kcctl set cluster` | ✅ | R3/R4：external IP/port 设置与 clear 均成功，get 输出中的 labels 随之出现/清除 |
 | 3-15 | `kcctl drain` | ⚠️ | R6：空闲 Agent drain rc=0 并删除 Node；当前命令只支持 KubeClipper Agent，不是 Kubernetes Pod eviction，used/force/重复执行未测 |
-| 3-16 | `kcctl upgrade all --pkg/--online` | ❌ | 平台离线/在线升级，配置数据保留，失败可恢复 |
-| 3-17 | `kcctl upgrade kcctl/agent/server/console` | ❌ | 各组件独立升级，未选组件不受影响 |
+| 3-16 | `kcctl upgrade all --manifest/--version` | ⚠️ | B1 按 OCI 契约重写并移除旧 `--pkg/--online`：`--manifest` 三机实测通过（幂等复跑全 skip、降级明确拒绝、错 digest 拒绝，R7 报告 §11）；`--version` 在线下载内网未实测 |
+| 3-17 | `kcctl upgrade server/agent/console/kcctl` | ⚠️ | `server`/`agent` 独立升级实测通过（节点级幂等：已达标 revision 跳过，不重启）；`console`/`kcctl` 未实施（step 2），报错明确 |
 | 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 |
 | 3-19 | `kcctl registry list/deploy/clean/push/delete` | ⚠️ | R6：list/image/非法 push 已测；R7 补充 `--registry-port 5003` 下 repository/image 列表正常 |
 | 3-20 | `kcctl resource list` | ✅ | R3/R4：14 个 OCI package；R7 复测（新候选包同步后仍 14 个，digest 为新构建） |

@@ -289,6 +289,63 @@ default image registry 自动初始化），复验：
 
 ## 10. 未执行边界
 
-纯离线 bundle、HTTPS/自签 CA/认证 Registry、平台自身升级（B1 契约缺口）、Console E2E、
-arm64 真机、IPv6/双栈、MetalLB BGP、valid registry push（无 Docker Engine）、master 增删
-（产品不支持）维持既有缺口记录；本轮未改变其状态。
+纯离线 bundle、HTTPS/自签 CA/认证 Registry、Console E2E、arm64 真机、IPv6/双栈、MetalLB BGP、
+valid registry push（无 Docker Engine）、master 增删（产品不支持）维持既有缺口记录。
+平台自身升级原属本节缺口（B1 契约缺口），已于 2026-09-20 按 OCI 契约实施并通过三机 E2E，
+见 §11；升级失败注入与中断恢复的破坏性场景仍未实测（§11.4）。
+
+## 11. B1 平台升级（OCI 契约）实施与 E2E 复验（2026-09-20 追加）
+
+平台自身升级按 [remediation plan §2.3](../testing/oci-release-remediation-plan.md) 八条契约实施：
+`kcctl upgrade <all|server|agent> --version/--manifest`（互斥、必选其一），复用 ReleaseManifest/
+OCI fetcher/digest 校验，manifest 驱动（targetRef、targetVersion、targetRevision）、tag 绑定验证、
+固定 Server→Agent 逐节点滚动（stop→backup→install→start→healthz，失败 restore 并保留 staging）、
+版本策略（semver 比较，同 revision 幂等，拒隐式降级）。旧 `--pkg/--online/--binary` 入口移除，
+console/kcctl 组件明确报 "not supported yet"（step 2 交付）。
+
+### 11.1 实施与修复 commit
+
+- `057f45e1`：B1 主体（upgrade 重写为 manifest/OCI 契约，fetch/verify/rollout）。
+- `301c6629`：E2E 期间修复——每节点执行前重探测 revision、plan 节点去重（`dedupNodes`）、
+  重复执行不再覆盖原始 backup（`[ -f backup ] || cp -a`）、版本策略降级比较先于 revision
+  幂等短路（否则"声称低版本但 pin 当前 revision"的 manifest 会被当幂等放行）。
+- `f7d82d7e`：**SSH 配置接线修复（本轮最严重缺陷）**。`UpgradeOptions.SSHConfig` 停留在
+  `NewSSH()` 空默认值（User=root、无 PkFile/Password/PrivateKey），`sshutils.SSHToCmd` 将所有
+  节点判定为本地回退，probe/stop/install/start/传包**全部在 kcctl 本机执行**而日志仍打印目标
+  节点名——造成 14:14/14:51 两轮"假成功"：三个 plan 节点的替换全部落在发起机 dev-2 自身
+  （kc-server 被重启 3 次、backup 被已升级二进制覆盖），146/230 从未被触碰，幂等复跑因本地
+  probe 全返回 dev-2 revision 而 6 节点全"skip"。修复为 `Complete()` 中
+  `o.SSHConfig = o.deployConfig.SSHConfig`（与 join 相同接线），并在代码注释固化该约束。
+  修复前的全部 T 系列节点操作类结论作废，下述证据均为修复后二进制（gitCommit `f7d82d7e`）重跑。
+
+### 11.2 正向 E2E（三机，manifest 驱动，registry 5003）
+
+前置快照：208 kc-server=rc.4/`057f45e1`（14:14:42）、146/230=rc.3/`b23a9ab2`（12:40:10/12:40:14），
+三台 agent 均 rc.3。
+
+| 用例 | 结果 |
+|---|---|
+| `upgrade server --manifest rc.4.yaml` | ✅ 计划输出三节点真实 revision（208=`057f45e1` skip；146/230=`b23a9ab2`），107MB 传包走真实 SSH，逐台 stop→install→start→healthz；EXIT=0，verifyPlatform 报 `v2.0.3-rc.4 (057f45e1)` |
+| 节点侧核对 | ✅ 146/230 二进制 md5 变为 rc.4（`33070976`）、ActiveEnterTimestamp 各变化一次（14:59:59/15:00:08），208 时间戳不变（14:14:42，skip 未触碰）；成功后 staging（含 backup）按设计清理 |
+| `upgrade agent --manifest` | ✅ 三台 agent rc.3→rc.4（82MB/台，`41c03b1e`），时间戳各变化一次 |
+| 幂等复跑 `upgrade all --manifest` | ✅ 6 个节点槽位全部实测 `current=057f45e1` → 全 skip，EXIT=0，无任何重启 |
+
+### 11.3 负向用例（均为修复后二进制实测）
+
+| 用例 | 结果 |
+|---|---|
+| T5 repointed tag（manifest digest/revision 全 0，tag 真实 digest `879d9e34`/revision `057f45e1`） | ✅ `verifyTagBinding` 在触碰任何节点前拒绝：`refusing to upgrade from a repointed tag`，EXIT=1，三节点零操作 |
+| digest 不符但 revision label 与 manifest 一致 | ✅ 告警放行（`digest ... differs ...; source revision ... matches`），随后各节点已达标幂等 skip——回退分支语义符合 §2.3-3 |
+| T6 降级（manifest v2.0.2/`b23a9ab2`，平台 rc.4/`057f45e1`） | ✅ Validate 阶段（访问 Registry 前）拒绝：`refusing implicit downgrade: platform v2.0.3-rc.4 is newer than target v2.0.2`，EXIT=1 |
+| console/kcctl 组件 | ✅ 明确报 `not supported yet; supported components are [ all | server | agent ]` |
+
+### 11.4 终态与边界
+
+终态：Healthy 3/3/3、doctor 25/25、etcd 3 成员（:12379）同步无 learner、三台 /healthz=ok；
+升级产生的时间戳证据见 §11.2。测试 manifest/kcctl 临时产物已从 dev-2/dev-3 清除，
+共享 Registry 未改动。
+
+未实测边界：节点启动失败/升级中中断后的恢复与续升（§2.3-7 的 restore 路径仅单测覆盖，
+未做故障注入）、`--version` 在线下载路径（环境无公网 Release 服务）、带 repository 前缀
+Registry 的 packageRef 解析（`pkg/delivery/indexer/registry.go` 仅取 host，B1 范围外，
+已记录为观察项）。
