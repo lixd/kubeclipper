@@ -208,7 +208,32 @@ doctor     25 passed, 0 warnings, 0 failed
 测试用户/角色已删除，临时 MinIO 替代（seaweedfs）进程与数据已清除，孤儿备份文件已清理，
 `aio-img-reg` Registry 资源保留（与历史轮次一致）。
 
-## 9. 未执行边界
+## 9. Batch-1/Batch-2 修复与复验（2026-09-20 追加）
+
+R7 报告完成后，按报告结论实施了修复并重新打包验证。修复分支 commit：
+
+- `a989b14f`（batch-1）：B3 配置 0600、2.5-11 备份详情、N1 默认 Registry、2.1-28 CIDR 校验、N7 backuppoint。
+- `3348bd34` + `5f694a0e`（batch-2）：N4 备份失败状态复位、N5 取消有界收敛（服务端 deadline 收缩 + agent 端任务终结观察）、2.5-08 轮转顺序。
+
+候选包 `v2.0.3-rc.1`（revision `5f694a0e...`）经相同路径发布到 5003 并重新部署，逐项复验：
+
+| 项 | 复验结果 |
+|---|---|
+| N1 | 部署日志确认 `default image registry "kc-package-registry" (http 172.16.131.146:5003) initialized`；未传 `--image-registry` 建群自动选中该资源并 Running |
+| 2.1-28 | 重叠网段创建前拒绝（`pod subnet 10.96.0.0/16 overlaps service subnet 10.96.0.0/12`），零对象 |
+| B3 | `/root/.kc/config`、`deploy-config.yaml` 实测 0600 |
+| 2.5-11 | 已有备份 `GET /backups/{name}` 返回 200，不存在 404 |
+| N7 | 带 scheme 的 endpoint 创建即 400（含指引文案）；PUT 更新 endpoint/bucket 持久化生效 |
+| N4 | 强制造备份失败（移除备份目录）后集群自动回到 Running（不再卡 UpdateFailed），目录修复后重试立即成功 |
+| N5/N6 | 1M/0W 楔死场景取消后**无重启**约 4 分钟收敛：Operation Canceled、集群 InstallFailed、锁释放、后续删除/建群正常 |
+| 2.5-08 | `maxBackupNum=1` 每分钟 Cron 多次触发后，仅保留最新一个 Backup 对象与对应存储文件，旧对象与 FS 文件同步清理（R5/R7 的孤儿文件不再产生） |
+
+最终状态：Healthy 3/3/3、doctor 25/25、无 Cluster/Operation、测试用户/备份/临时设施全部清理。
+**注意**：本报告 §4 的 ❌ 结论（2.5-08、2.5-11、2.1-28、3-10、4-08b、2.6-07）为修复前基线；
+其中 2.5-08、2.5-11、2.1-28、2.6-07 已由 batch-1/batch-2 修复并复验，3-10（get --watch）与
+4-08b（自定义 role 授权）仍待修复。
+
+## 10. 未执行边界
 
 纯离线 bundle、HTTPS/自签 CA/认证 Registry、平台自身升级（B1 契约缺口）、Console E2E、
 arm64 真机、IPv6/双栈、MetalLB BGP、valid registry push（无 Docker Engine）、master 增删
