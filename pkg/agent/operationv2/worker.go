@@ -346,6 +346,15 @@ func (w *Worker) execute(parent context.Context, task *operations.OperationTask)
 	}
 	ctx, cancel := context.WithDeadline(parent, task.Spec.Deadline.Time)
 	defer cancel()
+	// The server can mark this task terminal while the executor runs —
+	// timeout or cancellation of the owning operation. Executors like the
+	// health-check retry loop only observe their context, so watch the live
+	// task and cancel locally; otherwise the single-task worker stays blocked
+	// until the spec deadline and every later task on this node queues
+	// behind it (R7/N8).
+	watchDone, stopWatch := w.watchTerminal(ctx, task, cancel)
+	defer close(stopWatch)
+	defer func() { <-watchDone }()
 	result, reconcileErr := executor.Reconcile(ctx, task.DeepCopy(), writer)
 	if parent.Err() != nil {
 		return parent.Err()
@@ -393,6 +402,38 @@ func (w *Worker) finish(
 	}
 	w.queue.Add(syncKey)
 	return nil
+}
+
+// watchTerminal polls the live task and invokes cancel as soon as the server
+// records a terminal phase for it, so a local executor that only honors its
+// context stops instead of blocking the single-task worker until the spec
+// deadline. The returned channel closes when the watcher exits; close it via
+// the returned stop function when the task finishes normally.
+func (w *Worker) watchTerminal(ctx context.Context, task *operations.OperationTask, cancel context.CancelFunc) (chan struct{}, chan struct{}) {
+	done := make(chan struct{})
+	stop := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-stop:
+				return
+			case <-ticker.C:
+			}
+			getCtx, getCancel := context.WithTimeout(context.Background(), serverCallTimeout)
+			live, err := w.client.Get(getCtx, task.Name, metav1.GetOptions{})
+			getCancel()
+			if err == nil && live.UID == task.UID && live.Status.Phase.IsTerminal() {
+				cancel()
+				return
+			}
+		}
+	}()
+	return done, stop
 }
 
 func boundedMessage(message string) string {
