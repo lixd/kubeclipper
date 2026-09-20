@@ -241,13 +241,51 @@ R7 报告完成后，按报告结论实施了修复并重新打包验证。修�
 
 | 项 | 复验结果 |
 |---|---|
-| 3-10 get --watch | ✅ `kcctl get cluster --watch` 持续输出 watch 事件；服务端流在 watch 超时后关闭时客户端 2 秒退避重连并继续，Ctrl-C 正常退出。**注意**：服务端 watch 流存在快速关闭现象（audit 记录 watch 请求在 ~0.4ms 内 ResponseComplete，Go 客户端常收 1-2 个事件后 EOF），与 agent 任务侧依赖 410/EOF 后 relist 的既有行为（R2 记录）一致，属独立专项（建议后续排查 go-restful chunked 流与 HTTP/2 组合），CLI 重连+重放机制在功能上可替代 |
+| 3-10 get --watch | ✅ `kcctl get cluster --watch` 持续输出 watch 事件；服务端流在 watch 超时后关闭时客户端 2 秒退避重连并继续，Ctrl-C 正常退出。服务端 watch 流快速关闭现象（audit 记录 watch 请求在 ~0.4ms 内 ResponseComplete，Go 客户端常收 1-2 个事件后 EOF）**根因已定位并修复，见 §9.2**（此前"go-restful chunked 流与 HTTP/2 组合问题"的猜测不成立） |
 | 重复 user 400 | ✅ 重复创建 r8user3 返回 `Bad request due to reason users.iam.kubeclipper.io "r8user3" already exists`（400），不再 500 |
 | 4-08b 自定义 role RBAC | ✅ **改判**：R7 的 403 归因于测试时使用了错误注解键（`kubeclipper.io/role`，服务端读 `iam.kubeclipper.io/role`）。用正确键创建 `r8user3`+binding 后，登录可 `GET /clusters`、`/nodes` 200，越权创建 Registry 403；服务端 role 聚合（aggregation-roles 注解 → 3 条规则）确认正常 |
 
 另：R7 排查中曾出现 curl `/api/core.kubeclipper.io/v1/users` 404 而 nodes/clusters 200 的
 现象，归因为 users 注册在 `iam.kubeclipper.io` 组（`pkg/server/registry/user/rest.go`），
 测试用了错误组路径，非产品缺陷。
+
+### 9.2 N9 根因与修复：watch 流立即关闭（2026-09-20 追加）
+
+§9.1 记录的服务端 watch 流快速关闭（~0.4ms ResponseComplete、Go 客户端收 1-2 事件后
+EOF）已排查出根因并修复，**不再是独立专项**。
+
+**根因**：核心/IAM 资源 handler 在客户端未传 `timeoutSeconds` 时计算默认 watch 超时的
+写法是
+`time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))`——
+`MinTimeoutSeconds`=1800，浮点结果 1800~3600 被直接当作 `time.Duration`（纳秒），
+**漏乘 `time.Second`**。`pkg/server/restplus/watch.go` 的 ServeWatch 用该值
+`time.NewTimer(timeout)`，timer 首次 select 即触发，watch 流建立后 ~0.5ms 内被服务端
+主动关闭。对照证据：`pkg/apis/operations/v1alpha1/handler.go` 用的是正确的
+`30 * time.Minute`，因此 agent 的 operationtasks watch 能存活数分钟（R7 记录 415s/442s），
+同一 ServeWatch 路径下两种行为并存即指向 handler 传入值差异。
+
+**修复**（commit `b23a9ab2`）：
+
+- `pkg/apis/core/v1/handler.go` 等 12 处替换为抽出的 `defaultWatchTimeout(q)` helper
+  （显式 `TimeoutSeconds` 优先，否则 `(MinTimeoutSeconds ~ 2×MinTimeoutSeconds)` 秒，
+  显式乘 `time.Second`，保留 apiserver 式随机化防惊群），含注释说明纳秒陷阱。
+- `pkg/apis/iam/v1/handler.go` watchToken 处同类错误同步修复。
+- `pkg/apis/core/v1/handler_test.go` 新增 `TestDefaultWatchTimeout` 回归测试
+  （默认值 ≥ MinTimeoutSeconds、显式 TimeoutSeconds 生效）。
+
+**发布与验证**：候选包 `v2.0.3-rc.3`（revision `b23a9ab2`）经相同路径发布到 5003
+（digest `sha256:bd851a27...`）并三机清空重部署（Healthy 3/3/3、doctor 25/25、
+default image registry 自动初始化），复验：
+
+| 验证项 | 结果 |
+|---|---|
+| 流持续时长 | 修复前 curl/Go watch 流 45-48ms 关闭、0 事件；修复后 nodes/clusters watch 的 audit 时长 24.98s / 19.98s（达到 curl max-time 上限，流保持打开） |
+| 实时事件 | `GET /api/iam.kubeclipper.io/v1/users?watch=true` 收到初始 ADDED 后，测试用户 n9user3 的创建/删除以实时 `ADDED`/`DELETED` 事件送达 |
+| CLI | `kcctl get user --watch` 输出初始表 + `ADDED`/`DELETED` 事件，Ctrl-C 正常退出 |
+| 语义 | 无 resourceVersion 时服务端先送当前状态为 ADDED，之后增量 MODIFIED/DELETED，符合预期 |
+
+现场已清理（测试用户全删、临时凭据/证书删除、/tmp 构建暂存清除）；共享 Registry
+5003 未受影响。
 
 ## 10. 未执行边界
 

@@ -62,11 +62,14 @@ Operation ID、故障注入和清理证据见
 在修复前不能按“部分验证”统计。R6 另确认 `3-15 drain` 的真实语义仅是 KubeClipper Agent
 节点注销，不是 Kubernetes Pod 驱逐；清单和命令帮助不得继续写成 PDB/Pod eviction。
 **更新（2026-09-20）**：`3-10` 已修复（R7 batch-3，`12d59d9b`），`kcctl get --watch` 持续输出
-watch 事件并在服务端流关闭后自动重连；服务端流存在快速关闭现象（audit 记录 watch 请求
-~0.4ms 内 ResponseComplete，Go 客户端常收 1-2 事件后 EOF，与 agent 侧依赖 410/EOF 后 relist
-行为一致），属独立专项，CLI 重连+重放在功能上可替代。4-08b 的 R7 403 复测改判为测试方法
+watch 事件并在服务端流关闭后自动重连。4-08b 的 R7 403 复测改判为测试方法
 错误（注解键 `kubeclipper.io/role` 应为 `iam.kubeclipper.io/role`），正确键下授权放行与越权
 403 均验证通过。
+**更新二（2026-09-20，N9 闭环）**：服务端 watch 流快速关闭现象（audit ~0.4ms 内
+ResponseComplete，Go 客户端常收 1-2 事件后 EOF）根因已定位并修复——核心/IAM 资源
+handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 timer 立即触发），
+非 go-restful chunked 流或 HTTP/2 问题；修复见 R7 报告 §9.2（commit `b23a9ab2`，
+`v2.0.3-rc.3` 部署验证流持续、实时事件送达、CLI --watch 正常）。
 
 ## P2：扩展能力与环境矩阵
 

@@ -196,7 +196,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-07 | `kcctl create/delete registry` | ✅ | 管理平台中的集群镜像 Registry 资源；基础 CRUD 已验证 |
 | 3-08 | `kcctl delete cluster` | ✅ | R4：CLI 删除 `ha-core-20260917`、`min-core-20260917` 均返回成功并最终 NotFound；删除后平台 doctor 仍为 Healthy |
 | 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | R6：六类资源的 singular list、JSON 形状、Node label selector 和 field selector 已扫过；User label selector 未按预期过滤，且 JSON 输出在单对象/列表间不一致，需修复并补 name/selector 矩阵 |
-| 3-10 | `kcctl get --watch` | ✅ | R7 batch-3（`12d59d9b`）修复：持续输出 watch 事件；服务端流在 watch 超时后关闭时 2 秒退避重连并继续，Ctrl-C 正常退出。服务端流快速关闭现象（audit ~0.4ms ResponseComplete）记为独立专项 |
+| 3-10 | `kcctl get --watch` | ✅ | R7 batch-3（`12d59d9b`）修复：持续输出 watch 事件；服务端流在 watch 超时后关闭时 2 秒退避重连并继续，Ctrl-C 正常退出。服务端流快速关闭的根因（watch 超时漏乘 time.Second）已在 R7 N9 修复（`b23a9ab2`，rc.3 验证流持续、实时事件送达） |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
 | 3-12 | `kcctl operation cancel` | ⚠️ | R5：`e290a5f7-ddba-4994-b3d3-8bf03eb088af` 重启 Server 后才 Canceled；R6 CIDR 创建取消后又出现孤立 Running Operation/Installing Cluster，需人工清理 |
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
