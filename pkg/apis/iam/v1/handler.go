@@ -169,6 +169,10 @@ func (h *handler) CreateUsers(request *restful.Request, response *restful.Respon
 	u.Status.State = &stateActive
 	u, err = h.iamOperator.CreateUser(request.Request.Context(), u)
 	if err != nil {
+		if apimachineryErrors.IsAlreadyExists(err) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}

@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 
 	apimachineryversion "k8s.io/apimachinery/pkg/version"
@@ -672,6 +673,22 @@ func (cli *Client) DescribeTemplate(ctx context.Context, name string) (*Template
 		Items: []v1.Template{v},
 	}
 	return &list, err
+}
+
+// StreamList issues a list request and returns the raw response body for
+// streaming consumption; callers pass watch=true via the query to receive a
+// WatchEvent stream. The caller owns the returned body and must close it.
+func (cli *Client) StreamList(ctx context.Context, path string, query Queries) (io.ReadCloser, error) {
+	serverResp, err := cli.get(ctx, path, query.ToRawQuery(), nil)
+	if err != nil {
+		return nil, err
+	}
+	if serverResp.statusCode >= 400 {
+		checkErr := cli.checkResponseErr(serverResp)
+		ensureReaderClosed(serverResp)
+		return nil, checkErr
+	}
+	return serverResp.body, nil
 }
 
 func (cli *Client) CreateRegistry(ctx context.Context, registry *v1.Registry) (*v1.RegistryList, error) {

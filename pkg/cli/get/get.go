@@ -19,9 +19,14 @@
 package get
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -158,7 +163,86 @@ func (l *GetOptions) RunGet() error {
 	if l.name != "" {
 		return l.describe()
 	}
+	if l.Watch {
+		return l.watch()
+	}
 	return l.list()
+}
+
+// watchPathByResource maps get resources to their list/watch API paths.
+var watchPathByResource = map[string]string{
+	options.ResourceNode:      "/api/core.kubeclipper.io/v1/nodes",
+	options.ResourceUser:      "/api/iam.kubeclipper.io/v1/users",
+	options.ResourceRole:      "/api/iam.kubeclipper.io/v1/roles",
+	options.ResourceCluster:   "/api/core.kubeclipper.io/v1/clusters",
+	options.ResourceConfigMap: "/api/core.kubeclipper.io/v1/configmaps",
+	options.ResourceRegistry:  "/api/core.kubeclipper.io/v1/registries",
+}
+
+// watch prints the current object list and then streams watch events
+// (ADDED/MODIFIED/DELETED + object name) until interrupted. R4 found the
+// previous implementation exited after one shot; the server already serves
+// chunked WatchEvent streams, so consume them here.
+func (l *GetOptions) watch() error {
+	path, ok := watchPathByResource[l.resource]
+	if !ok {
+		return fmt.Errorf("unsupported resource,support %s now", allowedResource.List())
+	}
+	if err := l.list(); err != nil {
+		return err
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	fmt.Fprintf(l.IOStreams.Out, "watching %s for changes (ctrl-c to exit)...\n", l.resource)
+	q := query.New()
+	q.LabelSelector = l.LabelSelector
+	q.FieldSelector = l.FieldSelector
+	q.Watch = true
+	// The server closes the stream after its watch timeout; reconnect until
+	// the user interrupts.
+	for {
+		body, err := l.client.StreamList(ctx, path, kc.Queries(*q))
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil
+			}
+			return err
+		}
+		scanner := bufio.NewScanner(body)
+		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+		for scanner.Scan() {
+			var event struct {
+				Type   string `json:"type"`
+				Object struct {
+					Metadata struct {
+						Name              string `json:"name"`
+						CreationTimestamp string `json:"creationTimestamp"`
+					} `json:"metadata"`
+					Status struct {
+						Phase string `json:"phase"`
+					} `json:"status"`
+				} `json:"object"`
+			}
+			if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
+				continue // tolerate keep-alive or malformed frames
+			}
+			if event.Object.Metadata.Name == "" {
+				continue
+			}
+			line := fmt.Sprintf("%-9s %s", event.Type, event.Object.Metadata.Name)
+			if event.Object.Status.Phase != "" {
+				line += "\t" + event.Object.Status.Phase
+			}
+			fmt.Fprintln(l.IOStreams.Out, line)
+		}
+		_ = body.Close()
+		if ctx.Err() != nil {
+			return nil
+		}
+		fmt.Fprintln(l.IOStreams.Out, "watch stream ended; reconnecting...")
+	}
 }
 
 func (l *GetOptions) list() error {
