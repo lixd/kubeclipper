@@ -5,6 +5,12 @@
 
 **文档状态：建议已整理；B1～B6 均待实施。稳定版发布结论仍为 Blocked。**
 
+> **决策记录（2026-09-20）**：B1 选择「实施」而非收缩承诺——平台升级按 OCI 契约改造
+> （`kcctl upgrade <component> --version/--manifest`，复用 ReleaseManifest/OCI fetcher/digest
+> 校验，移除旧 OSS/tar 入口），按 §2.3 方案实施，可分两步交付（先 server/agent 核心路径，
+> 后 Console/kcctl 与中断恢复语义）。R7 三轮缺陷修复（batch-1/2/3）已完成并复验，见
+> [R7 报告](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md) §9。
+
 本文只交付修复建议，不代表业务代码已修改、测试集群已操作或发布已完成。后续实施统一采用 OCI
 交付，移除旧 OSS/tar 升级入口，不新增两套并行交付方式。
 
