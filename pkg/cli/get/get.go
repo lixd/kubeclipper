@@ -19,7 +19,6 @@
 package get
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -210,23 +209,27 @@ func (l *GetOptions) watch() error {
 			}
 			return err
 		}
-		scanner := bufio.NewScanner(body)
-		scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-		for scanner.Scan() {
+		// The server streams concatenated JSON WatchEvent objects without
+		// newline separators, so decode continuously instead of scanning
+		// lines.
+		decoder := json.NewDecoder(body)
+		for {
 			var event struct {
 				Type   string `json:"type"`
 				Object struct {
 					Metadata struct {
-						Name              string `json:"name"`
-						CreationTimestamp string `json:"creationTimestamp"`
+						Name string `json:"name"`
 					} `json:"metadata"`
 					Status struct {
 						Phase string `json:"phase"`
 					} `json:"status"`
 				} `json:"object"`
 			}
-			if err := json.Unmarshal(scanner.Bytes(), &event); err != nil {
-				continue // tolerate keep-alive or malformed frames
+			if err := decoder.Decode(&event); err != nil {
+				break // stream ended or malformed frame
+			}
+			if event.Type == "ERROR" {
+				break
 			}
 			if event.Object.Metadata.Name == "" {
 				continue
@@ -242,6 +245,7 @@ func (l *GetOptions) watch() error {
 			return nil
 		}
 		fmt.Fprintln(l.IOStreams.Out, "watch stream ended; reconnecting...")
+		time.Sleep(2 * time.Second)
 	}
 }
 
