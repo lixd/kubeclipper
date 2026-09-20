@@ -144,3 +144,32 @@ func TestManifestArtifactKeepsTargetPathAndTag(t *testing.T) {
 		t.Fatal("artifact target must include the pinned tag")
 	}
 }
+
+func TestDedupNodes(t *testing.T) {
+	nodes := []nodePlan{
+		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"},
+		{role: roleServer, host: "10.0.0.2", arch: "amd64", currentRevision: "rev-1"},
+		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: ""}, // duplicate, probe glitch
+		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"}, // same host, other role: keep
+		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"}, // duplicate
+	}
+	kept := dedupNodes(nodes)
+	if len(kept) != 3 {
+		t.Fatalf("expected 3 nodes after dedup, got %d: %+v", len(kept), kept)
+	}
+	if kept[0].role != roleServer || kept[0].host != "10.0.0.1" || kept[0].currentRevision != "rev-1" {
+		t.Fatalf("first occurrence must win, got %+v", kept[0])
+	}
+	if kept[2].role != roleAgent {
+		t.Fatalf("agent entry for the same host must be kept, got %+v", kept[2])
+	}
+}
+
+func TestEvaluateVersionPolicySameRevisionLowerVersionRefused(t *testing.T) {
+	// A manifest pinning the current revision but claiming an older version
+	// must be refused as a downgrade, not treated as an idempotent re-run.
+	err := evaluateVersionPolicy("v2.0.3-rc.4", "rev-1", "v2.0.2", "rev-1")
+	if err == nil || !strings.Contains(err.Error(), "refusing implicit downgrade") {
+		t.Fatalf("expected downgrade refusal despite matching revision, got %v", err)
+	}
+}

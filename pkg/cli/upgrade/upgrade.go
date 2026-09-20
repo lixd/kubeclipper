@@ -271,16 +271,19 @@ func (o *UpgradeOptions) checkVersionPolicy() error {
 // evaluateVersionPolicy implements the version contract of the upgrade:
 // identical revisions are an idempotent no-op, implicit downgrades are
 // refused, and same-version/different-revision re-installs are allowed.
+// The downgrade check runs BEFORE the revision idempotency short-circuit:
+// a manifest that pins the current revision but claims an older version
+// must not slip through as an idempotent re-run.
 func evaluateVersionPolicy(platformVersion, platformRevision, targetVersion, targetRevision string) error {
+	cmp, comparable := deliveryapis.CompareVersions(platformVersion, targetVersion)
+	if comparable && cmp > 0 {
+		return fmt.Errorf("refusing implicit downgrade: platform %s is newer than target %s", platformVersion, targetVersion)
+	}
 	if platformRevision != "" && platformRevision == targetRevision {
 		logger.Infof("platform API already reports revision %s; nodes are verified individually", platformRevision)
 		return nil
 	}
-	cmp, ok := deliveryapis.CompareVersions(platformVersion, targetVersion)
-	if ok {
-		if cmp > 0 {
-			return fmt.Errorf("refusing implicit downgrade: platform %s is newer than target %s", platformVersion, targetVersion)
-		}
+	if comparable {
 		return nil
 	}
 	if platformVersion == targetVersion {
@@ -365,7 +368,27 @@ func (o *UpgradeOptions) buildRolloutPlan() (*rolloutPlan, error) {
 			return nil, err
 		}
 	}
+	plan.nodes = dedupNodes(plan.nodes)
 	return plan, nil
+}
+
+// dedupNodes drops (role, host) duplicates from the rollout plan. A node may
+// legitimately appear once per role (a combined server+agent host), but a
+// repeated (role, host) entry would stop and replace the same service twice.
+func dedupNodes(nodes []nodePlan) []nodePlan {
+	type roleHost struct{ role, host string }
+	seen := make(map[roleHost]struct{}, len(nodes))
+	kept := nodes[:0]
+	for _, node := range nodes {
+		key := roleHost{node.role, node.host}
+		if _, dup := seen[key]; dup {
+			logger.Warnf("drop duplicate %s %s from the upgrade plan", node.role, node.host)
+			continue
+		}
+		seen[key] = struct{}{}
+		kept = append(kept, node)
+	}
+	return kept
 }
 
 func (o *UpgradeOptions) appendNode(plan *rolloutPlan, role, host string) error {
@@ -617,6 +640,13 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 	upgraded := make([]nodePlan, 0, len(plan.nodes))
 	for i := range plan.nodes {
 		node := plan.nodes[i]
+		// Re-probe right before touching the node: the plan-time revision is
+		// stale for long rollouts and for a second upgrade invocation racing
+		// this one; both would otherwise replace an already-upgraded binary
+		// and clobber its backup.
+		if current := o.probeNodeRevision(node.host, node.role); current != "" {
+			node.currentRevision = current
+		}
 		if node.currentRevision != "" && node.currentRevision == o.targetRevision {
 			logger.Infof("skip %s %s: already at revision %s", node.role, node.host, shortRev(o.targetRevision))
 			continue
@@ -657,10 +687,14 @@ func (o *UpgradeOptions) upgradeNodeBinary(host, role, localPath string) error {
 	remotePath := path.Join(upgradeStagingDir, binaryName)
 	service := "kc-" + role
 
+	// Keep the first backup taken on this node: a repeated pass (a second
+	// invocation that raced past the skip check) must not replace the
+	// pre-upgrade binary with the already-upgraded one, or restore would
+	// roll forward instead of back.
 	steps := []string{
 		fmt.Sprintf("mkdir -p %s", path.Join(upgradeStagingDir, "backup")),
 		fmt.Sprintf("systemctl stop %s", service),
-		fmt.Sprintf("cp -a %s %s", remoteBin, backupPath),
+		fmt.Sprintf("[ -f %s ] || cp -a %s %s", backupPath, remoteBin, backupPath),
 		fmt.Sprintf("install -m 0755 %s %s", remotePath, remoteBin),
 		fmt.Sprintf("systemctl start %s", service),
 	}
