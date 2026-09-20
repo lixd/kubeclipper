@@ -96,7 +96,7 @@ func (h *handler) watchToken(req *restful.Request, resp *restful.Response, q *qu
 		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
 	}
 	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
+		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0)) * time.Second
 	}
 
 	watcher, err := h.iamOperator.WatchTokens(req.Request.Context(), q)

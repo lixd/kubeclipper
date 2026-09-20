@@ -21,10 +21,12 @@ package v1
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 
+	"github.com/kubeclipper/kubeclipper/pkg/query"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	mock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
 )
@@ -76,5 +78,18 @@ func TestFindBackupNotFound(t *testing.T) {
 	}
 	if !apimachineryErrors.IsNotFound(err) {
 		t.Fatalf("error = %v, want NotFound", err)
+	}
+}
+
+// Regression test for R7 N9: the default watch timeout must be in seconds,
+// not nanoseconds — a nanosecond-scale timer fires before the watch loop
+// starts and closes the stream immediately.
+func TestDefaultWatchTimeout(t *testing.T) {
+	if got := defaultWatchTimeout(&query.Query{}); got < query.MinTimeoutSeconds*time.Second {
+		t.Fatalf("default watch timeout %v is below MinTimeoutSeconds", got)
+	}
+	seconds := int64(42)
+	if got := defaultWatchTimeout(&query.Query{TimeoutSeconds: &seconds}); got != 42*time.Second {
+		t.Fatalf("explicit TimeoutSeconds not honored: got %v, want 42s", got)
 	}
 }

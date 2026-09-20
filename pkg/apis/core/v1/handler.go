@@ -343,14 +343,21 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
 }
 
-func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
+// defaultWatchTimeout mirrors the apiserver convention of randomizing the
+// watch timeout between MinTimeoutSeconds and 2×MinTimeoutSeconds so that
+// concurrent watchers do not reconnect in lockstep. The float result must be
+// scaled by time.Second: converting the raw seconds float to time.Duration
+// yields a nanosecond-scale timeout that closes the watch stream immediately
+// (the R7 N9 root cause).
+func defaultWatchTimeout(q *query.Query) time.Duration {
 	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
+		return time.Duration(*q.TimeoutSeconds) * time.Second
 	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	return time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0)) * time.Second
+}
+
+func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *query.Query) {
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchClusters(req.Request.Context(), q)
 	if err != nil {
@@ -968,13 +975,7 @@ func (h *handler) DeleteNode(request *restful.Request, response *restful.Respons
 }
 
 func (h *handler) watchNodes(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchNodes(req.Request.Context(), q)
 	if err != nil {
@@ -1084,13 +1085,7 @@ func (h *handler) ListRegions(request *restful.Request, response *restful.Respon
 }
 
 func (h *handler) watchRegions(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchRegions(req.Request.Context(), q)
 	if err != nil {
@@ -1249,13 +1244,7 @@ func (h *handler) findBackup(ctx context.Context, name string) (*v1.Backup, erro
 }
 
 func (h *handler) watchBackups(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchBackups(req.Request.Context(), q)
 	if err != nil {
@@ -1936,13 +1925,7 @@ func (h *handler) UpdateLease(request *restful.Request, response *restful.Respon
 }
 
 func (h *handler) watchLeases(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.leaseOperator.WatchLease(req.Request.Context(), q)
 	if err != nil {
@@ -2004,13 +1987,7 @@ func (h *handler) ListDomains(request *restful.Request, response *restful.Respon
 }
 
 func (h *handler) watchDomain(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchDomain(req.Request.Context(), q)
 	if err != nil {
@@ -2667,13 +2644,7 @@ func (h *handler) ListTemplates(request *restful.Request, response *restful.Resp
 }
 
 func (h *handler) watchTemplates(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchTemplates(req.Request.Context(), q)
 	if err != nil {
@@ -2818,13 +2789,7 @@ func (h *handler) ListBackupPoints(request *restful.Request, response *restful.R
 }
 
 func (h *handler) watchBackupPoints(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchBackupPoints(req.Request.Context(), q)
 	if err != nil {
@@ -2970,13 +2935,7 @@ func (h *handler) ListCronBackups(request *restful.Request, response *restful.Re
 }
 
 func (h *handler) watchCronBackups(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchCronBackups(req.Request.Context(), q)
 	if err != nil {
@@ -3310,13 +3269,7 @@ func (h *handler) DeleteConfigMap(req *restful.Request, resp *restful.Response) 
 }
 
 func (h *handler) watchConfigMap(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.coreOperator.WatchConfigMaps(req.Request.Context(), q)
 	if err != nil {
@@ -3527,13 +3480,7 @@ func (h *handler) DeleteCloudProvider(req *restful.Request, resp *restful.Respon
 }
 
 func (h *handler) watchCloudProvider(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchCloudProviders(req.Request.Context(), q)
 	if err != nil {
@@ -3654,13 +3601,7 @@ func (h *handler) ListRegistry(req *restful.Request, resp *restful.Response) {
 }
 
 func (h *handler) watchRegistries(req *restful.Request, resp *restful.Response, q *query.Query) {
-	timeout := time.Duration(0)
-	if q.TimeoutSeconds != nil {
-		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
-	}
-	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0))
-	}
+	timeout := defaultWatchTimeout(q)
 
 	watcher, err := h.clusterOperator.WatchRegistries(req.Request.Context(), q)
 	if err != nil {
