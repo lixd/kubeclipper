@@ -230,8 +230,24 @@ R7 报告完成后，按报告结论实施了修复并重新打包验证。修�
 
 最终状态：Healthy 3/3/3、doctor 25/25、无 Cluster/Operation、测试用户/备份/临时设施全部清理。
 **注意**：本报告 §4 的 ❌ 结论（2.5-08、2.5-11、2.1-28、3-10、4-08b、2.6-07）为修复前基线；
-其中 2.5-08、2.5-11、2.1-28、2.6-07 已由 batch-1/batch-2 修复并复验，3-10（get --watch）与
-4-08b（自定义 role 授权）仍待修复。
+其中 2.5-08、2.5-11、2.1-28、2.6-07 已由 batch-1/batch-2 修复并复验。
+
+### 9.1 Batch-3 修复与复验（2026-09-20 追加）
+
+- `12d59d9b`（batch-3）：实现 `kcctl get --watch`（3-10）；重复 user 名从 500 改为 400
+  Bad request（N 项，§4.7）。
+- `dfc2b49e`：移除 watch 路径的临时 DEBUG 输出。
+- 候选包 `v2.0.3-rc.2`（revision `12d59d9b...`）发布部署后复验：
+
+| 项 | 复验结果 |
+|---|---|
+| 3-10 get --watch | ✅ `kcctl get cluster --watch` 持续输出 watch 事件；服务端流在 watch 超时后关闭时客户端 2 秒退避重连并继续，Ctrl-C 正常退出。**注意**：服务端 watch 流存在快速关闭现象（audit 记录 watch 请求在 ~0.4ms 内 ResponseComplete，Go 客户端常收 1-2 个事件后 EOF），与 agent 任务侧依赖 410/EOF 后 relist 的既有行为（R2 记录）一致，属独立专项（建议后续排查 go-restful chunked 流与 HTTP/2 组合），CLI 重连+重放机制在功能上可替代 |
+| 重复 user 400 | ✅ 重复创建 r8user3 返回 `Bad request due to reason users.iam.kubeclipper.io "r8user3" already exists`（400），不再 500 |
+| 4-08b 自定义 role RBAC | ✅ **改判**：R7 的 403 归因于测试时使用了错误注解键（`kubeclipper.io/role`，服务端读 `iam.kubeclipper.io/role`）。用正确键创建 `r8user3`+binding 后，登录可 `GET /clusters`、`/nodes` 200，越权创建 Registry 403；服务端 role 聚合（aggregation-roles 注解 → 3 条规则）确认正常 |
+
+另：R7 排查中曾出现 curl `/api/core.kubeclipper.io/v1/users` 404 而 nodes/clusters 200 的
+现象，归因为 users 注册在 `iam.kubeclipper.io` 组（`pkg/server/registry/user/rest.go`），
+测试用了错误组路径，非产品缺陷。
 
 ## 10. 未执行边界
 
