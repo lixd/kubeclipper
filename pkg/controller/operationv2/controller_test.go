@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"strconv"
 	"testing"
 	"time"
@@ -702,4 +703,49 @@ func TestErrIgnoreStepFailureDoesNotFailOperation(t *testing.T) {
 	if got := store.operation("ignored").Status.Phase; got != operations.OperationSucceeded {
 		t.Fatalf("operation phase = %s, want Succeeded (ErrIgnore step failure must not fail the operation)", got)
 	}
+}
+
+// R7: cancellation of a wedged running task used to wait out the entire
+// operation deadline (up to 90 minutes) before converging. Cancellation must
+// pull the deadline in to the termination grace so the running task is
+// terminated and the lock released shortly after the cancel request.
+func TestCancellationBoundsRunningTaskWait(t *testing.T) {
+	store := newFakeStore()
+	step := oneStep("install", 0, "node-1")
+	op := runningOperation("wedged", step) // deadline = testNow + 1h
+	op.Spec.DesiredState = operations.OperationDesiredStateCancelled
+	store.addOperation(op)
+	store.addOwnedLock(op)
+	task := testTask(op, &step, step.Targets[0], operations.TaskRunning)
+	store.addTask(task)
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow }}
+
+	reconcileOK(t, r, op.Name)
+	shortened := store.operation(op.Name).Status.Deadline
+	if shortened == nil || !shortened.Time.After(testNow) || shortened.Time.Before(testNow.Add(time.Minute)) {
+		t.Fatalf("deadline = %v, want pulled in to ~termination grace", shortened)
+	}
+	if got := store.task(task.Name).Status.Phase; got != operations.TaskRunning {
+		t.Fatalf("task stopped before grace: %s", got)
+	}
+
+	// Past the shortened deadline + grace, the running task is terminated and
+	// the operation converges to Canceled with the lock released.
+	now := shortened.Add(operations.ServerTerminationGrace)
+	r.Now = func() time.Time { return now }
+	reconcileOK(t, r, op.Name)
+	if got := store.task(task.Name).Status.Phase; got != operations.TaskTimedOut {
+		t.Fatalf("task phase=%s, want TimedOut after bounded grace", got)
+	}
+	reconcileOK(t, r, op.Name)
+	if got := store.operation(op.Name).Status.Phase; got != operations.OperationCancelled {
+		t.Fatalf("operation phase=%s, want Canceled", got)
+	}
+	if _, err := store.GetLock(context.Background(), LockName(op.Spec.TargetRef.Kind, op.Spec.TargetRef.UID), ""); !errNotFound(err) {
+		t.Fatalf("lock still present after cancellation: %v", err)
+	}
+}
+
+func errNotFound(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "not found")
 }

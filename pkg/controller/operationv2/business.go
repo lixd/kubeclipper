@@ -107,6 +107,12 @@ func failedClusterPhase(action string) corev1.ClusterPhase {
 		// Keep the cluster usable and expose the failure on the Operation itself;
 		// forcing UpdateFailed would unnecessarily block unrelated workflows.
 		return corev1.ClusterRunning
+	case corev1.OperationBackupCluster, corev1.OperationUpdateCertification:
+		// Backup and certificate rotation do not change cluster structure, so
+		// a failed attempt leaves the cluster exactly as it was (R7: a failed
+		// backup used to wedge the cluster in UpdateFailed and block every
+		// subsequent backup until a manual status reset).
+		return corev1.ClusterRunning
 	default:
 		return corev1.ClusterUpdateFailed
 	}

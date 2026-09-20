@@ -68,6 +68,10 @@ func TestFailedClusterPhaseForNodeOperationsKeepsClusterRunning(t *testing.T) {
 	}{
 		{action: corev1.OperationAddNodes},
 		{action: corev1.OperationRemoveNodes},
+		// R7: a failed backup or certificate rotation must not wedge the
+		// cluster in UpdateFailed either.
+		{action: corev1.OperationBackupCluster},
+		{action: corev1.OperationUpdateCertification},
 	}
 	for _, tt := range tests {
 		t.Run(tt.action, func(t *testing.T) {

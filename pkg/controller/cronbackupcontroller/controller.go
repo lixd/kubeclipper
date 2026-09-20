@@ -183,18 +183,24 @@ func (r *CronBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 				})
 				sub := len(backupsByCb[cronBackup.UID]) - cronBackup.Spec.MaxBackupNum
 				for del := 0; del < sub; del++ {
-					if backupsByCb[cronBackup.UID][del].Status.ClusterBackupStatus != v1.ClusterBackupAvailable {
+					victim := backupsByCb[cronBackup.UID][del]
+					if victim.Status.ClusterBackupStatus != v1.ClusterBackupAvailable {
 						continue
 					}
-					err = r.BackupWriter.DeleteBackup(ctx, backupsByCb[cronBackup.UID][del].Name)
-					if err != nil {
-						log.Error("Failed to delete backup", zap.Error(err))
-						return ctrl.Result{}, err
-					}
-					// delivery the create backup operation
-					err = r.deleteBackup(log, backupsByCb[cronBackup.UID][del].Labels[common.LabelClusterName], backupsByCb[cronBackup.UID][del])
+					// Deliver the storage-cleanup operation BEFORE removing the
+					// Backup object. The previous order deleted the object and
+					// then re-read it from the lister, which raced the informer
+					// and orphaned the storage file (R5/R7). The in-hand victim
+					// object already carries everything the delete operation
+					// needs, so no lister re-read is involved.
+					err = r.deleteBackup(log, victim.Labels[common.LabelClusterName], victim.DeepCopy())
 					if err != nil {
 						log.Error("Failed to delivery operation to delete backup", zap.Error(err))
+						return ctrl.Result{}, err
+					}
+					err = r.BackupWriter.DeleteBackup(ctx, victim.Name)
+					if err != nil {
+						log.Error("Failed to delete backup", zap.Error(err))
 						return ctrl.Result{}, err
 					}
 				}
@@ -446,6 +452,10 @@ func GetParentUIDFromBackup(b *v1.Backup) (types.UID, bool) {
 	return controllerRef.UID, true
 }
 
+// deleteBackup delivers the storage-cleanup operation for a backup that is
+// about to be removed. The backup object is passed in hand (already fetched)
+// because the caller may have just deleted it from etcd — a lister re-read
+// here raced the deletion and orphaned storage files.
 func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName string, backup *v1.Backup) error {
 	c, err := r.ClusterLister.Get(clusterName)
 	if err != nil {
@@ -467,16 +477,6 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 		return err
 	}
 
-	b, err := r.BackupLister.Get(backup.Name)
-	if err != nil {
-		if apimachineryErrors.IsNotFound(err) {
-			log.Error("Backup is not found", zap.Error(err))
-			return err
-		}
-		log.Error("Failed to get Backup", zap.Error(err))
-		return err
-	}
-
 	if backup.PreferredNode != "" {
 		_, err := r.NodeLister.Get(backup.PreferredNode)
 		if err != nil {
@@ -492,11 +492,11 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 	op.Labels[common.LabelOperationAction] = v1.OperationDeleteBackup
 	op.Labels[common.LabelTimeoutSeconds] = strconv.Itoa(v1.DefaultBackupTimeoutSec)
 	op.Labels[common.LabelClusterName] = c.Name
-	op.Labels[common.LabelBackupName] = b.Name
+	op.Labels[common.LabelBackupName] = backup.Name
 	op.Labels[common.LabelTopologyRegion] = c.Masters[0].Labels[common.LabelTopologyRegion]
 
-	if b.Status.ClusterBackupStatus == v1.ClusterBackupRestoring || b.Status.ClusterBackupStatus == v1.ClusterBackupCreating {
-		return fmt.Errorf("backup is %s now, can't delete", b.Status.ClusterBackupStatus)
+	if backup.Status.ClusterBackupStatus == v1.ClusterBackupRestoring || backup.Status.ClusterBackupStatus == v1.ClusterBackupCreating {
+		return fmt.Errorf("backup is %s now, can't delete", backup.Status.ClusterBackupStatus)
 	}
 
 	steps := make([]v1.Step, 0)

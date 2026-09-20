@@ -330,6 +330,21 @@ func (r *OperationReconciler) reconcileCancellation(
 	}
 	_, running := activeTasks(tasks)
 	if len(running) != 0 {
+		// Bounded cancellation: a running task whose executor ignores
+		// cancellation (e.g. a health-check retry loop) would otherwise pin
+		// the operation until the full deadline — often 90 minutes — and
+		// keeps the ExecutionLock hostage the whole time (R7). Pull the
+		// deadline in to the termination grace so reconcileDeadline
+		// terminates the running tasks and converges shortly.
+		grace := r.now().Add(operations.ServerTerminationGrace)
+		if op.Status.Deadline == nil || op.Status.Deadline.After(grace) {
+			status := op.Status
+			status.Deadline = timePointer(grace)
+			if _, err := r.Store.UpdateOperationStatus(ctx, op.Name, op.UID, op.ResourceVersion, &status); err != nil {
+				return resultForConflict(err)
+			}
+			return reconcile.Result{Requeue: true}, nil
+		}
 		return reconcile.Result{RequeueAfter: untilDeadline(op, r.now())}, nil
 	}
 	facts, complete, err := validateAndCurrentStep(op, tasks)
