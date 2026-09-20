@@ -177,6 +177,10 @@ func (o *UpgradeOptions) Complete() error {
 	if err != nil {
 		return errors.WithMessage(err, "get online deploy-config failed")
 	}
+	// All node operations go through o.SSHConfig; without this wiring the
+	// empty default config makes sshutils fall back to running every command
+	// locally on the kcctl host while logging the target host names.
+	o.SSHConfig = o.deployConfig.SSHConfig
 	return nil
 }
 
