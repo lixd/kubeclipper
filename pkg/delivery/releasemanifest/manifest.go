@@ -87,6 +87,19 @@ func IsStableVersion(version string) bool {
 	return stableVersionPattern.MatchString(version)
 }
 
+// BootstrapKubeClipperArtifact returns the bootstrap/kubeclipper package
+// artifact that carries the kubeclipper-server/kubeclipper-agent binaries, or
+// nil when the manifest has none (Validate already rejects such manifests).
+func (m *Manifest) BootstrapKubeClipperArtifact() *Artifact {
+	for i := range m.Artifacts {
+		artifact := &m.Artifacts[i]
+		if artifact.Type == ArtifactTypePackage && artifact.Component.Kind == "bootstrap" && artifact.Component.Name == "kubeclipper" {
+			return artifact
+		}
+	}
+	return nil
+}
+
 func Parse(data []byte) (*Manifest, error) {
 	jsonData, err := yaml.YAMLToJSON(data)
 	if err != nil {

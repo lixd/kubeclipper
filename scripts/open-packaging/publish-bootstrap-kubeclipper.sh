@@ -20,6 +20,7 @@ Publishes:
 Contents:
   kubeclipper-server
   kubeclipper-agent
+  kcctl
 
 Flags:
   --registry-prefix <ref>  Registry prefix used to publish the package image. Default: ghcr.io/kubeclipper/kubeclipper.
@@ -45,10 +46,13 @@ build_core_binaries
 
 server_path="$(find_asset kubeclipper-server)" || die "missing kubeclipper-server after build"
 agent_path="$(find_asset kubeclipper-agent)" || die "missing kubeclipper-agent after build"
+kcctl_path="$(find_asset kcctl)" || die "missing kcctl after build"
 
 verify_core_binary_metadata "$server_path"
 verify_core_binary_metadata "$agent_path"
+verify_core_binary_metadata "$kcctl_path"
 
 publish_bootstrap_package "kubeclipper" \
   "$server_path" "kubeclipper-server" \
-  "$agent_path" "kubeclipper-agent"
+  "$agent_path" "kubeclipper-agent" \
+  "$kcctl_path" "kcctl"
