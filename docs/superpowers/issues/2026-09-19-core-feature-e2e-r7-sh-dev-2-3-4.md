@@ -384,7 +384,7 @@ manifest 之前就断连。
 | 场景 | 结果 | 证据 |
 |---|---|---|
 | S1 负向校验返回 400 | ✅ | `fdac85f2` 后，delivery ResolverError 类拒绝（如 cri/cni 与 k8s 版本不配对）由 500 变为可读 400，CLI EXIT=1，无对象残留 |
-| S2 CIDR 重叠仍被接受（2.1-28） | ❌→**更正（2026-09-20）：本条误报** | 原记录"rc.5 上 Pod/Service CIDR 重叠仍通过创建前校验并接受创建"与事实不符：重叠校验自 batch-1 `a989b14f`（rc.3 起）已在 API/CLI 生效，且 §9 记录过 rc.1 复验通过（重叠 400 零对象）。R9 dryRun 探针在 rc.5 复测确证：重叠 400（`pod subnet 10.96.0.0/16 overlaps service subnet 10.96.0.0/12`），CLI 本地 fail-fast EXIT=1；真实缺口为列表内嵌套/每地址族多条/主机网段冲突（200 通过），已在本轮补齐（见 remediation plan §3.2 更新）。当轮误报成因不可考，按不静默改史原则保留原行并加更正 |
+| S2 CIDR 重叠仍被接受（2.1-28） | ❌→**更正（2026-09-20）：本条误报** | 原记录"rc.5 上 Pod/Service CIDR 重叠仍通过创建前校验并接受创建"与事实不符：重叠校验自 batch-1 `a989b14f`（rc.3 起）已在 API/CLI 生效，且 §9 记录过 rc.1 复验通过（重叠 400 零对象）。R9 dryRun 探针在 rc.5 复测确证：重叠 400（`pod subnet 10.96.0.0/16 overlaps service subnet 10.96.0.0/12`），CLI 本地 fail-fast EXIT=1；真实缺口为列表内嵌套/每地址族多条/主机网段冲突（200 通过），已在本轮补齐（见 remediation plan §3.2 更新）。当轮误报成因不可考，按不静默改史原则保留原行并加更正。**R9 终态（2026-09-21，rc.6 `29a9bf8a`）：边界校验随 rc.6 真机负向矩阵闭环——8 项非法输入 400+理由逐项匹配、.144/28 边界放行、双栈/单栈 dryRun 200、CLI exit 1、零残留（checklist 2.1-28 ✅）；`1413e849` 两复验点同轮通过（无 10s 尾延迟、create→delete 后立即再建群不饿死，见 gaps P0 行 7/N8）** |
 | S3 同节点重群（删除后复用） | ✅ | 重叠集群删除后，同批节点再次建群 `r8-verify` 成功 Running（见 §12.2 死锁插曲与 §12.3 手动 untaint 记录），节点标签复用闭环 |
 | S4 失败路径删除释放标签（N3） | ✅ | 重叠集群删除后，节点 `kubeclipper.io/cluster`/`nodeRole` 标签立即释放，节点可被新集群占用——`978b1b43` 修复实测生效 |
 | S5 force 删除逃生门 | ✅ | `echo yes \| kcctl delete cluster r8-verify -F`（AskForConfirmation 在非 TTY 读 stdin EOF 会 Fatal，必须管道注入）约 30 秒完成：Cluster/Operation 列表清空、标签释放；agent 卸载步骤被跳过，dev-4 残留 k8s 文件属预期，由运维清理（见 §12.4） |
@@ -437,3 +437,41 @@ inactive；**平台数据目录 `/var/lib/kc-etcd` 与共享 Registry（dev-3 :5
   检查在无集群时报 port 0 失败，为工具版本假警报，非平台问题）；
 - 临时产物清理：Mac 侧 stub/bootstrap/manifest/registry 描述文件、dev-2 侧 .r8-* 凭据与
   证书临时文件（含 /tmp/.r8-certs3）已全部删除。
+
+### 12.5 R9 追加轮（2026-09-21）：rc.6 真机复验，2.1-28 与 N8 双闭环
+
+平台经 B1 路径升级到 `v2.0.3-rc.6`（`29a9bf8a`，含 CIDR 边界校验与 `1413e849` agent worker
+修复）。发布链：Mac 交叉构建 linux/amd64 包（gitTreeState=clean），oci-publish 经 LAN 机 dev-2
+以 http scheme 推入共享 Registry（仅增 tag `v2.0.3-rc.6`，digest
+`sha256:5b740ad092a7...`，存量 9 个 tag 未动）；`kcctl upgrade all --manifest` 六个节点槽位
+（3 server+3 agent）逐台 stop→backup→install→start→healthz 滚动升级，platform API 报
+`v2.0.3-rc.6 (29a9bf8a7623)`。一个教训：手写 manifest 的 digest 用了 oci-publish stdout 的
+digest（非 tag 顶层 index digest），被 `verifyTagBinding` 以 repointed tag 拒绝（该防护再次
+生效）；按 generate-release-manifest.sh 同法以 tag 实际 digest 修正后通过。
+
+**2.1-28 负向矩阵（dryRun 探针，零对象落库）**：
+
+| 输入 | 结果 |
+|---|---|
+| 重叠 10.96.0.0/16 vs 10.96.0.0/12 | ✅ 400 `pod subnet ... overlaps service subnet ...; use disjoint subnets` |
+| 列表内嵌套 10.0.0.0/8+10.1.0.0/16 | ✅ 400 `at most one ipv4 pod subnet is allowed` |
+| 双 v4 pod 172.20.0.0/16+172.21.0.0/16 | ✅ 400 同上 |
+| 双 v6 service fd00:10:96::/64+fd00:10:97::/64 | ✅ 400 `at most one ipv6 service subnet is allowed` |
+| v4-mapped `::ffff:10.96.0.0/112` | ✅ 400 `IPv4-mapped IPv6 CIDRs are not allowed, use the IPv4 form` |
+| 主机冲突 pod 172.16.131.0/24 | ✅ 400 `conflicts with node ... address 172.16.131.208` |
+| 主机冲突 service 172.16.131.208/29 | ✅ 400 `service subnet ... conflicts with node ...` |
+| 边界：service 172.16.131.144/28（不含节点 IP） | ✅ 200 放行（不误伤） |
+| 合法双栈 v4+v6 / 合法单栈 | ✅ 200 |
+| CLI 重叠 | ✅ 本地 fail-fast exit 1（请求未发出）；CLI 主机冲突经服务端 400 可读报错 exit 1 |
+
+全程 Cluster/Operation 零残留。2.1-28 终态 ✅（双栈真机组网仍受无 IPv6 环境限制，见 2.1-32）。
+
+**`1413e849` 两复验点**：①1M（1 master，带 `--untaint-master`）建群 13 步任务时长分布
+1s×7、5-8s×4、31s/34s×2（长步为镜像准备/安装的真实耗时），无 10s 轮询尾延迟（修复前基线
+10.01s/任务）；②create→delete 收敛（Cluster/Operation 清空、标签释放）后立即再建群正常派发
+并 Running，不饿死。
+
+终态：`kcctl status` Healthy 3/3、分支构建 kcctl doctor 25/25、Cluster/Operation 空、三节点
+占用标签空、三主机 /etc/kubernetes 与 /var/lib/kubelet 无残留（空目录已删）；共享 Registry
+与 `/var/lib/kc-etcd` 未动；Mac 侧 manifest/wrapper/registry 凭据与 dev-2 侧 client 证书
+（/tmp/r9-admin.*）、临时 kcctl 均已删除。证据文件：dev-2 /tmp/r9-00～r9-05。
