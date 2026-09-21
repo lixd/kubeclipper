@@ -16,7 +16,7 @@
 | 4 | `1.3-09`、`1.3-10` 部分 | 平台自身升级收尾 | B1 已按 OCI 契约实施：`all/server/agent --manifest` 三机实测通过（含幂等、降级/repointed tag 拒绝，R7 报告 §11）；`--version` 网络链路经代理隧道实测正常（GitHub 可达、404 处理正确），正向下载待首个 v2 stable 发布；仍缺 console/kcctl 组件升级（step 2）与升级中故障注入恢复 |
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛 |
 | 6 | `2.5-08` | `maxBackupNum` 存储对象轮转 | R5 已验证 Backup 对象轮转，但旧 FS 备份文件仍残留；需同时轮转 Backup 记录、FS 文件和 S3 对象，且重试不留下孤儿文件 |
-| 7 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛。**更新（R8）：定位到 agent 侧饿死根因——worker `execute` defer LIFO 顺序 + server purge 竞争使单任务 worker 挂到 spec deadline（详见 R7 报告 §12.2），修复 `1413e849`。更新（R9，rc.6 `29a9bf8a` 真机复验通过）：①1M 建群 13 步任务时长 1s×7、5-8s×4、31/34s×2，无 10s 轮询尾延迟（修复前基线 10.01s/任务）；②快速 create→delete 收敛（集群/操作清空、标签释放）后立即再建群正常派发并 Running，不饿死。server 侧协作式 cancel 全语义仍按 B2 §3.3 验收** |
+| 7 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛。**更新（R8）：定位到 agent 侧饿死根因——worker `execute` defer LIFO 顺序 + server purge 竞争使单任务 worker 挂到 spec deadline（详见 R7 报告 §12.2），修复 `1413e849`。更新（R9，rc.6 `29a9bf8a` 真机复验通过）：①1M 建群 13 步任务时长 1s×7、5-8s×4、31/34s×2，无 10s 轮询尾延迟（修复前基线 10.01s/任务）；②快速 create→delete 收敛（集群/操作清空、标签释放）后立即再建群正常派发并 Running，不饿死。更新（R10，rc.7 `e7d99421` 真机复验）：协作式 cancel 语义矩阵与 2.1-30 retry 通过**——①Running 中取消（6/13 步）：在途步自然完成后停止派发、剩余 7 步 Canceled，Cluster InstallFailed，~2.5 分钟收敛；②最早取消（+3s，仅第 1 步在途）：1 步完成+12 步 Canceled，<23 秒收敛；③终态后重复取消被 CLI 干净拒绝（exit 1）；④Running 中并发双取消：第 2 次 API Conflict 拒绝，无状态污染；⑤retry 对 Canceled 创建操作：前 6 步保留原时间戳未重做，剩余步 ~60s 回 Succeeded，集群 InstallFailed → Running；⑥取消/失败后安全删除 20～30 秒清空 Cluster/Operation/标签，同节点重建 2 分钟 Running（kubelet inactive、无 /etc/kubernetes 残留、doctor 25/25）。§3.4 剩余子项：超时（spec deadline 到期）与 Watch 重连/Server、Agent 重启注入未覆盖。证据：dev-2 /tmp/r10-*.txt |
 | 8 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | R6 已确认 `/root/.kc/config`、`deploy-config.yaml` 均为 0644，未达到敏感配置 0600；仍需覆盖缓存损坏、digest 不符、Registry 断连、配置优先级和凭据脱敏，不得回退到 tag。**更新（R9）**：写入侧自 batch-1 `a989b14f` 已 0600（存量 0644 为旧版遗留，重写时收紧）；R9 补齐原子替换+拒绝符号链接+umask 无关性及回归测试（B3 代码侧完成），远端重写后权限复验待下一 rc；2.6-05/06 缓存故障注入仍未测 |
 | 9 | `1.1-05`、`1.1-06`、`1.1-10` | HTTPS/认证 Package Registry | 公共 CA、自签 CA、账号密码分别覆盖 deploy、join、Agent 拉取及失败重试，日志不泄露凭据 |
 
@@ -43,7 +43,7 @@ Operation ID、故障注入和清理证据见
 | N6 | 被取消 Operation 不释放 ExecutionLock，删除集群卡 Pending | 终态 Operation 必须释放锁 |
 | N7 | `PUT /backuppoints` 返回 200 但 s3Config 更新不生效；S3 endpoint 无入口校验 | 更新生效；入口拒绝带 scheme 的 endpoint |
 | N8 | agent worker 单任务饿死：任务被 finalize+purge 后 worker 的 informer store 留 stale 条目且 `execute` 挂到 spec deadline，该节点后续任务全部 Pending | **已修复并复验通过**（`1413e849`，defer LIFO 对调+NotFound 清 store/requeue，3 单测；rc.6 `29a9bf8a` 真机复验：1M 建群无 10s 尾延迟——13 步中 7 步 1s、最长非安装步 8s，修复前基线 10.01s/任务；create→delete 收敛后立即再建群正常派发 Running，不饿死，见 P0 行 7） |
-| N9 | API 直调建群/dryRun 缺省可选 `cni.calico` 子对象即 500 panic：`calico.go` InitStep 对 nil 指针解引用（R9 探针 plain-legal 用例两次触发，栈经 kubeadm_step/utils/handler） | **已修复待真机复验**（R9 同日：`defaultCalico` nil 防护+CLI 同款默认值填充，空字段亦兜底，模板渲染链一并修复，2 单测；随下一 rc 验证缺省 calico 块 dryRun 200） |
+| N9 | API 直调建群/dryRun 缺省可选 `cni.calico` 子对象即 500 panic：`calico.go` InitStep 对 nil 指针解引用（R9 探针 plain-legal 用例两次触发，栈经 kubeadm_step/utils/handler） | **已修复并复验通过**（R9 同日 `75ed938f`：`defaultCalico` nil 防护+CLI 同款默认值填充，空字段亦兜底，模板渲染链一并修复，2 单测；rc.7 `e7d99421` 真机复验：缺省 calico 块 dryRun 200（原 500），合法 200/重叠 400 回归通过） |
 
 **R8（2026-09-20/21，rc.5 `c5ccb367`）**：失败路径收敛专项（见
 [R7 报告 §12](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md)）。
@@ -57,6 +57,11 @@ rc.5 已生效，R9 dryRun 探针实测 400 拒绝。新增 N8（agent worker �
 rc.6 真机负向矩阵闭环（P0 行 3）。测试配置记录：1M 拓望建群必须带 `--untaint-master`，否则
 master taint 使 coredns Pending、健康检查无限重试（详见 R7 报告 §12.3）。R9 探针另发现 N9
 （缺省 `cni.calico` 块 dryRun/创建 500 panic），同日修复待随下一 rc 复验。
+
+**R10（2026-09-21，rc.7 `e7d99421`）**：N9 真机复验通过（缺省 calico 块 dryRun 200）；B3 远端
+复验通过（dev-2 两配置文件 0600）；协作式 cancel 语义矩阵与 2.1-30 retry 通过（P0 行 7 与
+checklist 2.1-30 行）。R6 轮遗留的 /tmp 临时证书（kc-r6-admin-client.*）与各轮临时 kcctl/
+manifest 已清理；Registry 仅新增 rc.7 tag，存量未动。
 
 ## P1：核心能力补全
 

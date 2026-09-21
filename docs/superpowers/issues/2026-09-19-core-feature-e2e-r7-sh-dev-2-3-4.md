@@ -475,3 +475,47 @@ digest（非 tag 顶层 index digest），被 `verifyTagBinding` 以 repointed t
 占用标签空、三主机 /etc/kubernetes 与 /var/lib/kubelet 无残留（空目录已删）；共享 Registry
 与 `/var/lib/kc-etcd` 未动；Mac 侧 manifest/wrapper/registry 凭据与 dev-2 侧 client 证书
 （/tmp/r9-admin.*）、临时 kcctl 均已删除。证据文件：dev-2 /tmp/r9-00～r9-05。
+
+### 12.6 R10 追加轮（2026-09-21）：rc.7 发布，N9/B3 修复复验与协作式 cancel 语义矩阵
+
+**修复**（随 rc.7 `e7d99421` 发布）：
+
+- N9（R9 探针发现）：API 直调建群/dryRun 缺省可选 `cni.calico` 子对象时 InitStep nil 解引用
+  panic（500）。修复 `75ed938f`：InitStep 经 `defaultCalico` 对 nil 块按 kcctl 同款默认值填充
+  （first-found/Overlay-Vxlan-All/IPManger/MTU 1440），非 nil 块空字段兜底，深拷贝不改写请求
+  对象；模板直接解引用 `.CNI.Calico.*`，渲染链一并修复。2 单测。
+- B3（2.6-07）：batch-1 已 0600 但为就地 O_TRUNC 写——中途失败丢原文件、跟随符号链接。修复
+  `e7d99421`：`WriteToFile` 原子替换（同目录 0600 临时文件+Sync+rename，失败保留原文件、零临时
+  遗留）、拒绝经符号链接写配置、`Config.Dump` 收敛到同一入口，umask 无关。§4.4 回归测试落地。
+
+**发布与升级**：`publish-bootstrap-kubeclipper.sh --version v2.0.3-rc.7 --registry-prefix
+172.16.131.146:5003 --arch amd64`（KC_OCI_PUBLISH_BIN wrapper 经 dev-2 发布，Mac 不可达
+Registry）。三机升级 `kcctl upgrade all --manifest --package-registry-scheme http`，6 槽位至
+rc.7，platform API 报 v2.0.3-rc.7 `e7d99421`，doctor 25/25。digest 教训追加：该 Registry 的
+manifest HEAD 必须带与 media type 匹配的 Accept 头（`application/vnd.oci.image.index.v1+json`），
+否则 404——tag 顶层 digest `sha256:12454850...`（≠ oci-publish stdout digest `77dc949b...`）。
+
+**N9 复验**：缺省 calico 块 dryRun **200**（修复前 500 panic）；合法全块 200、重叠 400 理由
+匹配回归通过。
+
+**B3 复验**：dev-2 `/root/.kc/config` 与 `deploy-config.yaml` 实测 0600（重写时收紧生效）；
+dev-3/dev-4 无 .kc 目录。R6 遗留 /tmp 临时证书（kc-r6-admin-client.*）已补删。
+
+**协作式 cancel 语义矩阵（§3.3/§3.4）与 2.1-30 retry**（1M 拓扑 `--untaint-master`，集群
+r10-c1/c2/c3/final2）：
+
+| 用例 | 取消时点 | 结果 |
+|---|---|---|
+| C1 Running 中取消 | 6/13 步（1 步 Running 2m33s） | 在途步自然完成→停止派发，7 步 Canceled，op Canceled，集群 InstallFailed；~2.5 min 收敛 |
+| C2b 最早取消 | +3s，仅第 1 步在途 | 1 步完成+12 步 Canceled，<23 s 收敛 |
+| C3a 终态后重复取消 | op 已 Canceled | CLI 干净拒绝（"cannot be canceled from phase Canceled"，exit 1） |
+| C3b Running 中并发双取消 | 两连发 | 第 1 次受理、第 2 次 API Conflict 拒绝，无状态污染 |
+| retry（2.1-30） | Canceled op 上 retry | 前 6 步保留原时间戳未重做（§3.3-5），剩余步 ~60s Succeeded，集群 InstallFailed → Running |
+| C4a/C4b 取消后安全删除+同节点重建 | delete 后 20～30 s | Cluster/Operation/标签全清；重建 2 min Running；再删后 kubelet inactive、无 /etc/kubernetes、doctor 25/25 |
+
+§3.4 剩余子项：超时（spec deadline 到期）、Watch 重连与 Server/Agent 重启注入未在本轮覆盖。
+
+终态：Cluster/Operation 空、三节点占用标签空、doctor 25/25；Registry 仅新增 v2.0.3-rc.7 tag
+（11 个 v2.0* tag 与升级前一致），存量未动；`/var/lib/kc-etcd` 未动；dev-2 临时 kcctl（r9/r10/
+doctor）、oci-publish 二进制、rc.6/rc.7 manifest 均已删除（§12.5 所述"临时 kcctl 已删除"在
+R9 当时未彻底，本轮补齐）。证据文件：dev-2 /tmp/r10-00～r10-final2（16 份）。

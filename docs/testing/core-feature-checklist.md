@@ -103,7 +103,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-27 | Master/Worker 跨 Region | ❌ | 按当前同 Region 约束拒绝，并指出冲突节点和 Region |
 | 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ✅ | 真实历史：R6 基线 ❌（重叠网段被接受创建 Installing Cluster）；R7 batch-1 修复（`a989b14f`，`netutil.ValidateSubnetOverlap` 接入 API 400 + CLI fail-fast），rc.1 复验重叠 400 拒绝零对象（R7 报告 §9），此后 rc.3/4/5 均生效。**更正（2026-09-20）：R7 新候选基线 ❌ 与 R8 "rc.5 仍接受重叠"两条记录有误**——R9 dryRun 探针实测 rc.5 重叠 400，与代码/单测/§9 复验一致。R9 补齐边界缺口：列表内嵌套、每地址族最多 1 条、IPv4-mapped IPv6 拒绝、主机网段冲突（`ValidateCIDRHostConflict`，API 层取请求节点 `NodeIpv4DefaultIP` 校验；CLI 不拉节点列表故仅服务端），单测覆盖。**rc.6（`29a9bf8a`，2026-09-21）真机负向矩阵复验通过**：8 项非法输入（重叠/列表内嵌套/双 v4 pod/双 v6 service/v4-mapped/主机冲突 pod .0/24/主机冲突 service .208/29）全部 400 且错误理由逐项匹配，.144/28 未含节点 IP 正确放行（边界不误伤），合法双栈与单栈 dryRun 200；CLI 重叠本地 exit 1、CLI 主机冲突转发服务端 400；全程零 Cluster/Operation 残留。2.1-32 双栈仅在单测与 dryRun 层面覆盖（真机无 IPv6 环境），见该行 |
 | 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ⚠️ | R6/R7：非法 external 端口/域名、master/worker 同 IP、未知 image-registry、docker CRI 均前置拒绝且无对象；主机级预检仍未覆盖 |
-| 2.1-30 | 创建中断后的 retry 或安全删除 | ⚠️ | R6：取消 CIDR 创建后 Cluster/Operation、节点标签和主机副作用未自动清理，需 reset/精确清理；R8（rc.5，`978b1b43`）失败路径删除已释放节点占用标签、force 删除逃生门可用（`echo yes \| kcctl delete cluster <name> -F`，跳过 agent 卸载、主机残留属预期需运维清理）；retry 仍未验证 |
+| 2.1-30 | 创建中断后的 retry 或安全删除 | ✅ | R6：取消 CIDR 创建后 Cluster/Operation、节点标签和主机副作用未自动清理，需 reset/精确清理；R8（rc.5，`978b1b43`）失败路径删除已释放节点占用标签、force 删除逃生门可用（`echo yes \| kcctl delete cluster <name> -F`，跳过 agent 卸载、主机残留属预期需运维清理）。**rc.7（`e7d99421`，2026-09-21）真机 retry 验证通过**：Running 中取消（协作式收敛 Canceled/InstallFailed，在途步自然完成、Pending 步取消）后 `kcctl operation retry` 重试同一 Operation——前 6 步保留原时间戳未重做（§3.3-5 语义），仅执行剩余步骤 ~60s 回 Succeeded，集群 InstallFailed → Running；重复取消（终态后与 Running 中并发双取消）分别被 CLI 与 API Conflict 干净拒绝；取消后安全删除 20～30 秒清空（Cluster/Operation/节点标签），同节点重建 2 分钟 Running，kubelet inactive、无 /etc/kubernetes 残留、doctor 25/25。证据：dev-2 /tmp/r10-*.txt |
 | 2.1-31 | 创建成功后的固定健康验收 | ✅ | API Server、etcd、controller、scheduler、CoreDNS、CNI、kube-proxy、Node Ready |
 
 ### 2.2 节点操作
@@ -174,7 +174,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效 |
 | 2.6-05 | 缓存损坏或 digest 不符 | ❌ | 不得执行损坏制品；重新拉取或明确失败；不得回退到 tag |
 | 2.6-06 | Registry 暂时不可达时的缓存行为 | ❌ | 已缓存 digest 可继续，未缓存 digest 明确失败 |
-| 2.6-07 | Package Registry 配置优先级与文件权限 | ⚠️ | R6/R7 实测两个配置文件 0644。R9 更正：写入侧自 batch-1 `a989b14f` 已强制 0600（Config.Dump 与 deploy-config WriteToFile，目录 0700），存量 0644 是旧版本写入的遗留，重写时收紧；R9 补齐原子替换（同目录 0600 临时文件+Sync+rename，失败保留原文件）、拒绝符号链接、umask 无关性与 §4.4 回归测试。远端重写后权限复验待下一 rc |
+| 2.6-07 | Package Registry 配置优先级与文件权限 | ⚠️ | R6/R7 实测两个配置文件 0644。R9 更正：写入侧自 batch-1 `a989b14f` 已强制 0600（Config.Dump 与 deploy-config WriteToFile，目录 0700），存量 0644 是旧版本写入的遗留，重写时收紧；R9 补齐原子替换（同目录 0600 临时文件+Sync+rename，失败保留原文件）、拒绝符号链接、umask 无关性与 §4.4 回归测试。**rc.7（`e7d99421`，2026-09-21）远端复验**：dev-2 `/root/.kc/config` 与 `deploy-config.yaml` 实测 0600（升级流程重写后收紧生效）；dev-3/dev-4 无 .kc 目录（kcctl 仅在 dev-2 执行）。⚠️ 保留：配置优先级与凭据脱敏的专项用例未单独成轮 |
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
 | 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6 通过；R7 复测（`v1.36.*`→`v1.34.*` 后创建 v1.36.4 在 Operation 前拒绝，策略精确恢复） |
 | 2.6-10 | Delivery Policy 缺失 slot/repository | ⚠️ | R6：移除 `cni` slot、将 `calico` 改为不存在的 `missing-calico` 后，均在创建前拒绝且无 Cluster/Operation；缺失 blob、多个候选冲突尚未测 |
