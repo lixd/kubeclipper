@@ -5,7 +5,8 @@
 
 **文档状态：B1 已实施并通过三机 E2E（2026-09-20，见
 [R7 报告 §11](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md)）；
-B2～B6 待实施。稳定版发布结论仍为 Blocked。**
+B2 部分实施（2026-09-21：失败/删除收敛与操作停滞 agent 侧根因已修复并 E2E 验证，CIDR
+创建前校验未实施，见 §3.2 更新）；B3～B6 待实施。稳定版发布结论仍为 Blocked。**
 
 > **决策记录（2026-09-20）**：B1 选择「实施」而非收缩承诺——平台升级按 OCI 契约改造
 > （`kcctl upgrade <component> --version/--manifest`，复用 ReleaseManifest/OCI fetcher/digest
@@ -36,7 +37,7 @@ revision，不能据此放行当前候选。R5/R6 故障来自已有实测记录
 | 编号 | 内容                          | 证据性质                                   | 初始实施状态 |
 | ---- | ----------------------------- | ------------------------------------------ | ------------ |
 | B1   | 平台升级产物与 OCI 发布不一致 | 已确认代码和发布契约缺陷                   | 已实施（2026-09-20，E2E 复验见 R7 报告 §11；console/kcctl 与中断恢复为 step 2） |
-| B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞准确根因待定位    | 待实施       |
+| B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞 agent 侧根因已定位（R8） | 部分实施（2026-09-21，见 §3.2 更新；CIDR 校验仍待实施） |
 | B3   | 敏感配置权限                  | 写入代码与远端权限已确认                   | 待实施       |
 | B4   | 备份删除、轮转和详情查询      | 已有失败记录；删除时序和查询参数问题已确认 | 待实施       |
 | B5   | OCI 真实消费矩阵              | 关键 E2E 未执行或未完整验收                | 待实施       |
@@ -136,6 +137,17 @@ Installing；取消后状态、节点占用和主机副作用不能自动收敛�
 CIDR 创建前校验缺失已确认。取消停滞的准确断点尚未确认：现有代码已经注册 Operation/Task
 Watch，并有最多 5 秒的等待后重新检查，不能直接声称“缺少 Watch/轮询”。直接调用 reconciler
 的单测也不能证明实际事件链能推进。
+
+**更新（2026-09-21，R8，rc.5 `c5ccb367`）**：操作停滞的一类 agent 侧根因已定位并修复——
+worker `execute()` 的 defer 声明顺序（LIFO 反转为先等 terminal watcher 退出再关 stop）使每个
+任务白付最长 10s 轮询尾延迟；若 server 在该窗口 finalize 并 purge 任务历史，轮询永远 404，
+`execute` 挂到 spec deadline，单任务 worker 饿死该节点后续任务（SIGQUIT goroutine dump 实锤，
+见 [R7 报告 §12.2](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md)）。
+修复 `1413e849`（defer 对调 + NotFound 清 informer store/requeue，附单测）待随下一 rc 真机复验。
+失败/删除收敛侧已实施并验证：`978b1b43` 全删除路径释放节点占用标签、force 删除逃生门、
+InstallFailed 僵尸补偿（R8 S3～S5 实测：同节点重群成功、删除后标签释放、force 删除约 30 秒收敛）。
+**CIDR 创建前校验仍未实施**：rc.5 上重叠网段第三轮复测（R6/R7/R8）仍被接受创建。本节关闭
+条件（§3.5）尚未满足：CIDR 校验、协作式 cancel 全链路语义与 retry 仍按 §3.3/§3.4 验收。
 
 ### 3.3 修改方案
 

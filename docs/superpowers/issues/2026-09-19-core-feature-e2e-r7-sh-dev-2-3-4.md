@@ -371,3 +371,69 @@ registry sync（`destination = target + Target`）、fetcher（`ValidateReferenc
 `HTTPS_PROXY` 时必须同时配 `NO_PROXY` 排除平台内网地址（如 `172.16.131.0/24`），否则
 `Complete()` 拉取平台 deploy-config 的 API 请求也被送进代理而失败（EOF），命令在下载
 manifest 之前就断连。
+
+## 12. R8 追加轮（2026-09-20/21）：失败路径收敛 E2E 与 agent worker 死锁定位修复
+
+本轮在 R7 修复批次之后执行，聚焦两个新缺口的真机闭环：N3（建群失败/删除不释放节点占用标签，
+`978b1b43`）与 N2（CLI 默认 cri/cni 版本不随 k8s 版本配对，服务端 500，`fdac85f2`）。
+平台经 B1 升级路径升级到 `v2.0.3-rc.5`（`c5ccb367`，含上述修复；实测 `kcctl version` 确认）。
+共享 Registry 5003 未做任何改动。
+
+### 12.1 场景 S1～S5 结果
+
+| 场景 | 结果 | 证据 |
+|---|---|---|
+| S1 负向校验返回 400 | ✅ | `fdac85f2` 后，delivery ResolverError 类拒绝（如 cri/cni 与 k8s 版本不配对）由 500 变为可读 400，CLI EXIT=1，无对象残留 |
+| S2 CIDR 重叠仍被接受（2.1-28） | ❌ | rc.5 上 Pod/Service CIDR 重叠仍通过创建前校验并接受创建——连续三轮（R6/R7/R8）未修复，CIDR 前置校验仍未实施 |
+| S3 同节点重群（删除后复用） | ✅ | 重叠集群删除后，同批节点再次建群 `r8-verify` 成功 Running（见 §12.2 死锁插曲与 §12.3 手动 untaint 记录），节点标签复用闭环 |
+| S4 失败路径删除释放标签（N3） | ✅ | 重叠集群删除后，节点 `kubeclipper.io/cluster`/`nodeRole` 标签立即释放，节点可被新集群占用——`978b1b43` 修复实测生效 |
+| S5 force 删除逃生门 | ✅ | `echo yes \| kcctl delete cluster r8-verify -F`（AskForConfirmation 在非 TTY 读 stdin EOF 会 Fatal，必须管道注入）约 30 秒完成：Cluster/Operation 列表清空、标签释放；agent 卸载步骤被跳过，dev-4 残留 k8s 文件属预期，由运维清理（见 §12.4） |
+
+### 12.2 发现并修复 agent worker 死锁（R7 遗留操作停滞的 agent 侧根因）
+
+S3 期间 `r8-verify` 的 CreateCluster 任务在 dev-4 上 Pending 超过 30 分钟：agent 日志显示任务
+03:32:05 已派发（`command 1/1: custom`）但无任何子进程输出。经 SIGQUIT goroutine dump
+（`kill -QUIT` 后 journald 抓取，systemd `Restart=always` 顺带解锁重启）实锤：`execute` 阻塞在
+`[chan receive, 30 minutes]`（`worker.go` 的 `defer <-watchDone`），`watchTerminal` 阻塞在 10s
+ticker select。
+
+根因是 `execute()` 的 defer 声明顺序（LIFO 执行反转为"先等 watcher 退出、再关 stop"）与
+server 侧任务历史清理（finalize 后 CleanupByTargetUID）的竞争窗口：
+
+1. 每个任务完成都要等 `watchTerminal` 自己轮询到 terminal 或超时——正常路径白付一个最长 10s
+   的轮询尾延迟（基线测试实测 10.01s/任务）；
+2. 若 server 在该窗口内 finalize 并 purge 了任务历史，后续轮询永远 404，`execute` 挂到 spec
+   deadline；单任务 worker 被饿死，该节点后续所有任务 Pending（informer store 中还留着错过
+   delete 事件的 stale 条目，每次选中都命中同一个幽灵任务）。
+
+修复 `1413e849`（四件套，附 3 个单测，套件 0.55s 全绿）：defer 对调（先关 stop 再等 watchDone）；
+`watchTerminal` 轮询 NotFound → cancel 本地执行器；`finish` 兜底 Get NotFound → 清 informer
+store 并 requeue；`getLiveTask` NotFound → 删 stale 条目并 requeue。`terminalPollInterval`
+改为可注入（默认仍 10s）。
+
+**部署边界**：rc.5（`c5ccb367`）不含该修复（提交在其后）。S3 的解锁靠重启 agent（informer
+relist 清掉 stale 条目），不是修复本身生效；`1413e849` 需随下一个 rc 发布后在真机复验
+（复验点：任务完成后无 10s 尾延迟；purge 竞争下 worker 不再饿死）。
+
+### 12.3 测试配置记录：master taint 与 coredns Pending
+
+`r8-verify` 创建时未带 `--untaint-master`，`spec.taints` 下发了
+`node-role.kubernetes.io/master:NoSchedule`；kubeadm 默认 coredns 只容忍
+`control-plane:NoSchedule`，coredns 无处调度、`allNodeReady` 健康检查无限重试。判定为测试
+配置问题（产品已提供 `--untaint-master`），手动
+`kubectl taint node lixd-dev-4 node-role.kubernetes.io/master:NoSchedule-` 解锁。1M 拓扑
+建群必须带该参数。
+
+### 12.4 dev-4 残留清理与终态
+
+S5 force 删除按设计跳过 agent 卸载，dev-4 保留 k8s 残留。随后运维清理：`kubeadm reset` +
+手工移除 `/etc/kubernetes`、`/var/lib/kubelet`、CNI 目录、kube-ipvs0 链路并确认相关服务
+inactive；**平台数据目录 `/var/lib/kc-etcd` 与共享 Registry（dev-3 :5003）全程未动**。
+终态（2026-09-21 实测复核）：
+
+- `kcctl status` Healthy 3/3，三台 kc-agent/kc-server/kc-etcd/kc-console active；
+- Cluster/Operation 列表为空，三节点 `kubeclipper.io/cluster`/`nodeRole` 标签全部为空；
+- 分支构建 kcctl doctor 25/25 通过（旧版 /root/kcctl v1.6.0-era 的 static-resource-health
+  检查在无集群时报 port 0 失败，为工具版本假警报，非平台问题）；
+- 临时产物清理：Mac 侧 stub/bootstrap/manifest/registry 描述文件、dev-2 侧 .r8-* 凭据与
+  证书临时文件（含 /tmp/.r8-certs3）已全部删除。
