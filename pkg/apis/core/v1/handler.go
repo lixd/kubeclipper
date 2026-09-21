@@ -515,6 +515,14 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	extraMeta.OperationType = v1.OperationCreateCluster
 	op, err := h.parseOperationFromCluster(extraMeta, &c, v1.ActionInstall, h.clusterOperator)
 	if err != nil {
+		var resolverErr *deliveryapis.ResolverError
+		if errors.As(err, &resolverErr) {
+			// Delivery policy rejections (unsupported Kubernetes version,
+			// component choice or constraint violation) are client mistakes:
+			// answer with a readable 400 instead of a 500.
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}

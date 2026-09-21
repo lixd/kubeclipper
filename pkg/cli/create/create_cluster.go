@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -291,22 +292,6 @@ func (l *CreateClusterOptions) Complete(opts *options.CliOptions) error {
 }
 
 func (l *CreateClusterOptions) PreRun() error {
-	if l.CRIVersion == "" {
-		cri := l.listCRI("")
-		if len(cri) == 0 {
-			return errors.New("no valid cri-version")
-		}
-		l.CRIVersion = cri[0]
-		logger.Infof("use default %s version %s", l.CRI, l.CRIVersion)
-	}
-	if l.CNIVersion == "" {
-		cni := l.listCNI("")
-		if len(cni) == 0 {
-			return errors.New("no valid cni-version")
-		}
-		l.CNIVersion = cni[0]
-		logger.Infof("use default %s version %s", l.CNI, l.CNIVersion)
-	}
 	if l.K8sVersion == "" {
 		k8s := l.listK8s("")
 		if len(k8s) == 0 {
@@ -315,7 +300,93 @@ func (l *CreateClusterOptions) PreRun() error {
 		l.K8sVersion = k8s[0]
 		logger.Infof("use default k8s version %s", l.K8sVersion)
 	}
+	// The delivery policy pairs every Kubernetes version with the component
+	// versions it allows. Defaults must come from that pairing, otherwise the
+	// first published component version (belonging to another Kubernetes
+	// rule) is sent and the server rejects the combination.
+	var metas *kc.ComponentMeta
+	if l.CRIVersion == "" || l.CNIVersion == "" {
+		metas = l.componentMeta()
+	}
+	if l.CRIVersion == "" {
+		versions := policySlotVersions(metas, l.K8sVersion, "cri", l.CRI)
+		if len(versions) == 0 {
+			// No rule covers this Kubernetes version: fall back to the first
+			// published version; the server answers with a readable 400.
+			versions = l.listCRI("")
+		}
+		if len(versions) == 0 {
+			return errors.New("no valid cri-version")
+		}
+		l.CRIVersion = versions[0]
+		logger.Infof("use default %s version %s", l.CRI, l.CRIVersion)
+	}
+	if l.CNIVersion == "" {
+		versions := policySlotVersions(metas, l.K8sVersion, "cni", l.CNI)
+		if len(versions) == 0 {
+			versions = l.listCNI("")
+		}
+		if len(versions) == 0 {
+			return errors.New("no valid cni-version")
+		}
+		l.CNIVersion = versions[0]
+		logger.Infof("use default %s version %s", l.CNI, l.CNIVersion)
+	}
 	return nil
+}
+
+func (l *CreateClusterOptions) componentMeta() *kc.ComponentMeta {
+	metas, err := l.Client.GetComponentMeta(context.TODO(), l.metaQuery())
+	if err != nil {
+		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
+		return nil
+	}
+	return metas
+}
+
+func (l *CreateClusterOptions) metaQuery() url.Values {
+	if l.Offline {
+		return url.Values{"online": {"false"}}
+	}
+	return url.Values{"online": {"true"}}
+}
+
+// policySlotVersions returns the versions of the given slot component that
+// the delivery policy allows for the Kubernetes version, policy defaults
+// first. Returns nil when no rule covers the version or the meta is missing.
+func policySlotVersions(metas *kc.ComponentMeta, k8sVersion, slot, componentName string) []string {
+	if metas == nil {
+		return nil
+	}
+	defaults := sets.NewString()
+	others := sets.NewString()
+	for _, rule := range metas.Rules {
+		if version, _ := rule["version"].(string); version != k8sVersion {
+			continue
+		}
+		control, _ := rule["version_control"].(map[string]interface{})
+		entries, _ := control[slot].([]interface{})
+		for _, raw := range entries {
+			entry, ok := raw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name, _ := entry["name"].(string)
+			ver, _ := entry["version"].(string)
+			if name != componentName || ver == "" {
+				continue
+			}
+			if isDefault, _ := entry["default"].(bool); isDefault {
+				defaults.Insert(ver)
+				continue
+			}
+			others.Insert(ver)
+		}
+	}
+	if defaults.Len() == 0 && others.Len() == 0 {
+		return nil
+	}
+	return append(defaults.List(), others.List()...)
 }
 
 func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
