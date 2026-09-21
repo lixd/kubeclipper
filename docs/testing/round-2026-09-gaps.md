@@ -12,7 +12,7 @@
 |---:|---|---|---|
 | 1 | `1.2-07` | HA 故障窗口完整验收 | R6 已在运行中 CreateCluster 期间停止/恢复 dev4 `kc-server`，Operation、API 和 quorum 仍可用；仍缺故障窗口中的 Watch、Console 入口证据 |
 | 2 | `1.1-03`、`1.1-08`、`2.1-23` | 纯离线 bundle 真机闭环 | export、拷贝、重复 import 后，在断公网环境完成平台部署、建群、Addon、升级和删除；保存网络封锁与 digest 证据 |
-| 3 | `2.1-28`、`2.1-30` | 非法 CIDR 与创建中断的安全收敛 | R6 复现 Pod/Service CIDR 重叠仍可创建 Installing Cluster；取消后 Cluster/Operation、节点标签和主机副作用未自动清理，需修复创建前校验、cancel、retry 和安全删除。**更新（R8）：2.1-30 的删除收敛已修复（`978b1b43`，失败路径释放标签+force 逃生门实测生效）；2.1-28 创建前校验仍未实施，R8 rc.5 复测仍接受重叠网段** |
+| 3 | `2.1-28`、`2.1-30` | 非法 CIDR 与创建中断的安全收敛 | R6 复现 Pod/Service CIDR 重叠仍可创建 Installing Cluster；取消后 Cluster/Operation、节点标签和主机副作用未自动清理，需修复创建前校验、cancel、retry 和安全删除。**更新（R8）：2.1-30 的删除收敛已修复（`978b1b43`，失败路径释放标签+force 逃生门实测生效）。更正（2026-09-20）：前文"2.1-28 创建前校验仍未实施"系误报——重叠校验自 `a989b14f`（rc.3 起）已在 API/CLI 生效，R9 dryRun 探针实测 rc.5 重叠 400 拒绝；本轮（R9）补齐列表内嵌套、每地址族数量与主机网段冲突校验（API 层，`ValidateCIDRHostConflict`），待 rc.6 真机复验后回填终态** |
 | 4 | `1.3-09`、`1.3-10` 部分 | 平台自身升级收尾 | B1 已按 OCI 契约实施：`all/server/agent --manifest` 三机实测通过（含幂等、降级/repointed tag 拒绝，R7 报告 §11）；`--version` 网络链路经代理隧道实测正常（GitHub 可达、404 处理正确），正向下载待首个 v2 stable 发布；仍缺 console/kcctl 组件升级（step 2）与升级中故障注入恢复 |
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛 |
 | 6 | `2.5-08` | `maxBackupNum` 存储对象轮转 | R5 已验证 Backup 对象轮转，但旧 FS 备份文件仍残留；需同时轮转 Backup 记录、FS 文件和 S3 对象，且重试不留下孤儿文件 |
@@ -30,7 +30,8 @@ Operation ID、故障注入和清理证据见
 **R7（2026-09-19，新候选 `e9e95f4`）**：已完成“CI 打包→Registry 同步→清旧环境→重部署→
 可执行矩阵”的新候选验收（见
 [`R7 报告`](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md)）。
-2.1-28、2.5-08、2.5-11、2.6-07、3-10、4-08b 在新候选上复测仍未修复。新增缺口：
+2.1-28 在新候选的基线复测 ❌（该基线先于 batch-1 修复），batch-1 后 rc.1 复验已通过（见 R7 报告
+§9）；2.5-08、2.5-11、2.6-07、3-10、4-08b 在新候选上复测仍未修复。新增缺口：
 
 | 顺序 | 缺口 | 完成条件 |
 |---:|---|---|
@@ -48,7 +49,8 @@ Operation ID、故障注入和清理证据见
 **N2 已修复**（`fdac85f2`：CLI 按 k8s 版本从 delivery policy 配对取默认 cri/cni，服务端
 ResolverError 映射为可读 400；S1 实测 400+EXIT=1）。**N3 已修复**（`978b1b43`：全删除路径
 释放节点占用标签+force 删除逃生门；S4/S5 实测标签释放、`echo yes | kcctl delete cluster -F`
-约 30 秒收敛）。2.1-28 在 rc.5 上第三轮复测仍 ❌（重叠网段仍被接受）。新增 N8（agent worker
+约 30 秒收敛）。2.1-28 的 R8 "rc.5 仍接受重叠网段"记录系误报（更正见 P0 行 3）：重叠校验在
+rc.5 已生效，R9 dryRun 探针实测 400 拒绝。新增 N8（agent worker
 饿死，已修复待真机复验）。测试配置记录：1M 拓望建群必须带 `--untaint-master`，否则 master
 taint 使 coredns Pending、健康检查无限重试（详见 R7 报告 §12.3）。
 

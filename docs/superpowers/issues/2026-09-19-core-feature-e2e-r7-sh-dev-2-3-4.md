@@ -384,7 +384,7 @@ manifest 之前就断连。
 | 场景 | 结果 | 证据 |
 |---|---|---|
 | S1 负向校验返回 400 | ✅ | `fdac85f2` 后，delivery ResolverError 类拒绝（如 cri/cni 与 k8s 版本不配对）由 500 变为可读 400，CLI EXIT=1，无对象残留 |
-| S2 CIDR 重叠仍被接受（2.1-28） | ❌ | rc.5 上 Pod/Service CIDR 重叠仍通过创建前校验并接受创建——连续三轮（R6/R7/R8）未修复，CIDR 前置校验仍未实施 |
+| S2 CIDR 重叠仍被接受（2.1-28） | ❌→**更正（2026-09-20）：本条误报** | 原记录"rc.5 上 Pod/Service CIDR 重叠仍通过创建前校验并接受创建"与事实不符：重叠校验自 batch-1 `a989b14f`（rc.3 起）已在 API/CLI 生效，且 §9 记录过 rc.1 复验通过（重叠 400 零对象）。R9 dryRun 探针在 rc.5 复测确证：重叠 400（`pod subnet 10.96.0.0/16 overlaps service subnet 10.96.0.0/12`），CLI 本地 fail-fast EXIT=1；真实缺口为列表内嵌套/每地址族多条/主机网段冲突（200 通过），已在本轮补齐（见 remediation plan §3.2 更新）。当轮误报成因不可考，按不静默改史原则保留原行并加更正 |
 | S3 同节点重群（删除后复用） | ✅ | 重叠集群删除后，同批节点再次建群 `r8-verify` 成功 Running（见 §12.2 死锁插曲与 §12.3 手动 untaint 记录），节点标签复用闭环 |
 | S4 失败路径删除释放标签（N3） | ✅ | 重叠集群删除后，节点 `kubeclipper.io/cluster`/`nodeRole` 标签立即释放，节点可被新集群占用——`978b1b43` 修复实测生效 |
 | S5 force 删除逃生门 | ✅ | `echo yes \| kcctl delete cluster r8-verify -F`（AskForConfirmation 在非 TTY 读 stdin EOF 会 Fatal，必须管道注入）约 30 秒完成：Cluster/Operation 列表清空、标签释放；agent 卸载步骤被跳过，dev-4 残留 k8s 文件属预期，由运维清理（见 §12.4） |

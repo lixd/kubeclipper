@@ -5,8 +5,10 @@
 
 **文档状态：B1 已实施并通过三机 E2E（2026-09-20，见
 [R7 报告 §11](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md)）；
-B2 部分实施（2026-09-21：失败/删除收敛与操作停滞 agent 侧根因已修复并 E2E 验证，CIDR
-创建前校验未实施，见 §3.2 更新）；B3～B6 待实施。稳定版发布结论仍为 Blocked。**
+B2 部分实施（2026-09-21：失败/删除收敛与操作停滞 agent 侧根因已修复并 E2E 验证。更正
+（2026-09-20）：前文"CIDR 创建前校验未实施"系误报，重叠校验自 `a989b14f`（rc.3）已生效并经
+R9 dryRun 探针实测确认；R9 补齐嵌套/每族数量/主机冲突校验，见 §3.2 更新）；B3～B6 待实施。
+稳定版发布结论仍为 Blocked。**
 
 > **决策记录（2026-09-20）**：B1 选择「实施」而非收缩承诺——平台升级按 OCI 契约改造
 > （`kcctl upgrade <component> --version/--manifest`，复用 ReleaseManifest/OCI fetcher/digest
@@ -37,7 +39,7 @@ revision，不能据此放行当前候选。R5/R6 故障来自已有实测记录
 | 编号 | 内容                          | 证据性质                                   | 初始实施状态 |
 | ---- | ----------------------------- | ------------------------------------------ | ------------ |
 | B1   | 平台升级产物与 OCI 发布不一致 | 已确认代码和发布契约缺陷                   | 已实施（2026-09-20，E2E 复验见 R7 报告 §11；console/kcctl 与中断恢复为 step 2） |
-| B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞 agent 侧根因已定位（R8） | 部分实施（2026-09-21，见 §3.2 更新；CIDR 校验仍待实施） |
+| B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞 agent 侧根因已定位（R8） | 部分实施（2026-09-21，见 §3.2 更新；更正（2026-09-20）：CIDR 校验已实施并补齐边界，协作式 cancel 全语义仍待验收） |
 | B3   | 敏感配置权限                  | 写入代码与远端权限已确认                   | 待实施       |
 | B4   | 备份删除、轮转和详情查询      | 已有失败记录；删除时序和查询参数问题已确认 | 待实施       |
 | B5   | OCI 真实消费矩阵              | 关键 E2E 未执行或未完整验收                | 待实施       |
@@ -146,14 +148,25 @@ worker `execute()` 的 defer 声明顺序（LIFO 反转为先等 terminal watche
 修复 `1413e849`（defer 对调 + NotFound 清 informer store/requeue，附单测）待随下一 rc 真机复验。
 失败/删除收敛侧已实施并验证：`978b1b43` 全删除路径释放节点占用标签、force 删除逃生门、
 InstallFailed 僵尸补偿（R8 S3～S5 实测：同节点重群成功、删除后标签释放、force 删除约 30 秒收敛）。
-**CIDR 创建前校验仍未实施**：rc.5 上重叠网段第三轮复测（R6/R7/R8）仍被接受创建。本节关闭
-条件（§3.5）尚未满足：CIDR 校验、协作式 cancel 全链路语义与 retry 仍按 §3.3/§3.4 验收。
+**CIDR 创建前校验——更正（2026-09-20）与实施更新**：前文"重叠网段第三轮复测仍被接受"系误报。
+代码核查、单测与 R7 §9 rc.1 复验一致：重叠校验自 `a989b14f`（batch-1，rc.3 起）已在 API
+（`createClusterCheck` → 400）与 CLI（fail-fast）生效；R9 dryRun 探针在 rc.5 实测重叠 400 拒绝
+确证。R9 探针同时确认三个真实边界缺口（列表内嵌套、每地址族多条、网段覆盖主机网络均被接受）
+并已补齐：`parseCIDRs` 每列表每地址族最多 1 条 + 拒绝 IPv4-mapped IPv6 字面量；
+`ValidateSubnetOverlap` 扩展同族全对全不相交；新增 `ValidateCIDRHostConflict` 在
+`createClusterCheck` 节点占用检查后按请求节点 `NodeIpv4DefaultIP`（回退 `Ipv4DefaultIP`）校验，
+CLI 不拉节点列表故主机冲突仅服务端。待随 rc.6 真机负向矩阵复验。本节关闭条件（§3.5）中协作式
+cancel 全链路语义与 retry 仍按 §3.3/§3.4 验收。
 
 ### 3.3 修改方案
 
 1. 提供 CLI/API 共用网络校验，使用 `net/netip` 解析和规范化 CIDR。在写入 Cluster、 Operation
    及节点占用之前，拒绝非法地址、重复和同地址族的 Pod/Service 网段重叠； API
    不能依赖客户端校验。保留单双栈数据模型，不扩大双栈支持承诺。
+   **实施偏离（R9，2026-09-20）**：沿用现有 `net.ParseCIDR`（其规范化已满足需求，Go 1.26 对
+   全地址族返回 16 字节 IP，IPv4-mapped 检测改按字面量含 `:` 判断），未迁 `net/netip`；
+   校验函数为 `netutil.ValidateSubnetOverlap`/`ValidateCIDRHostConflict`，主机冲突经用户确认
+   纳入（仅服务端）。
 2. 先以真实 API、持久化和控制器集成测试复现取消停滞。记录取消请求的 UID/resourceVersion、 store
    更新、Informer 事件、入队、reconcile、业务回写和锁释放，定位第一个不推进环节，
    将复现固定为回归后再修改。日志只记录必要标识与状态，不能输出任务里的凭据。

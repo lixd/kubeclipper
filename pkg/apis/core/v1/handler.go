@@ -1208,11 +1208,40 @@ func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
 		cluNodes.Insert(node.ID)
 	}
 
-	if freeNodes.HasAll(cluNodes.List()...) {
-		return nil
+	if !freeNodes.HasAll(cluNodes.List()...) {
+		return fmt.Errorf("some nodes in used or disabled")
 	}
 
-	return fmt.Errorf("some nodes in used or disabled")
+	// A pod or service range covering the node network breaks routing once
+	// the CNI applies (R9 probe: pods=172.16.131.0/24 covering the node LAN
+	// was accepted). Compare against the requesting nodes' addresses.
+	requested := sets.NewString()
+	for _, node := range append(c.Masters, c.Workers...) {
+		requested.Insert(node.ID)
+	}
+	hosts := make([]netutil.HostAddress, 0, len(nodeList.Items))
+	seenIPs := sets.NewString()
+	for _, node := range nodeList.Items {
+		if !requested.Has(node.Name) {
+			continue
+		}
+		ip := node.Status.NodeIpv4DefaultIP
+		if ip == "" {
+			ip = node.Status.Ipv4DefaultIP
+		}
+		if ip == "" || seenIPs.Has(ip) {
+			continue
+		}
+		seenIPs.Insert(ip)
+		hosts = append(hosts, netutil.HostAddress{Name: node.Name, IP: ip})
+	}
+	if err := netutil.ValidateCIDRHostConflict("pod", c.Networking.Pods.CIDRBlocks, hosts); err != nil {
+		return fmt.Errorf("invalid cluster networking: %v", err)
+	}
+	if err := netutil.ValidateCIDRHostConflict("service", c.Networking.Services.CIDRBlocks, hosts); err != nil {
+		return fmt.Errorf("invalid cluster networking: %v", err)
+	}
+	return nil
 }
 
 func (h *handler) ListBackupsWithCluster(request *restful.Request, response *restful.Response) {

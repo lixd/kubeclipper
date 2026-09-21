@@ -101,7 +101,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-25 | 集群在线安装 | ✅ | R6：`r6-online-cluster-20260917` 使用 `--offline=false` 建群，Cluster 无 offline annotation，CreateCluster `e11f819e-05ed-403c-8ccf-01a3c2c1263f` 与 SyncKubeConfig 均 Succeeded，packagePlan 落库后删除 |
 | 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | R5/R6 通过；R7 复测占用节点拒绝 `some nodes in used or disabled` |
 | 2.1-27 | Master/Worker 跨 Region | ❌ | 按当前同 Region 约束拒绝，并指出冲突节点和 Region |
-| 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ❌ | R6：重叠网段被接受创建 Installing Cluster；R7 复测新候选 `e9e95f4` 仍在创建前接受（本轮按约定未执行破坏性全流程，集群经 cancel→delete 收敛清理）；R8 复测 rc.5（`c5ccb367`）仍接受重叠网段——连续三轮未修复，创建前 CIDR 校验（B2 §3.3-1）仍未实施 |
+| 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ⚠️ | 真实历史：R6 基线 ❌（重叠网段被接受创建 Installing Cluster）；R7 batch-1 修复（`a989b14f`，`netutil.ValidateSubnetOverlap` 接入 API 400 + CLI fail-fast），rc.1 复验重叠 400 拒绝零对象（R7 报告 §9），此后 rc.3/4/5 均生效。**更正（2026-09-20）：R7 新候选基线 ❌ 与 R8 "rc.5 仍接受重叠"两条记录有误**——R9 dryRun 探针实测 rc.5 重叠 400，与代码/单测/§9 复验一致。R9（本轮）补齐边界缺口：列表内嵌套、每地址族最多 1 条、IPv4-mapped IPv6 拒绝、主机网段冲突（`ValidateCIDRHostConflict`，API 层取请求节点 `NodeIpv4DefaultIP` 校验；CLI 不拉节点列表故仅服务端），单测覆盖；**待随 rc.6 真机负向矩阵复验后定 ✅/⚠️**。2.1-32 双栈仅单测层面覆盖，真机无 IPv6 环境 |
 | 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ⚠️ | R6/R7：非法 external 端口/域名、master/worker 同 IP、未知 image-registry、docker CRI 均前置拒绝且无对象；主机级预检仍未覆盖 |
 | 2.1-30 | 创建中断后的 retry 或安全删除 | ⚠️ | R6：取消 CIDR 创建后 Cluster/Operation、节点标签和主机副作用未自动清理，需 reset/精确清理；R8（rc.5，`978b1b43`）失败路径删除已释放节点占用标签、force 删除逃生门可用（`echo yes \| kcctl delete cluster <name> -F`，跳过 agent 卸载、主机残留属预期需运维清理）；retry 仍未验证 |
 | 2.1-31 | 创建成功后的固定健康验收 | ✅ | API Server、etcd、controller、scheduler、CoreDNS、CNI、kube-proxy、Node Ready |

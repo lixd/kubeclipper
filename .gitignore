@@ -36,3 +36,4 @@ openspec/
 
 # Claude Code
 .claude/
+.gocache/
