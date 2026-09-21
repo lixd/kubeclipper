@@ -346,8 +346,21 @@ console/kcctl 组件明确报 "not supported yet"（step 2 交付）。
 共享 Registry 未改动。
 
 未实测边界：节点启动失败/升级中中断后的恢复与续升（§2.3-7 的 restore 路径仅单测覆盖，
-未做故障注入）、带 repository 前缀 Registry 的 packageRef 解析（`pkg/delivery/indexer/registry.go`
-仅取 host，B1 范围外，已记录为观察项）。
+未做故障注入）。
+
+带 repository 前缀 Registry 的 packageRef 解析观察项已关闭（2026-09-20 全链路审计，结论为
+误报、无代码改动）：`pkg/delivery/indexer/registry.go` 的 `packageRef` "仅取 host" 与**全路径
+repository** 配对使用（`IndexRepositories` 先 `path.Join(prefix, logical)`、catalog 路径
+`scopedRepository` 裁前缀后传全路径），前缀不会丢失；`pkg/delivery/apis/registry_indexer.go` 的
+同名 `packageRef` 则与含前缀 registry + 逻辑 repository 配对（两个同名函数契约不同但各自自洽）。
+同步核对了 upgrade（`targetRef = registry + "/" + Target`，`Target` 为 manifest 定义的
+registry 相对逻辑路径，`generate-release-manifest.sh` 以 `ref[len(package_registry)+1:]` 生成）、
+registry sync（`destination = target + Target`）、fetcher（`ValidateReference` 按含前缀
+`Config.Registry` 校验）与 release manifest 校验，均一致。前缀场景已有回归测试锁定：
+`TestRegistryPackageIndexerScopesProjectPrefix`（断言完整 Transport.Ref 且 prefix 外仓库被过滤）、
+`TestRegistryPackageIndexerIndexesKnownRepositoriesWithoutCatalog` 及 helm 变体，
+`go test ./pkg/delivery/... ./pkg/cli/upgrade/... ./pkg/cli/registry/... ./pkg/cli/resource/...`
+全绿。
 
 `--version` 在线下载路径经代理隧道补充实测（2026-09-21）：SSH 反向隧道 + `HTTPS_PROXY`
 下，下载器穿透到真实 GitHub——不存在的 stable 版本收到干净的
