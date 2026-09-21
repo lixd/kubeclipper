@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
+	cliutils "github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	pkgerr "github.com/pkg/errors"
 	"k8s.io/client-go/util/homedir"
 	"sigs.k8s.io/yaml"
@@ -115,25 +116,8 @@ func (c *Config) Dump() error {
 		return err
 	}
 	fpath := filepath.Join(homedir.HomeDir(), DefaultConfigPath)
-
-	if _, err := os.Stat(fpath); os.IsNotExist(err) {
-		if err := os.MkdirAll(fpath, 0700); err != nil {
-			return err
-		}
-	}
 	cfgPath := filepath.Join(fpath, "config")
-	// The config embeds mTLS keys and tokens; always 0600, and tighten
-	// pre-existing files that were created with wider permissions.
-	f, err := os.OpenFile(cfgPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	if err := f.Chmod(0600); err != nil {
-		return err
-	}
-	_, err = f.Write(cfgBytes)
-	return err
+	return cliutils.WriteToFile(cfgPath, cfgBytes)
 }
 
 // Flatten changes the config object into a selfContained config (useful for making secrets)

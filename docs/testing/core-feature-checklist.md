@@ -174,7 +174,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效 |
 | 2.6-05 | 缓存损坏或 digest 不符 | ❌ | 不得执行损坏制品；重新拉取或明确失败；不得回退到 tag |
 | 2.6-06 | Registry 暂时不可达时的缓存行为 | ❌ | 已缓存 digest 可继续，未缓存 digest 明确失败 |
-| 2.6-07 | Package Registry 配置优先级与文件权限 | ❌ | R6：两个配置文件实测 0644；R7 在新候选上复测仍 0644（B3 未修复） |
+| 2.6-07 | Package Registry 配置优先级与文件权限 | ⚠️ | R6/R7 实测两个配置文件 0644。R9 更正：写入侧自 batch-1 `a989b14f` 已强制 0600（Config.Dump 与 deploy-config WriteToFile，目录 0700），存量 0644 是旧版本写入的遗留，重写时收紧；R9 补齐原子替换（同目录 0600 临时文件+Sync+rename，失败保留原文件）、拒绝符号链接、umask 无关性与 §4.4 回归测试。远端重写后权限复验待下一 rc |
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
 | 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6 通过；R7 复测（`v1.36.*`→`v1.34.*` 后创建 v1.36.4 在 Operation 前拒绝，策略精确恢复） |
 | 2.6-10 | Delivery Policy 缺失 slot/repository | ⚠️ | R6：移除 `cni` slot、将 `calico` 改为不存在的 `missing-calico` 后，均在创建前拒绝且无 Cluster/Operation；缺失 blob、多个候选冲突尚未测 |
