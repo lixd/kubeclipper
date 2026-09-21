@@ -346,6 +346,15 @@ console/kcctl 组件明确报 "not supported yet"（step 2 交付）。
 共享 Registry 未改动。
 
 未实测边界：节点启动失败/升级中中断后的恢复与续升（§2.3-7 的 restore 路径仅单测覆盖，
-未做故障注入）、`--version` 在线下载路径（环境无公网 Release 服务）、带 repository 前缀
-Registry 的 packageRef 解析（`pkg/delivery/indexer/registry.go` 仅取 host，B1 范围外，
-已记录为观察项）。
+未做故障注入）、带 repository 前缀 Registry 的 packageRef 解析（`pkg/delivery/indexer/registry.go`
+仅取 host，B1 范围外，已记录为观察项）。
+
+`--version` 在线下载路径经代理隧道补充实测（2026-09-21）：SSH 反向隧道 + `HTTPS_PROXY`
+下，下载器穿透到真实 GitHub——不存在的 stable 版本收到干净的
+`HTTP 404 Not Found (offline environments must sync the release bundle and use --manifest)`，
+而直连（无代理）被防火墙掐断为 `unexpected EOF`，即网络链路、代理透传与错误处理均正常。
+上游仓库尚无 v2 OCI stable 发布（最新 release 仍为 v1.7.0，仅旧 tar 包；v2.0.x manifest 均
+404），正向下载+checksum 校验待首个 stable 发布后补测。另记录运维要求：给 kcctl 设
+`HTTPS_PROXY` 时必须同时配 `NO_PROXY` 排除平台内网地址（如 `172.16.131.0/24`），否则
+`Complete()` 拉取平台 deploy-config 的 API 请求也被送进代理而失败（EOF），命令在下载
+manifest 之前就断连。
