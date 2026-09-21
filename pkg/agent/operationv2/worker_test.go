@@ -27,7 +27,9 @@ import (
 	"unicode/utf8"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
 
@@ -46,11 +48,21 @@ type fakeTaskClient struct {
 	task                 *operations.OperationTask
 	phases               []operations.TaskPhase
 	loseTerminalResponse bool
+	// purgeOnTerminal models a server that finalizes the operation and
+	// purges its task history right after the terminal status is recorded:
+	// every later Get returns NotFound (R7/N8 incident).
+	purgeOnTerminal bool
+	purged          bool
 }
+
+var operationTaskResource = schema.GroupResource{Group: "operations.kubeclipper.io", Resource: "operationtasks"}
 
 func (f *fakeTaskClient) Get(context.Context, string, metav1.GetOptions) (*operations.OperationTask, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.purged {
+		return nil, apierrors.NewNotFound(operationTaskResource, f.task.Name)
+	}
 	return f.task.DeepCopy(), nil
 }
 
@@ -75,6 +87,9 @@ func (f *fakeTaskClient) UpdateStatus(
 	}
 	f.task.Status = *task.Status.DeepCopy()
 	f.phases = append(f.phases, task.Status.Phase)
+	if f.purgeOnTerminal && task.Status.Phase.IsTerminal() {
+		f.purged = true
+	}
 	f.task.ResourceVersion = string(rune(f.task.ResourceVersion[0] + 1))
 	updated := f.task.DeepCopy()
 	if f.loseTerminalResponse && task.Status.Phase.IsTerminal() {
@@ -101,7 +116,7 @@ func newTestTask(phase operations.TaskPhase) *operations.OperationTask {
 	}
 }
 
-func newTestWorker(t *testing.T, client *fakeTaskClient, executor Executor) *Worker {
+func newTestWorker(t *testing.T, client TaskClient, executor Executor) *Worker {
 	t.Helper()
 	registry := NewRegistry()
 	if err := registry.Register("test/v1", executor); err != nil {
@@ -122,10 +137,32 @@ func newTestWorker(t *testing.T, client *fakeTaskClient, executor Executor) *Wor
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := worker.informer.GetStore().Add(client.task.DeepCopy()); err != nil {
+	seed, ok := client.(interface{ seedTask() *operations.OperationTask })
+	if !ok {
+		t.Fatalf("client %T must expose its seed task", client)
+	}
+	if err := worker.informer.GetStore().Add(seed.seedTask().DeepCopy()); err != nil {
 		t.Fatal(err)
 	}
 	return worker
+}
+
+func (f *fakeTaskClient) seedTask() *operations.OperationTask {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.task.DeepCopy()
+}
+
+func (f *fakeMidwayPurgeClient) seedTask() *operations.OperationTask {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.task.DeepCopy()
+}
+
+func (f *fakeStaleTaskClient) seedTask() *operations.OperationTask {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.task.DeepCopy()
 }
 
 func TestWorkerClaimsAndCompletesTask(t *testing.T) {
@@ -204,8 +241,193 @@ func TestWorkerShutdownCancelsExecutorWithoutFailingTask(t *testing.T) {
 	}
 }
 
-func TestSelectTaskFailsClosedWithMultipleRunning(t *testing.T) {
-	first := newTestTask(operations.TaskRunning)
+// fakeMidwayPurgeClient models a task purged while its executor runs: the
+// dispatch Get succeeds and the Running update is accepted, but everything
+// after (the terminal watcher's polls, the terminal status update) hits
+// NotFound because the operation was finalized and its history purged.
+type fakeMidwayPurgeClient struct {
+	mu       sync.Mutex
+	task     *operations.OperationTask
+	getCalls int
+	phases   []operations.TaskPhase
+}
+
+func (f *fakeMidwayPurgeClient) Get(_ context.Context, name string, _ metav1.GetOptions) (*operations.OperationTask, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.getCalls++
+	if f.getCalls > 1 {
+		return nil, apierrors.NewNotFound(operationTaskResource, name)
+	}
+	return f.task.DeepCopy(), nil
+}
+
+func (f *fakeMidwayPurgeClient) List(_ context.Context, _ *metav1.ListOptions) (*operations.OperationTaskList, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return &operations.OperationTaskList{Items: []operations.OperationTask{*f.task.DeepCopy()}}, nil
+}
+
+func (*fakeMidwayPurgeClient) Watch(context.Context, *metav1.ListOptions) (watch.Interface, error) {
+	return watch.NewEmptyWatch(), nil
+}
+
+func (f *fakeMidwayPurgeClient) UpdateStatus(
+	_ context.Context,
+	task *operations.OperationTask,
+) (*operations.OperationTask, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.getCalls > 1 {
+		return nil, apierrors.NewNotFound(operationTaskResource, task.Name)
+	}
+	f.task.Status = *task.Status.DeepCopy()
+	f.phases = append(f.phases, task.Status.Phase)
+	f.task.ResourceVersion = string(rune(f.task.ResourceVersion[0] + 1))
+	return f.task.DeepCopy(), nil
+}
+
+// fakeStaleTaskClient serves a live task and answers NotFound for a deleted
+// one that a broken watch left behind in the informer store.
+type fakeStaleTaskClient struct {
+	mu        sync.Mutex
+	task      *operations.OperationTask
+	staleName string
+	phases    []operations.TaskPhase
+}
+
+func (f *fakeStaleTaskClient) Get(_ context.Context, name string, _ metav1.GetOptions) (*operations.OperationTask, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if name == f.staleName {
+		return nil, apierrors.NewNotFound(operationTaskResource, name)
+	}
+	return f.task.DeepCopy(), nil
+}
+
+func (f *fakeStaleTaskClient) List(_ context.Context, _ *metav1.ListOptions) (*operations.OperationTaskList, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return &operations.OperationTaskList{Items: []operations.OperationTask{*f.task.DeepCopy()}}, nil
+}
+
+func (*fakeStaleTaskClient) Watch(context.Context, *metav1.ListOptions) (watch.Interface, error) {
+	return watch.NewEmptyWatch(), nil
+}
+
+func (f *fakeStaleTaskClient) UpdateStatus(
+	_ context.Context,
+	task *operations.OperationTask,
+) (*operations.OperationTask, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if task.UID != f.task.UID || task.ResourceVersion != f.task.ResourceVersion {
+		return nil, apierrors.NewNotFound(operationTaskResource, task.Name)
+	}
+	f.task.Status = *task.Status.DeepCopy()
+	f.phases = append(f.phases, task.Status.Phase)
+	f.task.ResourceVersion = string(rune(f.task.ResourceVersion[0] + 1))
+	return f.task.DeepCopy(), nil
+}
+
+func TestWorkerReturnsPromptlyWhenTaskPurgedAfterTerminalUpdate(t *testing.T) {
+	client := &fakeTaskClient{task: newTestTask(operations.TaskPending), purgeOnTerminal: true}
+	// Keep the pre-fix hang bounded: without the shutdown handoff fix,
+	// execute waits for the terminal watcher until the task deadline.
+	client.task.Spec.Deadline = metav1.NewTime(time.Now().Add(30 * time.Second))
+	worker := newTestWorker(
+		t,
+		client,
+		executorFunc(func(context.Context, *operations.OperationTask, io.Writer) (operations.TaskResult, error) {
+			return operations.TaskResult{}, nil
+		}),
+	)
+
+	done := make(chan error, 1)
+	go func() { done <- worker.sync(context.Background()) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("sync = %v, want nil", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("sync blocked after the terminal update; execute must stop the terminal watcher instead of waiting for its poll")
+	}
+	if got, want := client.phases, []operations.TaskPhase{operations.TaskRunning, operations.TaskSucceeded}; len(got) != len(want) ||
+		got[0] != want[0] ||
+		got[1] != want[1] {
+		t.Fatalf("unexpected phase updates: %#v", got)
+	}
+}
+
+func TestWatchTerminalCancelsExecutorWhenTaskPurgedMidExecution(t *testing.T) {
+	client := &fakeMidwayPurgeClient{task: newTestTask(operations.TaskRunning)}
+	worker := newTestWorker(
+		t,
+		client,
+		executorFunc(func(ctx context.Context, _ *operations.OperationTask, _ io.Writer) (operations.TaskResult, error) {
+			<-ctx.Done()
+			return operations.TaskResult{}, ctx.Err()
+		}),
+	)
+	worker.terminalPollInterval = 20 * time.Millisecond
+
+	done := make(chan error, 1)
+	go func() { done <- worker.sync(context.Background()) }()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("sync = %v, want nil; a purged task has nothing left to report", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("executor was not cancelled after the task was purged server-side")
+	}
+	if len(client.phases) != 0 {
+		t.Fatalf("unexpected phase updates: %#v, want none after the purge", client.phases)
+	}
+}
+
+func TestSyncDropsStaleSelectedTaskAndDispatchesNext(t *testing.T) {
+	stale := newTestTask(operations.TaskPending)
+	stale.Name = "task-stale"
+	stale.UID = types.UID("task-uid-stale")
+	stale.CreationTimestamp = metav1.NewTime(time.Unix(1, 0))
+	live := newTestTask(operations.TaskPending)
+	live.Name = "task-live"
+	live.UID = types.UID("task-uid-live")
+	live.CreationTimestamp = metav1.NewTime(time.Unix(2, 0))
+	client := &fakeStaleTaskClient{task: live, staleName: stale.Name}
+	worker := newTestWorker(
+		t,
+		client,
+		executorFunc(func(context.Context, *operations.OperationTask, io.Writer) (operations.TaskResult, error) {
+			return operations.TaskResult{}, nil
+		}),
+	)
+	if err := worker.informer.GetStore().Add(stale.DeepCopy()); err != nil {
+		t.Fatal(err)
+	}
+
+	// First sync selects the stale task (older), learns it is gone and drops
+	// it from the store; the second sync dispatches the real task.
+	if err := worker.sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := worker.sync(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	keys := worker.informer.GetStore().ListKeys()
+	if len(keys) != 1 || keys[0] != live.Name {
+		t.Fatalf("informer store keys = %#v, want only %q", keys, live.Name)
+	}
+	if got, want := client.phases, []operations.TaskPhase{operations.TaskRunning, operations.TaskSucceeded}; len(got) != len(want) ||
+		got[0] != want[0] ||
+		got[1] != want[1] {
+		t.Fatalf("unexpected phase updates: %#v", got)
+	}
+}
+
+func TestSelectTaskFailsClosedWithMultipleRunning(t *testing.T) {	first := newTestTask(operations.TaskRunning)
 	second := newTestTask(operations.TaskRunning)
 	second.Name = "task-2"
 	second.UID = types.UID("task-uid-2")

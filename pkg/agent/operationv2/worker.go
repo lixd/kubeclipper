@@ -86,6 +86,10 @@ type Worker struct {
 	queue    workqueue.RateLimitingInterface
 	lockFile *os.File
 	close    sync.Once
+
+	// terminalPollInterval is how often the terminal watcher polls the live
+	// task while an executor runs. Injectable for tests.
+	terminalPollInterval time.Duration
 }
 
 func NewWorker(opts *WorkerOptions) (*Worker, error) {
@@ -103,15 +107,16 @@ func NewWorker(opts *WorkerOptions) (*Worker, error) {
 	}
 	runCtx, cancel := context.WithCancel(context.Background())
 	w := &Worker{
-		agentID:  opts.AgentID,
-		nodeUID:  opts.NodeUID,
-		client:   opts.Client,
-		registry: opts.Registry,
-		oplog:    opts.OpLog,
-		lockPath: opts.LockFile,
-		runCtx:   runCtx,
-		cancel:   cancel,
-		queue:    workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "operation-v2-agent"),
+		agentID:              opts.AgentID,
+		nodeUID:              opts.NodeUID,
+		client:               opts.Client,
+		registry:             opts.Registry,
+		oplog:                opts.OpLog,
+		lockPath:             opts.LockFile,
+		runCtx:               runCtx,
+		cancel:               cancel,
+		terminalPollInterval: 10 * time.Second,
+		queue:                workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "operation-v2-agent"),
 	}
 	selector := fields.OneTermEqualSelector("spec.nodeRef.name", opts.AgentID).String()
 	w.informer = cache.NewSharedIndexInformer(&cache.ListWatch{
@@ -250,6 +255,14 @@ func (w *Worker) getLiveTask(ctx context.Context, selected *operations.Operation
 	live, err := w.client.Get(getCtx, selected.Name, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
+			// The selected task no longer exists (e.g. purged with its
+			// finalized operation's history) but this worker missed the
+			// delete event and still lists it in the informer store. Drop
+			// the stale entry and requeue, otherwise every selection picks
+			// the deleted task again and starves later tasks until the next
+			// full relist.
+			_ = w.informer.GetStore().Delete(selected)
+			w.queue.Add(syncKey)
 			return nil, nil
 		}
 		return nil, err
@@ -353,8 +366,14 @@ func (w *Worker) execute(parent context.Context, task *operations.OperationTask)
 	// until the spec deadline and every later task on this node queues
 	// behind it (R7/N8).
 	watchDone, stopWatch := w.watchTerminal(ctx, task, cancel)
-	defer close(stopWatch)
+	// Defers run last-in-first-out: stop the terminal watcher before waiting
+	// for it to exit. The reverse order would block here until the watcher
+	// observes the task terminal through its poll — and if the task was purged
+	// with its finalized operation's history in the meantime, the poll only
+	// ever returns NotFound and execute hangs until the spec deadline, starving
+	// every later task on this node (R7/N8).
 	defer func() { <-watchDone }()
+	defer close(stopWatch)
 	result, reconcileErr := executor.Reconcile(ctx, task.DeepCopy(), writer)
 	if parent.Err() != nil {
 		return parent.Err()
@@ -398,6 +417,14 @@ func (w *Worker) finish(
 			w.queue.Add(syncKey)
 			return nil
 		}
+		if apierrors.IsNotFound(getErr) {
+			// The task was purged with its finalized operation's history
+			// before the result could be recorded — the server already made
+			// its decision, there is nothing left to report.
+			_ = w.informer.GetStore().Delete(task)
+			w.queue.Add(syncKey)
+			return nil
+		}
 		return err
 	}
 	w.queue.Add(syncKey)
@@ -414,7 +441,7 @@ func (w *Worker) watchTerminal(ctx context.Context, task *operations.OperationTa
 	stop := make(chan struct{})
 	go func() {
 		defer close(done)
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(w.terminalPollInterval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -427,6 +454,15 @@ func (w *Worker) watchTerminal(ctx context.Context, task *operations.OperationTa
 			getCtx, getCancel := context.WithTimeout(context.Background(), serverCallTimeout)
 			live, err := w.client.Get(getCtx, task.Name, metav1.GetOptions{})
 			getCancel()
+			if apierrors.IsNotFound(err) {
+				// The task was deleted server-side while the executor runs —
+				// the operation was finalized and its history purged. It can
+				// never record a terminal phase now, so cancel the local
+				// executor instead of polling until the spec deadline blocks
+				// every later task on this node (R7/N8).
+				cancel()
+				return
+			}
 			if err == nil && live.UID == task.UID && live.Status.Phase.IsTerminal() {
 				cancel()
 				return
