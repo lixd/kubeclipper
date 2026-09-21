@@ -24,6 +24,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
@@ -211,5 +212,63 @@ func TestCalicoRuntimeImageRegistryIsSerialized(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"imageRegistry":"127.0.0.1:5000"`) {
 		t.Fatalf("resolved Registry address missing from runtime command: %s", data)
+	}
+}
+
+// Regression: an API request with cni.type=calico but without the optional
+// calico block used to panic in InitStep (nil pointer dereference) and turned
+// into a 500 from the create/dryRun handlers.
+func TestCalicoInitStepDefaultsWhenCalicoBlockOmitted(t *testing.T) {
+	cni := &v1.CNI{Type: "calico", Version: "v3.29.6"}
+	networking := &v1.Networking{
+		IPFamily: v1.IPFamilyIPv4,
+		Pods:     v1.NetworkRanges{CIDRBlocks: []string{"10.244.0.0/16"}},
+	}
+	stepper := (&CalicoRunnable{}).InitStep(&component.ExtraMetadata{KubeletDataDir: "/var/lib/kubelet"}, cni, networking)
+	r, ok := stepper.(*CalicoRunnable)
+	if !ok {
+		t.Fatalf("unexpected stepper type %T", stepper)
+	}
+	if r.Calico == nil {
+		t.Fatal("InitStep must fill the missing calico block instead of keeping a nil pointer")
+	}
+	if r.Calico.IPv4AutoDetection != "first-found" || r.Calico.IPv6AutoDetection != "first-found" {
+		t.Errorf("auto detection defaults not applied: %+v", r.Calico)
+	}
+	if r.Calico.Mode != "Overlay-Vxlan-All" || r.Calico.MTU != 1440 || !r.Calico.IPManger {
+		t.Errorf("calico defaults do not match kcctl create flags: %+v", r.Calico)
+	}
+	if cni.Calico != nil {
+		t.Error("InitStep must not mutate the caller's CNI object")
+	}
+	if r.NodeAddressDetectionV4.Type != "first-found" || r.NodeAddressDetectionV6.Type != "first-found" {
+		t.Errorf("node address detection not derived from defaults: %+v %+v", r.NodeAddressDetectionV4, r.NodeAddressDetectionV6)
+	}
+	w := &bytes.Buffer{}
+	if err := r.renderCalicoTo(w); err != nil {
+		t.Fatalf("renderCalicoTo with defaulted calico block: %v", err)
+	}
+}
+
+func TestCalicoInitStepPartialCalicoBlock(t *testing.T) {
+	cni := &v1.CNI{
+		Type:    "calico",
+		Version: "v3.29.6",
+		Calico:  &v1.Calico{Mode: "BGP", MTU: 1500},
+	}
+	networking := &v1.Networking{
+		IPFamily: v1.IPFamilyDualStack,
+		Pods:     v1.NetworkRanges{CIDRBlocks: []string{"10.244.0.0/16", "fd00::/64"}},
+	}
+	stepper := (&CalicoRunnable{}).InitStep(&component.ExtraMetadata{KubeletDataDir: "/var/lib/kubelet"}, cni, networking)
+	r := stepper.(*CalicoRunnable)
+	if r.Calico.Mode != "BGP" || r.Calico.MTU != 1500 {
+		t.Errorf("explicit fields must be preserved, got: %+v", r.Calico)
+	}
+	if r.Calico.IPv4AutoDetection != "first-found" || r.Calico.IPv6AutoDetection != "first-found" {
+		t.Errorf("empty fields must be defaulted, got: %+v", r.Calico)
+	}
+	if cni.Calico.IPv4AutoDetection != "" || cni.Calico.Mode != "BGP" {
+		t.Errorf("InitStep must not mutate the caller's calico block, got: %+v", cni.Calico)
 	}
 }

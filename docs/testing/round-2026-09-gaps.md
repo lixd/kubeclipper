@@ -43,6 +43,7 @@ Operation ID、故障注入和清理证据见
 | N6 | 被取消 Operation 不释放 ExecutionLock，删除集群卡 Pending | 终态 Operation 必须释放锁 |
 | N7 | `PUT /backuppoints` 返回 200 但 s3Config 更新不生效；S3 endpoint 无入口校验 | 更新生效；入口拒绝带 scheme 的 endpoint |
 | N8 | agent worker 单任务饿死：任务被 finalize+purge 后 worker 的 informer store 留 stale 条目且 `execute` 挂到 spec deadline，该节点后续任务全部 Pending | **已修复并复验通过**（`1413e849`，defer LIFO 对调+NotFound 清 store/requeue，3 单测；rc.6 `29a9bf8a` 真机复验：1M 建群无 10s 尾延迟——13 步中 7 步 1s、最长非安装步 8s，修复前基线 10.01s/任务；create→delete 收敛后立即再建群正常派发 Running，不饿死，见 P0 行 7） |
+| N9 | API 直调建群/dryRun 缺省可选 `cni.calico` 子对象即 500 panic：`calico.go` InitStep 对 nil 指针解引用（R9 探针 plain-legal 用例两次触发，栈经 kubeadm_step/utils/handler） | **已修复待真机复验**（R9 同日：`defaultCalico` nil 防护+CLI 同款默认值填充，空字段亦兜底，模板渲染链一并修复，2 单测；随下一 rc 验证缺省 calico 块 dryRun 200） |
 
 **R8（2026-09-20/21，rc.5 `c5ccb367`）**：失败路径收敛专项（见
 [R7 报告 §12](../superpowers/issues/2026-09-19-core-feature-e2e-r7-sh-dev-2-3-4.md)）。
@@ -54,7 +55,8 @@ rc.5 已生效，R9 dryRun 探针实测 400 拒绝。新增 N8（agent worker �
 
 **R9（2026-09-21，rc.6 `29a9bf8a`）**：N8 复验通过（P0 行 7/N8 行）；2.1-28 边界补齐并随
 rc.6 真机负向矩阵闭环（P0 行 3）。测试配置记录：1M 拓望建群必须带 `--untaint-master`，否则
-master taint 使 coredns Pending、健康检查无限重试（详见 R7 报告 §12.3）。
+master taint 使 coredns Pending、健康检查无限重试（详见 R7 报告 §12.3）。R9 探针另发现 N9
+（缺省 `cni.calico` 块 dryRun/创建 500 panic），同日修复待随下一 rc 复验。
 
 ## P1：核心能力补全
 

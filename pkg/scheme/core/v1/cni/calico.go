@@ -91,6 +91,7 @@ func (runnable *CalicoRunnable) InitStep(metadata *component.ExtraMetadata, cni 
 		ipv6 = networking.Pods.CIDRBlocks[1]
 	}
 	stepper.CNI = *cni
+	stepper.CNI.Calico = defaultCalico(cni.Calico)
 	stepper.KubeletDataDir = metadata.KubeletDataDir
 	stepper.ResolvedImageRegistry = metadata.ImageRegistry
 	stepper.BaseCni.Type = "calico"
@@ -101,10 +102,41 @@ func (runnable *CalicoRunnable) InitStep(metadata *component.ExtraMetadata, cni 
 	stepper.DualStack = networking.IPFamily == v1.IPFamilyDualStack
 	stepper.PodIPv4CIDR = networking.Pods.CIDRBlocks[0]
 	stepper.PodIPv6CIDR = ipv6
-	stepper.NodeAddressDetectionV4 = ParseNodeAddressDetection(cni.Calico.IPv4AutoDetection)
-	stepper.NodeAddressDetectionV6 = ParseNodeAddressDetection(cni.Calico.IPv6AutoDetection)
+	stepper.NodeAddressDetectionV4 = ParseNodeAddressDetection(stepper.CNI.Calico.IPv4AutoDetection)
+	stepper.NodeAddressDetectionV6 = ParseNodeAddressDetection(stepper.CNI.Calico.IPv6AutoDetection)
 
 	return stepper
+}
+
+// defaultCalico returns a Calico block that is safe to render: the manifest
+// templates dereference CNI.Calico directly, so an API request that omits the
+// optional calico block (or leaves fields empty) must not keep a nil or
+// zero-valued pointer. Defaults mirror the kcctl create flags. The input is
+// copied so the caller's cluster object is left untouched.
+func defaultCalico(calico *v1.Calico) *v1.Calico {
+	if calico == nil {
+		return &v1.Calico{
+			IPv4AutoDetection: "first-found",
+			IPv6AutoDetection: "first-found",
+			Mode:              "Overlay-Vxlan-All",
+			IPManger:          true,
+			MTU:               1440,
+		}
+	}
+	filled := *calico
+	if filled.IPv4AutoDetection == "" {
+		filled.IPv4AutoDetection = "first-found"
+	}
+	if filled.IPv6AutoDetection == "" {
+		filled.IPv6AutoDetection = "first-found"
+	}
+	if filled.Mode == "" {
+		filled.Mode = "Overlay-Vxlan-All"
+	}
+	if filled.MTU == 0 {
+		filled.MTU = 1440
+	}
+	return &filled
 }
 
 func (runnable *CalicoRunnable) LoadImage(nodes []v1.StepNode) ([]v1.Step, error) {

@@ -164,6 +164,15 @@ CLI 不拉节点列表故主机冲突仅服务端。**rc.6（2026-09-21）真机
 exit 1、零 Cluster/Operation 残留（见 checklist 2.1-28 行，终态 ✅）。本节关闭条件（§3.5）中协作式
 cancel 全链路语义与 retry 仍按 §3.3/§3.4 验收。
 
+**R9 探针附带发现 N9（缺省 `cni.calico` 块 500 panic），同日修复待真机复验**：API 直调
+建群/dryRun 请求 `cni.type=calico` 但缺省可选 `calico` 子对象时，`calico.go` InitStep 对 nil
+指针 `cni.Calico.IPv4AutoDetection` 解引用 panic，go-restful recover 兜为 500（CLI 自行填充
+默认值不受影响，正是"前端直调 API 不应报错"要求的一类残留）。修复：InitStep 引入
+`defaultCalico`——nil 块按 kcctl create 同款默认值填充（first-found/first-found/
+Overlay-Vxlan-All/IPManger/MTU 1440），非 nil 块的空字段亦兜底，并深拷贝避免改写请求对象；
+manifest 模板直接解引用 `.CNI.Calico.*`，默认值填充同时修复渲染链。2 单测（nil 块默认值+
+render 回归、部分块保留显式值）。随下一 rc 验证：缺省 calico 块 dryRun 应 200 而非 500。
+
 ### 3.3 修改方案
 
 1. 提供 CLI/API 共用网络校验，使用 `net/netip` 解析和规范化 CIDR。在写入 Cluster、 Operation
