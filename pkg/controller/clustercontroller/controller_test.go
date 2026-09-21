@@ -19,14 +19,18 @@ package clustercontroller
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
+	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 
 	clustermock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
 	operationv2store "github.com/kubeclipper/kubeclipper/pkg/models/operationv2"
@@ -39,12 +43,41 @@ type recordingOperationStore struct {
 	cleanupErr   error
 	cleanupUID   types.UID
 	cleanupCalls int
+	cleanupHook  func()
 }
 
 func (s *recordingOperationStore) CleanupByTargetUID(_ context.Context, targetUID types.UID) error {
 	s.cleanupCalls++
 	s.cleanupUID = targetUID
+	if s.cleanupHook != nil {
+		s.cleanupHook()
+	}
 	return s.cleanupErr
+}
+
+// fakeNodeLister implements the NodeLister interface and honors the given
+// label selector like the real informer-backed lister would.
+type fakeNodeLister struct {
+	nodes []*v1.Node
+}
+
+func (l *fakeNodeLister) List(selector labels.Selector) ([]*v1.Node, error) {
+	var matched []*v1.Node
+	for _, node := range l.nodes {
+		if selector.Matches(labels.Set(node.Labels)) {
+			matched = append(matched, node)
+		}
+	}
+	return matched, nil
+}
+
+func (l *fakeNodeLister) Get(name string) (*v1.Node, error) {
+	for _, node := range l.nodes {
+		if node.Name == name {
+			return node, nil
+		}
+	}
+	return nil, errors.New("not found")
 }
 
 func TestFindOperationCluster(t *testing.T) {
@@ -102,83 +135,196 @@ func TestKubeConfigSyncOperationName(t *testing.T) {
 	}
 }
 
-func TestFinalizeClusterCleansOperationHistoryBeforeReleasingFinalizer(t *testing.T) {
-	clusterObject := &v1.Cluster{ObjectMeta: metav1.ObjectMeta{
-		Name:       "cluster-a",
-		UID:        "cluster-uid",
-		Finalizers: []string{v1.ClusterFinalizer},
-	}}
+func TestFinalizeCluster(t *testing.T) {
+	// Fresh object per subtest: finalizeCluster mutates the passed-in cluster.
+	newCluster := func() *v1.Cluster {
+		return &v1.Cluster{ObjectMeta: metav1.ObjectMeta{
+			Name:       "cluster-a",
+			UID:        "cluster-uid",
+			Finalizers: []string{v1.ClusterFinalizer},
+		}}
+	}
 
-	t.Run("cleans history before releasing finalizer", func(t *testing.T) {
+	// releases node occupation before anything that could fail keeps the
+	// nodes blocked, then removes the finalizer only after all cleanups.
+	t.Run("releases node labels first and finalizer last", func(t *testing.T) {
 		controller := gomock.NewController(t)
-		store := &recordingOperationStore{}
+		cluster := newCluster()
+		var order []string
+		store := &recordingOperationStore{cleanupHook: func() { order = append(order, "history") }}
+		nodeLister := &fakeNodeLister{nodes: []*v1.Node{labeledNode("node-a", "cluster-a"), labeledNode("node-b", "cluster-a")}}
+		nodeWriter := clustermock.NewMockNodeWriter(controller)
+		nodeWriter.EXPECT().UpdateNode(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, node *v1.Node) (*v1.Node, error) {
+				order = append(order, "release-"+node.Name)
+				return node, nil
+			},
+		).Times(2)
 		cronBackups := clustermock.NewMockCronBackupWriter(controller)
-		clusterWriter := clustermock.NewMockClusterWriter(controller)
 		cronBackups.EXPECT().DeleteCronBackupCollection(gomock.Any(), gomock.Any()).DoAndReturn(
 			func(context.Context, any) error {
-				if store.cleanupCalls != 1 {
-					t.Fatalf("cleanup calls = %d before cron backup cleanup, want 1", store.cleanupCalls)
-				}
+				order = append(order, "cronbackup")
 				return nil
 			},
 		)
-		clusterWriter.EXPECT().UpdateCluster(gomock.Any(), clusterObject).DoAndReturn(
+		clusterWriter := clustermock.NewMockClusterWriter(controller)
+		clusterWriter.EXPECT().UpdateCluster(gomock.Any(), cluster).DoAndReturn(
 			func(context.Context, *v1.Cluster) (*v1.Cluster, error) {
-				if store.cleanupCalls != 1 {
-					t.Fatalf("cleanup calls = %d before finalizer removal, want 1", store.cleanupCalls)
+				order = append(order, "finalizer")
+				if sets.NewString(cluster.Finalizers...).Has(v1.ClusterFinalizer) {
+					t.Fatal("cluster finalizer was not removed")
 				}
-				for _, finalizer := range clusterObject.Finalizers {
-					if finalizer == v1.ClusterFinalizer {
-						t.Fatal("cluster finalizer was not removed")
-					}
-				}
-				return clusterObject, nil
+				return cluster, nil
 			},
 		)
 
 		reconciler := &ClusterReconciler{
 			OperationStore:   store,
+			NodeLister:       nodeLister,
+			NodeWriter:       nodeWriter,
 			CronBackupWriter: cronBackups,
 			ClusterWriter:    clusterWriter,
 		}
-		if err := reconciler.finalizeCluster(context.Background(), clusterObject); err != nil {
+		if err := reconciler.finalizeCluster(context.Background(), cluster); err != nil {
 			t.Fatalf("finalize cluster: %v", err)
 		}
-		if store.cleanupUID != clusterObject.UID {
-			t.Fatalf("cleanup UID = %q, want %q", store.cleanupUID, clusterObject.UID)
+		if store.cleanupUID != cluster.UID {
+			t.Fatalf("cleanup UID = %q, want %q", store.cleanupUID, cluster.UID)
+		}
+		wantOrder := []string{"release-node-a", "release-node-b", "cronbackup", "history", "finalizer"}
+		if !reflect.DeepEqual(order, wantOrder) {
+			t.Fatalf("cleanup order = %v, want %v", order, wantOrder)
 		}
 	})
 
-	t.Run("keeps finalizer when history cleanup fails", func(t *testing.T) {
-		cluster := clusterObject.DeepCopy()
-		cluster.Finalizers = []string{v1.ClusterFinalizer}
+	t.Run("releases finalizer even when history cleanup fails", func(t *testing.T) {
+		controller := gomock.NewController(t)
+		cluster := newCluster()
 		store := &recordingOperationStore{cleanupErr: errors.New("operation still active")}
-		reconciler := &ClusterReconciler{OperationStore: store}
-		if err := reconciler.finalizeCluster(context.Background(), cluster); err == nil {
-			t.Fatal("finalize cluster succeeded while operation cleanup failed")
+		nodeWriter := clustermock.NewMockNodeWriter(controller)
+		nodeWriter.EXPECT().UpdateNode(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+		cronBackups := clustermock.NewMockCronBackupWriter(controller)
+		cronBackups.EXPECT().DeleteCronBackupCollection(gomock.Any(), gomock.Any()).Return(nil)
+		clusterWriter := clustermock.NewMockClusterWriter(controller)
+		clusterWriter.EXPECT().UpdateCluster(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(context.Context, *v1.Cluster) (*v1.Cluster, error) {
+				if sets.NewString(cluster.Finalizers...).Has(v1.ClusterFinalizer) {
+					t.Fatal("cluster finalizer was not removed")
+				}
+				return cluster, nil
+			},
+		)
+		reconciler := &ClusterReconciler{
+			OperationStore:   store,
+			NodeLister:       &fakeNodeLister{},
+			NodeWriter:       nodeWriter,
+			CronBackupWriter: cronBackups,
+			ClusterWriter:    clusterWriter,
+		}
+		if err := reconciler.finalizeCluster(context.Background(), cluster); err != nil {
+			t.Fatalf("finalize cluster: %v", err)
 		}
 		if store.cleanupCalls != 1 {
 			t.Fatalf("cleanup calls = %d, want 1", store.cleanupCalls)
 		}
-		if len(cluster.Finalizers) != 1 || cluster.Finalizers[0] != v1.ClusterFinalizer {
+	})
+
+	// A failed node release must keep the finalizer so the reconcile retries
+	// instead of leaking the node occupation labels.
+	t.Run("keeps finalizer when node release fails", func(t *testing.T) {
+		controller := gomock.NewController(t)
+		cluster := newCluster()
+		store := &recordingOperationStore{}
+		nodeWriter := clustermock.NewMockNodeWriter(controller)
+		nodeWriter.EXPECT().UpdateNode(gomock.Any(), gomock.Any()).Return(nil, errors.New("conflict")).AnyTimes()
+		reconciler := &ClusterReconciler{
+			OperationStore:   store,
+			NodeLister:       &fakeNodeLister{nodes: []*v1.Node{labeledNode("node-a", "cluster-a")}},
+			NodeWriter:       nodeWriter,
+			CronBackupWriter: clustermock.NewMockCronBackupWriter(controller),
+		}
+		if err := reconciler.finalizeCluster(context.Background(), cluster); err == nil {
+			t.Fatal("finalize cluster succeeded while node release failed")
+		}
+		if !sets.NewString(cluster.Finalizers...).Has(v1.ClusterFinalizer) {
+			t.Fatalf("finalizers = %v, want cluster finalizer retained", cluster.Finalizers)
+		}
+	})
+
+	t.Run("keeps finalizer when cron backup cleanup fails", func(t *testing.T) {
+		controller := gomock.NewController(t)
+		cluster := newCluster()
+		store := &recordingOperationStore{}
+		nodeWriter := clustermock.NewMockNodeWriter(controller)
+		nodeWriter.EXPECT().UpdateNode(gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+		cronBackups := clustermock.NewMockCronBackupWriter(controller)
+		cronBackups.EXPECT().DeleteCronBackupCollection(gomock.Any(), gomock.Any()).Return(errors.New("etcd down"))
+		reconciler := &ClusterReconciler{
+			OperationStore:   store,
+			NodeLister:       &fakeNodeLister{},
+			NodeWriter:       nodeWriter,
+			CronBackupWriter: cronBackups,
+		}
+		if err := reconciler.finalizeCluster(context.Background(), cluster); err == nil {
+			t.Fatal("finalize cluster succeeded while cron backup cleanup failed")
+		}
+		if !sets.NewString(cluster.Finalizers...).Has(v1.ClusterFinalizer) {
 			t.Fatalf("finalizers = %v, want cluster finalizer retained", cluster.Finalizers)
 		}
 	})
 }
 
+func TestReleaseClusterNodes(t *testing.T) {
+	controller := gomock.NewController(t)
+	nodeWriter := clustermock.NewMockNodeWriter(controller)
+	var updated []*v1.Node
+	nodeWriter.EXPECT().UpdateNode(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, node *v1.Node) (*v1.Node, error) {
+			updated = append(updated, node)
+			return node, nil
+		},
+	).Times(2)
+	reconciler := &ClusterReconciler{NodeLister: &fakeNodeLister{nodes: []*v1.Node{
+		labeledNode("node-a", "cluster-a"),
+		labeledNode("node-b", "cluster-a"),
+		labeledNode("node-c", "cluster-other"),
+	}}, NodeWriter: nodeWriter}
+	if err := reconciler.releaseClusterNodes(context.Background(), "cluster-a"); err != nil {
+		t.Fatalf("release cluster nodes: %v", err)
+	}
+	if len(updated) != 2 {
+		t.Fatalf("updated nodes = %d, want 2", len(updated))
+	}
+	for _, node := range updated {
+		if _, ok := node.Labels[common.LabelClusterName]; ok {
+			t.Fatalf("node %s still carries the cluster label", node.Name)
+		}
+		if _, ok := node.Labels[common.LabelNodeRole]; ok {
+			t.Fatalf("node %s still carries the role label", node.Name)
+		}
+	}
+}
+
+func labeledNode(name, clusterName string) *v1.Node {
+	return &v1.Node{ObjectMeta: metav1.ObjectMeta{
+		Name:   name,
+		Labels: map[string]string{common.LabelClusterName: clusterName, common.LabelNodeRole: "worker"},
+	}}
+}
+
 type nopLogging struct{}
 
-func (nopLogging) Debug(_ string, _ ...zap.Field)      {}
-func (nopLogging) Info(_ string, _ ...zap.Field)       {}
-func (nopLogging) Warn(_ string, _ ...zap.Field)       {}
-func (nopLogging) Error(_ string, _ ...zap.Field)      {}
-func (nopLogging) Fatal(_ string, _ ...zap.Field)      {}
-func (nopLogging) Debugf(_ string, _ ...interface{})   {}
-func (nopLogging) Infof(_ string, _ ...interface{})    {}
-func (nopLogging) Warnf(_ string, _ ...interface{})    {}
-func (nopLogging) Errorf(_ string, _ ...interface{})   {}
-func (nopLogging) Fatalf(_ string, _ ...interface{})   {}
-func (l nopLogging) WithName(_ string) logger.Logging  { return l }
+func (nopLogging) Debug(_ string, _ ...zap.Field)             {}
+func (nopLogging) Info(_ string, _ ...zap.Field)              {}
+func (nopLogging) Warn(_ string, _ ...zap.Field)              {}
+func (nopLogging) Error(_ string, _ ...zap.Field)             {}
+func (nopLogging) Fatal(_ string, _ ...zap.Field)             {}
+func (nopLogging) Debugf(_ string, _ ...interface{})          {}
+func (nopLogging) Infof(_ string, _ ...interface{})           {}
+func (nopLogging) Warnf(_ string, _ ...interface{})           {}
+func (nopLogging) Errorf(_ string, _ ...interface{})          {}
+func (nopLogging) Fatalf(_ string, _ ...interface{})          {}
+func (l nopLogging) WithName(_ string) logger.Logging         { return l }
 func (l nopLogging) WithFields(_ ...zap.Field) logger.Logging { return l }
 
 func TestSyncClusterClientSkipsPhasesWithoutUsableKubeconfig(t *testing.T) {

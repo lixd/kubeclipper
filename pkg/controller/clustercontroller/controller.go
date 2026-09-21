@@ -214,7 +214,7 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, nil
 	}
-	if err = r.updateClusterNode(ctx, clu, false); err != nil {
+	if err = r.updateClusterNode(ctx, clu); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -238,17 +238,25 @@ func (r *ClusterReconciler) finalizeCluster(ctx context.Context, clu *v1.Cluster
 	if r.OperationStore == nil {
 		return fmt.Errorf("operation store is required to finalize cluster deletion")
 	}
-	if err := r.OperationStore.CleanupByTargetUID(ctx, clu.UID); err != nil {
-		return fmt.Errorf("cleanup cluster operation history: %w", err)
-	}
-	if err := r.updateClusterNode(ctx, clu, true); err != nil {
-		return fmt.Errorf("update cluster node: %w", err)
+	// Release node occupation first: the labels are what block re-creating a
+	// cluster on the same nodes, and none of the cleanups below may keep them
+	// held when a failure path (install failed, uninstall impossible) led to
+	// the deletion.
+	if err := r.releaseClusterNodes(ctx, clu.Name); err != nil {
+		return fmt.Errorf("release cluster nodes: %w", err)
 	}
 	cronBackupQuery := &query.Query{
 		FieldSelector: fmt.Sprintf("spec.clusterName=%s", clu.Name),
 	}
 	if err := r.CronBackupWriter.DeleteCronBackupCollection(ctx, cronBackupQuery); err != nil {
 		return fmt.Errorf("delete cronBackup: %w", err)
+	}
+	// Once the cluster object is gone orphan operation history rows are
+	// harmless, while a single stuck non-terminal operation would wedge
+	// finalization forever. Log and continue instead of retrying endlessly.
+	if err := r.OperationStore.CleanupByTargetUID(ctx, clu.UID); err != nil {
+		logger.FromContext(ctx).Error("cleanup cluster operation history failed",
+			zap.String("cluster", clu.Name), zap.String("cluster_uid", string(clu.UID)), zap.Error(err))
 	}
 	finalizers := sets.NewString(clu.Finalizers...)
 	finalizers.Delete(v1.ClusterFinalizer)
@@ -259,47 +267,60 @@ func (r *ClusterReconciler) finalizeCluster(ctx context.Context, clu *v1.Cluster
 	return nil
 }
 
-func (r *ClusterReconciler) updateClusterNode(ctx context.Context, c *v1.Cluster, del bool) error {
-	for _, item := range c.Workers {
-		if err := r.updateNodeRoleLabel(ctx, c.Name, item.ID, common.NodeRoleWorker, del); err != nil && !errors.IsNotFound(err) {
-			return err
-		}
+// releaseClusterNodes clears the cluster-ownership labels from every node
+// still labeled with this cluster. Listing by label instead of iterating the
+// cluster member lists keeps working when members were mutated or partially
+// persisted by the failure that led to the deletion.
+func (r *ClusterReconciler) releaseClusterNodes(ctx context.Context, clusterName string) error {
+	req, err := labels.NewRequirement(common.LabelClusterName, selection.Equals, []string{clusterName})
+	if err != nil {
+		return err
 	}
-	for _, item := range c.Masters {
-		if err := r.updateNodeRoleLabel(ctx, c.Name, item.ID, common.NodeRoleMaster, del); err != nil && !errors.IsNotFound(err) {
+	nodes, err := r.NodeLister.List(labels.NewSelector().Add(*req))
+	if err != nil {
+		return err
+	}
+	for _, node := range nodes {
+		if _, ok := node.Labels[common.LabelClusterName]; !ok {
+			continue
+		}
+		node = node.DeepCopy()
+		delete(node.Labels, common.LabelClusterName)
+		delete(node.Labels, common.LabelNodeRole)
+		if _, err := r.NodeWriter.UpdateNode(ctx, node); err != nil && !errors.IsNotFound(err) {
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *ClusterReconciler) updateNodeRoleLabel(ctx context.Context, clusterName, nodeName string, role common.NodeRole, del bool) error {
+func (r *ClusterReconciler) updateClusterNode(ctx context.Context, c *v1.Cluster) error {
+	for _, item := range c.Workers {
+		if err := r.updateNodeRoleLabel(ctx, c.Name, item.ID, common.NodeRoleWorker); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	for _, item := range c.Masters {
+		if err := r.updateNodeRoleLabel(ctx, c.Name, item.ID, common.NodeRoleMaster); err != nil && !errors.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *ClusterReconciler) updateNodeRoleLabel(ctx context.Context, clusterName, nodeName string, role common.NodeRole) error {
 	node, err := r.NodeLister.Get(nodeName)
 	if err != nil {
 		return err
 	}
-	if del {
-		// check node role label exist.
-		// if existed, delete label and update node.
-		// if not return direct.
-		if _, ok := node.Labels[common.LabelNodeRole]; !ok {
-			return nil
-		}
-		if v, ok := node.Labels[common.LabelClusterName]; !ok || v != clusterName {
-			return nil
-		}
-		delete(node.Labels, common.LabelNodeRole)
-		delete(node.Labels, common.LabelClusterName)
-	} else {
-		// check node role label exist.
-		// if existed, return direct
-		// if not add label and update node.
-		if _, ok := node.Labels[common.LabelNodeRole]; ok {
-			return nil
-		}
-		node.Labels[common.LabelNodeRole] = string(role)
-		node.Labels[common.LabelClusterName] = clusterName
+	// check node role label exist.
+	// if existed, return direct
+	// if not add label and update node.
+	if _, ok := node.Labels[common.LabelNodeRole]; ok {
+		return nil
 	}
+	node.Labels[common.LabelNodeRole] = string(role)
+	node.Labels[common.LabelClusterName] = clusterName
 
 	if _, err = r.NodeWriter.UpdateNode(ctx, node); err != nil {
 		return err

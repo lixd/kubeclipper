@@ -52,6 +52,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/auth"
@@ -353,7 +354,7 @@ func defaultWatchTimeout(q *query.Query) time.Duration {
 	if q.TimeoutSeconds != nil {
 		return time.Duration(*q.TimeoutSeconds) * time.Second
 	}
-	return time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0)) * time.Second
+	return time.Duration(float64(query.MinTimeoutSeconds)*(rand.Float64()+1.0)) * time.Second
 }
 
 func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *query.Query) {
@@ -408,7 +409,29 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 		return
 	}
 
-	extraMeta, err := h.getClusterMetadata(request.Request.Context(), c, force)
+	if force {
+		// Force delete releases the cluster from the platform without running
+		// the uninstall operation: the cluster finalizer chain clears node
+		// occupation labels, cron backups and operation history, while
+		// host-side cleanup (kubeadm reset etc.) is left to the operator.
+		// This is the escape hatch for clusters whose uninstall operation
+		// cannot be built or keeps failing.
+		logger.Warn("force delete cluster, skip uninstall operation", zap.String("cluster", name))
+		if !dryRun {
+			if err = h.setClusterPhase(request.Request.Context(), name, v1.ClusterTerminating); err != nil {
+				restplus.HandleInternalError(response, request, err)
+				return
+			}
+			if err = h.clusterOperator.DeleteCluster(request.Request.Context(), name); err != nil {
+				restplus.HandleInternalError(response, request, err)
+				return
+			}
+		}
+		response.WriteHeader(http.StatusOK)
+		return
+	}
+
+	extraMeta, err := h.getClusterMetadata(request.Request.Context(), c, false)
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) || err == ErrNodesRegionDifferent {
 			restplus.HandleBadRequest(response, request, err)
@@ -418,32 +441,18 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 		return
 	}
 
-	if force && len(extraMeta.Masters) == 0 {
-		logger.Warn("force delete cluster when master node not found, delete cluster directly", zap.String("cluster", name))
-		if !dryRun {
-			err = h.clusterOperator.DeleteCluster(request.Request.Context(), name)
-			if err != nil {
-				restplus.HandleInternalError(response, request, err)
-				return
-			}
-		}
-		response.WriteHeader(http.StatusOK)
-		return
-	}
-
 	extraMeta.OperationType = v1.OperationDeleteCluster
 	op, err := h.parseOperationFromCluster(extraMeta, c, v1.ActionUninstall, h.clusterOperator)
 	if err != nil {
-		restplus.HandleInternalError(response, request, err)
+		// The cluster phase is untouched here, so the request stays retryable.
+		restplus.HandleBadRequest(response, request, fmt.Errorf("build cluster uninstall operation: %w", err))
 		return
 	}
 	op.Labels[common.LabelTimeoutSeconds] = timeoutSecs
 	op.Labels[common.LabelOperationAction] = v1.OperationDeleteCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
 	if !dryRun {
-		c.Status.Phase = v1.ClusterTerminating
-		_, err = h.clusterOperator.UpdateCluster(request.Request.Context(), c)
-		if err != nil {
+		if err = h.setClusterPhase(request.Request.Context(), name, v1.ClusterTerminating); err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
@@ -526,12 +535,48 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	if !dryRun {
 		err = h.createOperationV2(context.TODO(), &c, op)
 		if err != nil {
+			// The cluster object is already persisted. Leaving it Installing
+			// would make it undeletable (Installing is not an allowed delete
+			// status); mark it failed so the user can delete the leftovers.
+			// Re-read on each attempt: the cluster controller may have updated
+			// the object (e.g. adding the finalizer) in between.
+			if updErr := h.markClusterInstallFailed(context.TODO(), c.Name); updErr != nil {
+				logger.Error("compensate cluster phase to InstallFailed failed",
+					zap.String("cluster", c.Name), zap.Error(updErr))
+			}
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
 	}
 
 	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+}
+
+// setClusterPhase re-reads the cluster and moves it to the given phase,
+// retrying on conflict. A whole-object replace of a stale snapshot would
+// otherwise clobber concurrent controller updates, notably the cluster
+// finalizer, and turn the deferred delete below into an unclean hard delete.
+func (h *handler) setClusterPhase(ctx context.Context, name string, phase v1.ClusterPhase) error {
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		fresh, getErr := h.clusterOperator.GetClusterEx(ctx, name, "0")
+		if getErr != nil {
+			return getErr
+		}
+		if fresh.Status.Phase == phase || !fresh.ObjectMeta.DeletionTimestamp.IsZero() {
+			return nil
+		}
+		fresh = fresh.DeepCopy()
+		fresh.Status.Phase = phase
+		_, updErr := h.clusterOperator.UpdateCluster(ctx, fresh)
+		return updErr
+	})
+}
+
+// markClusterInstallFailed best-effort moves a freshly created cluster out of
+// Installing when its install operation could not be created, so the cluster
+// is deletable instead of stuck as an undeletable zombie.
+func (h *handler) markClusterInstallFailed(ctx context.Context, name string) error {
+	return h.setClusterPhase(ctx, name, v1.ClusterInstallFailed)
 }
 
 func (h *handler) UpdateClusters(request *restful.Request, response *restful.Response) {
