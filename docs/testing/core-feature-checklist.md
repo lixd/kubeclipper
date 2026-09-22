@@ -155,14 +155,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.5-01 | backuppoint fs 型（含非法类型拒绝） | ✅ | R3/R5；R7 复测 FS 手动备份 `available`（11,440,160 bytes） |
 | 2.5-02 | backuppoint **S3 型（MinIO）** | ✅ | R5：MinIO 全链路通过；R7 因 MinIO 停止分发二进制改用 seaweedfs S3，手动备份 `available`；endpoint 须为裸 host:port（入口校验缺失见 R7 新问题 8） |
 | 2.5-03 | 手动备份 → 恢复（marker 回滚证明） | ✅ | R2/R3；R7 复测（恢复 Operation Succeeded，marker ConfigMap 回滚消失） |
-| 2.5-04 | 备份删除（连带存储文件清除） | ✅ | R3/R5；R7 复测 FS 文件随对象删除同步消失（对照 2.5-08 轮转不清理） |
+| 2.5-04 | 备份删除（连带存储文件清除） | ✅ | R3/R5；R7 复测 FS 文件随对象删除同步消失；R11（rc.8 `e9d9afeb`）复验持久化删除流：deleting → 删除 Operation Succeeded 后记录 404、文件消失（2.5-08 轮转不清理的历史问题已一并闭环） |
 | 2.5-05 | cronbackup runAt 单次触发 | ✅ | R3 |
 | 2.5-06 | cronbackup 真实周期命中 | ✅ | R5；R7 复测分钟级 Cron 连续触发多次 |
 | 2.5-07 | cronbackup enable / disable 子资源 | ✅ | R5；R7 复测（禁用 90 秒无新增，启用后恢复） |
-| 2.5-08 | **maxBackupNum 超限自动轮转** | ❌ | R5：对象轮转但旧 FS 文件残留；R7 在含 CronBackup 修复的新候选 `e9e95f4` 上复测仍残留（4 个 cron 文件累积，集群删除后仍在），该修复未覆盖存储对象 |
-| 2.5-09 | 恢复后集群可用性（addons/节点完整） | ✅ | R3 |
-| 2.5-10 | 备份损坏或错误 S3/FS 凭据 | ❌ | 明确失败，不产生 Available 假状态，不破坏原集群 |
-| 2.5-11 | Backup 详情查询 API（`GET /backups/{name}`） | ❌ | R5：已有 Backup 仍 404；R7 在新候选上复测仍 404（列表与集群范围查询正常） |
+| 2.5-08 | **maxBackupNum 超限自动轮转** | ✅ | R5/R7 曾 ❌（对象轮转但旧 FS 文件残留）；R11（rc.8 `e9d9afeb` B4 持久化删除流）真机复验：`maxBackupNum=2` + 2 分钟周期 Cron 连续 4+ 轮触发，Backup 记录与 FS 文件逐轮一一对应、无孤儿文件（删除统一由 backupcontroller 在删除 Operation Succeeded 后执行） |
+| 2.5-09 | 恢复后集群可用性（addons/节点完整） | ✅ | R3；R11 复验：恢复 Operation Succeeded 后集群回 Running（r11-b4-cluster），节点 Ready |
+| 2.5-10 | 备份损坏或错误 S3/FS 凭据 | ✅ | R11（rc.8）真机复验：错误凭据/不存在 bucket → Operation 明确 Failed、Backup `error`、集群保持 Running（N4 回归通过）；删除该记录经持久化删除流幂等清理后消失 |
+| 2.5-11 | Backup 详情查询 API（`GET /backups/{name}`） | ✅ | R5/R7 曾 ❌（已有 Backup 仍 404）；R11（rc.8）真机复验：已有 Backup 200 全字段（backupStatus/clusterNodes/preferredNode），不存在对象 404 |
 
 ### 2.6 OCI 制品解析、缓存与消费
 

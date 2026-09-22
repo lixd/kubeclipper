@@ -15,7 +15,7 @@
 | 3 | `2.1-28`、`2.1-30` | 非法 CIDR 与创建中断的安全收敛 | R6 复现 Pod/Service CIDR 重叠仍可创建 Installing Cluster；取消后 Cluster/Operation、节点标签和主机副作用未自动清理，需修复创建前校验、cancel、retry 和安全删除。**更新（R8）：2.1-30 的删除收敛已修复（`978b1b43`，失败路径释放标签+force 逃生门实测生效）。更正（2026-09-20）：前文"2.1-28 创建前校验仍未实施"系误报——重叠校验自 `a989b14f`（rc.3 起）已在 API/CLI 生效，R9 dryRun 探针实测 rc.5 重叠 400 拒绝；R9 补齐列表内嵌套、每地址族数量与主机网段冲突校验（API 层，`ValidateCIDRHostConflict`）。2.1-28 部分已闭环（rc.6 `29a9bf8a` 真机负向矩阵 8 项 400+边界放行+双栈 200+CLI exit1+零残留，见 checklist 2.1-28 行）；2.1-30 的 retry 仍未验证** |
 | 4 | `1.3-09`、`1.3-10` 部分 | 平台自身升级收尾 | B1 已按 OCI 契约实施：`all/server/agent --manifest` 三机实测通过（含幂等、降级/repointed tag 拒绝，R7 报告 §11）；`--version` 网络链路经代理隧道实测正常（GitHub 可达、404 处理正确），正向下载待首个 v2 stable 发布；仍缺 console/kcctl 组件升级（step 2）与升级中故障注入恢复 |
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛 |
-| 6 | `2.5-08` | `maxBackupNum` 存储对象轮转 | R5 已验证 Backup 对象轮转，但旧 FS 备份文件仍残留；需同时轮转 Backup 记录、FS 文件和 S3 对象，且重试不留下孤儿文件 |
+| 6 | `2.5-08` | `maxBackupNum` 存储对象轮转 | **已闭环（R11，rc.8 `e9d9afeb` B4 持久化删除流）**：手动删除与 Cron 轮转统一进入持久化删除流程——deleting/deleteFailed 状态、Backup 记录保留到删除 Operation Succeeded 才由 backupcontroller 移除；真机复验 `maxBackupNum=2` + 2 分钟周期 Cron 连续 4+ 轮，Backup 记录与 FS 文件逐轮一一对应、无孤儿文件（见 checklist 2.5-08） |
 | 7 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛。**更新（R8）：定位到 agent 侧饿死根因——worker `execute` defer LIFO 顺序 + server purge 竞争使单任务 worker 挂到 spec deadline（详见 R7 报告 §12.2），修复 `1413e849`。更新（R9，rc.6 `29a9bf8a` 真机复验通过）：①1M 建群 13 步任务时长 1s×7、5-8s×4、31/34s×2，无 10s 轮询尾延迟（修复前基线 10.01s/任务）；②快速 create→delete 收敛（集群/操作清空、标签释放）后立即再建群正常派发并 Running，不饿死。更新（R10，rc.7 `e7d99421` 真机复验）：协作式 cancel 语义矩阵与 2.1-30 retry 通过**——①Running 中取消（6/13 步）：在途步自然完成后停止派发、剩余 7 步 Canceled，Cluster InstallFailed，~2.5 分钟收敛；②最早取消（+3s，仅第 1 步在途）：1 步完成+12 步 Canceled，<23 秒收敛；③终态后重复取消被 CLI 干净拒绝（exit 1）；④Running 中并发双取消：第 2 次 API Conflict 拒绝，无状态污染；⑤retry 对 Canceled 创建操作：前 6 步保留原时间戳未重做，剩余步 ~60s 回 Succeeded，集群 InstallFailed → Running；⑥取消/失败后安全删除 20～30 秒清空 Cluster/Operation/标签，同节点重建 2 分钟 Running（kubelet inactive、无 /etc/kubernetes 残留、doctor 25/25）。§3.4 剩余子项：超时（spec deadline 到期）与 Watch 重连/Server、Agent 重启注入未覆盖。证据：dev-2 /tmp/r10-*.txt |
 | 8 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | R6 已确认 `/root/.kc/config`、`deploy-config.yaml` 均为 0644，未达到敏感配置 0600；仍需覆盖缓存损坏、digest 不符、Registry 断连、配置优先级和凭据脱敏，不得回退到 tag。**更新（R9）**：写入侧自 batch-1 `a989b14f` 已 0600（存量 0644 为旧版遗留，重写时收紧）；R9 补齐原子替换+拒绝符号链接+umask 无关性及回归测试（B3 代码侧完成），远端重写后权限复验待下一 rc；2.6-05/06 缓存故障注入仍未测 |
 | 9 | `1.1-05`、`1.1-06`、`1.1-10` | HTTPS/认证 Package Registry | 公共 CA、自签 CA、账号密码分别覆盖 deploy、join、Agent 拉取及失败重试，日志不泄露凭据 |
@@ -38,10 +38,10 @@ Operation ID、故障注入和清理证据见
 | N1 | 部署后无默认 image Registry 资源；未显式 `--image-registry` 的建群用 `registry.k8s.io` 并在离线机无限挂起 | deploy 初始化同端 Registry 资源或创建前明确报错 |
 | N2 | CLI 默认 cri/cni 版本不随 `--k8s-version` 匹配 delivery policy，服务端以 500 拒绝 | CLI 按规则取默认值，服务端返回可读 400 |
 | N3 | 建群失败（500/取消/InstallFailed 删除）不回滚节点 `kubeclipper.io/cluster`+`nodeRole` 标签，节点永久占用 | 任一失败路径均恢复节点空闲 |
-| N4 | 备份 Operation 失败后集群卡 UpdateFailed，不能再次备份 | 失败后自动回到 Running 或给出复位指引 |
+| N4 | 备份 Operation 失败后集群卡 UpdateFailed，不能再次备份 | **已修复并复验通过**（R11，rc.8 `e9d9afeb` B4 持久化删除流真机复验：错误凭据/不存在 bucket → 备份 Operation 明确 Failed、Backup `error`、集群保持 Running 不再卡 UpdateFailed，可重新备份；失败记录经持久化删除流幂等清理，见 checklist 2.5-10） |
 | N5 | 卡在健康检查重试环的创建 Operation 取消完全不收敛（重启无效），只能 etcd 手术 | cancel/timeout/重启任一路径可靠收敛并释放锁 |
 | N6 | 被取消 Operation 不释放 ExecutionLock，删除集群卡 Pending | 终态 Operation 必须释放锁 |
-| N7 | `PUT /backuppoints` 返回 200 但 s3Config 更新不生效；S3 endpoint 无入口校验 | 更新生效；入口拒绝带 scheme 的 endpoint |
+| N7 | `PUT /backuppoints` 返回 200 但 s3Config 更新不生效；S3 endpoint 无入口校验 | **已修复并复验通过**（R11，rc.8 `e9d9afeb` 真机复验：合法 S3/FS 更新生效（bucket/endpoint 均可改）；入口拒绝带 scheme 的 endpoint（400 `must be host[:port] without a scheme`）；另验证 storage type 不可变——请求体与存储值不一致 400，须用小写 `s3`/`fs`） |
 | N8 | agent worker 单任务饿死：任务被 finalize+purge 后 worker 的 informer store 留 stale 条目且 `execute` 挂到 spec deadline，该节点后续任务全部 Pending | **已修复并复验通过**（`1413e849`，defer LIFO 对调+NotFound 清 store/requeue，3 单测；rc.6 `29a9bf8a` 真机复验：1M 建群无 10s 尾延迟——13 步中 7 步 1s、最长非安装步 8s，修复前基线 10.01s/任务；create→delete 收敛后立即再建群正常派发 Running，不饿死，见 P0 行 7） |
 | N9 | API 直调建群/dryRun 缺省可选 `cni.calico` 子对象即 500 panic：`calico.go` InitStep 对 nil 指针解引用（R9 探针 plain-legal 用例两次触发，栈经 kubeadm_step/utils/handler） | **已修复并复验通过**（R9 同日 `75ed938f`：`defaultCalico` nil 防护+CLI 同款默认值填充，空字段亦兜底，模板渲染链一并修复，2 单测；rc.7 `e7d99421` 真机复验：缺省 calico 块 dryRun 200（原 500），合法 200/重叠 400 回归通过） |
 
@@ -63,6 +63,24 @@ master taint 使 coredns Pending、健康检查无限重试（详见 R7 报告 �
 checklist 2.1-30 行）。R6 轮遗留的 /tmp 临时证书（kc-r6-admin-client.*）与各轮临时 kcctl/
 manifest 已清理；Registry 仅新增 rc.7 tag，存量未动。
 
+**R11（2026-09-22，rc.8 `e9d9afeb`）**：B4 备份一致性专项（持久化删除流）真机复验。三机升级
+rc.8（`kcctl upgrade all --manifest`，6 节点槽位 upgraded to revision `e9d9afebb2a8`，doctor
+25/25）。2.5-08/09/10/11 四项闭环（P0 行 6、P1 行 6、N4、N7），九项证据：①手动删除进入
+deleting（status + `delete-operation-name` 标签可见），删除 Operation Succeeded 后记录 404、
+FS 文件同步消失；②顺序重复删除幂等 200（复用在途任务，不建新 Operation）；③deleting 窗口
+恢复请求 400（"backup ... is deleting now, can't recovery"），正常 available 备份恢复 200 →
+集群回 Running、节点 Ready；④maxBackupNum=2 轮转无孤儿（P0 行 6）；⑤S3 备份点全链路
+（seaweedfs S3 临时起于 dev-2，创建 available + 删除记录消失）；⑥错误凭据/不存在 bucket →
+Operation Failed、Backup `error`、集群 Running（N4）；⑦S3 停机删除 → deleteFailed 记录保留，
+S3 恢复后重试删除新 Operation 成功（`e9d9afeb` 主场景）；⑧N7 三项（更新生效/scheme 400/
+storage type immutable）；⑨2.5-11 describe 200/404。已知边角：同毫秒并发双 DELETE 同一备份，
+一个 200 一个 500（createOperationV2 冲突，日志无 reason），无重复副作用、不影响一致性，记为
+低优先改进项。测试配置记录：备份点从 cluster label `kubeclipper.io/backupPoint` 读取；创建
+备份 POST /clusters/{name}/backups 仅需 metadata.name；恢复用 POST /clusters/{cluster}/
+recovery 的 `useBackupName`；backuppoint storageType 存储值为小写 `s3`/`fs`，immutable 校验
+须用同值请求体。终态清理：CronBackup/残留备份/坏备份点/测试集群删除，三节点 kubeadm reset +
+集群 etcd 目录清理，Registry 仅增 rc.8 tag（12 tags），临时 weed、manifest、二进制与证书均已删除。
+
 ## P1：核心能力补全
 
 | 顺序 | Case | 缺口 | 完成条件 |
@@ -72,7 +90,7 @@ manifest 已清理；Registry 仅新增 rc.7 tag，存量未动。
 | 3 | `2.1-12`、`2.1-27`～`2.1-30` | 创建集群负向与恢复 | R6 已验证合法外部 IP/SAN、占用节点、Master/Worker 重复和非法端口/域名前置拒绝；仍需域名代理连通性、跨 Region、CIDR 冲突修复、完整主机预检及中断 retry/安全删除 |
 | 4 | `2.2-06`、`2.2-07`、`2.2-11`～`2.2-13` | 节点管理边界 | R6 已验证空闲 Agent drain/delete 后 join 恢复；仍需掉线注入、集群占用保护、Lease/证书残留、Agent 身份保护和 Region 约束；disable/enable 已在 R4 覆盖 |
 | 5 | `2.3-02`、`2.3-07`、`2.3-09` | 集群升级故障与可用性 | 注入中断后安全 retry；Registry tag 变化不影响固定 digest；滚动顺序、PDB 和业务连续性明确 |
-| 6 | `2.5-11` | Backup 详情查询 API | 已有 Backup 的 `GET /backups/{name}` 必须返回对应对象，不存在才返回 404；R5 复现已有 Backup 也 404，列表和集群范围查询不受影响 |
+| 6 | `2.5-11` | Backup 详情查询 API | **已闭环（R11，rc.8）**：已有 Backup 的 `GET /backups/{name}` 200 返回全字段（backupStatus/clusterNodes/preferredNode），不存在对象 404；列表和集群范围查询不受影响（见 checklist 2.5-11） |
 | 7 | `4-08`～`4-08d`、`4-18` | 用户、登录和 RBAC | R6 已完成临时 user/role CLI CRUD、重复名拒绝和正确密码登录；内置只读用户越权 403 通过，但自定义 role 登录后读取 Cluster/Node 仍 403，需修复绑定授权并补 enable/disable、验证码、Token 和限流闭环 |
 | 8 | `4-07` | Console 核心 E2E | 登录、建群、升级、备份、删除、Operation 进度和失败原因展示与 API 状态一致 |
 | 9 | `3-09`、`3-10`、`3-12`、`3-15`、`3-19`、`3-24`、`3-25`、`3-27` | 未覆盖或未闭环的 `kcctl` 命令 | R6 已补 get 资源扫尾、registry list/image/非法 push、drain、completion、无效升级包和部分登录/RBAC；仍需每条命令成功/典型失败闭环，修复 `get --watch`，补 cancel 自动收敛、valid registry 生命周期、login TLS 和 deploy config 优先级 |

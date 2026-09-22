@@ -519,3 +519,56 @@ r10-c1/c2/c3/final2）：
 （11 个 v2.0* tag 与升级前一致），存量未动；`/var/lib/kc-etcd` 未动；dev-2 临时 kcctl（r9/r10/
 doctor）、oci-publish 二进制、rc.6/rc.7 manifest 均已删除（§12.5 所述"临时 kcctl 已删除"在
 R9 当时未彻底，本轮补齐）。证据文件：dev-2 /tmp/r10-00～r10-final2（16 份）。
+
+### 12.7 R11 追加轮（2026-09-22）：rc.8 发布，B4 备份持久化删除流真机复验
+
+**修复**（`e9d9afeb`，随 rc.8 发布）：B4 备份删除与存储清理一致性。手动删除与 Cron 轮转统一
+进入持久化删除流程：新增 `deleting`/`deleteFailed` 状态并持久化删除 Operation 引用，Backup
+记录保留到删除 Operation Succeeded 才由 backupcontroller 移除；重复删除经 activeDeletionOp
+复用在途任务；删除任务用备份自身 BackupPointName 构造，不依赖集群当前默认备份点；终态失败
+穿透为新 retry（新 Operation）；恢复入口拒绝 deleting/deleteFailed；轮转过滤
+rotatable（available/deleteFailed）；DescribeBackup 按 URL name 查询修复 404。含单测。
+
+**发布链重建**：dev-2 /tmp 被例行清理（oci-publish/kcctl 旧二进制消失），本地交叉编译
+`tools/oci-publish` 与 `cmd/kcctl` 上传重建；Registry tag 查询 HEAD 须带
+`application/vnd.oci.image.index.v1+json` Accept（index digest `sha256:ba950f5a...` ≠
+platform manifest digest）。发布 `v2.0.3-rc.8`（只增 tag），三机升级 `kcctl upgrade all
+--manifest`，6 槽位 upgraded to revision `e9d9afebb2a8`，platform API 报 rc.8，doctor 25/25。
+
+**B4 九项复验**（集群 r11-b4-cluster，备份点 r11-bp，CronBackup 周期 */2）：
+
+1. 详情 2.5-11：已有 Backup `GET /backups/{name}` 200 全字段（backupStatus/clusterNodes/
+   preferredNode），不存在 404。
+2. 手动删除新流：status 置 `deleting` + `delete-operation-name` 标签可见 → 删除 Operation
+   Succeeded → 记录 404、FS 文件同步消失。
+3. 顺序重复删除幂等 200（复用在途任务，不建新 Operation）。
+4. 恢复守卫：deleting 窗口恢复 400（"backup ... is deleting now, can't recovery"）；
+   available 备份恢复 200 → RecoveryCluster Succeeded → 集群回 Running、节点 Ready（2.5-09）。
+5. 轮转 2.5-08：`maxBackupNum=2` 周期 Cron 连续 4+ 轮，Backup 记录与 FS 文件一一对应、无孤儿。
+6. S3 备份点全链路：seaweedfs S3 临时起于 dev-2（4.47，端口 19333/18081/8333，避开
+   kc-server/caddy 占用的 8080/18080），创建 available + 删除记录消失。
+7. 错误凭据/不存在 bucket（N4/2.5-10）：Operation 明确 Failed、Backup `error`、集群保持
+   Running 可再次备份。
+8. deleteFailed 主场景：S3 停机时删除 → `deleteFailed` 记录保留；S3 恢复后重试删除 → 新
+   Operation（`60738b78`）成功、记录消失。
+9. N7：合法 S3/FS 更新生效（bucket/endpoint 均可改）；带 scheme endpoint 400（"must be
+   host[:port] without a scheme"）；storage type 不可变（请求体须与存储值同用小写
+   `s3`/`fs`，大写即 400）。
+
+**已知边角**：同毫秒并发双 DELETE 同一备份，一个 200 一个 500（createOperationV2 冲突，
+日志无 reason）——无重复副作用、不影响一致性，记为低优先改进项。
+
+**测试配置记录（后续轮次可复用）**：备份点从 cluster label `kubeclipper.io/backupPoint`
+（驼峰、大小写敏感）读取，经 PUT cluster 打 label；创建备份 POST /clusters/{name}/backups
+仅需 metadata.name（响应名自动变为 {cluster}-{name}-{rand6}）；恢复 POST
+/clusters/{cluster}/recovery 用 `useBackupName` 字段；API 认证用
+/root/.kc/config 的 client-certificate-data（curl --cert/--key 合并 pem）；手工 JSON 建群
+缺 packagePlan 时 containerd 直连 registry.k8s.io 拉镜像超时卡死（kill kubeadm 需 -9），建群
+一律走 `kcctl create cluster`。
+
+终态清理：CronBackup/2 个残留备份/坏备份点/测试集群删除；三节点 kubeadm reset +
+`rm -rf /var/lib/etcd`（集群 etcd）+ `rm -rf /var/kc-backups-r11`；节点无 cluster 标签、
+Ready；doctor 25/25；Registry 仅增 rc.8 tag（12 个 v2.0* tag），存量未动；`/var/lib/kc-etcd`
+未动；dev-2 /tmp（seaweed-r11、weed socket、kc-r11-*、oci-publish-r8、kcctl-r8、
+seaweedfs.tar.gz）与 Mac /tmp（oci-publish*、wrapper、tar 等 9 个）全清；临时证书/token
+即用即删。checklist 2.5-04/08/09/10/11、gaps N4/N7 与 remediation plan B4 行已同步回填。
