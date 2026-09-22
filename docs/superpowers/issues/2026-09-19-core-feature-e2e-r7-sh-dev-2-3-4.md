@@ -706,3 +706,30 @@ rv→174911）、iptables（-D/-F/-X）全还原，baidu/github 200 复验外网
 146:5003 rules=3；平台 3 node Ready、healthz ok、无集群。共享 Registry 146:5003 只增 tag
 未动（caas4/* 原样），`/var/lib/kc-etcd` 未动。checklist 1.1-03/08/09/10、1.3-05、
 gaps P0 行 2/9 与 R13 段、remediation plan §6.3/§6.4 已同步回填。
+
+### 12.10 R14 代码轮（2026-09-22）：B6 发布门禁实施与 bootstrap SourceRevision 必填
+
+R13 §12.9 定性的 5003 rc.8 `sourceRevision=None` 成因（手工发布路径忘设 `KC_SOURCE_REVISION`
+时 publisher 静默接受空值）与 plan §7.3-3 的发布门禁缺口，本轮以代码收口（无真机操作）：
+
+**发布侧 fail closed**：`pkg/delivery/publisher` `Publish()` 对 bootstrap 类包在
+`SourceRevision` 为空时直接拒绝（错误信息指引 `KC_SOURCE_REVISION`）；消费侧 indexer 保持
+宽松兼容存量包，`upgrade fetchPlatformPackage` 对空 `sourceRevision` 增加 rollout 前告警。
+CI 与 bootstrap 脚本已设值不受影响；`oci-migrate`（legacy 迁移工具，不传 revision）迁移
+bootstrap 会被正确拒绝。单测 `TestPublishBootstrapRequiresSourceRevision`（缺 revision 拒绝/
+带 revision 落 `org.opencontainers.image.revision` 标签/非 bootstrap 兼容），
+`go test ./pkg/delivery/publisher/... ./pkg/cli/upgrade/...` 全绿。
+
+**B6 门禁**：`scripts/open-packaging/release-gate.sh`（稳定 tag 格式；qualification manifest
+契约 kind/version/sourceRevision/bootstrap artifact revision 与候选 SHA 全等；验收记录
+`docs/testing/acceptance/<SHA>.yaml` 存在、result: passed、release_manifest_sha256 与下载的
+qualification manifest 全等）+ 自测 `test-release-gate.sh` 11 例（1 正向+10 阻断）离线全绿。
+release workflow 新增 `release-gate` job：tag 未移动校验（`git rev-parse tag^{commit}` ==
+GITHUB_SHA）、Actions API 解析同 head_sha 成功 qualification run（无则阻断）、下载
+`oci-release-manifest-*` artifact、执行门禁脚本；`publish`/`build-cli` 均 `needs: release-gate`。
+验收记录格式与流程约定见 `docs/testing/acceptance/README.md`。制品 digest 校验职责保持在
+qualification（verify-release-manifest.sh）与发布后 manifest job，门禁只校验绑定。
+
+**关闭余量**：门禁正向放行/负向真机阻断（缺记录、错 SHA 的真实 release 触发）待下一候选
+发布轮；checklist 6-04 保持 ⚠️。文档同步：plan 头部 R13/R14 更新、B5/B6 表行、§7.6，
+checklist 6-04。

@@ -18,6 +18,15 @@ checklist 2.5-04/08/09/10/11 闭环、gaps N4/N7 关闭。**更新（R12，rc.8 
 B5 核心项真机闭环（认证 Registry 正向/负向、缓存篡改、断连恢复，见 §6.3 矩阵更新与
 gaps P0 行 8/9）——1.1-05/06、2.6-05/06 ✅，1.1-09 升 ⚠️，2.6-04 补充间接实证；B5 余量（纯离线
 bundle、arm64、公共 CA、join 入口、GITHUB_TOKEN 映射）与 B6 待实施。稳定版发布结论仍为 Blocked。**
+**更新（R13，rc.8 `e9d9afeb`，2026-09-22）**：qualification `secrets.GITHUB_TOKEN` 映射已实施
+（`d2ca8df8`，C1）；§6.3 纯离线 bundle 行、公共 CA 与 join 入口认证行真机闭环（见 §6.4 R13
+实施更新与 gaps P0 行 2/9）。**更新（R14，2026-09-22）**：B6 门禁机制已实施——
+`scripts/open-packaging/release-gate.sh`（fixture 自测 1 正向+10 阻断全绿）+ release workflow
+`release-gate` job（tag 绑定、同 SHA 成功 qualification 解析、manifest 契约与验收记录校验，
+publish/build-cli 均依赖门禁，见 §7.6）+ 验收记录目录 `docs/testing/acceptance/`（格式见其
+README）；发布侧 bootstrap 类包 `SourceRevision` 必填（fail closed，单测覆盖）+ 升级侧空
+revision 告警。门禁真实放行/阻断复验与首个验收记录待下一候选发布轮；B5 余量（平台重
+deploy、contents 篡改探针、部署侧断连、arm64）与稳定版发布结论仍为 Blocked。**
 
 > **决策记录（2026-09-20）**：B1 选择「实施」而非收缩承诺——平台升级按 OCI 契约改造
 > （`kcctl upgrade <component> --version/--manifest`，复用 ReleaseManifest/OCI fetcher/digest
@@ -51,8 +60,8 @@ revision，不能据此放行当前候选。R5/R6 故障来自已有实测记录
 | B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞 agent 侧根因已定位（R8） | 大部分关闭（2026-09-21，rc.6 复验：CIDR 校验含边界+主机冲突真机负向矩阵通过（checklist 2.1-28 ✅）、N8 饿死修复复验通过（无 10s 尾延迟、不饿死）、失败/删除收敛 R8 已验证；rc.7 复验：协作式 cancel 语义矩阵与 2.1-30 retry 通过（超时与重启注入子项除外）） |
 | B3   | 敏感配置权限                  | 写入代码与远端权限已确认                   | 大部分实施（2026-09-21：0600 写入自 batch-1 `a989b14f`；R9 补齐原子替换+拒绝符号链接+umask 无关性与 §4.4 回归测试；rc.7 远端复验：dev-2 两配置文件实测 0600） |
 | B4   | 备份删除、轮转和详情查询      | 已有失败记录；删除时序和查询参数问题已确认 | 已实施并复验（2026-09-22，rc.8 `e9d9afeb` 持久化删除流真机复验通过，见 §5.3 实施更新；已知边角：同毫秒并发双 DELETE 同一备份一个 500，无重复副作用，记低优先改进项）       |
-| B5   | OCI 真实消费矩阵              | 关键 E2E 未执行或未完整验收                | 待实施       |
-| B6   | 最终候选与发布门禁            | 候选错位已确认；最终候选验收未执行         | 待实施       |
+| B5   | OCI 真实消费矩阵              | 关键 E2E 未执行或未完整验收                | 大部分闭环（R12/R13：认证 Registry 正负向、缓存篡改、断连恢复、纯离线 bundle、公共 CA、join 认证已闭环；余量：平台重 deploy、contents 篡改探针、部署侧断连、arm64）       |
+| B6   | 最终候选与发布门禁            | 候选错位已确认；最终候选验收未执行         | 已实施（2026-09-22：`release-gate.sh`+release workflow `release-gate` job+验收记录约定，见 §7.6；真实发布轮放行/阻断复验待下一候选）       |
 
 现有清单中的旧 `--pkg`、`--online` 用例描述的是当前实现；实施 B1 时同步替换为本文确定的 OCI
 升级契约，保留 Case 编号，不把删除旧入口记作通过旧用例。Master 动态增删等不支持能力
@@ -457,6 +466,39 @@ CronBackup，旧程序的运行结果不能覆盖这些修复。
 
 同一候选的所有必要验收通过，正式产物与证据对应；稳定标签前置检查能实际阻断上述负向场景。
 支持边界明确，发布结论由可追溯证据决定，而不是由清单总通过率决定。
+
+### 7.6 实施更新（R14，2026-09-22）
+
+**§7.3-1/§7.3-3 已实施**：
+
+1. **发布侧 SourceRevision 必填**：`pkg/delivery/publisher` `Publish()` 对 `bootstrap` 类包
+   在缺少 `SourceRevision` 时直接拒绝（错误信息指引 `KC_SOURCE_REVISION`），堵住手工发布
+   路径（`tools/oci-publish` 读环境变量，忘设即空——5003 rc.8 包 `sourceRevision=None` 的
+   成因）静默产出无源包。消费侧（indexer）保持宽松以兼容存量包；`upgrade fetchPlatformPackage`
+   对空 `sourceRevision` 增加 rollout 前告警。CI（`_publish-oci-component.yml` 已设
+   `KC_SOURCE_REVISION=${{ github.sha }}`）与 bootstrap 脚本（`common.sh` 自动补 git HEAD）
+   不受影响；`oci-migrate`（不传 revision 的 legacy 迁移工具）迁移 bootstrap 会被正确拒绝。
+   单测 `TestPublishBootstrapRequiresSourceRevision`：缺 revision 拒绝、带 revision 落
+   `org.opencontainers.image.revision` 标签、非 bootstrap 类包保持兼容。
+2. **门禁脚本** `scripts/open-packaging/release-gate.sh`，任一不满足即阻断：①稳定 `vX.Y.Z`
+   tag；②qualification manifest 契约——kind=ReleaseManifest、metadata.version=tag、
+   metadata.sourceRevision=候选 SHA、bootstrap/kubeclipper artifact revision=候选 SHA；
+   ③验收记录 `docs/testing/acceptance/<候选SHA>.yaml` 存在且 candidate_sha 匹配、
+   `result: passed`、release_manifest_sha256 与下载的 qualification manifest sha256 全等、
+   可选 release_tag 匹配。制品 digest 校验保持在 qualification（`verify-release-manifest.sh`）
+   与发布后 manifest job，门禁只校验绑定。自测 `test-release-gate.sh` 11 例
+   （正向+缺记录/失败结果/候选错位/校验和不符/manifest revision 错/版本错/bootstrap
+   revision 错/非稳定 tag/记录 tag 错/缺 manifest 全阻断）全绿，离线可跑。
+3. **release workflow 接线**：新增 `release-gate` job——checkout 全历史校验 tag 未移动
+   （tag commit == GITHUB_SHA）、Actions API 解析同 head_sha 的成功
+   `publish-oci-qualification.yml` 运行（无则阻断）、下载其 `oci-release-manifest-*` artifact、
+   执行门禁脚本；`publish` 与 `build-cli` 均 `needs: release-gate`（manifest、github-release
+   传递依赖），缺记录/错 SHA/qualification 失败时发布不再继续。
+4. **验收记录约定**：`docs/testing/acceptance/README.md` 定义记录格式与流程（qualification
+   成功 → 同 SHA 构建上执行验收轮 → 记录落库 → 稳定 tag）；`result: failed` 的记录同样阻断。
+
+**关闭余量**：门禁正向放行与负向真机阻断（缺记录/错 SHA 的真实 release 触发）待下一候选
+发布轮验证，届时产生首个真实验收记录；对应 checklist 6-04 保持 ⚠️ 直至该轮完成。
 
 ## 8. 实施顺序、评审拆分与完成标准
 
