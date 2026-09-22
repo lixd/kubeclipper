@@ -635,3 +635,74 @@ registry-gets.log、registry-full-neg5.log、key-lines.txt，无凭据内容）�
 146:5003 只读未动（_catalog 35 repos 与 caas4/* 原样），`/var/lib/kc-etcd` 未动。
 checklist 1.1-05/06/09/10、2.6-04/05/06、gaps P0 行 8/9 与 R12 段、remediation plan 状态行
 与 §6.3/§6.4 已同步回填。
+
+### 12.9 R13 追加轮（2026-09-22）：R12 余量专项——token 映射、1.1-09 收口、公共 CA 等价、join 认证、纯离线 bundle
+
+范围经用户批准（C1～C6；arm64 用户明确排除）。rc.8（`e9d9afeb`）三机，除 C1 外零代码改动，
+纯消费侧验收。
+
+**C1（qualification workflow）**：`publish-oci-qualification.yml` sync job 补 `secrets.GITHUB_TOKEN`
+映射，发布临时凭据文件 0600+清理（commit `d2ca8df8`）。
+
+**C2（1.1-09 收口）**：探针注入点统一为 deploy-config ConfigMap `.packageRegistry`（resolve
+每次实时读 delivery json，indexer 缓存按 registry 地址键控）。①错误仓库地址（:9999 死端口）：
+CLI EXIT=1 报 dial refused（https→http 双路）+ "no valid cri-version"；API 500 透传原始传输
+错误——质量低于 400 typed 路径，记录观察项。②缺失制品（空仓库 5000，rules=0）：CLI 本地
+guard EXIT=1；API 400 `ArtifactNotPublished: artifact k8s/k8s:v1.35.8 is not published`。
+③修正后重试：PUT 回 5003 → componentmeta rules=3 → 同 payload POST 建群 200（探针集群随后
+删除）。零集群/操作残留。附带清理了 R12 遗留 `.r12bak` 文件。
+
+**C3（1.1-10 公共 CA 等价）**：自签 r13-kc-test-ca（3 天效期，SAN=IP 172.16.131.208+DNS
+sh-dev-2）加入三节点系统信任库，`package-registry.json` **零凭据零 CA 字段**（等价公共 CA
+环境），7443 TLS-only registry → 探针集群 r13-ca 建群 Running，纯 TLS 拉取 231 次
+（208=218/146=13）走系统信任池，etcd tags/list 404 属预期。**运维发现：Go crypto/x509
+首用时加载并进程内缓存系统根池——加 CA 前启动的 kc-server/kc-agent 报 500 x509 unknown
+authority，`systemctl restart kc-server kc-agent`（三节点各 agent）后立即恢复；向系统信任库
+加 CA 后必须重启平台进程。**
+
+**C4（1.3-05 join 认证）**：drain 230 → 8443 HTTPS+htpasswd（r13，bcrypt）→ r13-auth
+两节点集群认证拉取 → join 230 下发 0600 `package-registry.json` → PUT /clusters/r13-auth/
+nodes 扩容 230 → agent **直连**认证拉取 9×200（auth.user.name=r13）→ k8s 三节点 Ready。
+错误口令 join：EXIT=1 可读 `UNAUTHORIZED: authentication required`，**零部分安装**（agent
+二进制/服务均未创建）。过程发现：①join 多网卡 precheck 对显式 `first-found` 仍报
+"--ip-detect not specified"（sudo.go:131 判断 ipDetect != "" && != MethodFirst 才豁免），
+后台交互确认 EOF → FATAL；合法语法 `--ip-detect interface=ens3`（`ifname=` 无效）。②嵌套
+SSH 多层引号内插剥引号 → agent 端 JSON 解析失败（r13-auth 首跑 InstallFailed 根因）；跨节点
+写配置应 base64/python 落盘。
+
+**C5（1.1-03/08 纯离线 bundle）**：5003 export（skopeo --preserve-digests，5 制品 368MB；
+重写 bundled manifest digest 为单 manifest 子 digest：bootstrap ba950f5a→836f20d5）→ scp
+离线拷贝+sha256 校验 → 空白 9443 import ×2，Inventory 逐字节全等。iptables OUTPUT 专用链
+R13_OFFLINE（两节点；lo/RFC1918/ESTABLISHED RETURN，其余 REJECT）：外网 DNS/连接全拒
+（REJECT 计数 dev-2=329/dev-3=269 包，含 6×bootstrap/etcd tags 探测 404 属预期），
+146:5003 与 208:9443 均 200。ConfigMap+三节点 0600 json 切 9443 → componentmeta 9443 →
+r13-bundle 建群 Running（10:52:17 起 ~6 分钟；9443 拉取 183 条：208=171/146=12，五类仓库
+全覆盖，177×200+6×404）；2 节点 Ready，calico-apiserver×2/calico-node×2/typha/controllers/
+csi 全 Running，无非 Running pod。**Addon**：componentmeta addons 仅平台自带四类
+（cni calico×2/cri containerd/k8s/k8s-extension）——bundle 无第三方 addon 包，addon 生态
+不在 release manifest 制品范围（已知边界）。`kcctl delete cluster r13-bundle` 清空。
+
+**升级（同轮验证，防护双拦截）**：①bundled manifest（digest 836f20d5）对 5003 tag
+（实际 ba950f5a）：EXIT=1 "refusing to upgrade from a repointed tag"——digest 防护在触碰
+节点前生效；②retarget 9443：rollout 6 节点完成（备份 mtime 实证 `cp -a` 保留；节点级
+stop→backup→install→start），平台 Healthy/healthz 200，最终校验 EXIT=1：平台 API 报
+e9d9afe ≠ manifest 期望 e9e95f4。**根因（非升级缺陷）**：5003 rc.8 包 `kc-package-manifest.json`
+sourceRevision=None（publisher 仅在非空时写 revision 标签/标签链），包内二进制实际构建自
+e9d9afe（BuildDate 2026-09-22T01:53:53Z；与升级前平台二进制 md5 逐字节相同：staged==backup==
+installed），而 release manifest 手写声明 e9e95f4 → 制品元数据缺失使 entry 级校验（空
+sourceRevision 放行）无从比对，rollout 后平台 API 比对成为唯一防线并正确拦截。
+防再发：发布时设 `KC_SOURCE_REVISION`（`verify_core_binary_metadata` 强校验三二进制
+gitCommit 与声明一致）；建议 bootstrap 类包 SourceRevision 必填。勘误：早期记录"agent
+version 报 e9e95f4"系误读升级日志 `(revision e9e95f4cff4e)` 回显（该值为 manifest 目标，
+非二进制内容）。
+
+**终态清理**：r13-kc-test-ca 三节点信任库移除+`update-ca-certificates --fresh` 复验 bundle
+0 命中；7443/8443/9443 测试 registry 停止+`/tmp/r13-reg*`（含 htpasswd、口令文件、数据）
+删除；`/tmp/r13-ca`（CA 私钥）、`/tmp/.r13-cert.*`（API 客户端证书）、`/tmp/r13-bundle*`、
+`/tmp/kubeclipper-upgrade`（staging+备份）、dev-3 `/tmp/r13-bundle-work`、`/tmp/r13-import1`、
+230 残留全部删除；`/tmp/r13-evidence/` 存档并脱敏（basic-auth b64 → `[REDACTED]`），另拷贝
+至工作区 `r13-raw-evidence/`；配置（三节点 0600 json → 146:5003）、ConfigMap（PUT 200，
+rv→174911）、iptables（-D/-F/-X）全还原，baidu/github 200 复验外网恢复；componentmeta 复验
+146:5003 rules=3；平台 3 node Ready、healthz ok、无集群。共享 Registry 146:5003 只增 tag
+未动（caas4/* 原样），`/var/lib/kc-etcd` 未动。checklist 1.1-03/08/09/10、1.3-05、
+gaps P0 行 2/9 与 R13 段、remediation plan §6.3/§6.4 已同步回填。

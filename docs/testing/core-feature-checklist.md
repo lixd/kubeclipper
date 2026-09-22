@@ -33,14 +33,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 |---|---|---|---|
 | 1.1-01 | 在线部署：默认 ghcr 直装 | ⚠️ | 预检✅；从未真从 ghcr 直装（都先 sync） |
 | 1.1-02 | 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） |
-| 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ❌ | 脚本 CI 绿，真机未演练；必须在断公网环境验证 |
+| 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ✅ | R13-C5（2026-09-22，rc.8 三机）：5003 export（skopeo --preserve-digests，5 制品 368MB）→ scp 离线拷贝 → 空白 9443 registry import ×2 → iptables 断公网（外网 DNS/连接全 REJECT，REJECT 计数实证）→ componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖），calico/coredns 全 Running |
 | 1.1-04 | 私有仓库 http | ✅ | R3 全程 :5003 |
 | 1.1-05 | 私有仓库 https + 自签 CA | ✅ | R12（2026-09-22，rc.8 三机）：dev-2 自建 distribution 3.0.0（HTTPS+自签 CA SAN=IP），三节点 `package-registry.json`（0600）配 CA 后建群成功、三节点 Ready，agent 真实拉取 |
-| 1.1-06 | Package Registry 账号密码认证（deploy/join/agent 消费侧） | ✅ | R12：htpasswd 基本认证；正确凭据建群成功；错误密码 → Operation Failed、错误消息 `UNAUTHORIZED: authentication required`（不含凭据），修正后 retry Succeeded；日志/operation 全文 grep 错误与真实密码均 0 泄漏 |
+| 1.1-06 | Package Registry 账号密码认证（deploy/join/agent 消费侧） | ✅ | R12：htpasswd 基本认证；正确凭据建群成功；错误密码 → Operation Failed、错误消息 `UNAUTHORIZED: authentication required`（不含凭据），修正后 retry Succeeded；日志/operation 全文 grep 错误与真实密码均 0 泄漏。R13-C4 补 join 入口：join 下发 0600 凭据、扩容节点 agent 直连认证拉取 9×200、错误口令 join EXIT=1 可读报错零残留 |
 | 1.1-07 | `registry sync` 重复同步幂等 | ✅ | R3：5 copied / 56 skipped；digest 不变 |
-| 1.1-08 | 离线 bundle 重复 import 幂等 | ❌ | 不得以已验证的 sync 代替 import |
-| 1.1-09 | 错误仓库地址、凭据、CA 或缺失制品 | ⚠️ | R12 覆盖凭据/CA 两类：错误密码→`UNAUTHORIZED` 明确失败、retry 可恢复；未信 CA→`x509: certificate signed by unknown authority` 明确失败；均不泄凭据。错误仓库地址、缺失制品仍待测 |
-| 1.1-10 | HTTPS 私有仓库 + 公共 CA | ⚠️ | R12 实证自签 CA 路径 TLS 校验生效（未配 CA 即 x509 拒绝，未用 skip verify）；公共 CA 环境未单独立项 |
+| 1.1-08 | 离线 bundle 重复 import 幂等 | ✅ | R13-C5：空白 9443 连续 import ×2，两次 Inventory 对比逐字节全等（digest 不变） |
+| 1.1-09 | 错误仓库地址、凭据、CA 或缺失制品 | ✅ | 四类全闭环：凭据/CA=R12（UNAUTHORIZED/x509 明确失败、retry 可恢复、不泄凭据）；错误仓库地址=R13-C2 探针 A（dial refused 明确失败、零残留；服务端 500 透传原始错误，质量低于 400 typed 路径，已记录观察项）；缺失制品=R13-C2 探针 B（空仓库 rules=0 → `ArtifactNotPublished` typed 400）；修正后重试（PUT 回 5003 → 建群成功→删除）R13-C2 实证 |
+| 1.1-10 | HTTPS 私有仓库 + 公共 CA | ✅ | R13-C3（2026-09-22）：自签 CA 加入三节点系统信任库（等价公共 CA：凭据文件零配置，`package-registry.json` 不配 ca 字段）→ 探针集群建群 Running，纯 TLS 拉取 231 次走系统信任池；未信 CA 路径 R12 已证 x509 拒绝。**运维发现：向系统信任库加 CA 后必须 `systemctl restart kc-server kc-agent`**——Go crypto/x509 首用时加载并进程内缓存系统根池，重启前 componentmeta 500 x509 unknown authority，重启后即恢复 |
 
 ### 1.2 部署拓扑
 
@@ -62,7 +62,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-02 | etcd 冷启动竞态（写探针+重试） | ✅ | R3 |
 | 1.3-03 | clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
 | 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：预检明确拒绝且平台 Healthy；R7 在新候选上复测一致（`kc-etcd.service already exists`），平台保持 Healthy |
-| 1.3-05 | `kcctl join` 独立纳管新节点 | ⚠️ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready；重复 join、认证失败、自签 CA 和失败清理未测 |
+| 1.3-05 | `kcctl join` 独立纳管新节点 | ✅ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready。R13-C4（2026-09-22）补认证/负向：join 下发 0600 `package-registry.json`（凭据经 base64 落盘）、被加入节点直连认证拉取、错误口令 join EXIT=1 可读 `UNAUTHORIZED` 且零部分安装；多网卡需 `--ip-detect interface=<nic>`（first-found 触发交互确认，后台 EOF 崩溃，见 R13-C4 过程发现） |
 | 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
 | 1.3-07 | **`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）** | ✅ | B1 E2E（2026-09-20，R7 报告 §11）：三机 server+agent 实际升级 rc.3→`057f45e1`，逐台 stop→backup→install→start→healthz，成功后 staging 清理；错 digest/repointed tag 在触碰节点前拒绝；升级后 Healthy、doctor 25/25、配置数据保留 |
 | 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |

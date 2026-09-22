@@ -371,8 +371,8 @@ qualification 的 sync job 使用 `$GITHUB_TOKEN`，但未在该 job/step 显式
 
 | 环境或故障                       | 执行范围                                                              | 验收断言                                           |
 | -------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------- |
-| 纯离线                           | export、拷贝、import、重复 import；断公网 deploy→建群→Addon→升级→删除 | 留存公网封锁证据；无外网依赖；重复导入 digest 不变。**未执行** |
-| HTTPS 公共 CA、自签 CA、账号密码 | deploy、独立 join、Agent 真实拉取                                     | 证书校验生效，正确凭据成功；错误 CA/密码明确拒绝。**R12 已执行（自签 CA+账号密码，2026-09-22，rc.8 三机）**：①自建 distribution 3.0.0 HTTPS+自签 CA+htpasswd，`registry sync` 从 HTTP 共享源镜像 6 artifact（digest 一致）；②三节点 0600 配置+deploy-config 双侧切换动态生效，建群 Succeeded、三节点 Ready、agent 真实拉取；③错误密码 → `UNAUTHORIZED` 明确失败、零凭据泄漏、修正后 retry Succeeded；④未配 CA → `x509: certificate signed by unknown authority` 明确拒绝。**余量：公共 CA 环境、join 入口独立证据** |
+| 纯离线                           | export、拷贝、import、重复 import；断公网 deploy→建群→Addon→升级→删除 | 留存公网封锁证据；无外网依赖；重复导入 digest 不变。**R13 已执行（2026-09-22，rc.8 三机；arm64 用户明确排除）**：5003 export（skopeo --preserve-digests，5 制品 368MB，bootstrap index digest 重写为子 manifest digest）→ scp 离线拷贝+sha256 校验 → 空白 9443 import ×2 Inventory 逐字节全等 → iptables OUTPUT 专用链断公网（外网 DNS/连接全 REJECT，REJECT 计数 dev-2=329/dev-3=269 包）→ ConfigMap+三节点 0600 json 切 9443 → componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖）→ calico/coredns 全 Running → 删除清空。升级经 bundle manifest 实证防护双拦截：digest 不一致拒（repointed tag 防护）+ rollout 后 revision 比对拒（5003 rc.8 包 sourceRevision=None 且包内二进制实际构建 e9d9afe 而 manifest 声明 e9e95f4——制品元数据缺失，非升级缺陷；发布侧防再发 KC_SOURCE_REVISION 强校验）。**余量：平台本体从 bundle 重新 deploy 未单独重跑（平台已运行 rc.8，同源制品经 upgrade --manifest 消费）；bundle 无第三方 addon 包（componentmeta addons 仅平台自带四类）** |
+| HTTPS 公共 CA、自签 CA、账号密码 | deploy、独立 join、Agent 真实拉取                                     | 证书校验生效，正确凭据成功；错误 CA/密码明确拒绝。**R12 已执行（自签 CA+账号密码，2026-09-22，rc.8 三机）**：①自建 distribution 3.0.0 HTTPS+自签 CA+htpasswd，`registry sync` 从 HTTP 共享源镜像 6 artifact（digest 一致）；②三节点 0600 配置+deploy-config 双侧切换动态生效，建群 Succeeded、三节点 Ready、agent 真实拉取；③错误密码 → `UNAUTHORIZED` 明确失败、零凭据泄漏、修正后 retry Succeeded；④未配 CA → `x509: certificate signed by unknown authority` 明确拒绝。**R13 已执行（公共 CA 等价+join 入口，2026-09-22）**：⑤自签 CA 加入三节点系统信任库（等价公共 CA：`package-registry.json` 零凭据零 CA 字段）→ 7443 TLS-only 建群 Running、TLS 拉取 231 次走系统信任池；运维发现 Go x509 进程内缓存系统根池，加 CA 后必须重启 kc-server/kc-agent；⑥join 入口：auth registry 8443 下 join 下发 0600 凭据、被加入节点直连认证拉取 9×200、错误口令 EXIT=1 可读报错零部分安装 |
 | 拉取途中断连、恢复仓库           | 平台部署和集群消费失败后恢复                                          | 错误可观察、修复后可重试，无半成品被误用。**R12 已执行（集群消费侧，rc.8 三机）**：retry 中途 kill registry → `connection refused` 明确失败（在途请求经 graceful shutdown 完成）→ registry 恢复后 retry → 三节点 k8s 包全部从头重拉（56MB layer ×3）、Succeeded、集群 Running；半成品缓存未被信任。**余量：平台部署侧断连注入** |
 | 缓存篡改、digest 不符            | 已拉取节点再次消费                                                    | 校验拒绝，不回退到可变 tag，不执行错误内容。**R12 已执行（最小探针，rc.8 三机）**：master `charts.tgz` 翻一字节 → `validCachedHelmChart` payloadDigest 拒绝 → digest-pinned 重拉 → sha 恢复原值、Operation Succeeded；包 contents 路径同构校验（`loadCachedComponent` 逐文件 digest）。**余量：包 contents 路径的等价真机探针** |
 | amd64/arm64 及正式 OS            | 实际安装、最小集群和清理                                              | 架构、版本、Node/Pod 健康与清理结果正确。**未执行** |
@@ -385,6 +385,17 @@ qualification 的 sync job 使用 `$GITHUB_TOKEN`，但未在该 job/step 显式
 （`172.16.131.208:8443`，自签 CA SAN=IP、htpasswd）；测试凭据/证书/数据即用即删，共享 Registry
 （146:5003）与平台 etcd 数据目录未动。qualification workflow 的 `secrets.GITHUB_TOKEN` 映射
 （本节 CI 小修复）仍未实施。
+
+**实施更新（R13，2026-09-22，rc.8 `e9d9afeb` 三机）**：qualification workflow `secrets.GITHUB_TOKEN`
+映射+发布临时文件 0600/清理已实施（commit `d2ca8df8`，C1）；§6.3 矩阵"纯离线"行与
+"HTTPS 公共 CA/自签 CA/账号密码"行的公共 CA 等价验证、join 入口认证均真机闭环
+（明细见矩阵内 R13 标注）。R13 环境记录：dev-2 三个测试 registry（7443 TLS-only/8443
+TLS+htpasswd/9443 纯 HTTP，r13-kc-test-ca 3 天效期 SAN=IP）；终态清理：测试 CA 三节点信任库
+移除并 update-ca-certificates 复验 0、三个 registry 停止+数据删除、全部 /tmp r13 临时产物
+（含 CA 私钥、API 客户端证书、8443 口令文件）删除、证据日志存档并脱敏 basic-auth；
+配置/ConfigMap/iptables 全还原；共享 Registry（146:5003）与平台 etcd 数据目录未动。
+**矩阵余量**：平台本体从 bundle 重新 deploy、包 contents 路径真机篡改探针、平台部署侧断连注入、
+arm64 真机（用户明确排除）。
 
 每个声明支持的矩阵项都有真实通过证据；环境缺失项保持未验收，不用构建结果代替。
 每条记录至少包含以下字段，配置和日志先脱敏：
