@@ -572,3 +572,66 @@ Ready；doctor 25/25；Registry 仅增 rc.8 tag（12 个 v2.0* tag），存量�
 未动；dev-2 /tmp（seaweed-r11、weed socket、kc-r11-*、oci-publish-r8、kcctl-r8、
 seaweedfs.tar.gz）与 Mac /tmp（oci-publish*、wrapper、tar 等 9 个）全清；临时证书/token
 即用即删。checklist 2.5-04/08/09/10/11、gaps N4/N7 与 remediation plan B4 行已同步回填。
+
+### 12.8 R12 追加轮（2026-09-22）：B5 认证 Registry 与缓存故障真机验证
+
+范围经用户批准：认证 Registry 正/负向、断连重头拉、最小化篡改探针；纯离线/arm64/GITHUB_TOKEN
+与 B6 留待后续。rc.8（`e9d9afeb`）三机，零代码改动，纯消费侧验收。
+
+**环境**：dev-2 自建 distribution 3.0.0，`172.16.131.208:8443`，HTTPS 自签证书（CN/SAN=
+IP 172.16.131.208 + DNS sh-dev-2）+ htpasswd（r12user，24 位随机 bcrypt 密码）。Mac 经
+ghproxy 拉取二进制（直连 GitHub 不可用）。`kcctl registry sync` 从共享 146:5003（HTTP，
+go-containerregistry 自动 HTTP 回退实测可用）镜像 6 artifact → 6 copied/0 skipped，
+digest 逐项一致（sync 即 1.1-02 性质证据）。ReleaseManifest 顶层 sourceRevision 与
+bootstrap/kubeclipper 一致（e9e95f4），全部 target 带 tag。
+
+**① 正向（1.1-05/06）**：三节点 `/etc/kubeclipper-{server,agent}/delivery/package-registry.json`
+（0600：registry/scheme=https/username/password/ca）+ deploy-config ConfigMap
+`packageRegistry` 双侧切换，动态生效无重启。r12-auth-cluster 建群 Operation Succeeded
+（15 步）、集群 Running、三节点 Ready=True；registry 日志三节点真实拉取（blob GET
+208=54/146=12/230=12），6 artifact manifest 各 8 次 GET。换 registry → 缓存按 Transport 键
+miss 全量重拉，符合设计。
+
+**② 错误密码负向（1.1-09 部分）**：dev-4 密码改错+清缓存 → r12-neg1 建群 Operation Failed，
+错误消息 `GET https://172.16.131.208:8443/v2/kubeclipper/packages/cri/containerd/manifests/
+sha256:4feac2b3...: UNAUTHORIZED: authentication required`（URL 定位、无凭据）；registry 侧
+230 的 manifest GET 携带凭据仍 401（`invalid authorization credential`）；三节点
+`/var/logs/kubeclipper` + journalctl（kc-server/kc-agent）grep 错误密码与真实密码均 0 命中。
+恢复配置后 `operation retry` → Succeeded、集群 Running（同时实证 Failed 态 retry：失败任务
+重跑 7s 真实拉取，成功任务不重做）。
+
+**③ 未信 CA 负向（1.1-09 部分）**：dev-3 配置去掉 CA → r12-neg5 建群失败，dev-3 拉取任务
+[1s] `Get "https://...": tls: failed to verify certificate: x509: certificate signed by
+unknown authority`（附 HTTP 回退得 400 `Client sent an HTTP request to an HTTPS server`），
+无凭据泄漏。
+
+**④ 缓存篡改探针（2.6-05）**：master（dev-2）calico chart 缓存 `charts.tgz` 翻一字节
+（sha256 3486055d→eb2eb525，`.source.json` payloadDigest 仍为原值）→ 删除集群（篡改文件跨
+删除幸存：chart 缓存不受 uninstall `CleanupPackage` 影响）→ 重建 r12-neg4：calico 安装步
+`validCachedHelmChart` 校验拒绝 → digest-pinned 重拉（registry `GET /v2/kubeclipper/charts/
+tigera-operator/blobs/sha256:3486055d... 200`，06:01:52）→ sha 恢复 3486055d、Operation
+Succeeded、集群 Running。包 contents 路径的同构校验在代码确认（`loadCachedComponent` 逐文件
+`packageFilePayloadDigest` 对照 + `validatePulledImageDigest`），真机行为由 chart 路径与
+Transport 换源全量重拉间接实证。
+
+**⑤ 断连与恢复（2.6-06）**：neg5（CA 已恢复）retry 中途 kill registry：在途 containerd 拉取
+经 distribution graceful shutdown 完成（manifest mtime 06:06:31），其余任务
+`dial tcp 172.16.131.208:8443: connect: connection refused`（https/http 双路）明确失败；
+registry 重启后再次 retry → 三节点 k8s 包全部从头重拉（manifest+56MB layer ×3，
+06:07:53），半成品/部分缓存未被信任，Operation Succeeded、集群 Running、三节点 Ready。
+
+**行为记录**：删除集群时 uninstall 步骤对该集群组件执行 `CleanupPackage`（k8s/CRI/k8s-ext
+包目录 RemoveAll），bootstrap 包豁免（etcd/kubeclipper 缓存跨删除幸存且建群不重拉——bootstrap
+非建群消费路径，46 次 manifest GET 为 server 侧 inventory 解析）；calico chart 仅 master
+消费，worker 上的 chart 缓存为死存储。
+
+**终态清理**：全部测试集群删除（r12-auth-cluster/neg1～neg5），三节点 cluster 标签 free、
+Ready=True；三节点 server/agent 配置从 `.r12bak` 还原（registry=146:5003）；deploy-config
+ConfigMap `packageRegistry` 还原 146:5003（PUT 200 复读确认）；测试 registry 进程停止，
+dev-2 `/tmp/registry-r12`、`/tmp/r12-api` 与全部临时密码/证书文件删除（正/错密码临时 json、
+CA/证书/key）；Mac `/tmp/r12-auth`（证书/htpasswd/密码）、`/tmp/kcctl-r12`、
+`/tmp/registry-mirror.tar.gz` 删除；证据留存 dev-2 `/tmp/r12-evidence/`（nodes.json、
+registry-gets.log、registry-full-neg5.log、key-lines.txt，无凭据内容）。共享 Registry
+146:5003 只读未动（_catalog 35 repos 与 caas4/* 原样），`/var/lib/kc-etcd` 未动。
+checklist 1.1-05/06/09/10、2.6-04/05/06、gaps P0 行 8/9 与 R12 段、remediation plan 状态行
+与 §6.3/§6.4 已同步回填。

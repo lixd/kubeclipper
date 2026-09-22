@@ -14,7 +14,10 @@ B2 大部分关闭（2026-09-21：失败/删除收敛与 N8 饿死修复经 E2E+
 协作式 cancel 语义矩阵与 2.1-30 retry 真机验收通过（超时、重启注入子项除外，见 §3.2），
 N9 修复复验通过。B4～B6 待实施。稳定版发布结论仍为 Blocked。**更新（R11，rc.8 `e9d9afeb`，
 2026-09-22）**：B4 已实施并真机复验通过——持久化删除流九项证据（见 §5.3 实施更新），
-checklist 2.5-04/08/09/10/11 闭环、gaps N4/N7 关闭。B5～B6 待实施。稳定版发布结论仍为 Blocked。**
+checklist 2.5-04/08/09/10/11 闭环、gaps N4/N7 关闭。**更新（R12，rc.8 `e9d9afeb`，2026-09-22）**：
+B5 核心项真机闭环（认证 Registry 正向/负向、缓存篡改、断连恢复，见 §6.3 矩阵更新与
+gaps P0 行 8/9）——1.1-05/06、2.6-05/06 ✅，1.1-09 升 ⚠️，2.6-04 补充间接实证；B5 余量（纯离线
+bundle、arm64、公共 CA、join 入口、GITHUB_TOKEN 映射）与 B6 待实施。稳定版发布结论仍为 Blocked。**
 
 > **决策记录（2026-09-20）**：B1 选择「实施」而非收缩承诺——平台升级按 OCI 契约改造
 > （`kcctl upgrade <component> --version/--manifest`，复用 ReleaseManifest/OCI fetcher/digest
@@ -368,13 +371,20 @@ qualification 的 sync job 使用 `$GITHUB_TOKEN`，但未在该 job/step 显式
 
 | 环境或故障                       | 执行范围                                                              | 验收断言                                           |
 | -------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------- |
-| 纯离线                           | export、拷贝、import、重复 import；断公网 deploy→建群→Addon→升级→删除 | 留存公网封锁证据；无外网依赖；重复导入 digest 不变 |
-| HTTPS 公共 CA、自签 CA、账号密码 | deploy、独立 join、Agent 真实拉取                                     | 证书校验生效，正确凭据成功；错误 CA/密码明确拒绝   |
-| 拉取途中断连、恢复仓库           | 平台部署和集群消费失败后恢复                                          | 错误可观察、修复后可重试，无半成品被误用           |
-| 缓存篡改、digest 不符            | 已拉取节点再次消费                                                    | 校验拒绝，不回退到可变 tag，不执行错误内容         |
-| amd64/arm64 及正式 OS            | 实际安装、最小集群和清理                                              | 架构、版本、Node/Pod 健康与清理结果正确            |
+| 纯离线                           | export、拷贝、import、重复 import；断公网 deploy→建群→Addon→升级→删除 | 留存公网封锁证据；无外网依赖；重复导入 digest 不变。**未执行** |
+| HTTPS 公共 CA、自签 CA、账号密码 | deploy、独立 join、Agent 真实拉取                                     | 证书校验生效，正确凭据成功；错误 CA/密码明确拒绝。**R12 已执行（自签 CA+账号密码，2026-09-22，rc.8 三机）**：①自建 distribution 3.0.0 HTTPS+自签 CA+htpasswd，`registry sync` 从 HTTP 共享源镜像 6 artifact（digest 一致）；②三节点 0600 配置+deploy-config 双侧切换动态生效，建群 Succeeded、三节点 Ready、agent 真实拉取；③错误密码 → `UNAUTHORIZED` 明确失败、零凭据泄漏、修正后 retry Succeeded；④未配 CA → `x509: certificate signed by unknown authority` 明确拒绝。**余量：公共 CA 环境、join 入口独立证据** |
+| 拉取途中断连、恢复仓库           | 平台部署和集群消费失败后恢复                                          | 错误可观察、修复后可重试，无半成品被误用。**R12 已执行（集群消费侧，rc.8 三机）**：retry 中途 kill registry → `connection refused` 明确失败（在途请求经 graceful shutdown 完成）→ registry 恢复后 retry → 三节点 k8s 包全部从头重拉（56MB layer ×3）、Succeeded、集群 Running；半成品缓存未被信任。**余量：平台部署侧断连注入** |
+| 缓存篡改、digest 不符            | 已拉取节点再次消费                                                    | 校验拒绝，不回退到可变 tag，不执行错误内容。**R12 已执行（最小探针，rc.8 三机）**：master `charts.tgz` 翻一字节 → `validCachedHelmChart` payloadDigest 拒绝 → digest-pinned 重拉 → sha 恢复原值、Operation Succeeded；包 contents 路径同构校验（`loadCachedComponent` 逐文件 digest）。**余量：包 contents 路径的等价真机探针** |
+| amd64/arm64 及正式 OS            | 实际安装、最小集群和清理                                              | 架构、版本、Node/Pod 健康与清理结果正确。**未执行** |
 
 ### 6.4 关闭条件与证据格式
+
+**实施更新（R12，2026-09-22，rc.8 `e9d9afeb` 三机）**：§6.3 矩阵的"自签 CA+账号密码""拉取途中
+断连""缓存篡改"三行已在真机闭环（明细见矩阵内 R12 标注与
+[gaps P0 行 8/9](round-2026-09-gaps.md)）。R12 环境记录：dev-2 distribution 3.0.0
+（`172.16.131.208:8443`，自签 CA SAN=IP、htpasswd）；测试凭据/证书/数据即用即删，共享 Registry
+（146:5003）与平台 etcd 数据目录未动。qualification workflow 的 `secrets.GITHUB_TOKEN` 映射
+（本节 CI 小修复）仍未实施。
 
 每个声明支持的矩阵项都有真实通过证据；环境缺失项保持未验收，不用构建结果代替。
 每条记录至少包含以下字段，配置和日志先脱敏：

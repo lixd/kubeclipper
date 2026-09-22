@@ -35,12 +35,12 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.1-02 | 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） |
 | 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ❌ | 脚本 CI 绿，真机未演练；必须在断公网环境验证 |
 | 1.1-04 | 私有仓库 http | ✅ | R3 全程 :5003 |
-| 1.1-05 | 私有仓库 https + 自签 CA | ❌ | |
-| 1.1-06 | Package Registry 账号密码认证（deploy/join/agent 消费侧） | ❌ | sync 源认证✅，部署侧未测 |
+| 1.1-05 | 私有仓库 https + 自签 CA | ✅ | R12（2026-09-22，rc.8 三机）：dev-2 自建 distribution 3.0.0（HTTPS+自签 CA SAN=IP），三节点 `package-registry.json`（0600）配 CA 后建群成功、三节点 Ready，agent 真实拉取 |
+| 1.1-06 | Package Registry 账号密码认证（deploy/join/agent 消费侧） | ✅ | R12：htpasswd 基本认证；正确凭据建群成功；错误密码 → Operation Failed、错误消息 `UNAUTHORIZED: authentication required`（不含凭据），修正后 retry Succeeded；日志/operation 全文 grep 错误与真实密码均 0 泄漏 |
 | 1.1-07 | `registry sync` 重复同步幂等 | ✅ | R3：5 copied / 56 skipped；digest 不变 |
 | 1.1-08 | 离线 bundle 重复 import 幂等 | ❌ | 不得以已验证的 sync 代替 import |
-| 1.1-09 | 错误仓库地址、凭据、CA 或缺失制品 | ❌ | 变更前明确失败；修正后可重试；日志不泄露凭据 |
-| 1.1-10 | HTTPS 私有仓库 + 公共 CA | ❌ | TLS 正常校验，不依赖 insecure 或 skip verify |
+| 1.1-09 | 错误仓库地址、凭据、CA 或缺失制品 | ⚠️ | R12 覆盖凭据/CA 两类：错误密码→`UNAUTHORIZED` 明确失败、retry 可恢复；未信 CA→`x509: certificate signed by unknown authority` 明确失败；均不泄凭据。错误仓库地址、缺失制品仍待测 |
+| 1.1-10 | HTTPS 私有仓库 + 公共 CA | ⚠️ | R12 实证自签 CA 路径 TLS 校验生效（未配 CA 即 x509 拒绝，未用 skip verify）；公共 CA 环境未单独立项 |
 
 ### 1.2 部署拓扑
 
@@ -171,9 +171,9 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.6-01 | 创建集群解析并持久化 `status.packagePlan` | ✅ | R2/R3；R7 验证新候选包 digest（`ebe86ff7` 等）落库并被扩容 Operation 复用 |
 | 2.6-02 | packagePlan 不保存 blob 或 Registry 凭据 | ⚠️ | 代码/对象检查需形成固定证据 |
 | 2.6-03 | Agent 首次按 digest 拉取、校验、解包和执行 | ✅ | R2/R3 建群主路径 |
-| 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效 |
-| 2.6-05 | 缓存损坏或 digest 不符 | ❌ | 不得执行损坏制品；重新拉取或明确失败；不得回退到 tag |
-| 2.6-06 | Registry 暂时不可达时的缓存行为 | ❌ | 已缓存 digest 可继续，未缓存 digest 明确失败 |
+| 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效。R12 间接实证：neg3 建群时 dev-2 calico chart 缓存有效→零 chart GET（对照篡改后重拉），bootstrap 旧缓存跨删除幸存且不被重拉 |
+| 2.6-05 | 缓存损坏或 digest 不符 | ✅ | R12 篡改探针（rc.8 三机）：master `charts.tgz` 翻一字节（sha256 变化）→ 建群时 `validCachedHelmChart` payloadDigest 校验拒绝 → digest-pinned 重拉（registry 侧 tigera-operator blob GET 佐证）→ sha 恢复原值，Operation Succeeded；包 contents 路径同构校验（`loadCachedComponent`/`packageFilePayloadDigest`）。未执行损坏制品、未回退 tag |
+| 2.6-06 | Registry 暂时不可达时的缓存行为 | ✅ | R12 断连：retry 中途 kill registry → in-flight containerd 拉取经 graceful shutdown 完成，后续任务 `dial tcp: connect: connection refused` 明确失败；registry 恢复后 retry → 三节点 k8s 包全部从头重拉（56MB layer ×3，半成品未被信任），Succeeded、集群 Running。删除集群时组件包缓存随 uninstall 清理（无陈旧缓存残留） |
 | 2.6-07 | Package Registry 配置优先级与文件权限 | ⚠️ | R6/R7 实测两个配置文件 0644。R9 更正：写入侧自 batch-1 `a989b14f` 已强制 0600（Config.Dump 与 deploy-config WriteToFile，目录 0700），存量 0644 是旧版本写入的遗留，重写时收紧；R9 补齐原子替换（同目录 0600 临时文件+Sync+rename，失败保留原文件）、拒绝符号链接、umask 无关性与 §4.4 回归测试。**rc.7（`e7d99421`，2026-09-21）远端复验**：dev-2 `/root/.kc/config` 与 `deploy-config.yaml` 实测 0600（升级流程重写后收紧生效）；dev-3/dev-4 无 .kc 目录（kcctl 仅在 dev-2 执行）。⚠️ 保留：配置优先级与凭据脱敏的专项用例未单独成轮 |
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
 | 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6 通过；R7 复测（`v1.36.*`→`v1.34.*` 后创建 v1.36.4 在 Operation 前拒绝，策略精确恢复） |

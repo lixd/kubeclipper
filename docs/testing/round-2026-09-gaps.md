@@ -17,8 +17,8 @@
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛 |
 | 6 | `2.5-08` | `maxBackupNum` 存储对象轮转 | **已闭环（R11，rc.8 `e9d9afeb` B4 持久化删除流）**：手动删除与 Cron 轮转统一进入持久化删除流程——deleting/deleteFailed 状态、Backup 记录保留到删除 Operation Succeeded 才由 backupcontroller 移除；真机复验 `maxBackupNum=2` + 2 分钟周期 Cron 连续 4+ 轮，Backup 记录与 FS 文件逐轮一一对应、无孤儿文件（见 checklist 2.5-08） |
 | 7 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛。**更新（R8）：定位到 agent 侧饿死根因——worker `execute` defer LIFO 顺序 + server purge 竞争使单任务 worker 挂到 spec deadline（详见 R7 报告 §12.2），修复 `1413e849`。更新（R9，rc.6 `29a9bf8a` 真机复验通过）：①1M 建群 13 步任务时长 1s×7、5-8s×4、31/34s×2，无 10s 轮询尾延迟（修复前基线 10.01s/任务）；②快速 create→delete 收敛（集群/操作清空、标签释放）后立即再建群正常派发并 Running，不饿死。更新（R10，rc.7 `e7d99421` 真机复验）：协作式 cancel 语义矩阵与 2.1-30 retry 通过**——①Running 中取消（6/13 步）：在途步自然完成后停止派发、剩余 7 步 Canceled，Cluster InstallFailed，~2.5 分钟收敛；②最早取消（+3s，仅第 1 步在途）：1 步完成+12 步 Canceled，<23 秒收敛；③终态后重复取消被 CLI 干净拒绝（exit 1）；④Running 中并发双取消：第 2 次 API Conflict 拒绝，无状态污染；⑤retry 对 Canceled 创建操作：前 6 步保留原时间戳未重做，剩余步 ~60s 回 Succeeded，集群 InstallFailed → Running；⑥取消/失败后安全删除 20～30 秒清空 Cluster/Operation/标签，同节点重建 2 分钟 Running（kubelet inactive、无 /etc/kubernetes 残留、doctor 25/25）。§3.4 剩余子项：超时（spec deadline 到期）与 Watch 重连/Server、Agent 重启注入未覆盖。证据：dev-2 /tmp/r10-*.txt |
-| 8 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | R6 已确认 `/root/.kc/config`、`deploy-config.yaml` 均为 0644，未达到敏感配置 0600；仍需覆盖缓存损坏、digest 不符、Registry 断连、配置优先级和凭据脱敏，不得回退到 tag。**更新（R9）**：写入侧自 batch-1 `a989b14f` 已 0600（存量 0644 为旧版遗留，重写时收紧）；R9 补齐原子替换+拒绝符号链接+umask 无关性及回归测试（B3 代码侧完成），远端重写后权限复验待下一 rc；2.6-05/06 缓存故障注入仍未测 |
-| 9 | `1.1-05`、`1.1-06`、`1.1-10` | HTTPS/认证 Package Registry | 公共 CA、自签 CA、账号密码分别覆盖 deploy、join、Agent 拉取及失败重试，日志不泄露凭据 |
+| 8 | `2.6-05`～`2.6-07` | OCI 缓存和 Registry 故障 | R6 已确认 `/root/.kc/config`、`deploy-config.yaml` 均为 0644，未达到敏感配置 0600；仍需覆盖缓存损坏、digest 不符、Registry 断连、配置优先级和凭据脱敏，不得回退到 tag。**更新（R9）**：写入侧自 batch-1 `a989b14f` 已 0600（存量 0644 为旧版遗留，重写时收紧）；R9 补齐原子替换+拒绝符号链接+umask 无关性及回归测试（B3 代码侧完成），远端重写后权限复验待下一 rc；2.6-05/06 缓存故障注入仍未测。**更新（R12，2026-09-22，rc.8 三机）：2.6-05/06 真机闭环**——①缓存篡改：master `charts.tgz` 翻一字节 → `validCachedHelmChart` payloadDigest 拒绝 → digest-pinned 重拉、sha 恢复（registry blob GET 佐证，Operation Succeeded，未执行坏内容未回退 tag）；②断连：retry 中途 kill registry → 在途 containerd 经 graceful shutdown 完成、后续 `connection refused` 明确失败 → registry 恢复后 retry 三节点从头重拉（56MB layer ×3）、Succeeded；③另发现删除集群时 uninstall 步骤清理组件包缓存（`CleanupPackage`），bootstrap 包豁免——无陈旧缓存残留问题 |
+| 9 | `1.1-05`、`1.1-06`、`1.1-10` | HTTPS/认证 Package Registry | 公共 CA、自签 CA、账号密码分别覆盖 deploy、join、Agent 拉取及失败重试，日志不泄露凭据。**更新（R12，2026-09-22，rc.8 三机）：自签 CA + 账号密码已闭环**——dev-2 自建 distribution 3.0.0（HTTPS+自签 CA+htpasswd），三节点 0600 配置+deploy-config 双侧切换后建群成功（agent 真实拉取、三节点 Ready）；错误密码 → `UNAUTHORIZED: authentication required` 明确失败、修正后 retry Succeeded；未配 CA → `x509: certificate signed by unknown authority` 明确失败（并暴露 HTTP 回退得 400）；三节点日志/operation 全文 grep 错误与真实密码均 0 泄漏；缓存篡改探针与断连恢复见 P0 行 8。**仍缺：公共 CA 环境与 join 入口的独立证据** |
 
 R4/R5/R6 已完成或部分完成的 HA、最小拓扑、Calico 自动探测、S3 备份、Cron、Policy 白名单和独立 join
 主路径不再重复列为“未执行”；详细命令、
@@ -80,6 +80,32 @@ storage type immutable）；⑨2.5-11 describe 200/404。已知边角：同毫�
 recovery 的 `useBackupName`；backuppoint storageType 存储值为小写 `s3`/`fs`，immutable 校验
 须用同值请求体。终态清理：CronBackup/残留备份/坏备份点/测试集群删除，三节点 kubeadm reset +
 集群 etcd 目录清理，Registry 仅增 rc.8 tag（12 tags），临时 weed、manifest、二进制与证书均已删除。
+
+**R12（2026-09-22，rc.8 `e9d9afeb`）**：B5 认证 Registry 与缓存故障专项（用户批准范围：认证
+Registry、断连重头拉、最小化篡改探针）。环境：dev-2 自建 distribution 3.0.0（`172.16.131.208:8443`，
+HTTPS 自签 CA SAN=IP+htpasswd r12user），`kcctl registry sync` 从共享 146:5003（HTTP）镜像
+6 个 artifact（digest 逐项一致，6 copied 0 skipped——sync 源 HTTP 回退与目标侧完整认证实测）；
+三节点 `package-registry.json`（0600）+ deploy-config ConfigMap `packageRegistry` 双侧切换，
+动态生效无重启。①正向：r12-auth-cluster 建群 Succeeded（15 步）、集群 Running、三节点
+Ready=True，三节点真实拉取（blob GET 208=54/146=12/230=12）。②错误密码（P0 行 9）：dev-4
+改坏密码+清缓存 → 建群 Operation Failed，错误消息 `UNAUTHORIZED: authentication required`
+（URL 定位、不含凭据）；registry 侧确认 230 携带凭据仍 401；三节点日志/operation 全文 grep
+错误与真实密码均 0 泄漏；修正后 retry Succeeded、集群 Running（同时实证 Failed 态 retry 语义
+与缓存重建）。③未信 CA（P0 行 9）：dev-3 配置去掉 CA → 拉取 [1s] 失败，错误
+`x509: certificate signed by unknown authority`（并暴露 go-containerregistry 的 HTTP 回退尝试得
+400，无凭据泄漏）。④缓存篡改（2.6-05，P0 行 8）：master `charts.tgz` 翻一字节 → 建群
+`validCachedHelmChart` payloadDigest 校验拒绝 → digest-pinned 重拉（registry tigera-operator
+blob GET 06:01:52 佐证）→ sha 恢复原值、Operation Succeeded；篡改文件跨集群删除幸存（chart
+缓存不受 uninstall 清理）。⑤断连（2.6-06）：retry 中途 kill registry → 在途 containerd 拉取经
+graceful shutdown 完成，其余任务 `dial tcp: connect: connection refused` 明确失败；registry 恢复
+后 retry → 三节点 k8s 包全部从头重拉（56MB layer ×3，半成品未被信任）、Succeeded、集群
+Running。行为记录：删除集群时 uninstall 的 `CleanupPackage` 清理该集群组件包缓存（k8s/CRI/
+k8s-ext/calico 包路径），bootstrap 包豁免；calico chart 仅 master 消费（worker 上的 chart 缓存
+不被使用）。终态清理：全部测试集群删除、三节点 free+Ready、配置与 ConfigMap 还原
+146:5003、测试 registry 进程停止并删除 `/tmp/registry-r12`、Mac 侧 `/tmp/r12-auth`/`kcctl-r12`
+删除、全部临时凭据/证书即用即删（共享 Registry 与 /var/lib/kc-etcd 未动）。B5 余量：纯离线
+bundle、arm64、公共 CA、join 入口认证及 qualification workflow `secrets.GITHUB_TOKEN` 映射
+（见 remediation plan §6）。
 
 ## P1：核心能力补全
 
