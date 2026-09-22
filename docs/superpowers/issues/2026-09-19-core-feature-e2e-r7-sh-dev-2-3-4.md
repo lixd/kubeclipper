@@ -733,3 +733,47 @@ qualification（verify-release-manifest.sh）与发布后 manifest job，门禁�
 **关闭余量**：门禁正向放行/负向真机阻断（缺记录、错 SHA 的真实 release 触发）待下一候选
 发布轮；checklist 6-04 保持 ⚠️。文档同步：plan 头部 R13/R14 更新、B5/B6 表行、§7.6，
 checklist 6-04。
+
+### 12.11 R15 追加轮（2026-09-22）：B5 包 contents 路径真机篡改探针闭环
+
+B5 矩阵最后一项可真机执行项（"包 contents 路径的等价真机探针"）闭环。环境：rc.8 三机，
+dev-2 :9443 测试 registry（distribution 3.1.1，由共享 5003 skopeo 逐 tag 拷贝，共享源只读），
+deploy-config `packageRegistry` 与四节点 0600 delivery json 切 9443，componentmeta rules=3。
+
+**三层防御实证**（篡改 `kubeclipper/packages/cri/containerd:1.7.29` 的 configs 层 blob
+`b8c094e2…`，69064877 字节；registry 对 blob 内容与路径 digest 不符不做在线校验、仍 200，
+为本轮观察项）：
+
+1. **浅篡改（tar 头损坏）→ server indexer 剔除**：下载后解析归档失败，warn
+   `skip invalid OCI package image ...: read package manifest failed: archive/tar: invalid tar header`，
+   包从清单剔除，componentmeta 中 containerd 1.7.29 消失。
+2. **解析期 fail-fast**：显式指定被剔除包建群 → CLI
+   `k8s version v1.35.8 unavailable, missing packages: containerd 1.7.29; publish or sync
+   them to OCI package registry ... first`，EXIT=1，零对象落库。
+3. **深篡改（20MiB 数据区翻转，tar 头可解析）→ agent 侧 gzip CRC 阻断**：
+   两节点 `installRuntime` 步骤（step 51fdc2e7）attempt 0/1 均失败，任务状态回写审计逐字
+   `"message":"gzip: invalid checksum","reason":"ExecutionFailed"`（4 条：task-88481d4e/
+   5b45c5e3/a3ac789e/d99183d5，nodeRef 208+146），3 秒内 Failed、无半装；operation
+   7b6b9271 Failed，cluster InstallFailed → force delete 零残留。错误分类为 gzip 校验
+   （解压阶段 CRC）而非 digest mismatch——agent 未在解压前做 blob digest 比对，实际完整性
+   由 gzip/tar 解析链兜底；防御结果正确（错误内容未被执行），报错可读。
+
+**正向对照（排除误伤好包）**：恢复 blob（删损坏文件后从 5003 skopeo 重拷，sha256 复原
+b8c094e2…、size 69064877、HEAD 200）+ 两节点清 1.7.29 缓存 + 显式版本建群（v1.35.8 /
+containerd 1.7.29 / calico v3.29.6）→ **Running**（CreateCluster Succeeded 15 步，
+9443 access log 实拉 GET 200，agent UA go-containerregistry/v0.20.2，k8s blob
+2265495c 56MB 在列）→ 删除零残留。
+
+**终态还原**：deploy-config `packageRegistry: 172.16.131.146:5003`（rv 183118→186582）、
+四份 delivery json（dev-2 server+agent、dev-3、dev-4）还原 0600、componentmeta 复验
+registry=5003 rules=3；9443 registry 停止+`/tmp/r15-reg` 删除、`/tmp/.r15` 客户端证书删除、
+R13 遗留（dev-2 `/tmp/r13-evidence`、dev-3 `/tmp/r13-bundle`、`r13-sync-manifest.yaml`、
+`r15-copy.log`）清理；共享 5003 与 `/var/lib/kc-etcd` 未触碰。
+
+**证据保存注记**：dev-2 `/tmp/r15-evidence/`（23 文件，tar sha256
+`357f234c…d512b439e`）在收尾清理时被误删（未先解包留存），关键输出已由执行会话记录逐字
+重建为 `kc-fix2/r15-raw-evidence/r15-evidence-reconstructed.md`（含来源说明与原始文件清单），
+本文引用的错误文本/SHA/访问日志均出自该重建文件。
+
+文档同步：plan §6.3 矩阵"缓存篡改"行、§6.4 R15 段、B5 表行；checklist 2.6-05（补 R15 探针）、
+2.6-06（补缓存清除后真实重拉佐证）；gaps P0 行 8。
