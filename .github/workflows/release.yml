@@ -40,8 +40,60 @@ jobs:
           matrix="$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
-  publish:
+  release-gate:
     needs: prepare
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+      - name: Verify release tag still points at the candidate commit
+        run: |
+          set -euo pipefail
+          tag_commit="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          [[ "$tag_commit" == "$GITHUB_SHA" ]] || {
+            echo "release tag $GITHUB_REF_NAME points at $tag_commit, but this workflow runs for $GITHUB_SHA; refusing to release a moved tag" >&2
+            exit 1
+          }
+      - name: Resolve successful qualification run
+        run: |
+          set -euo pipefail
+          run_id="$(gh api "repos/${{ github.repository }}/actions/workflows/publish-oci-qualification.yml/runs?head_sha=${GITHUB_SHA}&status=success&per_page=100" \
+            --jq '[.workflow_runs[]] | first | .id // empty')"
+          [[ -n "$run_id" ]] || {
+            echo "no successful publish-oci-qualification run for candidate $GITHUB_SHA; qualify the candidate first" >&2
+            exit 1
+          }
+          echo "qualification_run_id=$run_id" >> "$GITHUB_ENV"
+      - name: Download qualification manifest
+        uses: actions/download-artifact@v7
+        with:
+          pattern: oci-release-manifest-*
+          run-id: ${{ env.qualification_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/kc-qualification
+          merge-multiple: true
+      - name: Enforce release gate
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          scripts/open-packaging/release-gate.sh \
+            --release-tag "$RELEASE_TAG" \
+            --candidate-sha "$GITHUB_SHA" \
+            --qualification-manifest "$RUNNER_TEMP/kc-qualification/release-manifest.yaml"
+
+  publish:
+    needs: [prepare, release-gate]
     strategy:
       fail-fast: false
       matrix:
@@ -56,6 +108,7 @@ jobs:
     secrets: inherit
 
   build-cli:
+    needs: release-gate
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
