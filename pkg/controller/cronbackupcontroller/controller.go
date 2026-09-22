@@ -184,23 +184,24 @@ func (r *CronBackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 				sub := len(backupsByCb[cronBackup.UID]) - cronBackup.Spec.MaxBackupNum
 				for del := 0; del < sub; del++ {
 					victim := backupsByCb[cronBackup.UID][del]
-					if victim.Status.ClusterBackupStatus != v1.ClusterBackupAvailable {
+					// Skip backups mid-flight (creating, restoring or already
+					// deleting). deleteFailed records are valid retry targets
+					// again. Backups already committed for deletion keep their
+					// records until storage cleanup succeeds, so they keep
+					// counting toward the limit and a requeued reconcile never
+					// over-deletes.
+					if !rotatable(victim.Status.ClusterBackupStatus) {
 						continue
 					}
-					// Deliver the storage-cleanup operation BEFORE removing the
-					// Backup object. The previous order deleted the object and
-					// then re-read it from the lister, which raced the informer
-					// and orphaned the storage file (R5/R7). The in-hand victim
-					// object already carries everything the delete operation
-					// needs, so no lister re-read is involved.
+					// Deliver the storage-cleanup operation and move the
+					// victim into the deleting state. The record is kept: the
+					// backup controller removes it only after the cleanup
+					// operation succeeds, so a failed cleanup keeps the
+					// record and its retry association instead of orphaning
+					// the storage file (R5/R7).
 					err = r.deleteBackup(log, victim.Labels[common.LabelClusterName], victim.DeepCopy())
 					if err != nil {
 						log.Error("Failed to delivery operation to delete backup", zap.Error(err))
-						return ctrl.Result{}, err
-					}
-					err = r.BackupWriter.DeleteBackup(ctx, victim.Name)
-					if err != nil {
-						log.Error("Failed to delete backup", zap.Error(err))
 						return ctrl.Result{}, err
 					}
 				}
@@ -452,10 +453,30 @@ func GetParentUIDFromBackup(b *v1.Backup) (types.UID, bool) {
 	return controllerRef.UID, true
 }
 
-// deleteBackup delivers the storage-cleanup operation for a backup that is
-// about to be removed. The backup object is passed in hand (already fetched)
-// because the caller may have just deleted it from etcd — a lister re-read
-// here raced the deletion and orphaned storage files.
+// rotatable tells whether a rotation victim may be handed a deletion request
+// at this reconcile: available backups, and records whose previous cleanup
+// failed (retry the deletion). Creating/restoring/deleting records are
+// skipped — the backup controller is still driving those.
+func rotatable(s v1.ClusterBackupStatus) bool {
+	return s == v1.ClusterBackupAvailable || s == v1.ClusterBackupDeleteFailed
+}
+
+// deletionPointName resolves the backup point a cleanup must target: the
+// backup's own reference wins so a point switched on the cluster after the
+// backup was taken cannot redirect the cleanup to the wrong store; legacy
+// records without the reference fall back to the cluster default.
+func deletionPointName(backup *v1.Backup, clusterDefault string) string {
+	if backup.BackupPointName != "" {
+		return backup.BackupPointName
+	}
+	return clusterDefault
+}
+
+// deleteBackup delivers the storage-cleanup operation for a rotation victim
+// and moves the backup into the deleting state with the operation recorded.
+// The backup object is passed in hand (already fetched) so no lister re-read
+// is involved. The record itself is kept for the backup controller to remove
+// after the cleanup operation succeeds.
 func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName string, backup *v1.Backup) error {
 	c, err := r.ClusterLister.Get(clusterName)
 	if err != nil {
@@ -467,7 +488,11 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 		return err
 	}
 
-	bp, err := r.BackupPointLister.Get(c.Labels[common.LabelBackupPoint])
+	// Resolve the backup point from the backup's own reference so a point
+	// switched on the cluster after the backup was taken cannot redirect the
+	// cleanup to the wrong store. Legacy records without the reference fall
+	// back to the cluster default.
+	bp, err := r.BackupPointLister.Get(deletionPointName(backup, c.Labels[common.LabelBackupPoint]))
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			log.Error("backupPoint is not found", zap.Error(err))
@@ -535,6 +560,15 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 	_, err = operationv2builder.CreateFromCore(ctx, r.OperationStore, r.NodeReader, c, op)
 	if err != nil {
 		log.Error("Failed to create operation", zap.Error(err))
+		return err
+	}
+	if backup.Labels == nil {
+		backup.Labels = make(map[string]string)
+	}
+	backup.Labels[common.LabelDeleteOperationName] = op.Name
+	backup.Status.ClusterBackupStatus = v1.ClusterBackupDeleting
+	if _, err = r.BackupWriter.UpdateBackup(ctx, backup); err != nil {
+		log.Error("Failed to mark backup deleting", zap.Error(err))
 		return err
 	}
 	return nil

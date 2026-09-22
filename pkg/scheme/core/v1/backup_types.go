@@ -61,6 +61,12 @@ const (
 	ClusterBackupError ClusterBackupStatus = "error"
 	// ClusterBackupRestoring means the backup is in using for restoring.
 	ClusterBackupRestoring ClusterBackupStatus = "restoring"
+	// ClusterBackupDeleting means the storage cleanup operation for this
+	// backup is in progress; the record is removed only after it succeeds.
+	ClusterBackupDeleting ClusterBackupStatus = "deleting"
+	// ClusterBackupDeleteFailed means the storage cleanup operation failed;
+	// the record and its deletion operation reference are kept for retry.
+	ClusterBackupDeleteFailed ClusterBackupStatus = "deleteFailed"
 )
 
 /* type BackupStatus struct {

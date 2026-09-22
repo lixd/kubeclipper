@@ -76,6 +76,7 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation"
+	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 	apirequest "github.com/kubeclipper/kubeclipper/pkg/server/request"
 	"github.com/kubeclipper/kubeclipper/pkg/server/restplus"
 	bs "github.com/kubeclipper/kubeclipper/pkg/simple/backupstore"
@@ -1523,6 +1524,14 @@ func (h *handler) DeleteBackup(request *restful.Request, response *restful.Respo
 	}
 
 	if !dryRun {
+		// A committed deletion task is reused: a repeated request while the
+		// cleanup operation is still running must not create duplicate side
+		// effects; a terminal-failed operation falls through to a fresh retry
+		// attempt.
+		if h.activeDeletionOp(ctx, b) != nil {
+			response.WriteHeader(http.StatusOK)
+			return
+		}
 		c, err = h.clusterOperator.GetCluster(ctx, clusterName)
 		if err != nil {
 			restplus.HandleInternalError(response, request, err)
@@ -1539,12 +1548,42 @@ func (h *handler) DeleteBackup(request *restful.Request, response *restful.Respo
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
-		if err = h.clusterOperator.DeleteBackup(context.TODO(), backupName); err != nil {
+		if err = h.commitBackupDeletion(context.TODO(), b, op.Name); err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
 	}
 	response.WriteHeader(http.StatusOK)
+}
+
+// activeDeletionOp looks up the committed deletion operation of b and returns
+// it while it is still running, so a repeated delete request reuses the same
+// task instead of creating duplicate cleanup side effects.
+func (h *handler) activeDeletionOp(ctx context.Context, b *v1.Backup) *operations.Operation {
+	opName := b.Labels[common.LabelDeleteOperationName]
+	if opName == "" {
+		return nil
+	}
+	prev, err := h.operationV2Store.GetOperation(ctx, opName, "0")
+	if err != nil || prev.Status.Phase.IsTerminal() {
+		return nil
+	}
+	return prev
+}
+
+// commitBackupDeletion moves the backup into the deleting state with the
+// cleanup operation recorded, but keeps the record itself: the backup
+// controller removes it only after the storage cleanup succeeds, so a failed
+// cleanup keeps the record, the error and the retry association instead of
+// orphaning the storage file.
+func (h *handler) commitBackupDeletion(ctx context.Context, b *v1.Backup, opName string) error {
+	if b.Labels == nil {
+		b.Labels = make(map[string]string)
+	}
+	b.Labels[common.LabelDeleteOperationName] = opName
+	b.Status.ClusterBackupStatus = v1.ClusterBackupDeleting
+	_, err := h.clusterOperator.UpdateBackup(ctx, b)
+	return err
 }
 
 func (h *handler) UpdateBackup(request *restful.Request, response *restful.Response) {
@@ -1618,6 +1657,17 @@ func (h *handler) CreateRecovery(request *restful.Request, response *restful.Res
 			return
 		}
 		restplus.HandleInternalError(response, request, err)
+		return
+	}
+
+	// A backup that is being created, restored or deleted is not a usable
+	// restore source; a deleting/delete-failed record must be resolved first
+	// (retry the cleanup or keep the backup).
+	switch b.Status.ClusterBackupStatus {
+	case v1.ClusterBackupCreating, v1.ClusterBackupRestoring,
+		v1.ClusterBackupDeleting, v1.ClusterBackupDeleteFailed:
+		restplus.HandleBadRequest(response, request,
+			fmt.Errorf("backup %s is %s now, can't recovery", b.Name, b.Status.ClusterBackupStatus))
 		return
 	}
 
@@ -2960,6 +3010,12 @@ func (h *handler) UpdateBackupPoint(req *restful.Request, resp *restful.Response
 		return
 	}
 
+	if bp.StorageType != "" && bp.StorageType != obp.StorageType {
+		restplus.HandleBadRequest(resp, req,
+			fmt.Errorf("backup point storage type is immutable, cannot change %q to %q", obp.StorageType, bp.StorageType))
+		return
+	}
+
 	if bp.StorageType == bs.FSStorage && obp.StorageType == bs.FSStorage && bp.S3Config == nil {
 		// only fs backup point description can be modified
 		obp.Description = bp.Description
@@ -2971,6 +3027,14 @@ func (h *handler) UpdateBackupPoint(req *restful.Request, resp *restful.Response
 		// silently dropping endpoint changes while still returning 200.
 		obp.S3Config = bp.S3Config
 		obp.Description = bp.Description
+	}
+
+	// The merged object is what gets persisted, so it — not the request body —
+	// must pass the same validation as creation; otherwise an update could
+	// store an endpoint the S3 client only rejects at backup time.
+	if err := validateBackupPoint(obp); err != nil {
+		restplus.HandleBadRequest(resp, req, err)
+		return
 	}
 
 	_, err = h.clusterOperator.UpdateBackupPoint(req.Request.Context(), obp)

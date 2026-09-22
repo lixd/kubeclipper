@@ -26,11 +26,103 @@ import (
 
 	"github.com/golang/mock/gomock"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
+	operationv2store "github.com/kubeclipper/kubeclipper/pkg/models/operationv2"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
+	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 )
+
+// fakeOperationStore serves the deletion-operation lookups of activeDeletionOp
+// from an in-memory map; missing names surface as real NotFound errors.
+type fakeOperationStore struct {
+	operationv2store.Store
+	ops map[string]*operations.Operation
+}
+
+func (f *fakeOperationStore) GetOperation(ctx context.Context, name, resourceVersion string) (*operations.Operation, error) {
+	if o, ok := f.ops[name]; ok {
+		return o, nil
+	}
+	return nil, apimachineryErrors.NewNotFound(
+		schema.GroupResource{Group: "operations.kubeclipper.io", Resource: "operations"}, name)
+}
+
+// A repeated delete request must reuse the committed cleanup task instead of
+// creating duplicate side effects: a running operation is returned, while a
+// terminal-failed or missing one falls through to a fresh retry attempt.
+func TestActiveDeletionOp(t *testing.T) {
+	running := &operations.Operation{}
+	running.Name = "del-op"
+	running.Status.Phase = operations.OperationRunning
+	failed := &operations.Operation{}
+	failed.Name = "del-op"
+	failed.Status.Phase = operations.OperationFailed
+	backupWithLabel := func() *v1.Backup {
+		b := &v1.Backup{}
+		b.Name = "backup-1"
+		b.Labels = map[string]string{common.LabelDeleteOperationName: "del-op"}
+		return b
+	}
+
+	// no committed deletion task
+	h := newHandler(nil, nil, nil, &fakeOperationStore{ops: map[string]*operations.Operation{}}, nil, nil, nil)
+	if h.activeDeletionOp(context.Background(), &v1.Backup{}) != nil {
+		t.Fatalf("activeDeletionOp = non-nil, want nil without label")
+	}
+
+	// still running → reuse the same task
+	h = newHandler(nil, nil, nil, &fakeOperationStore{ops: map[string]*operations.Operation{"del-op": running}}, nil, nil, nil)
+	if h.activeDeletionOp(context.Background(), backupWithLabel()) == nil {
+		t.Fatalf("activeDeletionOp = nil, want the running operation")
+	}
+
+	// terminal-failed → retry path
+	h = newHandler(nil, nil, nil, &fakeOperationStore{ops: map[string]*operations.Operation{"del-op": failed}}, nil, nil, nil)
+	if h.activeDeletionOp(context.Background(), backupWithLabel()) != nil {
+		t.Fatalf("activeDeletionOp = non-nil, want nil for a failed operation")
+	}
+
+	// operation gone → retry path
+	h = newHandler(nil, nil, nil, &fakeOperationStore{ops: map[string]*operations.Operation{}}, nil, nil, nil)
+	if h.activeDeletionOp(context.Background(), backupWithLabel()) != nil {
+		t.Fatalf("activeDeletionOp = non-nil, want nil for a missing operation")
+	}
+}
+
+// Deleting a backup moves it into the deleting state with the cleanup
+// operation recorded, and — the orphaned-file fix — keeps the record itself.
+func TestCommitBackupDeletion(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	m := mock.NewMockOperator(ctrl)
+	h := newHandler(nil, m, nil, nil, nil, nil, nil)
+
+	var saved *v1.Backup
+	m.EXPECT().UpdateBackup(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, b *v1.Backup) (*v1.Backup, error) {
+			saved = b
+			return b, nil
+		})
+
+	b := &v1.Backup{}
+	b.Name = "backup-1"
+	b.Status.ClusterBackupStatus = v1.ClusterBackupAvailable
+	if err := h.commitBackupDeletion(context.Background(), b, "del-op"); err != nil {
+		t.Fatalf("commitBackupDeletion: %v", err)
+	}
+	if b.Status.ClusterBackupStatus != v1.ClusterBackupDeleting {
+		t.Fatalf("status = %q, want deleting", b.Status.ClusterBackupStatus)
+	}
+	if b.Labels[common.LabelDeleteOperationName] != "del-op" {
+		t.Fatalf("delete operation label = %q, want del-op", b.Labels[common.LabelDeleteOperationName])
+	}
+	if saved == nil || saved.Name != "backup-1" {
+		t.Fatalf("UpdateBackup was not called with the backup")
+	}
+}
 
 func newBackupHandler(t *testing.T, backups []v1.Backup) (*handler, *mock.MockOperator) {
 	t.Helper()

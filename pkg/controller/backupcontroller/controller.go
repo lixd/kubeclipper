@@ -78,13 +78,7 @@ func (r *BackupReconciler) SetupWithManager(mgr manager.Manager, informerCache i
 		return err
 	}
 	indexErr := backupInformer.AddIndexers(cache.Indexers{
-		OperationNameIndex: func(raw any) ([]string, error) {
-			backup, ok := raw.(*v1.Backup)
-			if !ok || backup.Labels == nil || backup.Labels[common.LabelOperationName] == "" {
-				return nil, nil
-			}
-			return []string{backup.Labels[common.LabelOperationName]}, nil
-		},
+		OperationNameIndex: operationNameIndexFunc,
 	})
 	if indexErr != nil {
 		return indexErr
@@ -113,6 +107,15 @@ func (r *BackupReconciler) SetupWithManager(mgr manager.Manager, informerCache i
 }
 
 func (r *BackupReconciler) updateBackupStatus(ctx context.Context, log logger.Logging, b *v1.Backup) error {
+	// A backup with a committed deletion task is driven entirely by that
+	// operation: the record is removed only after the storage cleanup
+	// succeeds, and a failed cleanup moves it to deleteFailed for retry. The
+	// creation-operation branches below must not touch such backups — their
+	// creation operation may long have been purged.
+	if b.Labels[common.LabelDeleteOperationName] != "" {
+		return r.reconcileDeletion(ctx, log, b)
+	}
+
 	c, cErr := r.ClusterLister.Get(b.Labels[common.LabelClusterName])
 	if cErr != nil && !errors.IsNotFound(cErr) {
 		log.Warn("unexpected error, backup should always has a cluster name label")
@@ -221,9 +224,64 @@ func (r *BackupReconciler) updateBackupStatus(ctx context.Context, log logger.Lo
 	return nil
 }
 
-// operationNameIndex keys Backups by their operation-name label so operation
-// events fan out to the matching backups without a full lister scan.
+// OperationNameIndex is the backup informer index keyed by operation names.
 const OperationNameIndex = "operationNameIndex"
+
+// reconcileDeletion follows the committed storage-cleanup operation of a
+// backup. A successful operation means the FS/S3 object is gone and the
+// record can finally be removed; a terminal failure keeps the record in
+// deleteFailed with the operation reference for retry; a missing operation
+// (only the cluster-cascade purge removes operations) keeps the record
+// visible in deleteFailed rather than silently dropping it.
+func (r *BackupReconciler) reconcileDeletion(ctx context.Context, log logger.Logging, b *v1.Backup) error {
+	o, err := r.OperationLister.Get(b.Labels[common.LabelDeleteOperationName])
+	if errors.IsNotFound(err) {
+		log.Warnf("backup(%s) delete operation(%s) not found, keeping record in deleteFailed",
+			b.Name, b.Labels[common.LabelDeleteOperationName])
+		return r.setBackupStatus(ctx, log, b, v1.ClusterBackupDeleteFailed)
+	}
+	if err != nil {
+		return err
+	}
+	switch {
+	case o.Status.Phase == operations.OperationSucceeded:
+		return r.BackupWriter.DeleteBackup(ctx, b.Name)
+	case o.Status.Phase.IsTerminal():
+		return r.setBackupStatus(ctx, log, b, v1.ClusterBackupDeleteFailed)
+	default:
+		return r.setBackupStatus(ctx, log, b, v1.ClusterBackupDeleting)
+	}
+}
+
+func (r *BackupReconciler) setBackupStatus(ctx context.Context, log logger.Logging, b *v1.Backup, status v1.ClusterBackupStatus) error {
+	if b.Status.ClusterBackupStatus == status {
+		return nil
+	}
+	b = b.DeepCopy()
+	b.Status.ClusterBackupStatus = status
+	if _, err := r.BackupWriter.UpdateBackup(ctx, b); err != nil {
+		log.Warnf("backup(%s) sync status failed: %s", b.Name, err.Error())
+		return err
+	}
+	return nil
+}
+
+// operationNameIndexFunc keys Backups by both their creation operation and
+// their committed deletion operation, so operation events fan out to the
+// matching backups without a full lister scan.
+func operationNameIndexFunc(raw any) ([]string, error) {
+	backup, ok := raw.(*v1.Backup)
+	if !ok || backup.Labels == nil {
+		return nil, nil
+	}
+	var names []string
+	for _, key := range []string{common.LabelOperationName, common.LabelDeleteOperationName} {
+		if backup.Labels[key] != "" {
+			names = append(names, backup.Labels[key])
+		}
+	}
+	return names, nil
+}
 
 func mapObjectsForOperation(indexer cache.Indexer) handler.MapFunc {
 	return func(clu client.Object) []reconcile.Request {

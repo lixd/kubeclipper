@@ -22,6 +22,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
 func TestCronBackupReconciler_parseSchedule(t *testing.T) {
@@ -123,4 +125,36 @@ func generateWant(days int, month time.Month) string {
 		return "0 0 29 * *"
 	}
 	panic("unexpected")
+}
+
+// Rotation must only hand deletion requests to available backups and to
+// records whose previous cleanup failed (retry). Mid-flight records —
+// creating, restoring and already deleting — are skipped so a requeued
+// reconcile never duplicates cleanup side effects.
+func TestRotatable(t *testing.T) {
+	cases := map[v1.ClusterBackupStatus]bool{
+		v1.ClusterBackupAvailable:    true,
+		v1.ClusterBackupDeleteFailed: true,
+		v1.ClusterBackupCreating:     false,
+		v1.ClusterBackupRestoring:    false,
+		v1.ClusterBackupDeleting:     false,
+		v1.ClusterBackupError:        false,
+	}
+	for status, want := range cases {
+		if got := rotatable(status); got != want {
+			t.Fatalf("rotatable(%q) = %v, want %v", status, got, want)
+		}
+	}
+}
+
+// The cleanup must target the store the backup was written to: the backup's
+// own point reference wins over the cluster's current default, and legacy
+// records without a reference fall back to the cluster default.
+func TestDeletionPointName(t *testing.T) {
+	if got := deletionPointName(&v1.Backup{BackupPointName: "old-point"}, "new-point"); got != "old-point" {
+		t.Fatalf("deletionPointName = %q, want the backup's own point", got)
+	}
+	if got := deletionPointName(&v1.Backup{}, "cluster-default"); got != "cluster-default" {
+		t.Fatalf("deletionPointName = %q, want the cluster default fallback", got)
+	}
 }
