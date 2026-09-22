@@ -559,6 +559,9 @@ func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) 
 	if entry == nil {
 		return nil, fmt.Errorf("registry %s has no %s/%s package version %s for arch %s; sync the release bundle first", o.registry, bootstrapPackageKind, bootstrapPackageName, o.targetVersion, arch)
 	}
+	if entry.SourceRevision == "" {
+		logger.Warnf("package %s/%s:%s(%s) carries no sourceRevision metadata; the revision expectation %s cannot be verified before rollout, republish the package with KC_SOURCE_REVISION set", entry.Kind, entry.Name, entry.Version, entry.Arch, o.targetRevision)
+	}
 	if entry.SourceRevision != "" && entry.SourceRevision != o.targetRevision {
 		return nil, fmt.Errorf("package %s/%s:%s(%s) source revision %s does not match release manifest revision %s", entry.Kind, entry.Name, entry.Version, entry.Arch, entry.SourceRevision, o.targetRevision)
 	}

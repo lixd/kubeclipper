@@ -75,6 +75,11 @@ const (
 	packageRootDir       = "opt/kubeclipper/resource"
 	packageManifestFile  = "kc-package-manifest.json"
 	packageWriteAttempts = 3
+
+	// kindBootstrap packages carry the platform's own binaries; without a
+	// source revision nothing can prove which commit the binaries were built
+	// from, so publishing one without it fails closed.
+	kindBootstrap = "bootstrap"
 )
 
 var (
@@ -97,6 +102,9 @@ func (p *OCIArtifactPublisher) Publish(req PublishRequest) (*PublishResult, erro
 	}
 	if req.Registry == "" {
 		return nil, fmt.Errorf("registry is required")
+	}
+	if req.Kind == kindBootstrap && req.SourceRevision == "" {
+		return nil, fmt.Errorf("source revision is required for bootstrap packages; the upgrade path verifies platform binaries against it (set KC_SOURCE_REVISION)")
 	}
 	profile := req.ContentProfile
 	if profile == "" {

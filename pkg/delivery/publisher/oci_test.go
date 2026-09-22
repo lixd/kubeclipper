@@ -772,3 +772,86 @@ func testServerCertificatePEM(t *testing.T, server *httptest.Server) string {
 	}
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certificate.Raw}))
 }
+
+func TestPublishBootstrapRequiresSourceRevision(t *testing.T) {
+	registryHandler := containerregistry.New()
+	server := httptest.NewServer(registryHandler)
+	defer server.Close()
+	registry := strings.TrimPrefix(server.URL, "http://")
+	config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
+
+	newRequest := func(kind string) PublishRequest {
+		return PublishRequest{
+			Kind:           kind,
+			Name:           "kubeclipper",
+			Version:        "v2.0.3-rc.9",
+			Arch:           "amd64",
+			Registry:       registry,
+			RegistryConfig: config,
+			ExternalContents: []deliveryapis.ArtifactContent{{
+				Name:   "server",
+				File:   "kubeclipper-server",
+				Digest: "sha256:" + strings.Repeat("a", 64),
+				Transport: deliveryapis.TransportRef{
+					Type:   deliveryapis.TransportOCI,
+					Ref:    registry + "/kubeclipper/packages/binary/kubeclipper-server:v2.0.3-rc.9",
+					Digest: "sha256:" + strings.Repeat("a", 64),
+				},
+			}},
+		}
+	}
+
+	if _, err := NewOCIArtifactPublisher().Publish(newRequest(kindBootstrap)); err == nil ||
+		!strings.Contains(err.Error(), "source revision is required for bootstrap packages") {
+		t.Fatalf("publish bootstrap without source revision error = %v, want source revision required", err)
+	}
+
+	request := newRequest(kindBootstrap)
+	request.SourceRevision = "e9d9afe0f2c1"
+	result, err := NewOCIArtifactPublisher().Publish(request)
+	if err != nil {
+		t.Fatalf("publish bootstrap with source revision error = %v", err)
+	}
+
+	craneOptions, err := config.CraneOptions(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := crane.GetOptions(craneOptions...)
+	ref, err := name.ParseReference(result.Transport.Ref, opts.Name...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	descriptor, err := remote.Get(ref, opts.Remote...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	index, err := descriptor.ImageIndex()
+	if err != nil {
+		t.Fatal(err)
+	}
+	indexManifest, err := index.IndexManifest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(indexManifest.Manifests) == 0 {
+		t.Fatal("published bootstrap package index has no manifests")
+	}
+	image, err := index.Image(indexManifest.Manifests[0].Digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imageConfig, err := image.ConfigFile()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := imageConfig.Config.Labels["org.opencontainers.image.revision"]; got != "e9d9afe0f2c1" {
+		t.Fatalf("bootstrap artifact revision label = %q, want %q", got, "e9d9afe0f2c1")
+	}
+
+	// Non-bootstrap kinds stay backward compatible: an empty source revision
+	// must not block legacy packages such as migrated third-party contents.
+	if _, err = NewOCIArtifactPublisher().Publish(newRequest("binary")); err != nil {
+		t.Fatalf("publish binary package without source revision error = %v", err)
+	}
+}
