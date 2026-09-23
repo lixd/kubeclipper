@@ -777,3 +777,25 @@ R13 遗留（dev-2 `/tmp/r13-evidence`、dev-3 `/tmp/r13-bundle`、`r13-sync-man
 
 文档同步：plan §6.3 矩阵"缓存篡改"行、§6.4 R15 段、B5 表行；checklist 2.6-05（补 R15 探针）、
 2.6-06（补缓存清除后真实重拉佐证）；gaps P0 行 8。
+
+### 12.12 R16 追加轮（2026-09-23，rc.8 e9d9afeb）：2.1-30 子项收口 + 2.6-02/07/10 余量
+
+**范围**（用户批准四项）：①2.1-30 剩余子项（超时注入 spec deadline + Watch 重连 + kc-server/kc-agent 重启注入）；②2.6-02 packagePlan 凭据不落库固化取证；③2.6-10 余量（缺失 blob + 多候选冲突）；④2.6-07 收口（配置优先级矩阵 + 凭据脱敏）。
+
+**T1 Server 重启注入**：kc-server 于 41s 安装任务中段重启（journal Stopping/Stopped/Started 同秒，健康探测循环 60s 误报下线——实际 <1s），HA 三副本在途任务无感知照常完成（operation Succeeded / cluster Running），重启后任务写回 20 条；agent 各连本地副本无错误。
+
+**T2 Agent 重启注入**：两轮"空闲窗口"重启均无副作用（留证）；T2c 确定性踩中恢复路径——iptables OUTPUT DROP 5003 使 dev-3 下载步挂起 → `systemctl restart kc-agent` → worker 自动重新 reconcile 同一 Running 任务（reconcile#1 01:54:39 挂起，reconcile#2 01:55:22 重跑）→ 解封后 01:55:34 完成，Operation Succeeded、零残留。实证 worker 恢复链：eligibleTasks（本节点非终态）→ getLiveTask（非 terminal）→ startPendingTask/继续执行；Watch 重连由 client-go reflector 自动 relist 覆盖。
+
+**T3 超时注入**：kcctl create cluster 无 timeout flag，改 API `POST /clusters?timeout=120`（dryRun 先行 200 验证 payload）。实测：Operation `Spec.Timeout=2m0s`、deadline=02:15:04=start+2m 精确落 status；deadline 恰到时运行中 `kubeadm init` 步被 SIGTERM（agent 日志 `run command failed(signal: terminated)`、`run kubeadm init error`），任务回写 `phase=TimedOut reason=DeadlineExceeded message="task deadline exceeded"`（server 发起，audit 佐证），Operation 终态 `phase=TimedOut reason=DeadlineExceeded message="operation deadline exceeded"` finishedAt==deadline，Cluster→InstallFailed，Pending 步不派发。force 删除后按卸载语义手动清理双节点（kubeadm reset、kubelet/containerd stop+disable、/var/lib/{etcd,kubelet,containerd,dockershim}/etc/{kubernetes,containerd,cni}/tmp/.k8s/包缓存 k8s+cri 版本目录），复验 6 目录不存在、双节点 enabled=0、平台 kc-server/kc-agent/kc-etcd 与 /var/lib/kc-etcd 完好。
+
+**2.6-02 packagePlan 取证**：GET T1 创建的 Cluster 对象（6930 字节）——packagePlan 字段集合与 schema 完全一致（ResolvedArtifactPlan/ResolvedComponent/TransportRef/ArtifactContent），整对象 `password|credential|token|secret|username` 大小写不敏感扫描 0 命中，4 components 全指向 5003。checklist 2.6-02 升 ✅。
+
+**2.6-10a 缺失 blob**：dev-2 9443 测试 registry（distribution 3.1.1，delete 不需要——直接删数据文件）+ dev-3 skopeo 从 5003 拷入 k8s/k8s:v1.35.8、k8s-extension:v1、cni(calico v3.29.6 走 charts `kubeclipper/charts/tigera-operator`，packages/cni/calico 不存在)、cri/containerd:1.7.29。删 layer blob（sha256:b8c094e2…）数据文件：registry GET 404（日志 `blob unknown to registry`）、manifest 仍 200 → server 索引器读包清单需取 blob 失败 → tag 记 `skip invalid OCI package image` 剔除 → POST 显式 containerd 1.7.29 返回 400 `ArtifactNotPublished: artifact cri/containerd:1.7.29 is not published`，零对象；componentmeta `unavailable[]` 记 `reason: notPublished`。R15 观察项（distribution 对 blob 路径 digest 不符不在线校验）不改变结论。
+
+**2.6-10b 多候选冲突**：policy `k8s-v1.35` 追加第二个允许同版本 containerd 的 slot（cri-alt）→ dryRun 与真实 POST 均 400 `DuplicateResolvedComponent: component cri/containerd selected by slots "cri" and "cri-alt"`；同 slot 重名 PUT 即 400 `duplicate component slot "cri"`；单 slot 双 option（name 不同）不冲突——`matchesPackageCandidate` 按 option.name 匹配，非错误路径。policy 字节级还原后 dryRun 200。
+
+**2.6-07 优先级矩阵 + 脱敏**：①server delivery json=9443 + deploy-config=5003（重启 kc-server 生效）→ componentmeta `registry: 172.16.131.146:5003`、dryRun plan 全 5003——deploy-config 单一事实源；据此**更正**此前"json 覆盖 deploy-config"记录（R13 双写同值无法区分）。②8443 htpasswd registry（bcrypt，python3 bcrypt 生成——htpasswd 工具缺失、{PLAIN} 不被 3.1.1 接受）：正确口令 componentmeta 200、错误口令 401（server 侧 401 日志仅 `authentication failure` 无凭据）；口令在 server json、GET API、kc-server/kc-agent journal、/etc /root /var/lib/kubeclipper 全量 grep 0 泄漏；探针后 htpasswd/凭据 json 即删。注：componentmeta 探针实际未走到 8443（indexer 5min TTL 缓存 + registry 解析时序），以 9443 前序同构矩阵 cell + curl 直连 8443 认证矩阵为凭。deploy-config 与双 json 全部还原 5003。
+
+**终态**：双测试 registry 停止（ss 0 监听）、/var/lib/r16-registry、/tmp/r16-evidence（含 /tmp/.r16 客户端证书）、/tmp/r16-8443-auth 删除；零集群、零 Operation、节点 3/3；共享 Registry 146:5003 只读未动、/var/lib/kc-etcd 未触碰。R16 原始证据目录在终态清理中随会话结束删除（延续 R15 处理方式），逐字结论转录本节与 checklist/gaps/plan。
+
+文档同步：plan §3.2 R16 段、§6.3 新增"blob 缺失"行、§6.4 R16 段、B2/B5 表行；checklist 2.1-30（超时注入）、2.6-02 ✅、2.6-07 ✅、2.6-10 ✅；gaps P0 行 8。

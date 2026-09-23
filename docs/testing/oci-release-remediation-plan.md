@@ -11,7 +11,7 @@ B2 大部分关闭（2026-09-21：失败/删除收敛与 N8 饿死修复经 E2E+
 每族数量/主机冲突校验，见 §3.2 更新；协作式 cancel 全语义与 retry 仍待验收）；B3 大部分实施
 （0600 写入自 batch-1 `a989b14f`，R9 补齐原子替换与符号链接防护及回归测试，rc.7 远端复验两
 配置文件 0600，见 §4 实施更新）；B4～B6 待实施。**更新（R10，rc.7 `e7d99421`，2026-09-21）**：
-协作式 cancel 语义矩阵与 2.1-30 retry 真机验收通过（超时、重启注入子项除外，见 §3.2），
+协作式 cancel 语义矩阵与 2.1-30 retry 真机验收通过（超时、重启注入子项于 R16 闭环，见 §3.2），
 N9 修复复验通过。B4～B6 待实施。稳定版发布结论仍为 Blocked。**更新（R11，rc.8 `e9d9afeb`，
 2026-09-22）**：B4 已实施并真机复验通过——持久化删除流九项证据（见 §5.3 实施更新），
 checklist 2.5-04/08/09/10/11 闭环、gaps N4/N7 关闭。**更新（R12，rc.8 `e9d9afeb`，2026-09-22）**：
@@ -57,7 +57,7 @@ revision，不能据此放行当前候选。R5/R6 故障来自已有实测记录
 | 编号 | 内容                          | 证据性质                                   | 初始实施状态 |
 | ---- | ----------------------------- | ------------------------------------------ | ------------ |
 | B1   | 平台升级产物与 OCI 发布不一致 | 已确认代码和发布契约缺陷                   | 已实施（2026-09-20，E2E 复验见 R7 报告 §11；console/kcctl 与中断恢复为 step 2） |
-| B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞 agent 侧根因已定位（R8） | 大部分关闭（2026-09-21，rc.6 复验：CIDR 校验含边界+主机冲突真机负向矩阵通过（checklist 2.1-28 ✅）、N8 饿死修复复验通过（无 10s 尾延迟、不饿死）、失败/删除收敛 R8 已验证；rc.7 复验：协作式 cancel 语义矩阵与 2.1-30 retry 通过（超时与重启注入子项除外）） |
+| B2   | CIDR 校验、取消与失败恢复     | CIDR 缺陷已确认；取消停滞 agent 侧根因已定位（R8） | 大部分关闭（2026-09-21，rc.6 复验：CIDR 校验含边界+主机冲突真机负向矩阵通过（checklist 2.1-28 ✅）、N8 饿死修复复验通过（无 10s 尾延迟、不饿死）、失败/删除收敛 R8 已验证；rc.7 复验：协作式 cancel 语义矩阵与 2.1-30 retry 通过；rc.8/R16 复验：超时注入、Server/Agent 重启注入子项闭环 ✅） |
 | B3   | 敏感配置权限                  | 写入代码与远端权限已确认                   | 大部分实施（2026-09-21：0600 写入自 batch-1 `a989b14f`；R9 补齐原子替换+拒绝符号链接+umask 无关性与 §4.4 回归测试；rc.7 远端复验：dev-2 两配置文件实测 0600） |
 | B4   | 备份删除、轮转和详情查询      | 已有失败记录；删除时序和查询参数问题已确认 | 已实施并复验（2026-09-22，rc.8 `e9d9afeb` 持久化删除流真机复验通过，见 §5.3 实施更新；已知边角：同毫秒并发双 DELETE 同一备份一个 500，无重复副作用，记低优先改进项）       |
 | B5   | OCI 真实消费矩阵              | 关键 E2E 未执行或未完整验收                | 大部分闭环（R12/R13：认证 Registry 正负向、缓存篡改、断连恢复、纯离线 bundle、公共 CA、join 认证已闭环；R15：包 contents 路径真机篡改探针闭环——server 剔除/CLI fail-fast/agent gzip 阻断三层防御+恢复后正向 Running；余量：平台重 deploy、部署侧断连、arm64）       |
@@ -202,6 +202,8 @@ retry`，前 6 步保留原时间戳未重做（§3.3-5"重试不得无条件重
 Cluster/Operation/节点标签，同节点重建 2 分钟 Running，kubelet inactive、无 /etc/kubernetes
 残留。§3.4 剩余子项：超时（spec deadline 到期）、Watch 重连与 Server/Agent 重启注入未覆盖。
 证据：dev-2 /tmp/r10-*.txt。
+
+**R16（rc.8，2026-09-23）§3.4 剩余子项闭环**：①**超时注入**——API `POST /clusters?timeout=120`（kcctl create cluster 无该 flag，须走 API）显式压缩期限：Operation `Spec.Timeout=2m0s`、deadline=start+2m 精确写入 status；deadline 到达时运行中 `kubeadm init` 步被 SIGTERM（agent 日志 `signal: terminated`），任务回写 `TimedOut/DeadlineExceeded`（"task deadline exceeded"），Operation 终态 `TimedOut/DeadlineExceeded`（"operation deadline exceeded"），Cluster→InstallFailed；Pending 步不再派发；force 删除后按卸载语义手动清理（kubeadm reset、kubelet/containerd disable、/var/lib/{etcd,kubelet,containerd}、/etc/{kubernetes,containerd,cni}、/tmp/.k8s、包缓存 k8s/cri 版本目录）恢复零残留；②**Server 重启注入**——kc-server 在 41s 安装任务中段重启（Stopping/Stopped/Started 同秒，<1s 完成且未中断 quorum），在途任务无感知照常 Succeeded（HA 三副本各节点 agent 连本地副本），任务写回 20 条全部成功；③**Agent 重启注入**——T2 两轮空闲窗口重启无副作用；T2c 确定性踩中：iptables OUTPUT DROP 5003 令 dev-3 下载步挂起 → 重启 kc-agent → worker 重新 reconcile Running 任务（reconcile#1 01:54:39 挂起、reconcile#2 01:55:22 重跑）→ 解封后任务 01:55:34 完成、Operation Succeeded，零残留（§3.3-2 worker 恢复路径实证：eligibleTasks 按 NodeRef 匹配、getLiveTask 非 terminal、startPendingTask 翻 Pending→Running）；Watch 断连重连由 client-go reflector 自动 relist 覆盖（任务恢复即重连证据）。证据原存 dev-2 /tmp/r16-evidence（终态清理删除，逐字结论转录本节与 R7 报告 §12.12）
 
 ### 3.3 修改方案
 
@@ -384,6 +386,7 @@ qualification 的 sync job 使用 `$GITHUB_TOKEN`，但未在该 job/step 显式
 | HTTPS 公共 CA、自签 CA、账号密码 | deploy、独立 join、Agent 真实拉取                                     | 证书校验生效，正确凭据成功；错误 CA/密码明确拒绝。**R12 已执行（自签 CA+账号密码，2026-09-22，rc.8 三机）**：①自建 distribution 3.0.0 HTTPS+自签 CA+htpasswd，`registry sync` 从 HTTP 共享源镜像 6 artifact（digest 一致）；②三节点 0600 配置+deploy-config 双侧切换动态生效，建群 Succeeded、三节点 Ready、agent 真实拉取；③错误密码 → `UNAUTHORIZED` 明确失败、零凭据泄漏、修正后 retry Succeeded；④未配 CA → `x509: certificate signed by unknown authority` 明确拒绝。**R13 已执行（公共 CA 等价+join 入口，2026-09-22）**：⑤自签 CA 加入三节点系统信任库（等价公共 CA：`package-registry.json` 零凭据零 CA 字段）→ 7443 TLS-only 建群 Running、TLS 拉取 231 次走系统信任池；运维发现 Go x509 进程内缓存系统根池，加 CA 后必须重启 kc-server/kc-agent；⑥join 入口：auth registry 8443 下 join 下发 0600 凭据、被加入节点直连认证拉取 9×200、错误口令 EXIT=1 可读报错零部分安装 |
 | 拉取途中断连、恢复仓库           | 平台部署和集群消费失败后恢复                                          | 错误可观察、修复后可重试，无半成品被误用。**R12 已执行（集群消费侧，rc.8 三机）**：retry 中途 kill registry → `connection refused` 明确失败（在途请求经 graceful shutdown 完成）→ registry 恢复后 retry → 三节点 k8s 包全部从头重拉（56MB layer ×3）、Succeeded、集群 Running；半成品缓存未被信任。**余量：平台部署侧断连注入** |
 | 缓存篡改、digest 不符            | 已拉取节点再次消费                                                    | 校验拒绝，不回退到可变 tag，不执行错误内容。**R12 已执行（最小探针，rc.8 三机）**：master `charts.tgz` 翻一字节 → `validCachedHelmChart` payloadDigest 拒绝 → digest-pinned 重拉 → sha 恢复原值、Operation Succeeded；包 contents 路径同构校验（`loadCachedComponent` 逐文件 digest）。**R15 已执行（包 contents 路径真机探针，2026-09-22，rc.8 三机；registry 侧 blob 篡改，9443 测试源）**：containerd 1.7.29 configs 层 blob 篡改（registry 对 blob 内容与路径 digest 不符不做在线校验，仍 200）后实测三层防御——①浅篡改（tar 头损坏）：server indexer 下载后解析归档失败 warn `archive/tar: invalid tar header` 并从清单剔除，componentmeta 中该包消失；②显式指定被剔除包建群：CLI fail-fast `missing packages: containerd 1.7.29; publish or sync them to OCI package registry ... first`（EXIT=1，零对象）；③深篡改（20MiB 数据区翻转，tar 头可解析）：两节点建群 installRuntime 步骤 attempt 0/1 均被 agent 侧 gzip CRC 阻断，任务状态回写 `"message":"gzip: invalid checksum","reason":"ExecutionFailed"`，3 秒内 Failed、无半装（cluster InstallFailed → force delete 零残留）。正向对照：恢复 blob（重拷后 sha256 复原 b8c094e2…、69064877 字节）+ 清缓存显式建群 → Running（9443 实拉 GET 200，go-containerregistry UA），排除误伤好包 |
+| **blob 缺失**（manifest 在、blob 404）  | 拉取途中或创建前          | 创建前拒绝，零对象。**R16 已执行（2026-09-23，rc.8）**：9443 拷入 containerd:1.7.29 后删除 layer blob 数据文件（registry GET 404、manifest 仍 200）→ server 索引器为读包清单取 blob 失败 → tag 记 `skip invalid OCI package image`（`Warnf`）从清单剔除 → POST 显式 containerd 1.7.29 返回 400 `ArtifactNotPublished: artifact cri/containerd:1.7.29 is not published`，零 Cluster/Operation；componentmeta `unavailable[]` 记该包 `reason: notPublished`。对比 R15 观察项（distribution 对 blob 路径 digest 不符不在线校验）不改变拦截结论：消费入口在创建前解析即被拒 |
 | amd64/arm64 及正式 OS            | 实际安装、最小集群和清理                                              | 架构、版本、Node/Pod 健康与清理结果正确。**未执行** |
 
 ### 6.4 关闭条件与证据格式
@@ -413,6 +416,8 @@ deploy-config 与四节点 0600 delivery json 还原 5003、componentmeta 复验
 证据摘要（原始文件清理后由会话记录逐字重建，含来源说明）：
 `kc-fix2/r15-raw-evidence/r15-evidence-reconstructed.md`。
 **矩阵余量**：平台本体从 bundle 重新 deploy、平台部署侧断连注入、arm64 真机（用户明确排除）。
+
+**实施更新（R16，2026-09-23，rc.8 `e9d9afeb` 三机）**：①§6.3 新增"**blob 缺失**"行闭环（见矩阵内 R16 标注）：blob 404 → 索引剔除 → `ArtifactNotPublished` 400 创建前拦截，componentmeta `unavailable[]` 记 `notPublished`；②2.6-10b 多候选冲突闭环：policy 双 slot 同版本 → `DuplicateResolvedComponent` 400（同 slot 重名 `duplicate component slot`，单 slot 双 option 按 option.name 匹配不冲突）；③2.6-07 优先级矩阵（json=9443/dc=5003 → deploy-config 胜出，plan 全 5003）与 8443 htpasswd 认证探针（正确口令 200/错误口令 401、json/API/journal/文件系统 grep 0 泄漏）闭环；④2.1-30 超时/重启注入子项闭环（见 §3.2 R16 段）。R16 环境记录：dev-2 9443（同 R15 拓扑）与 8443 htpasswd（9443 数据目录共享）两个测试 registry（distribution 3.1.1）、skopeo 在 dev-3 逐 tag 拷入 k8s/cri/cni(calico 走 charts tigera-operator)/k8s-extension；测试期间 deploy-config 与 server/agent delivery json 临时改指测试源，终态全部字节级还原 5003 并复验 componentmeta registry=5003；凭据探针后 htpasswd/凭据 json 即删、双 registry 停止、/var/lib/r16-registry 与 /tmp/r16-evidence（含 /tmp/.r16 客户端证书）删除；共享 Registry（146:5003）只读未动、/var/lib/kc-etcd 未触碰；T3 force 删除后按卸载语义手动清理双节点（kubeadm reset、kubelet/containerd disable 与目录清理、包缓存版本目录移除）复验 6 项目录不存在、双节点 0 enabled。证据原存 dev-2 /tmp/r16-evidence（终态清理删除，逐字结论转录 R7 报告 §12.12 与 checklist/gaps）。
 
 每个声明支持的矩阵项都有真实通过证据；环境缺失项保持未验收，不用构建结果代替。
 每条记录至少包含以下字段，配置和日志先脱敏：
