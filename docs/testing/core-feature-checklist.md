@@ -110,16 +110,16 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 2.2-01 | worker 添加（含 packagePlan 不变性） | ✅ | R2/R3；R7 复测（API add，Operation Succeeded，4 个 slot digest 前后一致） |
-| 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3；R7 复测（remove Operation 20 秒收敛） |
-| 2.2-03 | **master 添加 / 移除** | ❌ | R4 尝试 Master add 被 API 以 `invalid node role` 拒绝；当前实现不支持该路径，未安排 Master E2E |
+| 2.2-01 | worker 添加（含 packagePlan 不变性） | ✅ | R2/R3；R7 复测（API add，Operation Succeeded，4 个 slot digest 前后一致）；R17 复测（rc.8 v2 operation 模型真机）：dev-2 入双 master 集群 Ready，Operation 下 28 个 OperationTask（task-XXXX 独立资源，按 stepID×节点派发，spec.operationRef 关联）全部 Succeeded |
+| 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3；R7 复测（remove Operation 20 秒收敛）；R17 复测（rc.8 真机）：remove Operation 收敛，节点移出集群——集群标签清空、/etc/hosts 集群条目清除、无 kubelet/containerd 二进制残留（注：`/tmp/.k8s` 不随 remove 与 cluster delete 清理，记小观察项） |
+| 2.2-03 | **master 添加 / 移除** | ❌ | R4 尝试 Master add 被 API 以 `invalid node role` 拒绝。**R17（rc.8 `e9d9afeb`，2026-09-23）定性为产品缺口**：双 master 集群（dev-3+dev-4）Ready 后，Master add/remove 恒 400 `invalid node role`——`makeMasterCompare`（pkg/clusteroperation/node.go:101-104）无条件 `return ErrInvalidNodesRole`（注释 `// support later`），doMakeOperation master 分支同拒，etcd member remove/证书清理代码路径不存在；worker 增删同接口正常（见 2.2-01/02）。关闭待 master 增删实现（gaps P0 行 5） |
 | 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
 | 2.2-05 | 节点 disable / enable | ✅ | R3/R4 通过；R7 复测（`PATCH /nodes/{name}/disable|enable` 均 200，禁用期建群被拒，label 实际键 `kubeclipper.io/nodeDisable`） |
 | 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
 | 2.2-07 | agent 节点注销（`DELETE /nodes/{name}`） | ⚠️ | R6：drain 后独立 join 恢复；R7 复测 drain→join 主路径通过（新 Node `049e40a2`，3/3 恢复） |
 | 2.2-08 | Worker 添加时复用原 `status.packagePlan` | ✅ | R2/R3；各 slot digest 不随 Registry tag 漂移 |
-| 2.2-09 | Master 添加后 etcd/control-plane quorum | ❌ | 新成员健康，API 高可用，packagePlan 不漂移 |
-| 2.2-10 | Master 移除后的 etcd 成员与 VIP 收敛 | ❌ | 不破坏 quorum；成员、证书和负载入口无残留 |
+| 2.2-09 | Master 添加后 etcd/control-plane quorum | ❌ | 新成员健康，API 高可用，packagePlan 不漂移（产品缺口同 2.2-03：R17 rc.8 复证 master 增删被代码无条件拒绝，无法真机执行） |
+| 2.2-10 | Master 移除后的 etcd 成员与 VIP 收敛 | ❌ | 不破坏 quorum；成员、证书和负载入口无残留（产品缺口同 2.2-03：R17 rc.8 复证，etcd member remove/证书清理代码不存在） |
 | 2.2-11 | Agent 注册身份与 Node 状态更新保护 | ❌ | Agent 只能注册/更新自身 Node；UID/resourceVersion 不匹配应拒绝 |
 | 2.2-12 | Node Lease、Ready/Unknown 与重连恢复 | ⚠️ | R2 有自然掉线样本；需验证超时、恢复及列表状态一致性 |
 | 2.2-13 | Region 归属、列表和同 Region 调度约束 | ⚠️ | Region 基础接口存在；多 Region 完整场景未验证 |

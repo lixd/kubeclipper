@@ -799,3 +799,27 @@ R13 遗留（dev-2 `/tmp/r13-evidence`、dev-3 `/tmp/r13-bundle`、`r13-sync-man
 **终态**：双测试 registry 停止（ss 0 监听）、/var/lib/r16-registry、/tmp/r16-evidence（含 /tmp/.r16 客户端证书）、/tmp/r16-8443-auth 删除；零集群、零 Operation、节点 3/3；共享 Registry 146:5003 只读未动、/var/lib/kc-etcd 未触碰。R16 原始证据目录在终态清理中随会话结束删除（延续 R15 处理方式），逐字结论转录本节与 checklist/gaps/plan。
 
 文档同步：plan §3.2 R16 段、§6.3 新增"blob 缺失"行、§6.4 R16 段、B2/B5 表行；checklist 2.1-30（超时注入）、2.6-02 ✅、2.6-07 ✅、2.6-10 ✅；gaps P0 行 8。
+
+### 12.13 R17 追加轮（2026-09-23，rc.8 e9d9afeb）：平台重 deploy + 部署侧断连（B5 余量）+ Master 增删（2.2-03/09/10）
+
+**范围**（用户批准两项，含 /var/lib/kc-etcd 重建授权；arm64 继续排除）：①B5 余量——平台本体从 OCI registry 重 deploy + 部署侧断连注入三场景；②Master 增删真机验证（2.2-03/09/10）。平台为 clean 后全新重 deploy 的 rc.8（见场景 C），此前 /var/lib/kc-etcd 被整体重建。
+
+**前置护栏**：bootstrap 清单前置核验（4 kinds 齐全才准 clean）、registry.bin sha256 双侧一致守卫（3162d930…）、kc-etcd snapshot + deploy-config 备份（/root/r17-backup）后才执行 `kcctl clean -A`。clean 范围实证：卸载服务、/etc/kubeclipper-*、/etc/kc-console、/var/lib/kc-etcd、/usr/local/bin/{kubeclipper*,etcd*,caddy}、~/.kc（含 deploy-config.yaml）；不动 /var/lib/kubeclipper/cache 与 registry 二进制。
+
+**场景 A——precheck 期断连**：clean 后以不可达 registry 地址 deploy（scheme 经 `KC_PACKAGE_REGISTRY_CONFIG` 环境变量回退 http——clean 删除已安装 package-registry.json，解析链 flags > env > 已安装文件 > 默认 https）→ 15s 硬超时内双 scheme（https+http）探测快速失败，锚点日志 `PACKAGE-REGISTRY PRECHECK OK!`（deploy.go:1764）未出现，报错含 `kcctl registry sync` 提示，零节点影响（precheck 先于任何节点动作）。
+
+**场景 B——sendPackage 期断连**：precheck 通过（5003 恢复可达）→ 证书已分发到节点后 iptables tcp-reset REJECT 5003 → sendPackage 阶段 `refresh bootstrap assets from registry ... connection refused` abort（exit 1），无重试；半安装态=证书已分发+包缓存；恢复网络后无需 clean 直接重 deploy 成功——错误可观察、可重试、半装态不被误用。
+
+**场景 C——完整重 deploy**：`kcctl deploy -c /root/r17-backup/deploy-config.yaml`（配置模式复用 agentID，节点身份保持）→ ~4 分钟成功：4 服务 active（kc-etcd 12379/12380/12381 全新 3 成员、kc-server、kc-console、kc-agent）、3 节点 Healthy、bootstrap 包取 5003 最高 semver tag（rc.8）、healthz/console 200、package-registry.json 重新生成（http scheme）、dumpConfig 重新生成等价 deploy-config。**deploy 非幂等实证**：对已部署平台直接 deploy 被 preCheck 拒绝（"clean old environment before deploying"）→ 重 deploy 必须 clean -A 前置。
+
+**P0 新发现——离线建群必须显式 imageRegistry（gaps P0 行 10）**：v1 建群 payload（无 `imageRegistry`）双 master（dev-3+dev-4）创建 → kubeadm.yaml 不渲染 `imageRepository`（默认 registry.k8s.io）、containerd certs.d 无本地镜像映射 → 离线环境 `kubeadm init` 从公网拉 7 镜像 i/o timeout，单 attempt ~18 分钟、5400s deadline 内每 ~18 分钟循环重试后 Failed，创建前零校验零提示。代码链：`getClusterMetadata → ResolveClusterImageRegistry` 空 name → 不渲染 imageRepository；`DownloadImage` 仅 Upgrade 路径消费且 OCI 交付下直接报错（pkg/scheme/core/v1/k8s/cluster.go:397 `"upgrade Kubernetes image archives are not supported with OCI package delivery"`），创建路径无镜像 load 步骤。**修复实证**：v2 payload 加 `"imageRegistry": "kc-package-registry"`（Registry 对象名，deploy 时自动创建，http/5003）→ `ResolveImageRegistry` 同源驱动 kubeadm `imageRepository: 172.16.131.146:5003` 与 containerd certs.d hosts.toml（http endpoint）→ 20/20 OperationTask Succeeded、双 master Ready。R15/R16 建群成功系节点 containerd 遗留镜像掩护，R16 清理 /var/lib/containerd 后暴露本缺口。
+
+**Master 增删——产品缺口复证（2.2-03/09/10，gaps P0 行 5）**：双 master 集群 Ready 后，PUT `/api/core.kubeclipper.io/v1/clusters/{name}/nodes` role=master 恒 400 `invalid node role`——`makeMasterCompare`（pkg/clusteroperation/node.go:101-104）无条件 `return ErrInvalidNodesRole`（注释 `// support later`），doMakeOperation master 分支同拒；etcd member remove/证书清理代码路径不存在。定性：产品缺口而非用例未测。
+
+**Worker 增删——v2 operation 正向首证**：add（dev-2 入双 master 集群）→ Ready，Operation 下 28 个 OperationTask（task-XXXX 独立资源、spec.operationRef/stepID/nodeRef 关联，按 stepID×节点派发）全部 Succeeded；remove → 节点移出、集群标签清空、/etc/hosts 集群条目清除、无 kubelet/containerd 二进制残留。NEG1/NEG2 负向均 400。小观察项：`/tmp/.k8s` 不随 worker remove 与 cluster delete 清理。
+
+**cancel/删除顺序语义**：Installing 中 force delete 400 拒绝（"can't delete cluster when cluster is Installing"），徒劳重试步每 ~18 分钟循环 → 先 `POST /operations/{name}/cancel`，body 须**平铺** `{"uid":"...","resourceVersion":"..."}`（readControlRequest，handler.go:505；`{}` 与 `{"metadata":{...}}` 均 400）→ phase Canceled → Cluster InstallFailed → force delete 成功。
+
+**终态**：测试集群删除、3 节点 Healthy 无集群标签、平台 rc.8 全绿（4 服务 active、healthz/console 200）、共享 Registry 146:5003 未动（sha 守卫一致、5003 200）、/var/lib/kc-etcd 为重 deploy 后全新、/tmp/r17、/root/r17-evidence、/root/r17-backup 及 dev-3 备份全删。原始证据在终态清理中删除（延续 R15/R16 处理方式），逐字结论转录本节与 checklist/gaps/plan。
+
+文档同步：plan 摘要 R17 更新、B5 表行、§6.3"纯离线/拉取途中断连"两行、§6.4 R17 段、矩阵余量行；checklist 2.2-01/02（R17 复测）、2.2-03（产品缺口定性）、2.2-09/10（同 2.2-03）；gaps P0 行 5 更新、P0 行 10 新增、R17 轮段落。
