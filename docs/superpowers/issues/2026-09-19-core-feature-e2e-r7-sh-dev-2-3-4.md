@@ -880,3 +880,65 @@ R13 遗留（dev-2 `/tmp/r13-evidence`、dev-3 `/tmp/r13-bundle`、`r13-sync-man
 **终态**：三节点 kc-server active、console 全 200、healthz 200、doctor 25/25（upgrade all 后复验）；共享 Registry 仅增 v2.0.3-rc.10 tag（14 个 v2.0* tag），存量与 caas4/* 未动；/var/lib/kc-etcd 未动；dev-2 /tmp/kc-r19-publish（oci-publish/kcctl/两份 manifest）与 watch 日志删除，Mac /tmp/kc-r19-publish 删除；无临时凭据残留。证据逐字转录本节与 checklist/gaps/plan。
 
 文档同步：plan 头部 R19 段、B1 表行 step 2 收口、§2.5 执行状态；checklist 1.2-07 ✅、1.3-07 补注、1.3-10 ✅、1.3-09 补注；gaps P0 行 1 关闭、P0 行 4 console/kcctl 关闭（余量两项如实保留）、R19 轮段落。
+
+### 12.16 R20 追加轮（2026-09-24，rc.11 9a1dbb7563262f1cf509bcb1a78364b9072f0c0b）：B1 余量收口——升级故障注入矩阵 + `--version` 在线正向下载
+
+**范围**（用户指令："继续吧，处理全部遗留问题"）：①rc.11 发布；②升级故障注入矩阵四场景
+（T-A/T-C/T-D/T-B）；③1.3-09 `--version` 在线正向下载+checksum（本地 GitHub 镜像法）；
+④文档回填。无代码变更（纯验收轮）。
+
+**发布链**：Mac 本地构建（构建门禁 gitTreeState=clean，revision=9a1dbb7563262f1cf509bcb1a78364b9072f0c0b，
+三二进制 metadata 校验通过）→ `KC_OCI_PUBLISH_BIN` wrapper 经 dev-2 发布
+`bootstrap/kubeclipper:v2.0.3-rc.11`（共享 Registry 仅增 tag，15 个 v2.0* tag）→ 顶层 index
+digest `sha256:c28ebeedc60d22fba4a6eb451c624df5a5c8ce28f6e54cfc7cec98d15ccc649f`（stdout 的
+`202062f7…` 是子 manifest，重申 §12.6/§12.5 教训）；内容 digest kcctl=`1763e362…`、
+agent=`5427e2c5…`、server=`9c4ebe15…`。manifest（sha256=`545c307c11177a33…`）：
+**manifest 布局教训（新增）**——`PackageRepositoryPrefix` = `kubeclipper/packages`
+（registry_indexer.go），target 必须写全前缀
+`kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.11`、registries.package 只写 host
+（172.16.131.146:5003）；首版 target 写 `bootstrap/kubeclipper:tag` 被 ParsePackageRepository
+拒绝（`repository "bootstrap/kubeclipper" is not under kubeclipper/packages/{kind}/{name}`），
+preflight 拒绝零触碰。`--dry-run` flag 不存在（unknown flag），无法干跑、直接真机执行。
+
+**预跑插曲（中断韧性实证）**：60s 超时的 manifest 预跑意外进入真实升级——dev-2/dev-3 server
+完成升级至 rc.11 后本地客户端被 timeout 杀死（远端 SSH 步骤序列不受影响地执行完毕，dev-3
+staging 保留 backup+新二进制供检查）。dev-2/3 由此处于 rc.11 中间态，后续 T-A 重跑对这两台
+幂等 skip；T-A 注入器原触发条件（等 "upgraded server 172.16.131.146" 日志行）相应改为
+**轮询 dev-4 staging backup 文件出现**（install 前一步，距 180s 健康窗口足够远）。
+
+**故障注入矩阵**（全部确定性注入；设计原则：iptables 只阻断发起机→目标节点的探测路径、
+不碰节点本身；restore 仅恢复 backup 内旧文件，因此任何注入都不会破坏 restore）：
+
+| 场景 | 注入 | 结果 |
+|---|---|---|
+| T-A server 健康探测失败→自动恢复 | `upgrade all` rc.10→rc.11；dev-2（发起机）`iptables -I OUTPUT -d 230 --dport 8080 -j REJECT` 在 dev-4 backup 出现后 3s 插入 | ✅ rc=1：dev-2/3 skip（already at revision）；dev-4 install+start 成功但 `waitServerHealthy` 180s 超时 → `restoreNodeBinary`（"restored previous kubeclipper-server on 172.16.131.230"）→ "upgrade stopped at server 172.16.131.230 … already upgraded nodes were not rolled back"，后续 agent/console/kcctl 槽位未执行；删规则后 dev-4 md5=`1a27eab5`（rc.10 基线）、kc-server active、healthz ok |
+| T-C kcctl 替换后探针失败→restoreKcctl | `upgrade kcctl`；watcher 在 dev-2 staging backup/kcctl 出现瞬间（备份步骤与 install 之间 ~1s 窗口）用垃圾覆盖 staging/kcctl | ✅ rc=1：steps 全成功（install 装入垃圾）→ 替换后 probe revision `""` ≠ target → "upgrade stopped at kcctl 172.16.131.208" → "restored previous kcctl on 172.16.131.208"；三节点 kcctl md5 全=`53a93b62`（rc.10 基线）、dev-3/4 未触碰、`kcctl version` 正常 |
+| T-D console 探针失败→restoreConsole | `upgrade console`；预插 dev-2→230:80 REJECT（console 槽位无 healthz preflight，preflight 不受影响） | ✅ rc=1：208/146 console 重装 v1.6.0 成功；230 替换+start OK 但 `consoleOK`（http://IP:80/ 2xx 探测）180s 超时（错误信息明示 "probing http port 80"）→ "restored previous caddy and web dist on 172.16.131.230"；删规则后 dev-4 caddy md5=`e1c73bd7…` 与 dist 树哈希 `94c7c1c4…` 与注入前**逐字节一致**、console 200×3 |
+| T-B 中断后再执行→skip+补齐收敛 | 四场景后（server 208/146 已 rc.11、230 已恢复 rc.10，agent/console/kcctl 未动）重跑 `upgrade all`，无注入 | ✅ rc=0：server 208/146 skip、230 补齐；agent×3 补齐；console×3 幂等重装（无 revision 可探，重装即幂等路径）；kcctl×3 替换；"platform API reports v2.0.3-rc.11 (revision 9a1dbb756326)"。终态三节点 server=`00c6ff30`/agent=`b93afc0a`/kcctl=`a847bf6f` 全一致、服务全 active、healthz ok、console 全 200、doctor **25/25** |
+
+**1.3-09 `--version` 在线正向下载+checksum（本地 GitHub 镜像法）**：dev-2（Ubuntu 24.04，
+443 空闲）模拟 github.com——①自签 CA（basicConstraints CA:TRUE，2 天效期）进系统信任
+（/usr/local/share/ca-certificates/kc-r20-test-ca.crt + update-ca-certificates）；②SNI 服务器
+证书 SAN=github.com；③/etc/hosts `127.0.0.1 github.com`；④python3 HTTPS 443 供给与真实
+release 同构的 URL
+`/kubeclipper/kubeclipper/releases/download/v2.0.3/release-manifest-v2.0.3.yaml(+.sha256)`。
+Downloader（download.go）用 http.DefaultClient（系统根校验）+ 强制 sha256 比对，镜像即满足
+其全部前提。**正向**：`kcctl upgrade all --version v2.0.3` → "upgrade plan: target
+v2.0.3-rc.11 … from manifest downloaded for v2.0.3"（下载+校验+Parse/Validate+版本策略幂等
+短路）→ 9 槽位 skip（server×3+agent×3+kcctl×3；console 无 revision 恒重装）→ platform API
+复核 → rc=0。**负向**：`.sha256` 首字符 5→0 篡改 → `release manifest checksum mismatch:
+expected=045c307c… actual=545c307c…` 拒绝（下载层 checksum 强制实证）。**拆除**（临时证书
+按约束即用即删）：kill 镜像进程（教训：`pkill -f "python3 server.py"` 模式含命令字面量会
+匹配承载命令的远程 shell 自身，ssh 会话被杀 exit 255；改用 `server[.]py`）、删
+/tmp/kc-r20-mirror、hosts 恢复（getent 解析回真实公网 IP）、CA 移除 + update-ca-certificates
+--fresh 重建信任库、443 释放。
+
+**终态**：三节点全 rc.11（9a1dbb7563262f1cf509bcb1a78364b9072f0c0b）、doctor 25/25、
+staging /tmp/kubeclipper-upgrade 三节点清理；iptables 规则清零；hosts/CA 恢复原状；共享
+Registry 仅增 v2.0.3-rc.11 tag（15 个 v2.0* tag），存量与 caas4/* 未动；/var/lib/kc-etcd
+未动。**B1 关闭条件全部满足（§2.5）：在线和内网 OCI 升级、组件独立升级、重复执行、错误
+digest/架构、启动失败和中断恢复全部通过。**证据逐字转录本节与 checklist/gaps/plan。
+
+文档同步：plan 头部 R20 段、B1 表行关闭、§2.5 执行状态（B1 关闭）；checklist 1.3-09 ✅
+（镜像法正向+checksum 负向）、1.3-10 补故障注入注；gaps P0 行 4 两项余量收口（B1 关闭）、
+R20 轮段落。
