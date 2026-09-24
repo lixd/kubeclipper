@@ -175,7 +175,7 @@ type CreateClusterOptions struct {
 }
 
 var (
-	allowedCRI = sets.NewString("containerd", "docker")
+	allowedCRI = sets.NewString("containerd")
 	allowedCNI = sets.NewString("calico")
 )
 
@@ -203,7 +203,7 @@ func NewCreateClusterOptions(streams options.IOStreams) *CreateClusterOptions {
 func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	o := NewCreateClusterOptions(streams)
 	cmd := &cobra.Command{
-		Use:                   "cluster (--name) <name> (-m|--master) <id or ip> [(--offline <false> | <true>)] [(--cri <docker> | <containerd>)] [(--cni <calico> | <others> )] [flags]",
+		Use:                   "cluster (--name) <name> (-m|--master) <id or ip> [(--offline <false> | <true>)] [(--cri <containerd>)] [(--cni <calico> | <others> )] [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "create kubeclipper cluster resource",
 		Long:                  clusterLongDescription,
@@ -225,7 +225,7 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 		&o.ImageRegistry, "image-registry", o.ImageRegistry,
 		"Choose a Registry resource to pull Kubernetes images from")
 	cmd.Flags().StringSliceVar(&o.CRIRegistries, "cri-registry", o.CRIRegistries, "specify internal cri registry name to add registry config to containerd,run command [kcctl get registry] to show internal cri registry")
-	cmd.Flags().StringVar(&o.CRI, "cri", o.CRI, "k8s cri type, docker or containerd")
+	cmd.Flags().StringVar(&o.CRI, "cri", o.CRI, "k8s cri type, containerd")
 	cmd.Flags().StringVar(&o.CRIVersion, "cri-version", o.CRIVersion, "k8s cri version")
 	cmd.Flags().StringVar(&o.K8sVersion, "k8s-version", o.K8sVersion, "k8s version")
 	cmd.Flags().StringVar(&o.CNI, "cni", o.CNI, "k8s cni type, calico or others")
@@ -391,6 +391,9 @@ func policySlotVersions(metas *kc.ComponentMeta, k8sVersion, slot, componentName
 
 func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 	if !allowedCRI.Has(l.CRI) {
+		if l.CRI == "docker" {
+			return utils.UsageErrorf(cmd, "Docker CRI is not supported, use containerd (the Docker CRI entry was removed; dockershim has no supported Kubernetes release)")
+		}
 		return utils.UsageErrorf(cmd, "unsupported cri,support %v now", allowedCRI.List())
 	}
 	if !allowedCNI.Has(l.CNI) {
@@ -706,20 +709,17 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 	}
 
 	switch l.CRI {
-	case "docker":
-		c.ContainerRuntime = v1.ContainerRuntime{
-			Type:       v1.CRIDocker,
-			Version:    l.CRIVersion,
-			Registries: criRegistry,
-		}
 	case "containerd":
-		fallthrough
-	default:
 		c.ContainerRuntime = v1.ContainerRuntime{
 			Type:       v1.CRIContainerd,
 			Version:    l.CRIVersion,
 			Registries: criRegistry,
 		}
+	default:
+		// Unreachable through ValidateArgs (the gate above rejects
+		// unsupported CRI types first); kept as a hard stop so future
+		// callers cannot silently build a non-containerd cluster object.
+		panic(fmt.Sprintf("unsupported cri %q passed the validation gate", l.CRI))
 	}
 	return c
 }

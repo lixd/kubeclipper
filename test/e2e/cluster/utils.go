@@ -47,15 +47,6 @@ func SetContainerdRuntime() Setter {
 	}
 }
 
-func SetDockerRuntime() Setter {
-	return func(c *corev1.Cluster) {
-		c.ContainerRuntime = corev1.ContainerRuntime{
-			Type:    corev1.CRIDocker,
-			Version: "20.10.20",
-		}
-	}
-}
-
 func SetClusterName(name string) Setter {
 	return func(c *corev1.Cluster) {
 		c.Name = name

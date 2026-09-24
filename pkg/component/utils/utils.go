@@ -55,12 +55,6 @@ func LoadImage(ctx context.Context, dryRun bool, file, criType string) error {
 		if err != nil {
 			return err
 		}
-	case "docker":
-		// docker load -i xxx/images.tar
-		_, err := cmdutil.RunCmdWithContext(ctx, dryRun, "docker", "load", "-i", file)
-		if err != nil {
-			return err
-		}
 	}
 
 	_, err := cmdutil.RunCmdWithContext(ctx, dryRun, "rm", "-rf", file)

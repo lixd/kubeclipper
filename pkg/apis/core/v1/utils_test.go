@@ -71,9 +71,9 @@ var (
 		CertSANs:      nil,
 		ImageRegistry: "172.18.94.144:5000",
 		ContainerRuntime: v1.ContainerRuntime{
-			Type:        v1.CRIDocker,
-			Version:     "19.03.12",
-			DataRootDir: "/var/lib/docker",
+			Type:        v1.CRIContainerd,
+			Version:     "1.7.29",
+			DataRootDir: "/var/lib/containerd",
 		},
 		Networking: v1.Networking{
 			IPFamily:      v1.IPFamilyIPv4,

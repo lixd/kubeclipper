@@ -204,6 +204,7 @@ func TestDefaultWatchTimeout(t *testing.T) {
 func checkClusterFixture(pods, svcs []string, nodeIDs ...string) *v1.Cluster {
 	c := &v1.Cluster{}
 	c.Name = "r9-check"
+	c.ContainerRuntime.Type = v1.CRIContainerd
 	c.Networking.Pods.CIDRBlocks = pods
 	c.Networking.Services.CIDRBlocks = svcs
 	for _, id := range nodeIDs {
@@ -292,6 +293,25 @@ func TestCreateClusterCheckOfflineRequiresImageRegistry(t *testing.T) {
 	h, _ = newCheckHandler(t, []v1.Node{checkNodeFixture("node-1", "172.16.131.208")})
 	if err := h.createClusterCheck(context.Background(), c); err != nil {
 		t.Fatalf("expected offline cluster with imageRegistry to pass, got %v", err)
+	}
+}
+
+// The Docker CRI entry was removed; a payload that still asks for docker must
+// be rejected with a readable 400 here, not fail later at operation build.
+func TestCreateClusterCheckRejectsDockerCRI(t *testing.T) {
+	h, _ := newCheckHandler(t, nil)
+	c := checkClusterFixture([]string{"172.20.0.0/16"}, []string{"10.96.0.0/12"}, "node-1")
+	c.ContainerRuntime.Type = "docker"
+	err := h.createClusterCheck(context.Background(), c)
+	if err == nil || !strings.Contains(err.Error(), "Docker CRI is not supported") {
+		t.Fatalf("expected docker CRI rejection, got %v", err)
+	}
+
+	// any other unknown type is rejected too
+	c.ContainerRuntime.Type = "cri-o"
+	err = h.createClusterCheck(context.Background(), c)
+	if err == nil || !strings.Contains(err.Error(), "unsupported cri type") {
+		t.Fatalf("expected unknown CRI rejection, got %v", err)
 	}
 }
 

@@ -43,7 +43,7 @@ func TestAddOrRemoveInsecureRegistryToCRI(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "add an insecure registry to docker",
+			name: "docker CRI is rejected",
 			args: args{
 				ctx:      context.TODO(),
 				criType:  "docker",
@@ -51,16 +51,7 @@ func TestAddOrRemoveInsecureRegistryToCRI(t *testing.T) {
 				add:      true,
 				dryRun:   true,
 			},
-		},
-		{
-			name: "remove an insecure registry from docker",
-			args: args{
-				ctx:      context.TODO(),
-				criType:  "docker",
-				registry: "127.0.0.1:5000",
-				add:      false,
-				dryRun:   true,
-			},
+			wantErr: true,
 		},
 		{
 			name: "add an insecure registry to containerd",

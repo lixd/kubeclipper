@@ -615,11 +615,6 @@ func criRegistryUpdateStep(cluster *v1.Cluster, registries []v1.RegistrySpec, no
 	allNodes := utils.BuildStepNode(nodes)
 
 	switch cluster.ContainerRuntime.Type {
-	case v1.CRIDocker:
-		identity = cri.DockerInsecureRegistryConfigureIdentity
-		step = &cri.DockerInsecureRegistryConfigure{
-			InsecureRegistry: cri.ToDockerInsecureRegistry(registries),
-		}
 	case v1.CRIContainerd:
 		identity = cri.ContainerdRegistryConfigureIdentity
 		containerRunable := &cri.ContainerdRunnable{}

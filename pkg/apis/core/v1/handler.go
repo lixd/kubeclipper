@@ -1181,6 +1181,16 @@ func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
 		return fmt.Errorf("cluster must have one master node")
 	}
 
+	// The Docker CRI entry was removed (dockershim has no supported Kubernetes
+	// release and the OCI delivery matrix only ships containerd); reject it here
+	// with a readable 400 instead of failing later at operation build.
+	if !v1.AllowedCRIType.Has(c.ContainerRuntime.Type) {
+		if c.ContainerRuntime.Type == "docker" {
+			return fmt.Errorf("Docker CRI is not supported, use containerd")
+		}
+		return fmt.Errorf("unsupported cri type %q, support %v now", c.ContainerRuntime.Type, v1.AllowedCRIType.List())
+	}
+
 	// R17: an offline cluster whose payload omits imageRegistry renders kubeadm.yaml
 	// without imageRepository (kubeadm defaults to registry.k8s.io); kubeadm init then
 	// pulls the control-plane images over the public internet and dies after

@@ -34,47 +34,24 @@ func init() {
 	}
 
 	if err := component.RegisterAgentStep(
-		fmt.Sprintf(component.RegisterStepKeyFormat, criDocker, criVersion, component.TypeStep),
-		&DockerRunnable{}); err != nil {
-		panic(err)
-	}
-
-	if err := component.RegisterAgentStep(
 		ContainerdRegistryConfigureIdentity,
 		&ContainerdRegistryConfigure{}); err != nil {
-		panic(err)
-	}
-
-	if err := component.RegisterAgentStep(
-		DockerInsecureRegistryConfigureIdentity,
-		&DockerInsecureRegistryConfigure{}); err != nil {
 		panic(err)
 	}
 }
 
 const (
-	criDocker     = "docker"
 	criContainerd = "containerd"
 	criVersion    = "v1"
 )
 
 const (
-	// dockerDefaultVersion    = "20.10.13"
-	dockerDefaultConfigDir = "/etc/docker"
-	dockerDefaultDataDir   = "/var/lib/docker"
-	// dockerDefaultSystemdDir = "/etc/systemd/system"
-	dockerDefaultCriDir = "/etc/containerd"
-
-	// containerdDefaultVersion    = "1.6.4"
 	containerdDefaultConfigDir         = "/etc/containerd"
 	ContainerdDefaultRegistryConfigDir = "/etc/containerd/certs.d"
-	// containerdDefaultSystemdDir = "/etc/systemd/system"
-	containerdDefaultDataDir = "/var/lib/containerd"
+	containerdDefaultDataDir           = "/var/lib/containerd"
 )
 
 var (
-	DockerInsecureRegistryConfigureIdentity = fmt.Sprintf(
-		component.RegisterStepKeyFormat, criDocker, criVersion, component.TypeRegistryConfigure)
 	ContainerdRegistryConfigureIdentity = fmt.Sprintf(
 		component.RegisterStepKeyFormat, criContainerd, criVersion, component.TypeRegistryConfigure)
 )
@@ -104,7 +81,6 @@ var k8sMatchPauseVersion = map[string]string{
 }
 
 var _ component.StepRunnable = (*ContainerdRunnable)(nil)
-var _ component.StepRunnable = (*DockerRunnable)(nil)
 
 type Base struct {
 	Version          string                         `json:"version,omitempty"`

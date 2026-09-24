@@ -63,9 +63,9 @@ var (
 			},
 		},
 		ContainerRuntime: v1.ContainerRuntime{
-			Type:        "docker",
-			Version:     "19.03.12",
-			DataRootDir: "/var/lib/docker",
+			Type:        "containerd",
+			Version:     "1.7.29",
+			DataRootDir: "/var/lib/containerd",
 		},
 		Addons:    addons,
 		KubeProxy: v1.KubeProxy{},

@@ -299,18 +299,17 @@ type KubeProxy struct {
 // container runtime define
 
 var (
-	AllowedCRIType = sets.NewString(CRIDocker, CRIContainerd)
+	AllowedCRIType = sets.NewString(CRIContainerd)
 )
 
 type CRIType string
 
 const (
-	CRIDocker     = "docker"
 	CRIContainerd = "containerd"
 )
 
 type ContainerRuntime struct {
-	Type        string `json:"type" enum:"docker|containerd"`
+	Type        string `json:"type" enum:"containerd"`
 	Version     string `json:"version,omitempty" enum:"1.4.4"`
 	DataRootDir string `json:"rootDir,omitempty"`
 	// Registries references additional Registry resources configured for the CRI.

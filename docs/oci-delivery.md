@@ -166,8 +166,9 @@ Three supported shapes, from lightest to heaviest:
 - OCI delivery is a **breaking** change for installs: nodes must be newly
   deployed or re-joined; there is no upgrade path from a static-server
   deployment in place. The legacy static server/downloader stack was removed.
-- `scripts/migrate-legacy-packages-to-oci.sh` assists one-time import of
-  previously published tarballs into a registry.
+  The one-time `scripts/migrate-legacy-packages-to-oci.sh` import tool was
+  removed as well; re-publish from the upstream manifest with
+  `scripts/open-packaging/publish-oci.sh` instead.
 - The retired `nfs-provisioner` addon was removed; use `nfs-csi` (OCI
   runtime-image-set based) instead.
 - Supported Kubernetes matrix (aligned with README): v1.35.x, v1.36.x, v1.37.x

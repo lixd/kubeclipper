@@ -148,15 +148,6 @@ func TestLoadImage(t *testing.T) {
 		args args
 	}{
 		{
-			name: "load a docker image",
-			args: args{
-				ctx:     context.TODO(),
-				dryRun:  true,
-				file:    "/demoPath",
-				criType: "docker",
-			},
-		},
-		{
 			name: "load a containerd image",
 			args: args{
 				ctx:     context.TODO(),

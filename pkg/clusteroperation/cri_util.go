@@ -12,13 +12,6 @@ import (
 
 func GetCriStep(ctx context.Context, c *v1.Cluster, cluOp cluster.Operator, action v1.StepAction, nodes []v1.StepNode) ([]v1.Step, error) {
 	switch c.ContainerRuntime.Type {
-	case v1.CRIDocker:
-		r := cri.DockerRunnable{}
-		err := r.InitStep(ctx, c, nodes)
-		if err != nil {
-			return nil, err
-		}
-		return r.GetActionSteps(action), nil
 	case v1.CRIContainerd:
 		registries, err := utils.GetClusterCRIRegistries(c, cluOp)
 		if err != nil {

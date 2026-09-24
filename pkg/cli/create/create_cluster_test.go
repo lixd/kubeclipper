@@ -39,6 +39,51 @@ func TestNewClusterLeavesOnlineImageRegistryEmpty(t *testing.T) {
 	}
 }
 
+// The Docker CRI entry was removed; --cri docker must fail validation with a
+// message that names the removal instead of a generic unsupported-cri error.
+// ValidateArgs is called directly: the full Run path connects to the server in
+// Complete before validation ever runs.
+func TestCreateClusterRejectsDockerCRI(t *testing.T) {
+	streams := options.IOStreams{In: strings.NewReader(""), Out: &bytes.Buffer{}, ErrOut: &bytes.Buffer{}}
+	cmd := NewCmdCreateCluster(streams)
+	o := NewCreateClusterOptions(streams)
+
+	o.CRI = "docker"
+	err := o.ValidateArgs(cmd)
+	if err == nil || !strings.Contains(err.Error(), "Docker CRI is not supported") {
+		t.Fatalf("expected removal-specific error, got: %v", err)
+	}
+
+	o.CRI = "cri-o"
+	err = o.ValidateArgs(cmd)
+	if err == nil || !strings.Contains(err.Error(), "unsupported cri") {
+		t.Fatalf("expected unknown CRI rejection, got: %v", err)
+	}
+
+	// the help output must no longer offer docker
+	out := &bytes.Buffer{}
+	cmd2 := NewCmdCreateCluster(streams)
+	cmd2.SetOut(out)
+	cmd2.SetArgs([]string{"--help"})
+	if err := cmd2.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// the --cri flag help must no longer offer docker (other "docker" mentions
+	// in the help, like calico's docker0 bridge note, are unrelated)
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.Contains(line, "--cri string") {
+			if strings.Contains(line, "docker") {
+				t.Fatalf("--cri flag help still offers docker: %s", line)
+			}
+			if !strings.Contains(line, "containerd") {
+				t.Fatalf("--cri flag help should name containerd: %s", line)
+			}
+			return
+		}
+	}
+	t.Fatalf("--cri flag not found in help:\n%s", out.String())
+}
+
 func TestPolicySlotVersions(t *testing.T) {
 	metas := &kc.ComponentMeta{Rules: []map[string]interface{}{
 		{

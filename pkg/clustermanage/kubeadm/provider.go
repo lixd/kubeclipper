@@ -734,19 +734,8 @@ func (r *Kubeadm) patch(clu *v1.Cluster) error {
 }
 
 func (r *Kubeadm) patchCRI(clu *v1.Cluster) error {
-	switch clu.ContainerRuntime.Type {
-	// There is a known issue with k8s, where the node cri version information is incorrect when the cri type is docker
-	case v1.CRIDocker:
-		// The value of the field here is temporarily IP
-		res, err := sshutils.SSHCmdWithSudo(r.ssh(), clu.Masters[0].ID, `docker info | grep 'Server Version:'`)
-		if err != nil {
-			return err
-		}
-		clu.ContainerRuntime.Version = strings.ReplaceAll(res.Stdout, "Server Version:", "")
-		clu.ContainerRuntime.Version = strings.ReplaceAll(clu.ContainerRuntime.Version, " ", "")
-		clu.ContainerRuntime.Version = strings.ReplaceAll(clu.ContainerRuntime.Version, "\n", "")
-	}
-
+	// Only containerd clusters exist since the Docker CRI entry was removed;
+	// no runtime-type specific patching is needed.
 	return nil
 }
 
