@@ -846,3 +846,37 @@ R13 遗留（dev-2 `/tmp/r13-evidence`、dev-3 `/tmp/r13-bundle`、`r13-sync-man
 **边界标注**：本轮拓扑 0 worker——worker 侧 kube-lvscare static pod 的 refreshLvsCare reconcile 步骤按设计不生成（VIP 刷新仅在有 worker 时需要），该路径未真机覆盖；单测覆盖 joining/leaving 节点过滤。master 自身 VIP 侧清理（clearIPVS/removeDummyInterface/clearVIPDomain）已在 remove 后核验。API 操作对象查询备忘：operations 路径 `/api/operations.kubeclipper.io/v1alpha1/`（非 /apis/）；无 per-operation /tasks 子路径，用 `/operationtasks` 列表按 spec.operationRef.name 过滤；v2 operation step 的 name/action 在 `payload.step` 内（payload 为 dict 非 base64 字符串）；`?dryRun=true` 为 query 参数（body 内 dryRun 字段不识别）。
 
 **终态**：r18-cluster 删除（clusters 空、dev-3/dev-4 /etc/kubernetes 与 /var/lib/etcd 清空、kubelet/etcd/containerd inactive——kubectl 不可用属测试集群整体卸载预期）、3 节点 Healthy 无集群标签、doctor 25/25、platform rc.9；共享 Registry 146:5003 仅增 v2.0.3-rc.9 tag（13 个 v2.0* tag），caas4/* 等存量未动；/var/lib/kc-etcd 三节点未动；dev-2 /tmp/kc-r18-api-*（证书）与全部 /tmp/kc-r18-*、kc-r9-* 产物删除，Mac 侧 wrapper/二进制删除；证据逐字转录本节与 checklist/gaps/plan。
+
+### 12.15 R19 追加轮（2026-09-24，rc.10 c356fbafdb70）：废弃入口清理（Docker CRI + 迁移工具）+ B1 step 2 console/kcctl 升级 + P0 行 1 故障窗口
+
+**范围**（用户批准："docker 移除，如果还在保留的话就处理了……其他的问题也按顺序处理"；arm64 无环境不验证，用户确认理论无碍）：①Docker CRI 废弃入口移除（保留显式拒绝门禁）与 legacy 迁移工具删除；②console/kcctl 组件升级实现（B1 step 2）；③rc.10 发布 + 三机 `upgrade all` + 组件独立升级真机 + 负向；④P0 行 1 故障窗口验证（Watch + Console 入口证据）。
+
+**代码与单测**（commit `018a59fd`、`c356fbaf`）：
+
+- `018a59fd` refactor!（Docker CRI + 迁移工具，21 文件）：CLI `allowedCRI` 仅 containerd、`--cri docker` 显式拒绝（"Docker CRI is not supported, use containerd"）、Use 串与 flag help 清理 docker 字样；服务端 `AllowedCRIType` 仅 containerd、`CRIDocker` 常量与 enum 删除、**`createClusterCheck` 新增 CRI 类型显式校验**（docker → 400 可读拒绝，不再漏到 operation build 才 500）；`cri_util.go` GetCriStep 删 docker case（落入 "not supported" 运行时门禁）、clustercontroller 删 DockerInsecureRegistryConfigure 分支、kubeadm provider patchCRI 删 docker case、删除 `pkg/scheme/core/v1/cri/docker.go` 全文件与 cri.go 注册；schema_test fixture docker→containerd。保留 `removeDockershimDataDir` 通用卸载清理与 `kcctl registry` 独立命令。删除 `scripts/migrate-legacy-packages-to-oci.sh`，docs/oci-delivery.md §7 改"已移除"说明。负向单测：服务端 TestCreateClusterCheckRejectsDockerCRI（docker/cri-o 双例）、CLI TestCreateClusterRejectsDockerCRI（直接调 ValidateArgs——完整 cmd.Execute 会先连服务器且 CheckErr os.Exit(1) 不可测；help 断言只查 `--cri string` 行，全文件含 docker 会误伤 calico docker0 bridge 合法文案）。
+- `c356fbaf` feat(upgrade)（console/kcctl 组件升级，3 文件 +550 行）：固定执行顺序 `roleOrder = Server→Agent→Console→kcctl`（§2.3-6）；`requiredArtifactsFor`：console→bootstrap/console 单制品、all→kubeclipper+console 双制品、server/agent/kcctl→kubeclipper——缺制品在触碰节点前拒绝；`fetchPackageFiles` 按 artifact 泛化，strictRevision 仅对 kubeclipper 包严格，**console 包 sourceRevision mismatch 降为警告**（console v1.6.0 独立版本流与平台 semver 不可比，manifest digest 绑定是完整性保证）；console 节点步骤 stop kc-console→backup caddy+dist.tar→replace→tar 解压到 dist-extract 子目录再 `cp -a`（避免归档与解压目录同名冲突）→start→ConsolePort HTTP 2xx 探测；kcctl 节点替换 /usr/local/bin/kcctl（无服务重启）后 `kcctl version` 校验 revision；restore 按角色分派（kcctl/console 恢复用 `[ -f ]` 守卫）；`parseVersionJSON`/`firstJSONObject` brace-matching 取第一个平衡 JSON——kcctl `version -o json` 带 "kcctl version:" banner 前缀且配置可达时输出 client+server **双对象**，跨两对象取 first-{ 到 last-} 会解析失败（自查发现并修正，附回归测试）；console 组件跳过 semver 版本策略（v1.6.0 配平台 v2.0.3-rc.x 会被误判为隐式降级拒绝一切 console 升级）；kcctl 复用 revision 守卫；`releasemanifest` 新增 `BootstrapConsoleArtifact()`。单测：TestBootstrapConsoleArtifact、TestRequiredArtifactsFor（server/agent/kcctl→kubeclipper 单、console→console 单、all→双且 kubeclipper 在前、no-console manifest 拒绝）、TestParseVersionJSON（纯 JSON/banner 前缀/双对象取第一/无 JSON）。
+
+**发布链**：Mac 本地构建（构建门禁要求 gitTreeState=clean——`verify_core_binary_metadata` 死校验 gitCommit==KC_SOURCE_REVISION ×2 且 clean ×2，必须 commit 后构建；实测 revision=c356fbafdb7009cfa67f06b19a3a14ca8c03ca06、三二进制 metadata 校验通过）→ `KC_OCI_PUBLISH_BIN` wrapper 经 dev-2 发布 `bootstrap/kubeclipper:v2.0.3-rc.10`（Mac 不可达 5003；共享 Registry 仅增 tag，14 个 v2.0* tag）→ manifest（sha256 前 16 位 `aa30fac92c930d6d`，34 行）写 tag **顶层 index digest** `sha256:2845d0da079e…0856527`（oci-publish stdout 的 `42f350b8…` 是子 manifest digest，重申 §12.6/§12.5 教训；HEAD 须带 `Accept: application/vnd.oci.image.index.v1+json`）+ **console artifact**（bootstrap/console:v1.6.0，digest `sha256:084c4eade76d…adef284e`，sourceRevision=`e9e95f4…` 事实值——package artifact 强制 sourceRevision 必填，§12.10）。
+
+**upgrade all 三机 12 槽位**：`kcctl upgrade all --manifest`，Server×3→Agent×3→Console×3→kcctl×3 全部成功（~106s）；platform API 报 `v2.0.3-rc.10 (c356fbafdb70)`；doctor 25/25；三节点 kc-server/kc-agent/kc-etcd/kc-console 全 active、console 全 200、`kcctl version` 全 rc.10。**附带修复**：dev-3/dev-4 /usr/local/bin/kcctl 残留漂移（原 `c27e61c0`，R18 无版本二进制事件遗留）被本次 kcctl 槽位统一至 rc.10 官方构建。caddy sha256 `4ef1f68c…` 升级前后一致（console 幂等重装同内容）。
+
+**组件独立升级**：`upgrade kcctl --manifest` → 三节点全部 `already at revision c356fbafdb70` **skip**（同 revision 幂等跳过真机实证，EXIT=0）；`upgrade console --manifest` → 三节点同版本重装 v1.6.0 成功（/etc/kc-console/dist 与 caddy sha256 前后一致、HTTP 2xx 探测通过、console 200）；platform API revision 未校验（设计——console 无平台 revision 概念）。
+
+**负向用例**：
+
+| 用例 | 结果 |
+|---|---|
+| N1 缺 console artifact 的 manifest（head -22 裁剪，须以 kubeclipper sourceRevision 行收尾——裁多裁少都会先报别的错） | ✅ `upgrade console` 与 `upgrade all` 均 `release manifest contains no bootstrap/console package artifact` EXIT=1，preflight 拒绝零触碰 |
+| N2 console 错 digest（尾字符 4e→4f） | ✅ `registry tag ... does not match the release manifest digest ... refusing to upgrade from a repointed tag` EXIT=1，kc-console 保持 active（preflight 拒绝零触碰） |
+| N3 kubeclipper 包错 digest（尾 27→28） | ✅ 警告放行（digest 不符但 image config label `org.opencontainers.image.revision`==targetRevision，re-tag 回退设计语义，与 R13 bundle 场景同构），随后全 skip |
+
+**P0 行 1 故障窗口**（rc.10 三机，全程零集群副作用，watch 目标 node）：
+
+1. **停 dev-3 kc-server（客户端连 dev-2）**：dev-2 上 `kcctl get node --watch` 流不受影响（无 "watch stream ended"、进程存活）、`kcctl get node` 正常——quorum 2/3 服务。恢复 dev-3 active。
+2. **停 dev-2 kc-server（被连接节点）**：watch 日志先见既有 MODIFIED 事件（agent 心跳，流确实活着）→ `watch stream ended; reconnecting...` → 重连尝试 `dial tcp 172.16.131.208:8080: connect: connection refused` → **进程退出**（实现为连接失败即 return err，仅流正常结束后单次重连）；`kcctl get node` 同错误。**发现：kcctl 客户端单地址无 failover**——`/root/.kc/config` 单 server 地址，不尝试 dev-3/dev-4。
+3. **窗口期 console（caddy `health_uri /healthz`、`health_interval 10s`、round_robin 三上游）**：dev-2 console 登录页 200（caddy 本地 file_server 静态服务）；`http://172.16.131.208:80/api/core.kubeclipper.io/v1/nodes` 返回 **403 JSON `{"code":403,"message":"Forbidden"}`——来自存活上游 kc-server 而非 caddy 502**，即健康检查已摘除 208 坏上游、/api 代理落 dev-3/dev-4；dev-3/dev-4 console 均 200。
+4. **恢复 dev-2**：kc-server active、healthz 200、`kcctl get node` 恢复；新建 `get node --watch` 立即 list + ADDED×3 + MODIFIED（dev-3 心跳）流式正常——重连（重建立）成功。
+
+**终态**：三节点 kc-server active、console 全 200、healthz 200、doctor 25/25（upgrade all 后复验）；共享 Registry 仅增 v2.0.3-rc.10 tag（14 个 v2.0* tag），存量与 caas4/* 未动；/var/lib/kc-etcd 未动；dev-2 /tmp/kc-r19-publish（oci-publish/kcctl/两份 manifest）与 watch 日志删除，Mac /tmp/kc-r19-publish 删除；无临时凭据残留。证据逐字转录本节与 checklist/gaps/plan。
+
+文档同步：plan 头部 R19 段、B1 表行 step 2 收口、§2.5 执行状态；checklist 1.2-07 ✅、1.3-07 补注、1.3-10 ✅、1.3-09 补注；gaps P0 行 1 关闭、P0 行 4 console/kcctl 关闭（余量两项如实保留）、R19 轮段落。

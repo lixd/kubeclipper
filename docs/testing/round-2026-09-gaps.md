@@ -10,10 +10,10 @@
 
 | 顺序 | Case | 缺口 | 完成条件 |
 |---:|---|---|---|
-| 1 | `1.2-07` | HA 故障窗口完整验收 | R6 已在运行中 CreateCluster 期间停止/恢复 dev4 `kc-server`，Operation、API 和 quorum 仍可用；仍缺故障窗口中的 Watch、Console 入口证据 |
+| 1 | `1.2-07` | HA 故障窗口完整验收 | **已闭环（R19，2026-09-24，rc.10 三机，全程零集群副作用）**——①停 dev-3 kc-server：dev-2 上 `kcctl get node --watch` 流不断（无重连输出）、`kcctl get node` 正常（quorum 2/3 服务）；②停 dev-2 kc-server（被连接节点）：流断（"watch stream ended; reconnecting..."）→ 重连 `connection refused` → 进程退出（连接失败即 return，仅流正常结束后单次重连），**发现：kcctl 客户端单地址无 failover**（`/root/.kc/config` 单 server 地址，不尝试其余 server）；③窗口期 console：dev-2 登录页 200（caddy 本地静态），`/api` 请求经 caddy 健康检查（health_interval 10s）摘除坏上游、由存活上游 kc-server 应答 403 JSON（非 502），dev-3/dev-4 console 200；④恢复 dev-2 后新建 watch 立即 list+事件流。证据转录 R7 报告 §12.15 |
 | 2 | `1.1-03`、`1.1-08`、`2.1-23` | 纯离线 bundle 真机闭环 | export、拷贝、重复 import 后，在断公网环境完成平台部署、建群、Addon、升级和删除；保存网络封锁与 digest 证据。**更新（R13，2026-09-22，rc.8 三机）：真机闭环（arm64 除外，用户明确排除）**——5003 export（skopeo --preserve-digests，5 制品 368MB，bootstrap index digest 重写为子 manifest digest）→ scp 离线拷贝+sha256 校验 → 空白 9443 import ×2 Inventory 全等 → iptables OUTPUT 专用链断公网（两节点外网 DNS/连接全 REJECT，REJECT 计数 dev-2=329/dev-3=269 包实证）→ ConfigMap+三节点 0600 json 切 9443 → componentmeta 9443 → 建群 Running（9443 拉取 183 条、五类仓库全覆盖，208=171/146=12）→ calico/coredns 全 Running → `kcctl delete cluster` 清空。升级经 bundle manifest 实证防护双拦截：digest 不一致拒（repointed tag 防护）+ rollout 后 revision 比对拒（5003 rc.8 包 sourceRevision=None、包内二进制实际构建 e9d9afe 而 manifest 声明 e9e95f4——制品元数据缺失，非升级缺陷；见 R13-C5 证据 §4）。边界：平台本体未从 bundle 重新 deploy（平台已运行 rc.8，同源制品经 upgrade --manifest 消费）；bundle 无第三方 addon 包（componentmeta addons 仅平台自带 cni/cri/k8s/k8s-extension） |
 | 3 | `2.1-28`、`2.1-30` | 非法 CIDR 与创建中断的安全收敛 | R6 复现 Pod/Service CIDR 重叠仍可创建 Installing Cluster；取消后 Cluster/Operation、节点标签和主机副作用未自动清理，需修复创建前校验、cancel、retry 和安全删除。**更新（R8）：2.1-30 的删除收敛已修复（`978b1b43`，失败路径释放标签+force 逃生门实测生效）。更正（2026-09-20）：前文"2.1-28 创建前校验仍未实施"系误报——重叠校验自 `a989b14f`（rc.3 起）已在 API/CLI 生效，R9 dryRun 探针实测 rc.5 重叠 400 拒绝；R9 补齐列表内嵌套、每地址族数量与主机网段冲突校验（API 层，`ValidateCIDRHostConflict`）。2.1-28 部分已闭环（rc.6 `29a9bf8a` 真机负向矩阵 8 项 400+边界放行+双栈 200+CLI exit1+零残留，见 checklist 2.1-28 行）；2.1-30 的 retry 已在 R10（rc.7 `e7d99421`）真机闭环、超时/重启注入子项 R16 闭环，本项全部关闭** |
-| 4 | `1.3-09`、`1.3-10` 部分 | 平台自身升级收尾 | B1 已按 OCI 契约实施：`all/server/agent --manifest` 三机实测通过（含幂等、降级/repointed tag 拒绝，R7 报告 §11）；`--version` 网络链路经代理隧道实测正常（GitHub 可达、404 处理正确），正向下载待首个 v2 stable 发布；仍缺 console/kcctl 组件升级（step 2）与升级中故障注入恢复 |
+| 4 | `1.3-09`、`1.3-10` 部分 | 平台自身升级收尾 | B1 已按 OCI 契约实施：`all/server/agent --manifest` 三机实测通过（含幂等、降级/repointed tag 拒绝，R7 报告 §11）；`--version` 网络链路经代理隧道实测正常（GitHub 可达、404 处理正确），正向下载待首个 v2 stable 发布。**console/kcctl 组件升级（step 2）已闭环（R19，2026-09-24，rc.10 `c356fbaf`）**：`upgrade all` 三机 12 槽位（server×3→agent×3→console×3→kcctl×3）~106s 全成功（platform API 报 rc.10、doctor 25/25、console 全 200）；`upgrade kcctl` 同 revision 三节点幂等 skip；`upgrade console` 同版本幂等重装（dist/caddy sha256 前后一致）；负向：缺 console artifact manifest EXIT=1（preflight 拒绝）、console 错 digest 触碰节点前拒绝（repointed tag 防护）、kubeclipper 错 digest+revision label 匹配警告放行（re-tag 回退语义）。余量：①`--version` 在线正向下载+checksum 仍待上游首个 v2 stable 发布；②升级中节点启动失败/中断恢复故障注入未真机执行（restore 路径单测覆盖，见 R7 报告 §11.4） |
 | 5 | `2.2-03`、`2.2-09`、`2.2-10` | Master 增删 | 添加后 control-plane/etcd quorum 正常；移除后 etcd member、证书、VIP 和节点角色正确收敛。R17（rc.8）定性为产品缺口（`makeMasterCompare` 无条件 `return ErrInvalidNodesRole`）。**已闭环（R18，rc.9 `5e4cfb4b`，2026-09-24）**：master add/remove 完整实现——双 master 集群 Ready 后 add dev-2：8/8 OperationTasks Succeeded（installRuntime→getJoinCommand(存活 master)→renderMasterJoinConfig controlPlane=true→joinNode→waitForAddedNodesReady），etcd 3 成员 started、节点 Ready control-plane；remove dev-2：13/13 OperationTasks Succeeded（removeEtcdMember(存活 master)→drainNode→kubeadmReset→removeEtcdDataDir→clearVIPDomain→uninstallRuntime 等），etcd 回 2 成员、离开节点 /etc/kubernetes 与 /var/lib/etcd 清空、VIP/IPVS 清理、kubelet/containerd inactive；负向 remove 1 of 2 → 400 quorum 文案（直调+`?dryRun=true` 均拒，零副作用）。边界：0 worker 拓扑下 worker 侧 lvscare refreshLvsCare 按设计不生成步骤、未真机覆盖（单测覆盖） |
 | 6 | `2.5-08` | `maxBackupNum` 存储对象轮转 | **已闭环（R11，rc.8 `e9d9afeb` B4 持久化删除流）**：手动删除与 Cron 轮转统一进入持久化删除流程——deleting/deleteFailed 状态、Backup 记录保留到删除 Operation Succeeded 才由 backupcontroller 移除；真机复验 `maxBackupNum=2` + 2 分钟周期 Cron 连续 4+ 轮，Backup 记录与 FS 文件逐轮一一对应、无孤儿文件（见 checklist 2.5-08） |
 | 7 | `5-06`、`3-12` | Operation cancel 自动收敛 | R5 需重启一个 `kc-server` 才继续推进；R6 取消 CIDR 创建后出现孤立 Running Operation/Installing Cluster，必须无需重启地让 Operation、Cluster 和 ExecutionLock 一致收敛。**更新（R8）：定位到 agent 侧饿死根因——worker `execute` defer LIFO 顺序 + server purge 竞争使单任务 worker 挂到 spec deadline（详见 R7 报告 §12.2），修复 `1413e849`。更新（R9，rc.6 `29a9bf8a` 真机复验通过）：①1M 建群 13 步任务时长 1s×7、5-8s×4、31/34s×2，无 10s 轮询尾延迟（修复前基线 10.01s/任务）；②快速 create→delete 收敛（集群/操作清空、标签释放）后立即再建群正常派发并 Running，不饿死。更新（R10，rc.7 `e7d99421` 真机复验）：协作式 cancel 语义矩阵与 2.1-30 retry 通过**——①Running 中取消（6/13 步）：在途步自然完成后停止派发、剩余 7 步 Canceled，Cluster InstallFailed，~2.5 分钟收敛；②最早取消（+3s，仅第 1 步在途）：1 步完成+12 步 Canceled，<23 秒收敛；③终态后重复取消被 CLI 干净拒绝（exit 1）；④Running 中并发双取消：第 2 次 API Conflict 拒绝，无状态污染；⑤retry 对 Canceled 创建操作：前 6 步保留原时间戳未重做，剩余步 ~60s 回 Succeeded，集群 InstallFailed → Running；⑥取消/失败后安全删除 20～30 秒清空 Cluster/Operation/标签，同节点重建 2 分钟 Running（kubelet inactive、无 /etc/kubernetes 残留、doctor 25/25）。超时（spec deadline 到期）与 Server/Agent 重启注入子项已于 R16（rc.8）真机闭环（见 checklist 2.1-30 行 R16 标注），本项全部关闭；Watch 重连证据归入 P0 行 1（1.2-07）继续跟踪。证据：dev-2 /tmp/r10-*.txt（终态清理删除，结论转录 R7 报告 §12.6） |
@@ -176,6 +176,27 @@ lvscare refreshLvsCare 按设计不生成步骤、未真机覆盖（单测覆盖
 官方 rc.9（version+doctor 复验）。终态：r18-cluster 删除、3 节点 Healthy 无集群标签、
 doctor 25/25、共享 Registry 仅增 rc.9 tag、/var/lib/kc-etcd 未动、API 客户端证书与全部
 /tmp 临时产物即用即删（dev-2 与 Mac 侧）。证据逐字转录 R7 报告 §12.14 与 checklist/gaps/plan。
+
+**R19（2026-09-24，rc.10 `c356fbaf`）**：用户批准"docker 移除，如果还在保留的话就处理了……
+其他的问题也按顺序处理"。①**Docker CRI 废弃入口移除**（commit `018a59fd`）：CLI
+`allowedCRI` 仅 containerd、`--cri docker` 与服务端 createClusterCheck 均 400 显式拒绝
+（"Docker CRI is not supported, use containerd"，docker 集群不再漏到 operation build 才 500）；
+`cri/docker.go` 全文件与注册/分支删除；保留 `removeDockershimDataDir` 通用卸载清理与
+`kcctl registry` 独立命令；CLI/服务端负向单测补齐。**legacy 迁移工具删除**：
+`migrate-legacy-packages-to-oci.sh` 删除，docs/oci-delivery.md §7 改"已移除"说明（本表
+已废弃残留表两行标注）。②**console/kcctl 组件升级实现**（commit `c356fbaf`，B1 step 2，
+见 P0 行 4）。③**rc.10 发布与升级**：Mac 本地构建（gitTreeState=clean，
+revision=c356fbafdb7009cfa67f06b19a3a14ca8c03ca06）→ wrapper 经 dev-2 发布（5003 仅增 tag，
+14 个 v2.0* tag）→ manifest 顶层 index digest `sha256:2845d0da…`+console artifact
+（bootstrap/console:v1.6.0 `sha256:084c4ead…`，sourceRevision=e9e95f4 事实值）→
+`upgrade all` 12 槽位 ~106s 全成功、doctor 25/25；`upgrade kcctl` 全 skip（幂等）、
+`upgrade console` 幂等重装（hash 前后一致）；N1/N2/N3 负向（缺制品拒/错 digest 拒零触碰/
+digest 不符+revision label 匹配警告放行）。**附带修复**：dev-3/dev-4 kcctl 残留漂移
+（`c27e61c0`，R18 无版本二进制事件遗留）经 kcctl 槽位统一至 rc.10 官方构建。
+④**P0 行 1 故障窗口**（见行 1，含"kcctl 客户端单地址无 failover"发现与窗口期 console
+caddy 摘坏上游证据）。arm64 无环境不验证（用户确认，理论无碍）。终态：三节点 kc-server
+active、console 全 200、doctor 25/25、无集群；dev-2/Mac /tmp/kc-r19-publish 与 watch
+临时产物全删；共享 Registry 与 /var/lib/kc-etcd 未动。证据转录 R7 报告 §12.15。
 
 ## P1：核心能力补全
 

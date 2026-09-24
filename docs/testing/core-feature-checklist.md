@@ -52,7 +52,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.2-04 | console 组件部署与访问 | ⚠️ | 服务起✅，页面未验 |
 | 1.2-05 | 单 server + 单 agent | ✅ | R2/R3，server/agent/k8s 节点混部 |
 | 1.2-06 | server 与 agent 分离部署 | ⚠️ | 多机环境隐含覆盖，缺少独立验收证据 |
-| 1.2-07 | HA server/etcd 单点故障与滚动重启 | ⚠️ | R4/R6 停止/恢复 dev4 `kc-server`、`kc-etcd`；R7 在新候选上复测 server/etcd 两种故障窗口均通过。另发现：卡在健康检查重试环的创建 Operation 无法取消（R7 新问题 5） |
+| 1.2-07 | HA server/etcd 单点故障与滚动重启 | ✅ | R4/R6 停止/恢复 dev4 `kc-server`、`kc-etcd`；R7 在新候选上复测 server/etcd 两种故障窗口均通过；R19（rc.10，2026-09-24）补齐 Watch 与 Console 入口证据：停非连接节点（dev-3）watch 流与 kcctl 不受影响（quorum 2/3）；停被连接节点（dev-2）流断、重连被拒、进程退出——**发现：kcctl 客户端单地址无 failover**；窗口期 dev-2 console 登录页 200、`/api` 经 caddy 健康检查摘坏上游由存活上游应答（非 502）、dev-3/dev-4 console 200；恢复后 watch 重建立成功。另发现：卡在健康检查重试环的创建 Operation 无法取消（R7 新问题 5，已随 P0 行 7 于 R10/R16 闭环） |
 
 ### 1.3 容错与增量运维
 
@@ -64,10 +64,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：预检明确拒绝且平台 Healthy；R7 在新候选上复测一致（`kc-etcd.service already exists`），平台保持 Healthy |
 | 1.3-05 | `kcctl join` 独立纳管新节点 | ✅ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready。R13-C4（2026-09-22）补认证/负向：join 下发 0600 `package-registry.json`（凭据经 base64 落盘）、被加入节点直连认证拉取、错误口令 join EXIT=1 可读 `UNAUTHORIZED` 且零部分安装；多网卡需 `--ip-detect interface=<nic>`（first-found 触发交互确认，后台 EOF 崩溃，见 R13-C4 过程发现） |
 | 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
-| 1.3-07 | **`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）** | ✅ | B1 E2E（2026-09-20，R7 报告 §11）：三机 server+agent 实际升级 rc.3→`057f45e1`，逐台 stop→backup→install→start→healthz，成功后 staging 清理；错 digest/repointed tag 在触碰节点前拒绝；升级后 Healthy、doctor 25/25、配置数据保留 |
+| 1.3-07 | **`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）** | ✅ | B1 E2E（2026-09-20，R7 报告 §11）：三机 server+agent 实际升级 rc.3→`057f45e1`，逐台 stop→backup→install→start→healthz，成功后 staging 清理；错 digest/repointed tag 在触碰节点前拒绝；升级后 Healthy、doctor 25/25、配置数据保留。R19（rc.10 `c356fbaf`）：all 语义扩展至四组件 12 槽位（server×3→agent×3→console×3→kcctl×3）~106s 全成功，platform API 报 rc.10、doctor 25/25（R7 报告 §12.15） |
 | 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |
-| 1.3-09 | **`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）** | ⚠️ | 下载器行为已经代理隧道实测：可达 GitHub、不存在的版本正确返回 404+离线指引；上游尚无 v2 OCI stable 发布（最新仍 v1.7.0），正向下载+checksum 待首个 stable 发布后补测。另：设 `HTTPS_PROXY` 必须配 `NO_PROXY` 排除平台内网地址，否则平台 API 请求也被送进代理而失败 |
-| 1.3-10 | `kcctl upgrade server/agent/console/kcctl` 组件独立升级 | ⚠️ | `server`/`agent` 独立升级已三机实测（B1 E2E：server 先、agent 后，逐台替换，只更新目标组件）；`console`/`kcctl` 明确报 not supported yet（B1 step 2 交付） |
+| 1.3-09 | **`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）** | ⚠️ | 下载器行为已经代理隧道实测：可达 GitHub、不存在的版本正确返回 404+离线指引；上游尚无 v2 OCI stable 发布（最新仍 v1.7.0），正向下载+checksum 待首个 stable 发布后补测。另：设 `HTTPS_PROXY` 必须配 `NO_PROXY` 排除平台内网地址，否则平台 API 请求也被送进代理而失败。R19 后 `--manifest` 离线路径已覆盖全部四组件（见 1.3-07/1.3-10），本行余量仅为在线正向下载 |
+| 1.3-10 | `kcctl upgrade server/agent/console/kcctl` 组件独立升级 | ✅ | `server`/`agent` 独立升级三机实测（B1 E2E：server 先、agent 后，逐台替换，只更新目标组件）。R19（rc.10 `c356fbaf`，2026-09-24）console/kcctl 闭环（R7 报告 §12.15）：`upgrade kcctl` 同 revision 三节点幂等 skip；`upgrade console` 同版本幂等重装（dist/caddy sha256 前后一致、ConsolePort HTTP 2xx 探测）；负向：缺 bootstrap/console artifact 的 manifest EXIT=1、console 错 digest 触碰节点前拒绝（repointed tag 防护）、console 版本策略豁免（v1.6.0 独立版本流与平台 semver 不可比，sourceRevision mismatch 仅警告） |
 | 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ⚠️ | 已使用部分 SSH 配置；需分别验证认证失败、sudo 失败和修正后重试 |
 | 1.3-12 | 初始化管理员密码 | ❌ | 自定义初始密码可登录；敏感值不出现在配置回显和日志中 |
 
