@@ -49,6 +49,18 @@ artifacts:
       - linux/arm64
     digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
     sourceRevision: b23a9ab2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  - type: package-image
+    component:
+      kind: bootstrap
+      name: console
+      version: v2.0.3-rc.4
+    source: registry.internal:5000/kubeclipper/packages/bootstrap/console:v2.0.3-rc.4
+    target: kubeclipper/packages/bootstrap/console:v2.0.3-rc.4
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+    sourceRevision: b23a9ab2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 `
 
 func parseTestManifest(t *testing.T) *releasemanifest.Manifest {
@@ -59,6 +71,31 @@ func parseTestManifest(t *testing.T) *releasemanifest.Manifest {
 	}
 	return manifest
 }
+
+const testReleaseManifestNoConsole = `
+apiVersion: delivery.kubeclipper.io/v1alpha1
+kind: ReleaseManifest
+metadata:
+  name: kubeclipper
+  version: v2.0.3
+  sourceRevision: b23a9ab2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+registries:
+  package: registry.internal:5000
+  image: registry.internal:5000
+artifacts:
+  - type: package-image
+    component:
+      kind: bootstrap
+      name: kubeclipper
+      version: v2.0.3-rc.4
+    source: registry.internal:5000/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4
+    target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    sourceRevision: b23a9ab2aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+`
 
 func TestEvaluateVersionPolicyDowngradeRefused(t *testing.T) {
 	err := evaluateVersionPolicy("v2.0.4", "rev-new", "v2.0.3", "rev-old")
@@ -105,15 +142,102 @@ func TestSelectPackageEntry(t *testing.T) {
 		deliveryapis.PackageEntry{Kind: "bootstrap", Name: "etcd", Version: "v2.0.3-rc.4", Arch: "amd64"},
 		deliveryapis.PackageEntry{Kind: "bootstrap", Name: "kubeclipper", Version: "v2.0.2", Arch: "amd64"},
 	)
-	if entry := selectPackageEntry(inventory, "v2.0.3-rc.4", "arm64"); entry == nil || entry.Arch != "arm64" {
+	if entry := selectPackageEntry(inventory, "bootstrap", "kubeclipper", "v2.0.3-rc.4", "arm64"); entry == nil || entry.Arch != "arm64" {
 		t.Fatalf("expected arm64 entry, got %+v", entry)
 	}
-	if entry := selectPackageEntry(inventory, "v9.9.9", "amd64"); entry != nil {
+	if entry := selectPackageEntry(inventory, "bootstrap", "kubeclipper", "v9.9.9", "amd64"); entry != nil {
 		t.Fatalf("missing version must not resolve, got %+v", entry)
 	}
-	if entry := selectPackageEntry(nil, "v2.0.3-rc.4", "amd64"); entry != nil {
+	if entry := selectPackageEntry(inventory, "bootstrap", "console", "v2.0.3-rc.4", "amd64"); entry != nil {
+		t.Fatalf("different package name must not resolve, got %+v", entry)
+	}
+	if entry := selectPackageEntry(nil, "bootstrap", "kubeclipper", "v2.0.3-rc.4", "amd64"); entry != nil {
 		t.Fatalf("nil inventory must not resolve, got %+v", entry)
 	}
+}
+
+func TestBootstrapConsoleArtifact(t *testing.T) {
+	manifest := parseTestManifest(t)
+	artifact := manifest.BootstrapConsoleArtifact()
+	if artifact == nil {
+		t.Fatal("bootstrap/console artifact not found")
+	}
+	if artifact.Component.Name != "console" || artifact.Component.Version != "v2.0.3-rc.4" {
+		t.Fatalf("unexpected console artifact component %+v", artifact.Component)
+	}
+	if artifact.Target != "kubeclipper/packages/bootstrap/console:v2.0.3-rc.4" {
+		t.Fatalf("unexpected artifact target %q", artifact.Target)
+	}
+}
+
+func TestRequiredArtifactsFor(t *testing.T) {
+	manifest := parseTestManifest(t)
+	for _, component := range []string{"server", "agent", "kcctl"} {
+		artifacts, err := requiredArtifactsFor(component, manifest)
+		if err != nil || len(artifacts) != 1 || artifacts[0].Component.Name != "kubeclipper" {
+			t.Fatalf("component %s: expected exactly the kubeclipper artifact, got %+v, %v", component, artifacts, err)
+		}
+	}
+	consoleArtifacts, err := requiredArtifactsFor("console", manifest)
+	if err != nil || len(consoleArtifacts) != 1 || consoleArtifacts[0].Component.Name != "console" {
+		t.Fatalf("console: expected exactly the console artifact, got %+v, %v", consoleArtifacts, err)
+	}
+	allArtifacts, err := requiredArtifactsFor("all", manifest)
+	if err != nil || len(allArtifacts) != 2 {
+		t.Fatalf("all: expected both artifacts, got %+v, %v", allArtifacts, err)
+	}
+	if allArtifacts[0].Component.Name != "kubeclipper" || allArtifacts[1].Component.Name != "console" {
+		t.Fatalf("all: artifact order must keep the platform package primary, got %s then %s",
+			allArtifacts[0].Component.Name, allArtifacts[1].Component.Name)
+	}
+
+	// A manifest without the console package must be rejected for console/all.
+	bare := parseBareManifest(t)
+	if _, err := requiredArtifactsFor("console", bare); err == nil || !strings.Contains(err.Error(), "bootstrap/console") {
+		t.Fatalf("console upgrade without console artifact must be refused, got %v", err)
+	}
+	if _, err := requiredArtifactsFor("all", bare); err == nil || !strings.Contains(err.Error(), "bootstrap/console") {
+		t.Fatalf("upgrade all without console artifact must be refused, got %v", err)
+	}
+	if artifacts, err := requiredArtifactsFor("server", bare); err != nil || len(artifacts) != 1 {
+		t.Fatalf("server upgrade must not require the console artifact, got %+v, %v", artifacts, err)
+	}
+}
+
+func TestParseVersionJSON(t *testing.T) {
+	// platform binaries print plain JSON
+	info, err := parseVersionJSON(`{"gitVersion":"v2.0.3-rc.4","gitCommit":"b23a9ab2"}` + "\n")
+	if err != nil || info.GitCommit != "b23a9ab2" {
+		t.Fatalf("plain JSON parse failed: %+v, %v", info, err)
+	}
+	// kcctl prefixes the JSON with a banner line
+	info, err = parseVersionJSON("kcctl version:\n" + `{"gitVersion":"v2.0.3-rc.4","gitCommit":"b23a9ab2"}` + "\n")
+	if err != nil || info.GitCommit != "b23a9ab2" || info.GitVersion != "v2.0.3-rc.4" {
+		t.Fatalf("banner-prefixed JSON parse failed: %+v, %v", info, err)
+	}
+	// kcctl with a reachable platform config appends the server version object;
+	// the CLIENT object (first) is the one that identifies the binary
+	info, err = parseVersionJSON("kcctl version:\n" +
+		"{\n\t\"gitVersion\": \"v2.0.3-rc.4\",\n\t\"gitCommit\": \"b23a9ab2\"\n}\n" +
+		"kubeclipper-server version:\n" +
+		"{\n\t\"gitVersion\": \"v2.0.3-rc.9\",\n\t\"gitCommit\": \"88d4820b\"\n}\n")
+	if err != nil || info.GitCommit != "b23a9ab2" {
+		t.Fatalf("two-object output must parse to the first object: %+v, %v", info, err)
+	}
+	if _, err := parseVersionJSON("no json here"); err == nil {
+		t.Fatal("output without JSON must fail to parse")
+	}
+}
+
+// parseBareManifest: same release manifest minus the console artifact —
+// the shape manifests had before the console component was added.
+func parseBareManifest(t *testing.T) *releasemanifest.Manifest {
+	t.Helper()
+	manifest, err := releasemanifest.Parse([]byte(testReleaseManifestNoConsole))
+	if err != nil {
+		t.Fatalf("parse bare release manifest: %v", err)
+	}
+	return manifest
 }
 
 func TestBootstrapKubeClipperArtifact(t *testing.T) {
@@ -149,7 +273,7 @@ func TestDedupNodes(t *testing.T) {
 	nodes := []nodePlan{
 		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"},
 		{role: roleServer, host: "10.0.0.2", arch: "amd64", currentRevision: "rev-1"},
-		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: ""}, // duplicate, probe glitch
+		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: ""},     // duplicate, probe glitch
 		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"}, // same host, other role: keep
 		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"}, // duplicate
 	}

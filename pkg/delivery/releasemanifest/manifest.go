@@ -100,6 +100,19 @@ func (m *Manifest) BootstrapKubeClipperArtifact() *Artifact {
 	return nil
 }
 
+// BootstrapConsoleArtifact returns the bootstrap/console package artifact that
+// carries the caddy binary and the kc-console web dist, or nil when the
+// manifest has none (e.g. manifests that predate the console component).
+func (m *Manifest) BootstrapConsoleArtifact() *Artifact {
+	for i := range m.Artifacts {
+		artifact := &m.Artifacts[i]
+		if artifact.Type == ArtifactTypePackage && artifact.Component.Kind == "bootstrap" && artifact.Component.Name == "console" {
+			return artifact
+		}
+	}
+	return nil
+}
+
 func Parse(data []byte) (*Manifest, error) {
 	jsonData, err := yaml.YAMLToJSON(data)
 	if err != nil {

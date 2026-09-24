@@ -59,9 +59,17 @@ const (
   ReleaseManifest plus the bootstrap package images it pins. kcctl resolves the
   target revision from the manifest, downloads and digest-verifies every
   artifact for every target node architecture BEFORE stopping any service, and
-  then replaces kubeclipper-server and kubeclipper-agent one node at a time
-  with a health check between nodes. A failed node is restored from its backup
-  and the rollout stops there; already upgraded nodes stay upgraded.
+  then replaces the platform components one node at a time with a health check
+  between nodes. A failed node is restored from its backup and the rollout
+  stops there; already upgraded nodes stay upgraded.
+
+  Components: server and agent replace the kubeclipper-server/kubeclipper-agent
+  binaries and restart the systemd services; console replaces the caddy binary
+  and the kc-console web dist on the server nodes (a console re-install of the
+  same version is allowed — the console carries no source revision); kcctl
+  replaces the /usr/local/bin/kcctl binary (no service restart). The fixed
+  rollout order is server -> agent -> console -> kcctl, and "all" rolls the
+  four of them without ever touching kc-etcd or the Package Registry.
 
   --version downloads the release manifest of a stable vX.Y.Z release with
   checksum verification; --manifest reads a local manifest file, which is the
@@ -75,20 +83,29 @@ const (
   # Upgrade only the server from a local release manifest (offline Registry)
   kcctl upgrade server --manifest release-manifest-v2.0.4.yaml
 
+  # Upgrade the console (caddy + web dist) and the kcctl binary only
+  kcctl upgrade console --manifest release-manifest.yaml
+  kcctl upgrade kcctl --manifest release-manifest.yaml
+
   # Plain-HTTP internal Registry (or persist the scheme in the package
   # registry config file / KC_PACKAGE_REGISTRY_CONFIG instead)
   kcctl upgrade all --manifest release-manifest.yaml --package-registry-scheme http`
 )
 
 const (
-	bootstrapPackageKind = "bootstrap"
 	bootstrapPackageName = "kubeclipper"
+	consolePackageName   = "console"
 
-	serverBinaryName = "kubeclipper-server"
-	agentBinaryName  = "kubeclipper-agent"
+	serverBinaryName  = "kubeclipper-server"
+	agentBinaryName   = "kubeclipper-agent"
+	kcctlBinaryName   = "kcctl"
+	consoleBinaryName = "caddy"
+	consoleDistName   = "kc-console"
 
-	roleServer = "server"
-	roleAgent  = "agent"
+	roleServer  = "server"
+	roleAgent   = "agent"
+	roleConsole = "console"
+	roleKcctl   = "kcctl"
 
 	upgradeStagingDir = "/tmp/kubeclipper-upgrade"
 
@@ -110,11 +127,10 @@ type UpgradeOptions struct {
 	manifestPath string
 	registryOpts deliveryregistry.FileOptions
 
-	manifest       *releasemanifest.Manifest
-	artifact       *releasemanifest.Artifact
-	registry       string
-	targetRef      string
-	registryConfig *deliveryregistry.Config
+	manifest          *releasemanifest.Manifest
+	requiredArtifacts []*releasemanifest.Artifact
+	registry          string
+	registryConfig    *deliveryregistry.Config
 
 	platformVersion string
 	platformRev     string
@@ -190,11 +206,9 @@ func (o *UpgradeOptions) Validate(cmd *cobra.Command, args []string) error {
 	}
 	o.component = args[0]
 	switch o.component {
-	case cmdoptions.UpgradeServer, cmdoptions.UpgradeAgent, cmdoptions.UpgradeAll:
-	case cmdoptions.UpgradeConsole, cmdoptions.UpgradeKcctl:
-		return utils.UsageErrorf(cmd, "component %q upgrade is not supported yet; supported components are [ all | server | agent ]", o.component)
+	case cmdoptions.UpgradeServer, cmdoptions.UpgradeAgent, cmdoptions.UpgradeAll, cmdoptions.UpgradeConsole, cmdoptions.UpgradeKcctl:
 	default:
-		return utils.UsageErrorf(cmd, "unsupported upgrade component %q, support [ all | server | agent ] now", o.component)
+		return utils.UsageErrorf(cmd, "unsupported upgrade component %q, support [ all | server | agent | console | kcctl ] now", o.component)
 	}
 
 	if o.version != "" && o.manifestPath != "" {
@@ -207,17 +221,25 @@ func (o *UpgradeOptions) Validate(cmd *cobra.Command, args []string) error {
 	if err := o.loadManifest(); err != nil {
 		return err
 	}
-	artifact := o.manifest.BootstrapKubeClipperArtifact()
-	if artifact == nil {
-		return fmt.Errorf("release manifest contains no bootstrap/kubeclipper package artifact")
+	required, err := requiredArtifactsFor(o.component, o.manifest)
+	if err != nil {
+		return err
 	}
-	o.artifact = artifact
+	o.requiredArtifacts = required
 	o.registry = strings.TrimRight(o.manifest.Registries.Package, "/")
-	o.targetRef = o.registry + "/" + artifact.Target
-	o.targetVersion = artifact.Component.Version
+	// The primary artifact decides the reported target version: the console
+	// version for a console-only upgrade, the platform version otherwise.
+	o.targetVersion = required[0].Component.Version
 	o.targetRevision = o.manifest.Metadata.SourceRevision
 
-	if err := o.checkVersionPolicy(); err != nil {
+	if o.component == cmdoptions.UpgradeConsole {
+		// The console dist versions independently of the platform (console
+		// v1.6.0 ships with platform v2.0.3-rc.x), so a semver comparison
+		// against the platform version would reject every console upgrade;
+		// the console carries no source revision either — re-install of the
+		// same console version is the idempotent path.
+		logger.Infof("console upgrade target: bootstrap/console:%s from %s", o.targetVersion, o.registry)
+	} else if err := o.checkVersionPolicy(); err != nil {
 		return err
 	}
 
@@ -260,6 +282,34 @@ func (o *UpgradeOptions) loadManifest() error {
 	}
 	o.manifest = manifest
 	return nil
+}
+
+// requiredArtifactsFor decides which bootstrap package artifacts a component
+// upgrade needs; "all" needs both packages. Missing artifacts fail here, in
+// Validate, before anything is fetched or stopped.
+func requiredArtifactsFor(component string, manifest *releasemanifest.Manifest) ([]*releasemanifest.Artifact, error) {
+	kcArtifact := manifest.BootstrapKubeClipperArtifact()
+	consoleArtifact := manifest.BootstrapConsoleArtifact()
+	switch component {
+	case cmdoptions.UpgradeConsole:
+		if consoleArtifact == nil {
+			return nil, fmt.Errorf("release manifest contains no bootstrap/console package artifact (console upgrade requires it)")
+		}
+		return []*releasemanifest.Artifact{consoleArtifact}, nil
+	case cmdoptions.UpgradeAll:
+		if kcArtifact == nil {
+			return nil, fmt.Errorf("release manifest contains no bootstrap/kubeclipper package artifact")
+		}
+		if consoleArtifact == nil {
+			return nil, fmt.Errorf("release manifest contains no bootstrap/console package artifact (upgrade all requires it)")
+		}
+		return []*releasemanifest.Artifact{kcArtifact, consoleArtifact}, nil
+	default:
+		if kcArtifact == nil {
+			return nil, fmt.Errorf("release manifest contains no bootstrap/kubeclipper package artifact")
+		}
+		return []*releasemanifest.Artifact{kcArtifact}, nil
+	}
 }
 
 func (o *UpgradeOptions) checkVersionPolicy() error {
@@ -319,6 +369,9 @@ type rolloutPlan struct {
 type archArtifacts struct {
 	serverPath string
 	agentPath  string
+	kcctlPath  string
+	caddyPath  string
+	distPath   string
 }
 
 func (o *UpgradeOptions) targetRoles() []string {
@@ -327,10 +380,22 @@ func (o *UpgradeOptions) targetRoles() []string {
 		return []string{roleServer}
 	case cmdoptions.UpgradeAgent:
 		return []string{roleAgent}
+	case cmdoptions.UpgradeConsole:
+		return []string{roleConsole}
+	case cmdoptions.UpgradeKcctl:
+		return []string{roleKcctl}
 	default:
-		return []string{roleServer, roleAgent}
+		return []string{roleServer, roleAgent, roleConsole, roleKcctl}
 	}
 }
+
+func (o *UpgradeOptions) needsRole(role string) bool {
+	return sets.NewString(o.targetRoles()...).Has(role)
+}
+
+// roleOrder: fixed rollout order — control-plane binaries first, then the web
+// entrypoint, then the CLI the operator runs from these very nodes.
+var roleOrder = []string{roleServer, roleAgent, roleConsole, roleKcctl}
 
 func (o *UpgradeOptions) RunUpgrade() error {
 	plan, err := o.buildRolloutPlan()
@@ -356,24 +421,27 @@ func (o *UpgradeOptions) RunUpgrade() error {
 func (o *UpgradeOptions) buildRolloutPlan() (*rolloutPlan, error) {
 	roles := sets.NewString(o.targetRoles()...)
 	plan := &rolloutPlan{}
-	for _, host := range o.deployConfig.ServerIPs {
-		if !roles.Has(roleServer) {
-			break
+	for _, role := range roleOrder {
+		if !roles.Has(role) {
+			continue
 		}
-		if err := o.appendNode(plan, roleServer, host); err != nil {
-			return nil, err
-		}
-	}
-	for _, host := range o.deployConfig.Agents.ListIP() {
-		if !roles.Has(roleAgent) {
-			break
-		}
-		if err := o.appendNode(plan, roleAgent, host); err != nil {
-			return nil, err
+		for _, host := range o.hostsForRole(role) {
+			if err := o.appendNode(plan, role, host); err != nil {
+				return nil, err
+			}
 		}
 	}
 	plan.nodes = dedupNodes(plan.nodes)
 	return plan, nil
+}
+
+// hostsForRole: the agent runs on every agent node, while the server, the
+// console and the kcctl binary live on the server nodes.
+func (o *UpgradeOptions) hostsForRole(role string) []string {
+	if role == roleAgent {
+		return o.deployConfig.Agents.ListIP()
+	}
+	return o.deployConfig.ServerIPs
 }
 
 // dedupNodes drops (role, host) duplicates from the rollout plan. A node may
@@ -436,11 +504,62 @@ func (o *UpgradeOptions) probeNodeRevision(host, role string) string {
 	if err != nil || result.ExitCode != 0 {
 		return ""
 	}
-	var info nodeVersionInfo
-	if err := json.Unmarshal([]byte(strings.TrimSpace(result.Stdout)), &info); err != nil {
+	info, err := parseVersionJSON(result.Stdout)
+	if err != nil {
 		return ""
 	}
 	return info.GitCommit
+}
+
+// parseVersionJSON extracts the version Info from command output. The platform
+// binaries print plain JSON, while kcctl prefixes it with a "kcctl version:"
+// banner line — and with a reachable platform config appends a second
+// "kubeclipper-server version:" object. The client (first) object is the one
+// that identifies the binary being probed.
+func parseVersionJSON(out string) (nodeVersionInfo, error) {
+	obj, ok := firstJSONObject(out)
+	if !ok {
+		return nodeVersionInfo{}, fmt.Errorf("no JSON object in version output: %q", strings.TrimSpace(out))
+	}
+	var info nodeVersionInfo
+	if err := json.Unmarshal([]byte(obj), &info); err != nil {
+		return nodeVersionInfo{}, err
+	}
+	return info, nil
+}
+
+// firstJSONObject returns the first balanced JSON object in s, honoring string
+// literals so brace characters inside values cannot skew the matching.
+func firstJSONObject(s string) (string, bool) {
+	start := strings.Index(s, "{")
+	if start < 0 {
+		return "", false
+	}
+	depth := 0
+	inString := false
+	escaped := false
+	for i := start; i < len(s); i++ {
+		switch c := s[i]; {
+		case escaped:
+			escaped = false
+		case inString:
+			if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
+		case c == '"':
+			inString = true
+		case c == '{':
+			depth++
+		case c == '}':
+			depth--
+			if depth == 0 {
+				return s[start : i+1], true
+			}
+		}
+	}
+	return "", false
 }
 
 type nodeVersionInfo struct {
@@ -449,10 +568,16 @@ type nodeVersionInfo struct {
 }
 
 func binaryForRole(role string) string {
-	if role == roleAgent {
+	switch role {
+	case roleAgent:
 		return agentBinaryName
+	case roleConsole:
+		return consoleBinaryName
+	case roleKcctl:
+		return kcctlBinaryName
+	default:
+		return serverBinaryName
 	}
-	return serverBinaryName
 }
 
 func (o *UpgradeOptions) printPlan(plan *rolloutPlan) {
@@ -520,53 +645,110 @@ func (o *UpgradeOptions) verifyTagBinding(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	desc, err := crane.Get(o.targetRef, opts...)
-	if err != nil {
-		return fmt.Errorf("resolve %s: %w", o.targetRef, err)
+	for _, artifact := range o.requiredArtifacts {
+		ref := o.registry + "/" + artifact.Target
+		desc, err := crane.Get(ref, opts...)
+		if err != nil {
+			return fmt.Errorf("resolve %s: %w", ref, err)
+		}
+		if desc.Digest.String() == artifact.Digest {
+			continue
+		}
+		image, err := desc.Image()
+		if err != nil {
+			return fmt.Errorf("resolve %s: read image: %w", ref, err)
+		}
+		configFile, err := image.ConfigFile()
+		if err != nil {
+			return fmt.Errorf("resolve %s: read image config: %w", ref, err)
+		}
+		if configFile.Config.Labels["org.opencontainers.image.revision"] == o.targetRevision {
+			logger.Warnf("registry tag %s digest %s differs from manifest digest %s; source revision %s matches", ref, desc.Digest, artifact.Digest, o.targetRevision)
+			continue
+		}
+		return fmt.Errorf("registry tag %s digest %s does not match the release manifest digest %s; refusing to upgrade from a repointed tag", ref, desc.Digest, artifact.Digest)
 	}
-	if desc.Digest.String() == o.artifact.Digest {
-		return nil
-	}
-	image, err := desc.Image()
-	if err != nil {
-		return fmt.Errorf("resolve %s: read image: %w", o.targetRef, err)
-	}
-	configFile, err := image.ConfigFile()
-	if err != nil {
-		return fmt.Errorf("resolve %s: read image config: %w", o.targetRef, err)
-	}
-	if configFile.Config.Labels["org.opencontainers.image.revision"] == o.targetRevision {
-		logger.Warnf("registry tag %s digest %s differs from manifest digest %s; source revision %s matches", o.targetRef, desc.Digest, o.artifact.Digest, o.targetRevision)
-		return nil
-	}
-	return fmt.Errorf("registry tag %s digest %s does not match the release manifest digest %s; refusing to upgrade from a repointed tag", o.targetRef, desc.Digest, o.artifact.Digest)
+	return nil
 }
 
 func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) (*archArtifacts, error) {
-	repository, tag, ok := strings.Cut(o.artifact.Target, ":")
-	if !ok || tag == "" {
-		return nil, fmt.Errorf("release manifest artifact target %q carries no tag", o.artifact.Target)
+	artifacts := &archArtifacts{}
+	for _, required := range o.requiredArtifacts {
+		files, err := o.fetchPackageFiles(ctx, required, arch)
+		if err != nil {
+			return nil, err
+		}
+		switch required.Component.Name {
+		case bootstrapPackageName:
+			artifacts.serverPath = files[serverBinaryName]
+			artifacts.agentPath = files[agentBinaryName]
+			artifacts.kcctlPath = files[kcctlBinaryName]
+			for _, need := range []struct {
+				role   string
+				binary string
+				path   string
+			}{
+				{roleServer, serverBinaryName, artifacts.serverPath},
+				{roleAgent, agentBinaryName, artifacts.agentPath},
+				{roleKcctl, kcctlBinaryName, artifacts.kcctlPath},
+			} {
+				if o.needsRole(need.role) && need.path == "" {
+					return nil, fmt.Errorf("package %s:%s(%s) has no %s payload", bootstrapPackageName, o.targetVersion, arch, need.binary)
+				}
+			}
+		case consolePackageName:
+			artifacts.caddyPath = files[consoleBinaryName]
+			artifacts.distPath = files[consoleDistName]
+			if o.needsRole(roleConsole) {
+				if artifacts.caddyPath == "" {
+					return nil, fmt.Errorf("package %s:%s(%s) has no %s payload", consolePackageName, required.Component.Version, arch, consoleBinaryName)
+				}
+				if artifacts.distPath == "" {
+					return nil, fmt.Errorf("package %s:%s(%s) has no %s payload", consolePackageName, required.Component.Version, arch, consoleDistName)
+				}
+			}
+		}
 	}
-	if tag != o.targetVersion {
-		return nil, fmt.Errorf("release manifest artifact tag %q does not match component version %q", tag, o.targetVersion)
+	return artifacts, nil
+}
+
+// fetchPackageFiles downloads one bootstrap package for the given architecture
+// and returns its contents as a file-name -> local-path map.
+func (o *UpgradeOptions) fetchPackageFiles(ctx context.Context, artifact *releasemanifest.Artifact, arch string) (map[string]string, error) {
+	repository, tag, ok := strings.Cut(artifact.Target, ":")
+	if !ok || tag == "" {
+		return nil, fmt.Errorf("release manifest artifact target %q carries no tag", artifact.Target)
+	}
+	if tag != artifact.Component.Version {
+		return nil, fmt.Errorf("release manifest artifact tag %q does not match component version %q", tag, artifact.Component.Version)
 	}
 	indexer := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(o.registryConfig)
 	inventory, err := indexer.IndexPackageRepositories(ctx, o.registry, []string{repository})
 	if err != nil {
 		return nil, fmt.Errorf("index package repository %s/%s: %w", o.registry, repository, err)
 	}
-	entry := selectPackageEntry(inventory, o.targetVersion, arch)
+	entry := selectPackageEntry(inventory, artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch)
 	if entry == nil {
-		return nil, fmt.Errorf("registry %s has no %s/%s package version %s for arch %s; sync the release bundle first", o.registry, bootstrapPackageKind, bootstrapPackageName, o.targetVersion, arch)
+		return nil, fmt.Errorf("registry %s has no %s/%s package version %s for arch %s; sync the release bundle first", o.registry, artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch)
 	}
+	// The platform package is built from the source tree the manifest pins, so
+	// its sourceRevision must match. The console dist is not built from the
+	// platform source tree — its revision label only records the publish-time
+	// platform revision, and the manifest digest binding is the integrity
+	// guarantee, so a mismatch there is informational.
+	strictRevision := artifact.Component.Name == bootstrapPackageName
 	if entry.SourceRevision == "" {
-		logger.Warnf("package %s/%s:%s(%s) carries no sourceRevision metadata; the revision expectation %s cannot be verified before rollout, republish the package with KC_SOURCE_REVISION set", entry.Kind, entry.Name, entry.Version, entry.Arch, o.targetRevision)
-	}
-	if entry.SourceRevision != "" && entry.SourceRevision != o.targetRevision {
-		return nil, fmt.Errorf("package %s/%s:%s(%s) source revision %s does not match release manifest revision %s", entry.Kind, entry.Name, entry.Version, entry.Arch, entry.SourceRevision, o.targetRevision)
+		if strictRevision {
+			logger.Warnf("package %s/%s:%s(%s) carries no sourceRevision metadata; the revision expectation %s cannot be verified before rollout, republish the package with KC_SOURCE_REVISION set", entry.Kind, entry.Name, entry.Version, entry.Arch, o.targetRevision)
+		}
+	} else if entry.SourceRevision != o.targetRevision {
+		if strictRevision {
+			return nil, fmt.Errorf("package %s/%s:%s(%s) source revision %s does not match release manifest revision %s", entry.Kind, entry.Name, entry.Version, entry.Arch, entry.SourceRevision, o.targetRevision)
+		}
+		logger.Warnf("package %s/%s:%s(%s) was published at platform revision %s, release manifest pins %s; the console dist is not built from the platform source tree, the manifest digest binding is the integrity guarantee", entry.Kind, entry.Name, entry.Version, entry.Arch, entry.SourceRevision, o.targetRevision)
 	}
 	component := deliveryapis.ResolvedComponent{
-		Slot:      "upgrade-" + bootstrapPackageName,
+		Slot:      "upgrade-" + artifact.Component.Name,
 		Kind:      entry.Kind,
 		Name:      entry.Name,
 		Version:   entry.Version,
@@ -582,40 +764,21 @@ func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) 
 		Components: []deliveryapis.ResolvedComponent{component},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("fetch %s/%s:%s for %s: %w", bootstrapPackageKind, bootstrapPackageName, o.targetVersion, arch, err)
+		return nil, fmt.Errorf("fetch %s/%s:%s for %s: %w", artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch, err)
 	}
 	if len(result.Components) != 1 {
-		return nil, fmt.Errorf("fetch %s/%s:%s for %s: unexpected fetch result", bootstrapPackageKind, bootstrapPackageName, o.targetVersion, arch)
+		return nil, fmt.Errorf("fetch %s/%s:%s for %s: unexpected fetch result", artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch)
 	}
-	artifacts := &archArtifacts{}
-	for name, filePath := range result.Components[0].Files {
-		switch name {
-		case serverBinaryName:
-			artifacts.serverPath = filePath
-		case agentBinaryName:
-			artifacts.agentPath = filePath
-		}
-	}
-	if o.component == cmdoptions.UpgradeAll || o.component == cmdoptions.UpgradeServer {
-		if artifacts.serverPath == "" {
-			return nil, fmt.Errorf("package %s:%s(%s) has no %s payload", bootstrapPackageName, o.targetVersion, arch, serverBinaryName)
-		}
-	}
-	if o.component == cmdoptions.UpgradeAll || o.component == cmdoptions.UpgradeAgent {
-		if artifacts.agentPath == "" {
-			return nil, fmt.Errorf("package %s:%s(%s) has no %s payload", bootstrapPackageName, o.targetVersion, arch, agentBinaryName)
-		}
-	}
-	return artifacts, nil
+	return result.Components[0].Files, nil
 }
 
-func selectPackageEntry(inventory *deliveryapis.PackageInventory, version, arch string) *deliveryapis.PackageEntry {
+func selectPackageEntry(inventory *deliveryapis.PackageInventory, kind, name, version, arch string) *deliveryapis.PackageEntry {
 	if inventory == nil {
 		return nil
 	}
 	for i := range inventory.Spec.Packages {
 		pkg := &inventory.Spec.Packages[i]
-		if pkg.Kind == bootstrapPackageKind && pkg.Name == bootstrapPackageName && pkg.Version == version && pkg.Arch == arch {
+		if pkg.Kind == kind && pkg.Name == name && pkg.Version == version && pkg.Arch == arch {
 			return pkg
 		}
 	}
@@ -650,7 +813,9 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 		// Re-probe right before touching the node: the plan-time revision is
 		// stale for long rollouts and for a second upgrade invocation racing
 		// this one; both would otherwise replace an already-upgraded binary
-		// and clobber its backup.
+		// and clobber its backup. The console has no revision to probe
+		// (caddy version is caddy's, not the console's), so console nodes
+		// always re-install — that re-install is the idempotent path.
 		if current := o.probeNodeRevision(node.host, node.role); current != "" {
 			node.currentRevision = current
 		}
@@ -671,20 +836,39 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 			if err == nil {
 				err = o.waitAgentActive(node.host)
 			}
+		case roleConsole:
+			err = o.upgradeConsoleNode(node.host, artifacts)
+			if err == nil {
+				err = o.waitConsoleHealthy(node.host)
+			}
+		case roleKcctl:
+			err = o.upgradeKcctlNode(node.host, artifacts)
+			if err == nil && o.targetRevision != "" {
+				if got := o.probeNodeRevision(node.host, roleKcctl); got != o.targetRevision {
+					err = fmt.Errorf("kcctl on %s reports revision %q after replace, expected %s", node.host, got, shortRev(o.targetRevision))
+				}
+			}
 		default:
 			err = fmt.Errorf("unsupported role %q", node.role)
 		}
 		if err != nil {
 			logger.Errorf("upgrade %s on %s failed: %v", node.role, node.host, err)
-			o.restoreNodeBinary(node.host, node.role)
+			o.restoreNode(node.host, node.role)
 			// Keep the staging dir (and the backup inside it) so the failure
 			// scene stays inspectable; /tmp is cleared on reboot.
 			return fmt.Errorf("upgrade stopped at %s %s: %w; the node was restored to the previous binary, already upgraded nodes were not rolled back", node.role, node.host, err)
 		}
 		upgraded = append(upgraded, node)
-		logger.Infof("upgraded %s %s to %s (revision %s)", node.role, node.host, o.targetVersion, shortRev(o.targetRevision))
+		logger.Infof("upgraded %s %s to %s", node.role, node.host, o.targetVersion)
 	}
 	return o.verifyPlatform(plan)
+}
+
+// verifiesPlatform: only the components that replace kubeclipper-server can
+// change what the platform API reports, so only they are verified against the
+// target revision afterwards.
+func (o *UpgradeOptions) verifiesPlatform() bool {
+	return o.component != cmdoptions.UpgradeConsole && o.component != cmdoptions.UpgradeKcctl
 }
 
 func (o *UpgradeOptions) upgradeNodeBinary(host, role, localPath string) error {
@@ -705,8 +889,52 @@ func (o *UpgradeOptions) upgradeNodeBinary(host, role, localPath string) error {
 		fmt.Sprintf("install -m 0755 %s %s", remotePath, remoteBin),
 		fmt.Sprintf("systemctl start %s", service),
 	}
-	if err := utils.SendPackageV2(o.SSHConfig, localPath, []string{host}, upgradeStagingDir, nil, nil); err != nil {
-		return fmt.Errorf("upload %s to %s: %w", binaryName, host, err)
+	return o.uploadAndRun(host, []string{localPath}, steps)
+}
+
+// upgradeConsoleNode replaces the caddy binary and the kc-console web dist on
+// a server node and restarts kc-console. The dist travels as a tar archive
+// whose top-level directory is named kc-console; it is extracted under
+// dist-extract/ to avoid the archive/extracted-dir name clash in staging.
+func (o *UpgradeOptions) upgradeConsoleNode(host string, artifacts archArtifacts) error {
+	backupDir := path.Join(upgradeStagingDir, "backup")
+	backupCaddy := path.Join(backupDir, consoleBinaryName)
+	backupDist := path.Join(backupDir, "dist.tar")
+	remoteCaddy := path.Join("/usr/local/bin", consoleBinaryName)
+	extractDir := path.Join(upgradeStagingDir, "dist-extract")
+	steps := []string{
+		fmt.Sprintf("mkdir -p %s", backupDir),
+		"systemctl stop kc-console",
+		fmt.Sprintf("[ -f %s ] || cp -a %s %s", backupCaddy, remoteCaddy, backupCaddy),
+		fmt.Sprintf("[ -f %s ] || tar -cf %s -C /etc/kc-console dist", backupDist, backupDist),
+		fmt.Sprintf("install -m 0755 %s %s", path.Join(upgradeStagingDir, consoleBinaryName), remoteCaddy),
+		fmt.Sprintf("rm -rf %s && mkdir -p %s && tar -xf %s -C %s", extractDir, extractDir, path.Join(upgradeStagingDir, consoleDistName), extractDir),
+		fmt.Sprintf("rm -rf /etc/kc-console/dist && cp -a %s/%s /etc/kc-console/dist", extractDir, consoleDistName),
+		"systemctl start kc-console",
+	}
+	return o.uploadAndRun(host, []string{artifacts.caddyPath, artifacts.distPath}, steps)
+}
+
+// upgradeKcctlNode swaps /usr/local/bin/kcctl in place; there is no service to
+// restart — the next kcctl invocation picks the binary up.
+func (o *UpgradeOptions) upgradeKcctlNode(host string, artifacts archArtifacts) error {
+	backupPath := path.Join(upgradeStagingDir, "backup", kcctlBinaryName)
+	remoteBin := path.Join("/usr/local/bin", kcctlBinaryName)
+	steps := []string{
+		fmt.Sprintf("mkdir -p %s", path.Join(upgradeStagingDir, "backup")),
+		fmt.Sprintf("[ -f %s ] || cp -a %s %s", backupPath, remoteBin, backupPath),
+		fmt.Sprintf("install -m 0755 %s %s", path.Join(upgradeStagingDir, kcctlBinaryName), remoteBin),
+	}
+	return o.uploadAndRun(host, []string{artifacts.kcctlPath}, steps)
+}
+
+// uploadAndRun uploads the fetched files into the staging dir and runs the
+// remote steps, reporting the failing step with its command on error.
+func (o *UpgradeOptions) uploadAndRun(host string, localPaths []string, steps []string) error {
+	for _, localPath := range localPaths {
+		if err := utils.SendPackageV2(o.SSHConfig, localPath, []string{host}, upgradeStagingDir, nil, nil); err != nil {
+			return fmt.Errorf("upload %s to %s: %w", path.Base(localPath), host, err)
+		}
 	}
 	for i, cmd := range steps {
 		result, err := sshutils.SSHCmdWithSudo(o.SSHConfig, host, cmd)
@@ -718,6 +946,17 @@ func (o *UpgradeOptions) upgradeNodeBinary(host, role, localPath string) error {
 		}
 	}
 	return nil
+}
+
+func (o *UpgradeOptions) restoreNode(host, role string) {
+	switch role {
+	case roleConsole:
+		o.restoreConsole(host)
+	case roleKcctl:
+		o.restoreKcctl(host)
+	default:
+		o.restoreNodeBinary(host, role)
+	}
 }
 
 func (o *UpgradeOptions) restoreNodeBinary(host, role string) {
@@ -739,6 +978,41 @@ func (o *UpgradeOptions) restoreNodeBinary(host, role string) {
 		}
 	}
 	logger.Infof("restored previous %s on %s", binaryName, host)
+}
+
+func (o *UpgradeOptions) restoreConsole(host string) {
+	backupCaddy := path.Join(upgradeStagingDir, "backup", consoleBinaryName)
+	backupDist := path.Join(upgradeStagingDir, "backup", "dist.tar")
+	for _, cmd := range []string{
+		// guarded: a failure before the backup steps left nothing to restore
+		fmt.Sprintf("if [ -f %s ]; then install -m 0755 %s /usr/local/bin/%s; fi", backupCaddy, backupCaddy, consoleBinaryName),
+		fmt.Sprintf("if [ -f %s ]; then rm -rf /etc/kc-console/dist && tar -xf %s -C /etc/kc-console; fi", backupDist, backupDist),
+		"systemctl restart kc-console",
+	} {
+		result, err := sshutils.SSHCmdWithSudo(o.SSHConfig, host, cmd)
+		if err == nil && result.ExitCode != 0 {
+			err = fmt.Errorf("exit %d: %s", result.ExitCode, strings.TrimSpace(result.Stderr))
+		}
+		if err != nil {
+			logger.Errorf("restore kc-console on %s failed: %v (backups kept at %s and %s, restore manually)", host, err, backupCaddy, backupDist)
+			return
+		}
+	}
+	logger.Infof("restored previous caddy and web dist on %s", host)
+}
+
+func (o *UpgradeOptions) restoreKcctl(host string) {
+	backupPath := path.Join(upgradeStagingDir, "backup", kcctlBinaryName)
+	cmd := fmt.Sprintf("if [ -f %s ]; then install -m 0755 %s /usr/local/bin/%s; fi", backupPath, backupPath, kcctlBinaryName)
+	result, err := sshutils.SSHCmdWithSudo(o.SSHConfig, host, cmd)
+	if err == nil && result.ExitCode != 0 {
+		err = fmt.Errorf("exit %d: %s", result.ExitCode, strings.TrimSpace(result.Stderr))
+	}
+	if err != nil {
+		logger.Errorf("restore %s on %s failed: %v (backup kept at %s, restore manually)", kcctlBinaryName, host, err, backupPath)
+		return
+	}
+	logger.Infof("restored previous %s on %s", kcctlBinaryName, host)
 }
 
 func (o *UpgradeOptions) nodeHealthzOK(host string) bool {
@@ -788,9 +1062,42 @@ func (o *UpgradeOptions) waitAgentActive(host string) error {
 	}
 }
 
+// consoleOK probes the console entrypoint: caddy serves the web dist over
+// plain HTTP on the console port, so any 2xx proves the service is up and
+// serving the frontend.
+func (o *UpgradeOptions) consoleOK(host string) bool {
+	client := &http.Client{Timeout: nodeHealthzTimeout}
+	resp, err := client.Get(fmt.Sprintf("http://%s:%v/", host, o.deployConfig.ConsolePort))
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64))
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
+}
+
+func (o *UpgradeOptions) waitConsoleHealthy(host string) error {
+	deadline := time.Now().Add(nodeHealthzWait)
+	ticker := time.NewTicker(nodeHealthzTick)
+	defer ticker.Stop()
+	for {
+		if o.consoleOK(host) {
+			return nil
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("console on %s did not become healthy within %s (probing http port %v)", host, nodeHealthzWait, o.deployConfig.ConsolePort)
+		}
+		<-ticker.C
+	}
+}
+
 // verifyPlatform confirms the cluster API answers with the target revision
 // after the rollout. Individual node results were already reported per node.
 func (o *UpgradeOptions) verifyPlatform(_ *rolloutPlan) error {
+	if !o.verifiesPlatform() {
+		logger.Infof("%s upgrade complete; platform API revision not verified (component does not replace kubeclipper-server)", o.component)
+		return nil
+	}
 	versionInfo, err := o.client.Version(context.TODO())
 	if err != nil {
 		return fmt.Errorf("verify upgrade via platform API: %w", err)
