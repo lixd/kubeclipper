@@ -33,6 +33,11 @@ sendPackage 断连/完整重 deploy 恢复三场景，含 /var/lib/kc-etcd 重�
 2.2-03/09/10 Master 增删经真机复证为产品缺口（代码无条件拒绝，gaps P0 行 5）；新发现
 P0 缺口"离线建群必须显式 imageRegistry"（离线环境无该字段时 kubeadm init 从公网拉镜像
 ~18 分钟慢失败且无创建前校验，gaps P0 行 10）。稳定版发布结论仍为 Blocked。
+**更新（R18，rc.9 `5e4cfb4b`，2026-09-24）**：两项 P0 缺口修复并真机闭环——master add/remove
+完整实现（add 8/8 OperationTasks Succeeded etcd 3 成员、remove 13/13 Succeeded etcd 回 2 成员、
+quorum 负向 400，checklist 2.2-03/09/10 ✅，gaps P0 行 5 关闭）；离线建群缺省 imageRegistry
+创建前 400 拒绝（48ms 秒级暴露、零对象，checklist 2.1-33 ✅，gaps P0 行 10 关闭）。
+稳定版发布结论仍为 Blocked（其余 P0 行 1/4 与 2.1-30 交付余量未清）。
 
 > **决策记录（2026-09-20）**：B1 选择「实施」而非收缩承诺——平台升级按 OCI 契约改造
 > （`kcctl upgrade <component> --version/--manifest`，复用 ReleaseManifest/OCI fetcher/digest
@@ -450,6 +455,27 @@ kubeadm.yaml 无 imageRepository（默认 registry.k8s.io）、containerd 无本
 共享 Registry sha 守卫未动、/var/lib/kc-etcd 为重 deploy 后全新、/tmp/r17 与
 /root/r17-evidence、/root/r17-backup 及 dev-3 备份全删（证据逐字转录 R7 报告 §12.13 与
 checklist/gaps）。
+
+**实施更新（R18，2026-09-24，rc.9 `5e4cfb4b` 三机）**：R17 定性的两项 P0 缺口实施修复并真机
+闭环。①Fix A（gaps P0 行 10）：`createClusterCheck` 新增离线+空 `imageRegistry` 前置拒绝
+（400，文案含 registry.k8s.io 不可达解释），真实 POST 48ms、dryRun 同拒、零对象，对照组带
+`kc-package-registry` 200；②Fix B（gaps P0 行 5）：`pkg/clusteroperation/node.go`
+makeMasterCompare/makeMasterOperation 实现 master add/remove（add：Builder unwrap
+AvailableKubeMasters 排除被操作节点→getJoinCommand 在存活 master 产出 control-plane join
+命令（upload-certs 刷新证书密钥）→renderMasterJoinConfig/joinNode→waitForAddedNodesReady；
+remove：EtcdMemberRemove 步骤在存活 master 按 peer addr 匹配成员 ID 显式摘除→drain→
+kubeadmReset→removeEtcdDataDir→clearIPVS/removeDummyInterface/clearVIPDomain→卸载链；
+quorum 守卫：remove 后剩余 <2 → 400 `invalid nodes topology`）；③真机复验：r18-cluster
+（双 master，API 创建——kcctl CLI 守卫拒绝偶数 master）add dev-2 8/8 OperationTasks
+Succeeded、etcd 3 成员、control-plane Ready；remove dev-2 13/13 Succeeded、etcd 回 2 成员、
+离开节点 /etc/kubernetes 与 /var/lib/etcd 清空、kubelet/containerd inactive；负向 remove 1 of 2
+直调与 `?dryRun=true` 均 400、零副作用；④边界标注：0 worker 拓扑下 worker 侧 lvscare
+refreshLvsCare 按设计不生成步骤、未真机覆盖（单测覆盖 leaving 过滤——Builder append-back
+副作用被 LvsCareRefreshSteps 的 leaving 参数修正）。发布与升级：本地构建+wrapper 经 dev-2
+发布 v2.0.3-rc.9（5003 仅增 tag）→ `kcctl upgrade all --manifest` 三机 6 槽位 rc.9（~66s），
+doctor 25/25；升级 WARN skip v2.0.3-rc.5 tag（存量 MANIFEST_UNKNOWN，非阻塞，升级逻辑正确
+跳过坏 tag）。终态：r18-cluster 删除、3 节点 Healthy 无集群标签、共享 Registry 仅增 rc.9 tag、
+/var/lib/kc-etcd 未动、API 客户端证书与全部临时产物即用即删。证据逐字转录 R7 报告 §12.14。
 
 每个声明支持的矩阵项都有真实通过证据；环境缺失项保持未验收，不用构建结果代替。
 每条记录至少包含以下字段，配置和日志先脱敏：
