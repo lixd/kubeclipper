@@ -275,3 +275,32 @@ func TestCreateClusterCheckSkipsIPLessNodes(t *testing.T) {
 		t.Fatalf("expected clean subnets to pass, got %v", err)
 	}
 }
+
+// Regression for R17: an offline cluster whose payload omits imageRegistry used
+// to be accepted and die ~18 minutes into kubeadm init pulling from
+// registry.k8s.io; it must be rejected before any object is created.
+func TestCreateClusterCheckOfflineRequiresImageRegistry(t *testing.T) {
+	h, _ := newCheckHandler(t, nil)
+	c := checkClusterFixture([]string{"172.20.0.0/16"}, []string{"10.96.0.0/12"}, "node-1")
+	c.Annotations = map[string]string{common.AnnotationOffline: ""}
+	err := h.createClusterCheck(context.Background(), c)
+	if err == nil || !strings.Contains(err.Error(), "imageRegistry") {
+		t.Fatalf("expected offline imageRegistry rejection, got %v", err)
+	}
+
+	c.ImageRegistry = "kc-package-registry"
+	h, _ = newCheckHandler(t, []v1.Node{checkNodeFixture("node-1", "172.16.131.208")})
+	if err := h.createClusterCheck(context.Background(), c); err != nil {
+		t.Fatalf("expected offline cluster with imageRegistry to pass, got %v", err)
+	}
+}
+
+// An online cluster may still omit imageRegistry (public registries are
+// reachable); the check must not fire for it.
+func TestCreateClusterCheckOnlineAllowsEmptyImageRegistry(t *testing.T) {
+	h, _ := newCheckHandler(t, []v1.Node{checkNodeFixture("node-1", "172.16.131.208")})
+	c := checkClusterFixture([]string{"172.20.0.0/16"}, []string{"10.96.0.0/12"}, "node-1")
+	if err := h.createClusterCheck(context.Background(), c); err != nil {
+		t.Fatalf("expected online cluster without imageRegistry to pass, got %v", err)
+	}
+}

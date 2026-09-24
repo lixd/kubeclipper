@@ -19,6 +19,7 @@
 package clusteroperation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -28,7 +29,32 @@ import (
 )
 
 var (
-	c2 = &v1.Cluster{
+	// c2 is kept for backward compatibility of other fixtures; the MakeCompare
+	// tests build a fresh cluster per case because MakeCompare mutates it.
+	c2     = newTestCluster()
+	master = v1.WorkerNodeList{
+		{
+			ID: "1e3ea00f-1403-46e5-a486-70e4cb29d541",
+		},
+		{
+			ID: "43ed594a-a76f-4370-a14d-551e7b6153de",
+		},
+		{
+			ID: "c7a91d86-cd53-4c3f-85b0-fbc657778067",
+		},
+	}
+	worker = v1.WorkerNodeList{
+		{
+			ID: "4cf1ad74-704c-4290-a523-e524e930245d",
+		},
+		{
+			ID: "ae4ba282-27f9-4a93-8fe9-63f786781d48",
+		},
+	}
+)
+
+func newTestCluster() *v1.Cluster {
+	return &v1.Cluster{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "demo",
@@ -81,62 +107,44 @@ var (
 			WorkerNodeVip: "169.254.169.100",
 		},
 	}
-	master = v1.WorkerNodeList{
-		{
-			ID: "1e3ea00f-1403-46e5-a486-70e4cb29d541",
-		},
-		{
-			ID: "43ed594a-a76f-4370-a14d-551e7b6153de",
-		},
-		{
-			ID: "c7a91d86-cd53-4c3f-85b0-fbc657778067",
-		},
-	}
-	worker = v1.WorkerNodeList{
-		{
-			ID: "4cf1ad74-704c-4290-a523-e524e930245d",
-		},
-		{
-			ID: "ae4ba282-27f9-4a93-8fe9-63f786781d48",
-		},
-	}
-	//extraMeta = &component.ExtraMetadata{
-	//	Masters: []component.Node{
-	//		{
-	//			ID:       "1e3ea00f-1403-46e5-a486-70e4cb29d541",
-	//			IPv4:     "192.168.1.1",
-	//			NodeIPv4: "192.168.2.1",
-	//			Region:   "default",
-	//		},
-	//		{
-	//			ID:       "43ed594a-a76f-4370-a14d-551e7b6153de",
-	//			IPv4:     "192.168.1.2",
-	//			NodeIPv4: "192.168.2.2",
-	//			Region:   "default",
-	//		},
-	//		{
-	//			ID:       "c7a91d86-cd53-4c3f-85b0-fbc657778067",
-	//			IPv4:     "192.168.1.3",
-	//			NodeIPv4: "192.168.2.3",
-	//			Region:   "default",
-	//		},
-	//	},
-	//	Workers: []component.Node{
-	//		{
-	//			ID:       "4cf1ad74-704c-4290-a523-e524e930245d",
-	//			IPv4:     "192.168.1.4",
-	//			NodeIPv4: "192.168.2.4",
-	//			Region:   "default",
-	//		},
-	//		{
-	//			ID:       "ae4ba282-27f9-4a93-8fe9-63f786781d48",
-	//			IPv4:     "192.168.1.5",
-	//			NodeIPv4: "192.168.2.5",
-	//			Region:   "default",
-	//		},
-	//	},
-	//}
-)
+}
+
+//extraMeta = &component.ExtraMetadata{
+//	Masters: []component.Node{
+//		{
+//			ID:       "1e3ea00f-1403-46e5-a486-70e4cb29d541",
+//			IPv4:     "192.168.1.1",
+//			NodeIPv4: "192.168.2.1",
+//			Region:   "default",
+//		},
+//		{
+//			ID:       "43ed594a-a76f-4370-a14d-551e7b6153de",
+//			IPv4:     "192.168.1.2",
+//			NodeIPv4: "192.168.2.2",
+//			Region:   "default",
+//		},
+//		{
+//			ID:       "c7a91d86-cd53-4c3f-85b0-fbc657778067",
+//			IPv4:     "192.168.1.3",
+//			NodeIPv4: "192.168.2.3",
+//			Region:   "default",
+//		},
+//	},
+//	Workers: []component.Node{
+//		{
+//			ID:       "4cf1ad74-704c-4290-a523-e524e930245d",
+//			IPv4:     "192.168.1.4",
+//			NodeIPv4: "192.168.2.4",
+//			Region:   "default",
+//		},
+//		{
+//			ID:       "ae4ba282-27f9-4a93-8fe9-63f786781d48",
+//			IPv4:     "192.168.1.5",
+//			NodeIPv4: "192.168.2.5",
+//			Region:   "default",
+//		},
+//	},
+//}
 
 func Test_MakeCompare(t *testing.T) {
 	type args struct {
@@ -144,63 +152,117 @@ func Test_MakeCompare(t *testing.T) {
 		patchNode *PatchNodes
 	}
 	tests := []struct {
-		name    string
-		arg     args
-		wantErr error
+		name         string
+		arg          args
+		wantErr      error
+		wantMasters  int
+		wantWorkers  int
+		wantPatchLen int
 	}{
 		{
 			name: "addWorker",
 			arg: args{
-				cluster: c2,
+				cluster: newTestCluster(),
 				patchNode: &PatchNodes{
 					Operation: "add",
 					Nodes:     worker,
 					Role:      "worker",
 				},
 			},
-			wantErr: nil,
+			wantErr:     nil,
+			wantWorkers: 2,
 		},
 		{
 			name: "removeWorker",
 			arg: args{
-				cluster: c2,
+				cluster: newTestCluster(),
 				patchNode: &PatchNodes{
 					Operation: "remove",
 					Nodes:     worker,
 					Role:      "worker",
 				},
 			},
-			wantErr: nil,
+			wantErr:     nil,
+			wantWorkers: 0,
 		},
 		{
-			name: "addMaster",
+			name: "addMasterAlreadyInCluster",
 			arg: args{
-				cluster: c2,
+				cluster: newTestCluster(),
 				patchNode: &PatchNodes{
 					Operation: "add",
 					Nodes:     master,
 					Role:      "master",
 				},
 			},
-			wantErr: ErrInvalidNodesRole,
+			wantErr:      nil,
+			wantMasters:  3,
+			wantPatchLen: 0,
 		},
 		{
-			name: "removeMaster",
+			name: "addMaster",
 			arg: args{
-				cluster: nil,
+				cluster: newTestCluster(),
 				patchNode: &PatchNodes{
-					Operation: "remove",
-					Nodes:     master,
-					Role:      "master",
+					Operation: "add",
+					Nodes: v1.WorkerNodeList{
+						{ID: "6b8456e8-2489-4321-bbb0-f8d75c065384"},
+					},
+					Role: "master",
 				},
 			},
-			wantErr: ErrInvalidNodesRole,
+			wantErr:      nil,
+			wantMasters:  4,
+			wantPatchLen: 1,
+		},
+		{
+			name: "removeMasterKeepsQuorum",
+			arg: args{
+				cluster: newTestCluster(),
+				patchNode: &PatchNodes{
+					Operation: "remove",
+					Nodes: v1.WorkerNodeList{
+						{ID: "c7a91d86-cd53-4c3f-85b0-fbc657778067"},
+					},
+					Role: "master",
+				},
+			},
+			wantErr:      nil,
+			wantMasters:  2,
+			wantPatchLen: 1,
+		},
+		{
+			name: "removeMasterBreaksQuorum",
+			arg: args{
+				cluster: newTestCluster(),
+				patchNode: &PatchNodes{
+					Operation: "remove",
+					Nodes: v1.WorkerNodeList{
+						{ID: "43ed594a-a76f-4370-a14d-551e7b6153de"},
+						{ID: "c7a91d86-cd53-4c3f-85b0-fbc657778067"},
+					},
+					Role: "master",
+				},
+			},
+			wantErr: ErrInvalidNodesTopology,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			if err := test.arg.patchNode.MakeCompare(test.arg.cluster); err != nil && err != test.wantErr {
+			if err := test.arg.patchNode.MakeCompare(test.arg.cluster); !errors.Is(err, test.wantErr) {
 				t.Errorf(" MakeCompare() err: %v ", err)
+			}
+			if test.wantErr != nil {
+				return
+			}
+			if test.wantMasters != 0 && len(test.arg.cluster.Masters) != test.wantMasters {
+				t.Errorf(" MakeCompare() masters: got %d want %d", len(test.arg.cluster.Masters), test.wantMasters)
+			}
+			if test.wantWorkers != 0 && len(test.arg.cluster.Workers) != test.wantWorkers {
+				t.Errorf(" MakeCompare() workers: got %d want %d", len(test.arg.cluster.Workers), test.wantWorkers)
+			}
+			if test.wantPatchLen != 0 && len(test.arg.patchNode.Nodes) != test.wantPatchLen {
+				t.Errorf(" MakeCompare() patch nodes: got %d want %d", len(test.arg.patchNode.Nodes), test.wantPatchLen)
 			}
 		})
 	}
@@ -220,7 +282,7 @@ func Test_MakeCompare(t *testing.T) {
 //		{
 //			name: "test add worker node operation",
 //			arg: args{
-//				cluster: c2,
+//				cluster: newTestCluster(),
 //				meta:    *extraMeta,
 //				patchNodes: &PatchNodes{
 //					Operation: "add",
@@ -237,7 +299,7 @@ func Test_MakeCompare(t *testing.T) {
 //		{
 //			name: "test remove worker node operation",
 //			arg: args{
-//				cluster: c2,
+//				cluster: newTestCluster(),
 //				meta:    *extraMeta,
 //				patchNodes: &PatchNodes{
 //					Operation: "remove",
@@ -254,7 +316,7 @@ func Test_MakeCompare(t *testing.T) {
 //		{
 //			name: "test add master node operation",
 //			arg: args{
-//				cluster: c2,
+//				cluster: newTestCluster(),
 //				meta:    *extraMeta,
 //				patchNodes: &PatchNodes{
 //					Operation: "remove",

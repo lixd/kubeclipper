@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -60,12 +61,16 @@ func init() {
 type GenNode struct {
 	Nodes          component.NodeList `json:"nodes"`
 	Cluster        *v1.Cluster
+	role           string
 	installSteps   []v1.Step
 	uninstallSteps []v1.Step
 }
 
 type JoinCmd struct {
 	ContainerRuntime string `json:"containerRuntime"`
+	// ControlPlane indicates the join command is generated for a control-plane
+	// node and therefore must carry a certificate key.
+	ControlPlane bool `json:"controlPlane,omitempty"`
 }
 
 type KubeadmJoinUtil struct {
@@ -100,6 +105,7 @@ func (stepper *GenNode) InitStepper(metadata *component.ExtraMetadata, cluster *
 		stepper.Nodes = append(stepper.Nodes, metadata.Workers...)
 	}
 	stepper.Cluster = cluster
+	stepper.role = role
 	return stepper
 }
 
@@ -112,10 +118,14 @@ func (stepper *GenNode) MakeInstallSteps(metadata *component.ExtraMetadata, patc
 	if err != nil {
 		return err
 	}
-	masters := utils.UnwrapNodeList(avaMasters)
+	// Join commands must be generated on an existing control-plane member;
+	// for master-scale-up the joining node is already part of metadata.Masters
+	// but has no usable kubeadm config until the join completes.
+	masters := unwrapAvailableMasters(avaMasters, patchNodes)
 
 	// add node to cluster
 	if len(stepper.installSteps) == 0 {
+		isControlPlane := stepper.role == NodeRoleMaster
 		// We should use kubeadm to create join token on the first control plane node.
 		steps, err := EnvSetupSteps(patchNodes)
 		if err != nil {
@@ -160,16 +170,15 @@ func (stepper *GenNode) MakeInstallSteps(metadata *component.ExtraMetadata, patc
 			}
 		}
 
-		joinCmd := JoinCmd{}
+		joinCmd := JoinCmd{ControlPlane: isControlPlane}
 		steps, err = joinCmd.InitStepper(stepper.Cluster.ContainerRuntime.Type).InstallSteps([]v1.StepNode{masters[0]})
 		if err != nil {
 			return err
 		}
 		stepper.installSteps = append(stepper.installSteps, steps...)
 
-		// Notice: only support join worker node now.
 		kubeadmConf := KubeadmConfig{}
-		steps, err = kubeadmConf.InitStepper(stepper.Cluster, metadata).JoinSteps(false, patchNodes)
+		steps, err = kubeadmConf.InitStepper(stepper.Cluster, metadata).JoinSteps(isControlPlane, patchNodes)
 		if err != nil {
 			return err
 		}
@@ -201,9 +210,37 @@ func (stepper *GenNode) MakeInstallSteps(metadata *component.ExtraMetadata, patc
 			return err
 		}
 		stepper.installSteps = append(stepper.installSteps, steps...)
+
+		// refresh the API server virtual service on workers with the new
+		// master list after the control-plane node joined
+		if isControlPlane && stepper.Cluster.Networking.WorkerNodeVip != "" && len(metadata.Workers) > 0 {
+			steps, err = LvsCareRefreshSteps(stepper.Cluster, metadata, utils.UnwrapNodeList(metadata.Workers), nil)
+			if err != nil {
+				return err
+			}
+			stepper.installSteps = append(stepper.installSteps, steps...)
+		}
 	}
 
 	return nil
+}
+
+// unwrapAvailableMasters unwraps the available kube masters and drops the
+// nodes being patched (joined/removed) so join/drain/etcd step targets always
+// run on an existing control-plane member.
+func unwrapAvailableMasters(avaMasters component.NodeList, patchNodes []v1.StepNode) []v1.StepNode {
+	exclude := make(map[string]struct{}, len(patchNodes))
+	for _, n := range patchNodes {
+		exclude[n.ID] = struct{}{}
+	}
+	masters := make(component.NodeList, 0, len(avaMasters))
+	for _, m := range avaMasters {
+		if _, ok := exclude[m.ID]; ok {
+			continue
+		}
+		masters = append(masters, m)
+	}
+	return utils.UnwrapNodeList(masters)
 }
 
 // MakeUninstallSteps make uninstall-steps
@@ -216,8 +253,20 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 	if err != nil {
 		return err
 	}
-	masters := utils.UnwrapNodeList(avaMasters)
+	masters := unwrapAvailableMasters(avaMasters, patchNodes)
+	if len(masters) == 0 {
+		return fmt.Errorf("no existing control-plane node available to serve the drain and etcd steps")
+	}
 	if len(stepper.uninstallSteps) == 0 {
+		if stepper.role == NodeRoleMaster {
+			// Remove the leaving nodes from the etcd membership while they are
+			// still alive; kubeadm reset alone never shrinks the membership.
+			steps, err := EtcdMemberRemoveSteps(masters[0], patchNodes)
+			if err != nil {
+				return err
+			}
+			stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
+		}
 		args := []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"}
 		for _, node := range patchNodes {
 			d := &Drain{}
@@ -234,6 +283,11 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 		}
 		stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
 		// worker nodes don't need to remove etcd data dir
+		if stepper.role == NodeRoleMaster {
+			stepper.uninstallSteps = append(stepper.uninstallSteps,
+				doCommandRemoveStep("removeEtcdDataDir", patchNodes,
+					strutil.StringDefaultIfEmpty(EtcdDefaultDataDir, stepper.Cluster.Etcd.DataDir)))
+		}
 		stepper.uninstallSteps = append(stepper.uninstallSteps,
 			doCommandRemoveStep("removeKubeletDataDir", patchNodes, KubeletDefaultDataDir),
 			doCommandRemoveStep("removeDockershimDataDir", patchNodes, DockershimDefaultDataDir),
@@ -278,6 +332,16 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 				},
 			},
 		})
+
+		// refresh the API server virtual service on the remaining workers with
+		// the reduced master list after the control-plane node left
+		if stepper.role == NodeRoleMaster && stepper.Cluster.Networking.WorkerNodeVip != "" && len(metadata.Workers) > 0 {
+			steps, err = LvsCareRefreshSteps(stepper.Cluster, metadata, utils.UnwrapNodeList(metadata.Workers), patchNodes)
+			if err != nil {
+				return err
+			}
+			stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
+		}
 
 	}
 
@@ -398,10 +462,44 @@ func (stepper JoinCmd) Install(ctx context.Context, opts component.Options) ([]b
 	}
 	cmd := KubeadmJoinUtil{}
 	cmd.InitStepper(ec.StdOut(), stepper.ContainerRuntime)
-	// bytes, err = json.Marshal(cmd)
-	// format: ${master node join command};${worker node join command}
-	// Work around to split out the worker node join command.
-	return []byte("," + strings.Join(cmd.GetCmd(), " ")), nil
+	workerCmd := strings.Join(cmd.GetCmd(), " ")
+	if !stepper.ControlPlane {
+		// format: ${master node join command};${worker node join command}
+		// Work around to split out the worker node join command.
+		return []byte("," + workerCmd), nil
+	}
+	// Control-plane join needs a certificate key that decrypts the certs
+	// uploaded to the kubeadm-certs secret; refresh the secret and pick up
+	// the fresh key from an existing control-plane member.
+	ec, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubeadm", "init", "phase", "upload-certs", "--upload-certs")
+	if err != nil {
+		logger.Error("run kubeadm init phase upload-certs error", zap.Error(err), zap.String("stderr", ec.StdErr()))
+		return nil, err
+	}
+	certKey, err := extractCertificateKey(ec.StdOut())
+	if err != nil {
+		logger.Error("extract certificate key error", zap.Error(err), zap.String("output", ec.StdOut()))
+		return nil, err
+	}
+	// KubeadmConfig.Install splits the master join command on spaces and reads
+	// the certificate key at index 9, so the command must not carry extra
+	// flags such as --cri-socket (the join config file pins the socket).
+	masterCmd := fmt.Sprintf("kubeadm join %s --token %s --discovery-token-ca-cert-hash %s --control-plane --certificate-key %s",
+		cmd.ControlPlaneEndpoint, cmd.Token, cmd.DiscoveryHash, certKey)
+	return []byte(masterCmd + "," + workerCmd), nil
+}
+
+var certificateKeyRegex = regexp.MustCompile(`(?i)certificate key:\s*([0-9a-fA-F]{16,})`)
+
+// extractCertificateKey parses the certificate key printed by
+// `kubeadm init phase upload-certs --upload-certs`; the key is printed either
+// on the same line as or the line following the "Using certificate key:" hint.
+func extractCertificateKey(output string) (string, error) {
+	m := certificateKeyRegex.FindStringSubmatch(output)
+	if len(m) < 2 {
+		return "", fmt.Errorf("certificate key not found in upload-certs output")
+	}
+	return m[1], nil
 }
 
 func (stepper JoinCmd) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {

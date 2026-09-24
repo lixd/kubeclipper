@@ -42,6 +42,7 @@ const (
 var (
 	ErrInvalidNodesOperation = errors.New("invalid nodes patch operation")
 	ErrInvalidNodesRole      = errors.New("invalid node role")
+	ErrInvalidNodesTopology  = errors.New("invalid nodes topology")
 	ErrZeroNode              = errors.New("zero node")
 )
 
@@ -70,9 +71,13 @@ func (n *NodeOperation) Builder() (*corev1.Operation, error) {
 	if err := json.Unmarshal(n.pendingOperation.ExtraData, &pn); err != nil {
 		return nil, err
 	}
-	// add the worker node to extra
-	if pn.Role == common.NodeRoleWorker {
+	// add the node to extra so the agent-side step targets can resolve its IP
+	// after the cluster object was already updated by MakeCompare
+	switch pn.Role {
+	case common.NodeRoleWorker:
 		n.extra.Workers = append(n.extra.Workers, pn.ConvertNodes...)
+	case common.NodeRoleMaster:
+		n.extra.Masters = append(n.extra.Masters, pn.ConvertNodes...)
 	}
 	op, err := pn.MakeOperation(*n.extra, n.cluster, n.operator)
 	if err != nil {
@@ -99,8 +104,27 @@ func (p *PatchNodes) MakeCompare(cluster *corev1.Cluster) error {
 }
 
 func (p *PatchNodes) makeMasterCompare(cluster *corev1.Cluster) error {
-	// support later
-	return ErrInvalidNodesRole
+	// Compare between nodes unfiltered and existed master nodes in cluster.
+	switch p.Operation {
+	case NodesOperationAdd:
+		// Filter out nodes already in the cluster; the handler rejects the
+		// request when nothing remains.
+		p.Nodes = p.Nodes.Complement(cluster.Masters...)
+		cluster.Masters = append(cluster.Masters, p.Nodes...)
+	case NodesOperationRemove:
+		p.Nodes = cluster.Masters.Intersect(p.Nodes...)
+		// Keep at least two masters: shrinking a two-member etcd cluster
+		// transiently requires both members to keep quorum during the
+		// membership change, so removal from <3 masters is refused.
+		if len(cluster.Masters)-len(p.Nodes) < 2 {
+			return fmt.Errorf("%w: removing %d of %d master nodes would break etcd quorum, at least 2 masters must remain",
+				ErrInvalidNodesTopology, len(p.Nodes), len(cluster.Masters))
+		}
+		cluster.Masters = cluster.Masters.Complement(p.Nodes...)
+	default:
+		return ErrInvalidNodesOperation
+	}
+	return nil
 }
 
 func (p *PatchNodes) makeWorkerCompare(cluster *corev1.Cluster) error {
@@ -141,7 +165,7 @@ func (p *PatchNodes) MakeOperation(extra component.ExtraMetadata, cluster *corev
 func (p *PatchNodes) doMakeOperation(extra component.ExtraMetadata, cluster *corev1.Cluster, operator cluster.Operator) (*corev1.Operation, error) {
 	switch p.Role {
 	case common.NodeRoleMaster:
-		return nil, ErrInvalidNodesRole
+		return p.makeMasterOperation(extra, cluster, operator)
 	case common.NodeRoleWorker:
 		return p.makeWorkerOperation(extra, cluster, operator)
 	default:
@@ -224,6 +248,115 @@ func (p *PatchNodes) makeWorkerOperation(extra component.ExtraMetadata, cluster 
 		op.Labels[common.LabelOperationAction] = corev1.OperationRemoveNodes
 
 		// drain node
+		gen := k8s.GenNode{}
+		err := gen.InitStepper(&extra, cluster, p.Role.String()).MakeUninstallSteps(&extra, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, gen.GetSteps(action)...)
+
+		// kubernetes
+		steps, err := getPackageSteps(ctx, cluster, action, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
+
+		// k8s-extension
+		ext := k8s.Extension{}
+		steps, err = ext.InitStepper(cluster).UninstallSteps(stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
+
+		// container runtime
+		steps, err = GetCriStep(ctx, cluster, operator, action, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
+	default:
+		return nil, ErrInvalidNodesOperation
+	}
+
+	return op, nil
+}
+
+func (p *PatchNodes) makeMasterOperation(extra component.ExtraMetadata, cluster *corev1.Cluster, operator cluster.Operator) (*corev1.Operation, error) {
+	// no node need to be operated
+	if len(p.Nodes) == 0 {
+		return nil, ErrZeroNode
+	}
+
+	op := &corev1.Operation{}
+	// use pass-through operationID
+	op.Name = extra.OperationID
+	op.Labels = map[string]string{
+		common.LabelClusterName: cluster.Name,
+	}
+	// pass extra metadata in context
+	ctx := component.WithExtraMetadata(context.TODO(), extra)
+	if p.Operation == NodesOperationAdd && p.ResolvedArtifactPlan == nil {
+		return nil, fmt.Errorf("add node operation requires the cluster package plan")
+	}
+	if p.ResolvedArtifactPlan != nil {
+		ctx = component.WithResolvedArtifactPlan(ctx, p.ResolvedArtifactPlan)
+	}
+	// nodes to be added or removed
+	var stepNodes []corev1.StepNode
+	masterIPs := extra.GetMasterNodeIP()
+	masterClusterIPs := extra.GetMasterNodeClusterIP()
+	for _, nodeID := range p.Nodes.GetNodeIDs() {
+		stepNode := corev1.StepNode{
+			ID:       nodeID,
+			IPv4:     masterIPs[nodeID],
+			NodeIPv4: masterClusterIPs[nodeID],
+			Hostname: extra.GetMasterHostname(nodeID),
+		}
+		stepNodes = append(stepNodes, stepNode)
+	}
+
+	var action corev1.StepAction
+	switch p.Operation {
+	case NodesOperationAdd:
+		action = corev1.ActionInstall
+		op.Labels[common.LabelOperationAction] = corev1.OperationAddNodes
+
+		// container runtime
+		steps, err := GetCriStep(ctx, cluster, operator, action, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
+
+		// k8s-extension
+		ext := k8s.Extension{}
+		steps, err = ext.InitStepper(cluster).InstallStepsWithContext(ctx, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
+
+		// kubernetes
+		steps, err = getPackageSteps(ctx, cluster, action, stepNodes)
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
+
+		// join control-plane node (kubeadm issues the etcd member add itself)
+		gen := k8s.GenNode{}
+		err = gen.InitStepper(&extra, cluster, p.Role.String()).MakeInstallSteps(&extra, stepNodes, p.Role.String())
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, gen.GetSteps(action)...)
+	case NodesOperationRemove:
+		action = corev1.ActionUninstall
+		op.Labels[common.LabelOperationAction] = corev1.OperationRemoveNodes
+
+		// etcd member remove, drain, kubeadm reset and local cleanup
 		gen := k8s.GenNode{}
 		err := gen.InitStepper(&extra, cluster, p.Role.String()).MakeUninstallSteps(&extra, stepNodes)
 		if err != nil {

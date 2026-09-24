@@ -232,7 +232,8 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 	}
 
 	if err = pn.MakeCompare(c); err != nil {
-		if errors.Is(err, clusteroperation.ErrInvalidNodesOperation) || errors.Is(err, clusteroperation.ErrInvalidNodesRole) {
+		if errors.Is(err, clusteroperation.ErrInvalidNodesOperation) || errors.Is(err, clusteroperation.ErrInvalidNodesRole) ||
+			errors.Is(err, clusteroperation.ErrInvalidNodesTopology) {
 			restplus.HandleBadRequest(response, request, err)
 			return
 		}
@@ -1178,6 +1179,15 @@ func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
 	}
 	if len(c.Masters) == 0 {
 		return fmt.Errorf("cluster must have one master node")
+	}
+
+	// R17: an offline cluster whose payload omits imageRegistry renders kubeadm.yaml
+	// without imageRepository (kubeadm defaults to registry.k8s.io); kubeadm init then
+	// pulls the control-plane images over the public internet and dies after
+	// ~18-minute i/o timeouts with no pre-creation signal. Fail fast instead.
+	if c.Offline() && c.ImageRegistry == "" {
+		return fmt.Errorf("offline cluster requires an explicit imageRegistry (a Registry object name); " +
+			"otherwise kubeadm pulls control-plane images from registry.k8s.io which is unreachable offline")
 	}
 
 	cluInfo, err := h.clusterOperator.GetClusterEx(ctx, c.Name, "0")
