@@ -52,6 +52,24 @@ func PreCheckError(name string, sshConfig *sshutils.SSH, streams options.IOStrea
 	const maxPasswdPrompts = 3
 	promptAttempts := 0
 	nonInteractive := false
+
+	// Try a non-interactive sudo check first: NOPASSWD sudoers — the
+	// recommended setup for non-root deploys — need no password, and prompting
+	// them unconditionally broke automation and non-root joins (R21/V5). Only
+	// a password-requiring sudo falls through to the prompt loop.
+	err := sshutils.CmdBatchWithSudo(sshConfig, allNodes, "id -u", classifySudoError)
+	if err == nil {
+		logger.Infof("============>%s PRECHECK OK!", name)
+		return nil
+	}
+	lastErr = err
+	logger.Errorf("%v", err)
+	if !strings.Contains(err.Error(), "a password is required") {
+		logger.Errorf("===========>%s PRECHECK FAILED!", name)
+		_, _ = streams.Out.Write([]byte(err.Error() + "\n"))
+		return fmt.Errorf("%s precheck failed: %w", name, lastErr)
+	}
+	_, _ = streams.Out.Write([]byte(fmt.Sprintf("sudo for user '%s' needs a password; %d attempts allowed\n", sshConfig.User, maxPasswdPrompts)))
 	for {
 		// need enter passwd to run sudo
 		if sshConfig.Password == "" {
@@ -76,25 +94,7 @@ func PreCheckError(name string, sshConfig *sshutils.SSH, streams options.IOStrea
 			sshConfig.Password = passwd
 		}
 		// check sudo access
-		err := sshutils.CmdBatchWithSudo(sshConfig, allNodes, "id -u", func(result sshutils.Result, err error) error {
-			if err != nil {
-				if strings.Contains(err.Error(), "handshake failed: ssh: unable to authenticate, attempted methods [none password]") {
-					return fmt.Errorf("passwd or user error while ssh '%s@%s',please try again", result.User, result.Host)
-				}
-				return err
-			}
-			if result.ExitCode != 0 {
-				if strings.Contains(result.Stderr, "is not in the sudoers file") {
-					return fmt.Errorf("user '%s@%s' is not in the sudoers file,please config it", result.User, result.Host)
-				}
-
-				if strings.Contains(result.Stderr, "incorrect password attempt") {
-					return fmt.Errorf("passwd error for '%s@%s',please try again", result.User, result.Host)
-				}
-				return fmt.Errorf("%s stderr:%s", result.Short(), result.Stderr)
-			}
-			return nil
-		})
+		err := sshutils.CmdBatchWithSudo(sshConfig, allNodes, "id -u", classifySudoError)
 
 		if err != nil {
 			logger.Error(err)
@@ -126,6 +126,28 @@ func PreCheckError(name string, sshConfig *sshutils.SSH, streams options.IOStrea
 		return nil
 	}
 	return fmt.Errorf("%s precheck failed: %w", name, lastErr)
+}
+
+// classifySudoError maps one node's sudo probe result to a readable error so
+// the precheck can tell "needs a password" (promptable) apart from "not a
+// sudoer" (fatal) and transport failures.
+func classifySudoError(result sshutils.Result, err error) error {
+	if err != nil {
+		if strings.Contains(err.Error(), "handshake failed: ssh: unable to authenticate, attempted methods [none password]") {
+			return fmt.Errorf("passwd or user error while ssh '%s@%s',please try again", result.User, result.Host)
+		}
+		return err
+	}
+	if result.ExitCode != 0 {
+		if strings.Contains(result.Stderr, "is not in the sudoers file") {
+			return fmt.Errorf("user '%s@%s' is not in the sudoers file,please config it", result.User, result.Host)
+		}
+		if strings.Contains(result.Stderr, "incorrect password attempt") {
+			return fmt.Errorf("passwd error for '%s@%s',please try again", result.User, result.Host)
+		}
+		return fmt.Errorf("%s stderr:%s", result.Short(), result.Stderr)
+	}
+	return nil
 }
 
 // MultiNIC check node has multi NIC but node specify ip-detect flag.
