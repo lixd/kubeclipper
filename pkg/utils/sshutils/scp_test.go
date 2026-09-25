@@ -22,7 +22,4 @@ func TestMiddleFileNameIsFlatAndCollisionFree(t *testing.T) {
 	if name == other {
 		t.Fatalf("different remote paths share one middle name: %q", name)
 	}
-	if again := middleFileName(remote); again != name {
-		t.Fatalf("middle name not deterministic: %q vs %q", again, name)
-	}
 }

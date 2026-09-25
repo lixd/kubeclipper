@@ -19,6 +19,7 @@
 package sshutils
 
 import (
+	crand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -258,11 +260,16 @@ func (ss *SSH) CopySudoWithBar(bar *mpb.Bar, host, localFilePath, remoteFilePath
 // CopySudoWithBarWithTempDir copies a file with progress through tempDir when sudo is required.
 
 // middleFileName builds a collision-free flat file name for the non-root
-// transit copy: hashing the remote path keeps concurrent transfers of
-// different targets from overwriting each other's staging file.
+// transit copy. The name is unique per invocation: a deterministic name would
+// collide with a root-owned leftover from an earlier privileged join, and the
+// sftp PUT into that existing file fails with permission denied (R21).
 func middleFileName(remoteFilePath string) string {
 	sum := sha256.Sum256([]byte(remoteFilePath))
-	return fmt.Sprintf("kc-transit-%s-%s", hex.EncodeToString(sum[:8]), filepath.Base(remoteFilePath))
+	var nonce [4]byte
+	if _, err := crand.Read(nonce[:]); err != nil {
+		return fmt.Sprintf("kc-transit-%s-%d-%s", hex.EncodeToString(sum[:8]), time.Now().UnixNano(), filepath.Base(remoteFilePath))
+	}
+	return fmt.Sprintf("kc-transit-%s-%s-%s", hex.EncodeToString(sum[:8]), hex.EncodeToString(nonce[:]), filepath.Base(remoteFilePath))
 }
 
 func (ss *SSH) CopySudoWithBarWithTempDir(bar *mpb.Bar, host, localFilePath, remoteFilePath, tempDir string) error {
