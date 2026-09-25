@@ -41,6 +41,15 @@ const KB = 1024
 const MB = 1024 * 1024
 const defaultCopyTempDir = "/tmp"
 
+// homeTransitDir is the non-root sudo-transit staging directory. It is
+// relative, so the sftp/scp put lands in the SSH user's own home — the only
+// location guaranteed writable on hosts where /tmp is not world-writable.
+const homeTransitDir = "kc-transit"
+
+// homeTransitDir is the non-root sudo-transit staging directory. It is
+// relative, so the sftp/scp put lands in the SSH user's own home — the only
+// location guaranteed writable on hosts where /tmp is not world-writable.
+
 // CopyForMD5V2 copy and check md5
 func (ss *SSH) CopyForMD5V2(host, localFilePath, remoteFilePath, localMD5 string) (bool, error) {
 	return ss.CopyForMD5V2WithTempDir(host, localFilePath, remoteFilePath, localMD5, defaultCopyTempDir)
@@ -78,10 +87,10 @@ func (ss *SSH) CopySudoWithTempDir(host, localFilePath, remoteFilePath, tempDir 
 	if ss.User == "root" { // root user,need not transit
 		return ss.Copy(host, localFilePath, remoteFilePath)
 	}
-	// if not root, first scp to a flat path under the temp directory, then
-	// sudo mv to target; see CopySudoWithBarWithTempDir for why the middle
-	// path must stay flat under the temp dir.
-	middle := filepath.Join(tempDir, middleFileName(remoteFilePath))
+	// if not root, first scp to a flat path in the SSH user's home directory;
+	// see CopySudoWithBarWithTempDir for why the transit must be home-relative
+	// and flat.
+	middle := filepath.Join(homeTransitDir, middleFileName(remoteFilePath))
 	err := ss.Copy(host, localFilePath, middle)
 	if err != nil {
 		return errors.Wrap(err, "copy")
@@ -276,11 +285,12 @@ func (ss *SSH) CopySudoWithBarWithTempDir(bar *mpb.Bar, host, localFilePath, rem
 	if ss.User == "root" { // root user,need not transit
 		return ss.CopyWithBar(bar, host, localFilePath, remoteFilePath)
 	}
-	// if not root, first scp to a flat path under the temp directory, then
-	// sudo mv to target. The middle path must not mirror the target path:
-	// transit mkdir runs without sudo and a target parent like /tmp/etc owned
-	// by root would make a non-root join fail with permission denied (R21).
-	middle := filepath.Join(tempDir, middleFileName(remoteFilePath))
+	// if not root, first scp to a flat path in the SSH user's home directory
+	// (a relative sftp path resolves there), then sudo mv to target. /tmp
+	// cannot host the transit file: some hosts keep it root-owned 0755, and a
+	// middle path mirroring the target path would mkdir into root-owned
+	// parents — both make a non-root join fail with permission denied (R21).
+	middle := filepath.Join(homeTransitDir, middleFileName(remoteFilePath))
 	err := ss.CopyWithBar(bar, host, localFilePath, middle)
 	if err != nil {
 		return errors.Wrap(err, "copy")

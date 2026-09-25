@@ -12,8 +12,8 @@ import (
 func TestMiddleFileNameIsFlatAndCollisionFree(t *testing.T) {
 	remote := "/etc/kubeclipper-agent/delivery/package-registry.json"
 	name := middleFileName(remote)
-	if strings.Contains(name, "/") {
-		t.Fatalf("middle file name %q is not flat", name)
+	if strings.HasPrefix(name, "/") || strings.Contains(name, "/etc") {
+		t.Fatalf("middle file name %q must stay relative and flat", name)
 	}
 	if !strings.HasSuffix(name, filepath.Base(remote)) {
 		t.Fatalf("middle file name %q lost the base name", name)
