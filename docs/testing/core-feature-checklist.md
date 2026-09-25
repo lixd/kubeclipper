@@ -68,8 +68,8 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |
 | 1.3-09 | **`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）** | ✅ | 下载器行为已经代理隧道实测：可达 GitHub、不存在的版本正确返回 404+离线指引。另：设 `HTTPS_PROXY` 必须配 `NO_PROXY` 排除平台内网地址，否则平台 API 请求也被送进代理而失败。**R20（rc.11 `9a1dbb75`，2026-09-24）正向下载+checksum 闭环**（R7 报告 §12.16）：本地 GitHub 镜像法——dev-2 自签 CA 进系统信任（/usr/local/share/ca-certificates + update-ca-certificates）+ SNI 证书 SAN=github.com + /etc/hosts + 443 HTTPS，供给与真实 release 同构的 `…/releases/download/v2.0.3/release-manifest-v2.0.3.yaml(+.sha256)`；`kcctl upgrade all --version v2.0.3` 全链路 rc=0（"manifest downloaded for v2.0.3"→sha256 校验→版本策略幂等→9 槽位 skip→platform API 复核）；负向：`.sha256` 篡改报 `release manifest checksum mismatch` 拒绝。镜像拆除：443 释放、hosts 恢复、CA 移除 + update-ca-certificates --fresh（临时证书即用即删）。`--manifest` 离线路径见 1.3-07/1.3-10 |
 | 1.3-10 | `kcctl upgrade server/agent/console/kcctl` 组件独立升级 | ✅ | `server`/`agent` 独立升级三机实测（B1 E2E：server 先、agent 后，逐台替换，只更新目标组件）。R19（rc.10 `c356fbaf`，2026-09-24）console/kcctl 闭环（R7 报告 §12.15）：`upgrade kcctl` 同 revision 三节点幂等 skip；`upgrade console` 同版本幂等重装（dist/caddy sha256 前后一致、ConsolePort HTTP 2xx 探测）；负向：缺 bootstrap/console artifact 的 manifest EXIT=1、console 错 digest 触碰节点前拒绝（repointed tag 防护）、console 版本策略豁免（v1.6.0 独立版本流与平台 semver 不可比，sourceRevision mismatch 仅警告）。**R20（rc.11 `9a1dbb75`）故障注入矩阵四场景**（R7 报告 §12.16）：T-A server 安装+启动成功但健康探测被 iptables 阻断 → waitServerHealthy 180s 超时 → restoreNodeBinary 自动恢复 rc.10 基线、后续槽位停止（EXIT=1）；T-C staging kcctl 腐化 → 替换后 probe 失败 → restoreKcctl（三节点 md5=基线）；T-D console 探针 180s 超时（错误信息明示 probing http port 80）→ restoreConsole（caddy md5+dist 树哈希逐字节一致、console 200）；T-B 中断后重跑 upgrade all → 已完成节点 skip、余下补齐、platform API 复核 + doctor 25/25 |
-| 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ⚠️ | R21（2026-09-25，rc.11，R7 报告 §12.17） 部分闭环+2 缺陷：认证失败干净报错（ssh to user@host failed + sudo PRECHECK FAILED，预检范围=加入节点+全部 ServerIP）；自定义端口 ✅（sshd 2222 + join --ssh-port 成功；Ubuntu 24.04 须先 disable ssh.socket）。缺陷①：无 sudo 用户触发无限密码提示循环（1.5GB 日志）；缺陷②：非 root+sudo join 失败（/tmp/etc/kubeclipper-agent/delivery mkdir 不带 sudo，root 遗留目录属主时 Permission denied） |
-| 1.3-12 | 初始化管理员密码 | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 缺陷集群：①deploy-config 顶层 initialPassword 键被静默忽略（回退默认）；②--initial-password flag 被 config 解析覆盖（server config 实测仍默认值）；③config 带 authentication 段（仅 initialPassword）→ deploy panic（AuthenticationOptions.Validate 空指针）——自定义初始密码当前不可达。正向：三次部署密码值在日志/kcctl config/console 0 命中；deploy 重写 config 自动剔除 initialPassword |
+| 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ✅ | R22（rc.15,2026-09-25,commit `9f61c944`+`a064cffe`,R7 报告 §12.18）两缺陷修复并复验：①无 sudo 用户——非交互 sudo 前置探测+提示上限 3 次+非交互 stdin 快速失败（1s 内干净报错,不再死循环刷日志）；②非 root+NOPASSWD sudo join——sudo 前置探测通过后免提示,中转文件改用户 home 相对路径（kc-transit/,/tmp 非 1777 的主机也可用）,join 15s 完成。认证失败报错与自定义端口 2222 复验一致 |
+| 1.3-12 | 初始化管理员密码 | ✅ | R22（rc.15,2026-09-25,commit `9d987785`,R7 报告 §12.18）修复并复验：①--initial-password flag 绑定独立字段,Complete 在 config 加载后重施——flag 密码登录 200、config 段密码 401（优先级实证）、默认密码 429 拒绝；②authentication 段 panic 修复（Validate nil 防护）——带段 deploy rc=0（边界:段内 loginHistory* 字段必须给有效值）。泄露面:三次部署密码值在日志/kcctl config/console 0 命中。遗留:deploy-config 顶层 initialPassword 键仍被忽略（正确位置=authentication 段,文档已述） |
 
 ## 2. 集群相关操作
 
@@ -130,12 +130,12 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2/R3；R7 在新候选上复测 ~90 秒完成，两节点 v1.37.0 Ready |
-| 2.3-02 | 升级中途失败 → op retry | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 未闭环——被 P1 阻断：UpgradeCluster 操作派发死锁（提交时 agent 离线 28s → 永久 Pending，agent 恢复不补派，cancel/retry 均无效，须重启 kc-server 才能取消；新 op agent 在线创建同样 Pending），无成功升级操作可做中途失败注入（见 gaps P1） |
+| 2.3-02 | 升级中途失败 → op retry | ⚠️ | R22（rc.15,R7 报告 §12.18）部分收口：升级提交时 agent 离线的 Pending 死锁已修复（acquireLock 驱逐失效持锁者——agent 离线提交 → 立即 Running、取消收敛）；残留:一次升级中段步骤执行丢失（任务对象消失而步骤标 Running,33min 无进展,取消后收敛）——疑似任务 purge 与执行竞争,待立项。02 行的"中途失败→retry"主流程待此修复后复验 |
 | 2.3-03 | 升级失败 → 集群状态恢复（reset status） | ✅ | R3 实际使用 |
 | 2.3-04 | **集群证书更新（/certification）** | ✅ | R6 通过；R7 复测 serial `2F3488595FA57564`→`3E1B08278426788C`、有效期+1y，节点 Ready |
 | 2.3-05 | agent 证书重新签发 | ✅ | R6 通过；R7 复测 drain→join 后 serial `33644819B666ED24`→`35C8E2A87BEB075B`，CN 与新 Node 一致 |
-| 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R21（2026-09-25，rc.11，R7 报告 §12.17） 未闭环：升级链被 P1（Pending 死锁）阻断，无成功升级操作可对比前后 slot |
-| 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 未闭环：同 2.3-02 被阻断；且共享 5003 禁止 repoint tag，需独立测试 Registry 才能做真 tag 重指场景 |
+| 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R22 后具备复验条件（Pending 死锁已修,R22 升级执行推进至 kubeadm 阶段）,slot 对比待一次完整成功升级后补验 |
+| 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | 维持:共享 5003 禁止 repoint tag,需独立测试 Registry 才能做真 tag 重指场景（修复 Pending 死锁后已具备执行环境） |
 | 2.3-08 | 同版本、降级、跨越不支持版本升级拒绝 | ✅ | R3；R7 复测同版本/降级均在创建 Operation 前拒绝 |
 | 2.3-09 | Master/Worker 滚动顺序与业务可用性 | ⚠️ | R3 升级成功；需固定验证顺序、drain、PDB 和服务连续性 |
 
