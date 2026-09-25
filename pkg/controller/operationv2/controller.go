@@ -114,7 +114,6 @@ func (r *OperationReconciler) reconcileOperation(
 	if op.Status.Phase == operations.OperationPending && !isEarliestRunnable(op, targetOperations.Items) {
 		return reconcile.Result{RequeueAfter: defaultWaitRequeue}, nil
 	}
-
 	if operationCanceledBeforeStart(op, tasks) {
 		return r.finish(
 			ctx,
@@ -277,14 +276,44 @@ func (r *OperationReconciler) acquireLock(ctx context.Context, op *operations.Op
 			HolderRef: operations.ObjectReference{Kind: operations.KindOperation, Name: op.Name, UID: op.UID},
 		},
 	}
-	lock, created, err := r.Store.AcquireLock(ctx, wanted)
+	// Two attempts: the first may surface a stale holder that gets evicted,
+	// the second performs (or loses) the real acquisition.
+	for attempt := 0; attempt < 2; attempt++ {
+		lock, created, err := r.Store.AcquireLock(ctx, wanted)
+		if err != nil {
+			return nil, false, err
+		}
+		if created || lockBelongsToOperation(lock, op) {
+			return lock, true, nil
+		}
+		// A holder whose operation is terminal — or that no longer exists —
+		// can never release the lock itself: terminal operations do not
+		// reconcile again, and Pending waiters cannot take over on their own
+		// (cancel/retry are rejected for Pending). Without eviction every
+		// later operation on the target stays Pending forever (R21 deadlock).
+		if !r.lockHolderIsStale(ctx, lock) {
+			return lock, false, nil
+		}
+		if err := r.Store.ReleaseLock(ctx, lock.Name, lock.UID, lock.Spec.HolderRef.UID); err != nil {
+			return nil, false, err
+		}
+	}
+	return nil, false, nil
+}
+
+// lockHolderIsStale reports whether the current lock holder can never release
+// the lock by itself: its operation is terminal or has vanished (a newer
+// operation reused the name, the UID no longer matches).
+func (r *OperationReconciler) lockHolderIsStale(ctx context.Context, lock *operations.ExecutionLock) bool {
+	holder := lock.Spec.HolderRef
+	if holder.Name == "" {
+		return true
+	}
+	holderOp, err := r.Store.GetOperation(ctx, holder.Name, "")
 	if err != nil {
-		return nil, false, err
+		return apierrors.IsNotFound(err)
 	}
-	if created || lockBelongsToOperation(lock, op) {
-		return lock, true, nil
-	}
-	return lock, false, nil
+	return holderOp.UID != holder.UID || holderOp.Status.Phase.IsTerminal()
 }
 
 func lockBelongsToOperation(lock *operations.ExecutionLock, op *operations.Operation) bool {

@@ -22,6 +22,8 @@ import (
 	"context"
 	"crypto/x509"
 	"errors"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -422,5 +424,74 @@ func TestIsTransientConfigWrite(t *testing.T) {
 	}
 	if isTransientConfigWrite(errors.New("validation failed: bad kind")) {
 		t.Error("permanent error classified as transient")
+	}
+}
+
+// The deploy-config file must not discard an explicitly requested
+// --initial-password: the file load replaces the authentication section and
+// the flag used to bind straight into that struct (R21: the default password
+// came back even with the flag set).
+func TestCompleteReAppliesInitialPasswordFlag(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "deploy-config.yaml")
+	body := `ssh:
+  user: root
+  port: 22
+serverIPs:
+- 10.0.0.1
+agents:
+  10.0.0.1:
+    region: default
+defaultRegion: default
+packageRegistry: 172.16.131.146:5003
+tls: true
+`
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.Config = cfg
+	d.agents = []string{"10.0.0.1"}
+	d.initialPasswordFlag = "Custom1Pass"
+
+	if err := d.Complete(); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if got := d.deployConfig.AuthenticationOpts.InitialPassword; got != "Custom1Pass" {
+		t.Fatalf("initial password = %q, want the flag value", got)
+	}
+}
+
+// Without the flag the deploy-config (or the built-in default) stays
+// authoritative.
+func TestCompleteKeepsConfigInitialPasswordWithoutFlag(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "deploy-config.yaml")
+	body := `ssh:
+  user: root
+  port: 22
+serverIPs:
+- 10.0.0.1
+agents:
+  10.0.0.1:
+    region: default
+defaultRegion: default
+packageRegistry: 172.16.131.146:5003
+tls: true
+authentication:
+  initialPassword: FromConfig1
+`
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.Config = cfg
+	d.agents = []string{"10.0.0.1"}
+
+	if err := d.Complete(); err != nil {
+		t.Fatalf("complete: %v", err)
+	}
+	if got := d.deployConfig.AuthenticationOpts.InitialPassword; got != "FromConfig1" {
+		t.Fatalf("initial password = %q, want the config value", got)
 	}
 }

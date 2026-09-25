@@ -68,6 +68,16 @@ func NewAuthenticateOptions() *AuthenticationOptions {
 
 func (a *AuthenticationOptions) Validate() []error {
 	var errs []error
+	// A deploy-config that spells an authentication section replaces this
+	// struct through yaml decoding and may carry only a subset of the
+	// fields — nested option structs then come back nil and Validate used
+	// to panic on them (R21). Normalize before touching anything.
+	if a.MFAOptions == nil {
+		a.MFAOptions = mfa.NewOptions()
+	}
+	if a.OAuthOptions == nil {
+		a.OAuthOptions = oauth.NewOauthOptions()
+	}
 	if len(a.JwtSecret) == 0 {
 		errs = append(errs, errors.New("JWT secret MUST not be empty"))
 	}

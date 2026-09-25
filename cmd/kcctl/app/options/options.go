@@ -377,6 +377,12 @@ func (c *DeployConfig) Complete() error {
 	if err != nil {
 		return err
 	}
+	// The file's authentication section replaces the decoded options struct;
+	// restore defaults when it was absent or partial so downstream Validate
+	// never sees nil nested options (R21 deploy panic).
+	if c.AuthenticationOpts == nil {
+		c.AuthenticationOpts = options.NewAuthenticateOptions()
+	}
 	// fill default region
 	for ip := range c.Agents {
 		metadata := c.Agents[ip]

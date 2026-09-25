@@ -377,3 +377,52 @@ func TestCRIRegistryUpdateStepHasID(t *testing.T) {
 		t.Fatal("step must carry an ID: the operation v2 converter rejects steps without ID")
 	}
 }
+
+type listOpsStore struct {
+	operationv2store.Store
+	ops []operations.Operation
+}
+
+func (s *listOpsStore) ListOperations(_ context.Context, _ types.UID, _ string) (*operations.OperationList, error) {
+	return &operations.OperationList{Items: s.ops}, nil
+}
+
+func TestHasActiveCRIRegistryOperation(t *testing.T) {
+	terminal := operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "done"}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+	running := operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "running"}, Status: operations.OperationStatus{Phase: operations.OperationRunning}}
+	pending := operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "pending"}, Status: operations.OperationStatus{Phase: operations.OperationPending}}
+
+	store := &listOpsStore{ops: []operations.Operation{terminal}}
+	if active, err := (&ClusterReconciler{OperationStore: store}).hasActiveCRIRegistryOperation(context.Background(), "uid"); err != nil || active {
+		t.Fatalf("terminal-only operations: active=%v err=%v, want false/nil", active, err)
+	}
+
+	store = &listOpsStore{ops: []operations.Operation{terminal, running}}
+	if active, err := (&ClusterReconciler{OperationStore: store}).hasActiveCRIRegistryOperation(context.Background(), "uid"); err != nil || !active {
+		t.Fatalf("running operation: active=%v err=%v, want true/nil", active, err)
+	}
+
+	store = &listOpsStore{ops: []operations.Operation{terminal, pending}}
+	if active, err := (&ClusterReconciler{OperationStore: store}).hasActiveCRIRegistryOperation(context.Background(), "uid"); err != nil || !active {
+		t.Fatalf("pending operation: active=%v err=%v, want true/nil", active, err)
+	}
+}
+
+func TestUpdateCRIRegistriesSkipsDeletingCluster(t *testing.T) {
+	// A cluster being deleted must not spawn further CRI-registry work: the
+	// reconcile used to keep creating InstallComponents operations while the
+	// uninstall ran (R21: 16k+ orphans). The guard must return before any
+	// registry lookup, so a mock with zero expectations fails the test if the
+	// guard is missing.
+	controller := gomock.NewController(t)
+	clusterOperator := clustermock.NewMockOperator(controller)
+	reconciler := &ClusterReconciler{ClusterOperator: clusterOperator}
+	cluster := &v1.Cluster{ObjectMeta: metav1.ObjectMeta{
+		Name:              "deleting",
+		UID:               "cluster-uid",
+		DeletionTimestamp: &metav1.Time{Time: metav1.Now().Time},
+	}}
+	if err := reconciler.updateCRIRegistries(context.Background(), cluster); err != nil {
+		t.Fatalf("updateCRIRegistries on a deleting cluster: %v", err)
+	}
+}

@@ -44,17 +44,32 @@ func PreCheckError(name string, sshConfig *sshutils.SSH, streams options.IOStrea
 		return nil
 	}
 	var lastErr error
+	// A password prompt can never succeed when stdin is not a terminal (piped
+	// scripts, nohup): WaitInputPasswd errors immediately and an empty input
+	// loop would spin forever burning CPU (R21: a 1.5GB log in four minutes).
+	// Bound the prompt to a few attempts, then fall through to the failure
+	// path with the reason preserved.
+	const maxPasswdPrompts = 3
+	promptAttempts := 0
+	nonInteractive := false
 	for {
 		// need enter passwd to run sudo
 		if sshConfig.Password == "" {
+			if promptAttempts >= maxPasswdPrompts {
+				break
+			}
+			promptAttempts++
 			_, _ = streams.Out.Write([]byte(fmt.Sprintf("ensure cmd exec success,need enter passwd for user '%s'. "+
 				"Please input (user %s's password)", sshConfig.User, sshConfig.User)))
 			passwd, err := utils.WaitInputPasswd()
 			if err != nil {
-				logger.V(2).Errorf("read passwd error: ", err.Error())
-				continue
+				lastErr = fmt.Errorf("read sudo password for user '%s': %w (non-interactive sessions must pass --passwd for non-root users)", sshConfig.User, err)
+				logger.Errorf("%v", lastErr)
+				nonInteractive = true
+				break
 			}
 			if passwd == "" {
+				logger.Errorf("empty password input (%d/%d)", promptAttempts, maxPasswdPrompts)
 				continue
 			}
 			_, _ = streams.Out.Write([]byte("\n"))
@@ -101,6 +116,11 @@ func PreCheckError(name string, sshConfig *sshutils.SSH, streams options.IOStrea
 		return nil
 	}
 
+	// A non-interactive stdin can never answer the confirmation either —
+	// asking would abort the process via logger.Fatal — so fail directly.
+	if nonInteractive {
+		return fmt.Errorf("%s precheck failed: %w", name, lastErr)
+	}
 	_, _ = streams.Out.Write([]byte("Ignore this error, still exec cmd? Please input (yes/no)"))
 	if utils.AskForConfirmation() {
 		return nil

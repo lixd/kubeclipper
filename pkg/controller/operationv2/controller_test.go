@@ -749,3 +749,77 @@ func TestCancellationBoundsRunningTaskWait(t *testing.T) {
 func errNotFound(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
+
+
+
+
+func TestPendingOperationEvictsStaleTerminalLockHolder(t *testing.T) {
+	store := newFakeStore()
+	// Mirror the R21 deadlock: the lock is held by an operation that already
+	// reached a terminal phase. A terminal operation never reconciles again,
+	// so it can never release the lock; every later operation on the target
+	// would stay Pending forever. The waiter must evict the stale holder.
+	ghost := testOperation("ghost", "op-ghost", testNow)
+	ghost.Status.Phase = operations.OperationSucceeded
+	store.addOperation(ghost)
+	store.addOwnedLock(ghost)
+
+	waiter := testOperation("waiter", "op-waiter", testNow.Add(time.Second))
+	store.addOperation(waiter)
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(time.Minute) }}
+
+	reconcileOK(t, r, waiter.Name)
+	if got := store.operation(waiter.Name).Status.Phase; got != operations.OperationRunning {
+		t.Fatalf("waiter phase = %s, want Running after evicting the stale holder", got)
+	}
+	lock := store.locks[LockName("Cluster", "cluster-1")]
+	if lock.Spec.HolderRef.UID != waiter.UID {
+		t.Fatalf("lock holder = %s, want the waiter", lock.Spec.HolderRef.UID)
+	}
+}
+
+func TestPendingOperationEvictsVanishedLockHolder(t *testing.T) {
+	store := newFakeStore()
+	ghost := testOperation("ghost", "op-ghost", testNow)
+	store.addOwnedLock(ghost)
+	delete(store.operations, ghost.Name) // holder vanished entirely
+
+	waiter := testOperation("waiter", "op-waiter", testNow.Add(time.Second))
+	store.addOperation(waiter)
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(time.Minute) }}
+
+	reconcileOK(t, r, waiter.Name)
+	if got := store.operation(waiter.Name).Status.Phase; got != operations.OperationRunning {
+		t.Fatalf("waiter phase = %s, want Running after evicting the vanished holder", got)
+	}
+}
+
+func TestPendingOperationKeepsWaitingOnActiveLockHolder(t *testing.T) {
+	store := newFakeStore()
+	// An ACTIVE holder must never be evicted: it is still executing and will
+	// release the lock through its own terminal path.
+	active := runningOperation("active", oneStep("step", 0, "node-1"))
+	active.UID = "op-active"
+	active.CreationTimestamp = metav1.NewTime(testNow)
+	store.addOperation(active)
+	store.addOwnedLock(active)
+
+	waiter := testOperation("waiter", "op-waiter", testNow.Add(time.Second))
+	store.addOperation(waiter)
+	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow.Add(time.Minute) }}
+
+	result, err := r.Reconcile(context.Background(), requestFor(waiter.Name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.RequeueAfter == 0 {
+		t.Fatalf("waiter did not wait behind the active holder: %+v", result)
+	}
+	lock := store.locks[LockName("Cluster", "cluster-1")]
+	if lock.Spec.HolderRef.UID != active.UID {
+		t.Fatalf("active holder was evicted: holder=%s", lock.Spec.HolderRef.UID)
+	}
+	if got := store.operation(waiter.Name).Status.Phase; got != operations.OperationPending {
+		t.Fatalf("waiter phase = %s, want Pending", got)
+	}
+}

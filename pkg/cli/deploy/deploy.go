@@ -108,6 +108,14 @@ type DeployOptions struct {
 	fips         []string // ip:fip
 	aio          bool
 
+	// initialPasswordFlag captures the --initial-password flag value. The
+	// flag must NOT bind into deployConfig.AuthenticationOpts directly: the
+	// deploy-config file is unmarshalled afterwards and its authentication
+	// section replaces that struct, silently discarding the flag (R21: the
+	// default password came back even with the flag set). Complete
+	// re-applies the flag after the config load.
+	initialPasswordFlag string
+
 	packageRegistryFiles     deliveryregistry.FileOptions
 	packageRegistryConfig    *deliveryregistry.Config
 	packageRegistryDefaulted bool
@@ -172,7 +180,11 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 		"login-history-retention-period defines how long login history should be kept.")
 	flags.IntVar(&auth.LoginHistoryMaximumEntries, "login-history-maximum-entries", auth.LoginHistoryMaximumEntries,
 		"login-history-maximum-entries defines how many entries of login history should be kept.")
-	flags.StringVar(&auth.InitialPassword, "initial-password", auth.InitialPassword, "admin user password")
+	// Bound to a dedicated field: Complete re-applies it after the
+	// deploy-config load so the file cannot silently discard it. Empty
+	// default keeps the config-file value authoritative unless the flag is
+	// given explicitly.
+	flags.StringVar(&o.initialPasswordFlag, "initial-password", "", "admin user password (default: the built-in admin default password, or authentication.initialPassword from the deploy config)")
 	o.deployConfig.AddFlags(cmd.Flags())
 	addPackageRegistryClientFlags(cmd, &o.packageRegistryFiles)
 	o.deployConfig.AuditOpts.AddFlags(cmd.Flags())
@@ -185,6 +197,12 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 func (d *DeployOptions) Complete() error {
 	if err := d.deployConfig.Complete(); err != nil {
 		return err
+	}
+	// Re-apply the explicit --initial-password flag after the config load:
+	// the file's authentication section (or its absence resetting the struct)
+	// must not discard an explicitly requested initial password.
+	if d.initialPasswordFlag != "" {
+		d.deployConfig.AuthenticationOpts.InitialPassword = d.initialPasswordFlag
 	}
 	if err := d.generateAuthenticationJWTSecret(); err != nil {
 		return err

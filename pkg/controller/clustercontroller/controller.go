@@ -546,6 +546,14 @@ func kubeConfigTokenFromTasks(tasks []operationsv1alpha1.OperationTask) (string,
 
 func (r *ClusterReconciler) updateCRIRegistries(ctx context.Context, c *v1.Cluster) error {
 	logger.Infof("【cluster-controller】 updateCRIRegistries start")
+	// A deleting cluster must never spawn more CRI-registry work: reconciles
+	// racing the uninstall used to keep enqueuing InstallComponents operations
+	// (R21: 16k+ orphans for one deleted cluster), and the full object write
+	// below could even revert the Terminating phase back to Running.
+	if !c.DeletionTimestamp.IsZero() {
+		logger.Infof("【cluster-controller】 updateCRIRegistries skip: cluster %s is being deleted", c.Name)
+		return nil
+	}
 	registries, err := r.getClusterCRIRegistries(c)
 	if err != nil {
 		return err
@@ -569,6 +577,16 @@ func (r *ClusterReconciler) updateCRIRegistries(ctx context.Context, c *v1.Clust
 	}
 
 	if !registriesEqual(c.Status.Registries, registries) {
+		// Only one in-flight CRI-registry operation per cluster: if the
+		// previous one cannot finish (agent gone, node stale), creating
+		// another on every reconcile would pile up operations until the
+		// status update finally succeeds. Skip and let the active one run.
+		if active, err := r.hasActiveCRIRegistryOperation(ctx, c.UID); err != nil {
+			return fmt.Errorf("list active CRI registry operations:%w", err)
+		} else if active {
+			logger.Infof("【cluster-controller】 updateCRIRegistries skip: cluster %s already has an active CRI registry operation", c.Name)
+			return nil
+		}
 		c.Status.Registries = registries
 
 		clusterSelector, err := labels.NewRequirement(common.LabelClusterName, selection.Equals, []string{c.Name})
@@ -597,6 +615,22 @@ func (r *ClusterReconciler) updateCRIRegistries(ctx context.Context, c *v1.Clust
 		*c = *newSpec
 	}
 	return nil
+}
+
+// hasActiveCRIRegistryOperation reports whether the cluster still has a
+// non-terminal operation targeting it, in which case a new CRI-registry
+// update must not be enqueued.
+func (r *ClusterReconciler) hasActiveCRIRegistryOperation(ctx context.Context, targetUID types.UID) (bool, error) {
+	ops, err := r.OperationStore.ListOperations(ctx, targetUID, "")
+	if err != nil {
+		return false, err
+	}
+	for index := range ops.Items {
+		if !ops.Items[index].Status.Phase.IsTerminal() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (r *ClusterReconciler) getClusterCRIRegistries(c *v1.Cluster) ([]v1.RegistrySpec, error) {

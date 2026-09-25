@@ -682,7 +682,14 @@ func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 				Labels: nil,
 				Taints: []v1.Taint{
 					{
-						Key:    "node-role.kubernetes.io/master",
+						// kubeadm already applies the control-plane taint;
+						// re-applying it here is idempotent and keeps the
+						// node tainted for workloads. The legacy master taint
+						// must NOT be added: modern kubeadm-rendered addons
+						// (coredns) tolerate control-plane only, so a
+						// single-master cluster would deadlock at the health
+						// check with both taints present (R21).
+						Key:    "node-role.kubernetes.io/control-plane",
 						Value:  "",
 						Effect: v1.TaintEffectNoSchedule,
 					},

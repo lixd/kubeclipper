@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 )
 
@@ -129,5 +130,32 @@ func TestPolicySlotVersions(t *testing.T) {
 	}
 	if got := policySlotVersions(nil, "v1.37.0", "cri", "containerd"); got != nil {
 		t.Fatalf("policySlotVersions(nil, ...) = %v, want nil", got)
+	}
+}
+
+// The legacy node-role.kubernetes.io/master taint must not be applied: modern
+// kubeadm-rendered addons (coredns) tolerate only the control-plane taint, so
+// a single-master cluster with both taints deadlocked at the health check
+// (R21). The default taint is the control-plane one kubeadm applies anyway.
+func TestNewClusterDefaultTaintIsControlPlane(t *testing.T) {
+	opts := NewCreateClusterOptions(options.IOStreams{})
+	opts.Name = "demo"
+	opts.Masters = []string{"node-1"}
+	cluster := opts.newCluster()
+	if len(cluster.Masters) != 1 || len(cluster.Masters[0].Taints) != 1 {
+		t.Fatalf("default master taints = %+v, want exactly the control-plane taint", cluster.Masters)
+	}
+	taint := cluster.Masters[0].Taints[0]
+	if taint.Key != "node-role.kubernetes.io/control-plane" || taint.Effect != v1.TaintEffectNoSchedule {
+		t.Fatalf("default taint = %+v, want node-role.kubernetes.io/control-plane:NoSchedule", taint)
+	}
+
+	untainted := NewCreateClusterOptions(options.IOStreams{})
+	untainted.Name = "demo"
+	untainted.Masters = []string{"node-1"}
+	untainted.UntaintMaster = true
+	cluster = untainted.newCluster()
+	if len(cluster.Masters[0].Taints) != 0 {
+		t.Fatalf("--untaint-master taints = %+v, want none", cluster.Masters[0].Taints)
 	}
 }

@@ -19,6 +19,8 @@
 package sshutils
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -74,8 +76,10 @@ func (ss *SSH) CopySudoWithTempDir(host, localFilePath, remoteFilePath, tempDir 
 	if ss.User == "root" { // root user,need not transit
 		return ss.Copy(host, localFilePath, remoteFilePath)
 	}
-	// if not root, first scp to the configured temp directory, then sudo mv to target
-	middle := filepath.Join(tempDir, remoteFilePath)
+	// if not root, first scp to a flat path under the temp directory, then
+	// sudo mv to target; see CopySudoWithBarWithTempDir for why the middle
+	// path must stay flat under the temp dir.
+	middle := filepath.Join(tempDir, middleFileName(remoteFilePath))
 	err := ss.Copy(host, localFilePath, middle)
 	if err != nil {
 		return errors.Wrap(err, "copy")
@@ -252,12 +256,24 @@ func (ss *SSH) CopySudoWithBar(bar *mpb.Bar, host, localFilePath, remoteFilePath
 }
 
 // CopySudoWithBarWithTempDir copies a file with progress through tempDir when sudo is required.
+
+// middleFileName builds a collision-free flat file name for the non-root
+// transit copy: hashing the remote path keeps concurrent transfers of
+// different targets from overwriting each other's staging file.
+func middleFileName(remoteFilePath string) string {
+	sum := sha256.Sum256([]byte(remoteFilePath))
+	return fmt.Sprintf("kc-transit-%s-%s", hex.EncodeToString(sum[:8]), filepath.Base(remoteFilePath))
+}
+
 func (ss *SSH) CopySudoWithBarWithTempDir(bar *mpb.Bar, host, localFilePath, remoteFilePath, tempDir string) error {
 	if ss.User == "root" { // root user,need not transit
 		return ss.CopyWithBar(bar, host, localFilePath, remoteFilePath)
 	}
-	// if not root, first scp to the configured temp directory, then sudo mv to target
-	middle := filepath.Join(tempDir, remoteFilePath)
+	// if not root, first scp to a flat path under the temp directory, then
+	// sudo mv to target. The middle path must not mirror the target path:
+	// transit mkdir runs without sudo and a target parent like /tmp/etc owned
+	// by root would make a non-root join fail with permission denied (R21).
+	middle := filepath.Join(tempDir, middleFileName(remoteFilePath))
 	err := ss.CopyWithBar(bar, host, localFilePath, middle)
 	if err != nil {
 		return errors.Wrap(err, "copy")

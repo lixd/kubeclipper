@@ -894,6 +894,18 @@ func (h *handler) UpdateNodeStatus(request *restful.Request, response *restful.R
 
 func (h *handler) DescribeNode(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter(query.ParameterName)
+	// Same identity boundary as register/status-update: an agent may only
+	// read its own Node. The shared agent ClusterRole grants cluster-wide
+	// "get" on nodes (a ClusterRole cannot be name-scoped per agent), so the
+	// handler enforces the boundary; without it any agent could read every
+	// other node's full data (R21).
+	if requestUser, ok := apirequest.UserFrom(request.Request.Context()); ok && strings.HasPrefix(requestUser.GetName(), "system:kc-agent:") {
+		agentID := strings.TrimPrefix(requestUser.GetName(), "system:kc-agent:")
+		if name != agentID {
+			restplus.HandleForbidden(response, request, fmt.Errorf("agent %q cannot access Node %q", agentID, name))
+			return
+		}
+	}
 	resourceVersion := strutil.StringDefaultIfEmpty("0", request.QueryParameter(query.ParameterResourceVersion))
 	c, err := h.clusterOperator.GetNodeEx(request.Request.Context(), name, resourceVersion)
 	if err != nil {
