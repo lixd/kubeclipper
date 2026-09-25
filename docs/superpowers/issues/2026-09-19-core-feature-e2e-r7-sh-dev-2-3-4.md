@@ -942,3 +942,128 @@ digest/架构、启动失败和中断恢复全部通过。**证据逐字转录�
 文档同步：plan 头部 R20 段、B1 表行关闭、§2.5 执行状态（B1 关闭）；checklist 1.3-09 ✅
 （镜像法正向+checksum 负向）、1.3-10 补故障注入注；gaps P0 行 4 两项余量收口（B1 关闭）、
 R20 轮段落。
+
+### 12.17 R21 追加轮（2026-09-25，rc.11 平台）：checklist ⚠️/❌ 项集中收口（A/B/C/D/E 五组 14 项闭环 + 8 项新发现）
+
+**范围**（用户："好，按计划执行吧"——A 直接可做 8 项、B 小环境准备 4 项、C 重建认证 registry 2 项、
+D 重建/破坏性场景 3 项、E 代码评审 2 项）：平台全程 rc.11（9a1dbb75）；共享 Registry 5003 仅增
+`kc-image-registry` 资源引用（镜像物料本就在库）；/var/lib/kc-etcd 两轮 clean--all 重建（D3 场景，
+计划已批准）。
+
+**A 组（零环境成本，8 项全闭环）**：
+- **1.2-04 console 页面 ✅**：SSH 隧道 + 真实浏览器渲染——登录页完整（欢迎语/表单/背景图），
+  截图留档；`/version` 返回平台版本 JSON、`/api` 未认证 403 JSON、静态资源 200。
+- **1.3-04 重复 deploy ✅**：不带 clean 再次 deploy → 三节点 `kc-etcd.service already exists`
+  PRECHECK FAILED（逐节点列出）+"clean old environment before deploying"，零触碰；doctor 25/25。
+- **2.2-12 Lease ✅**：停 kc-agent → 最后心跳+4m00s 精确转 Unknown（01:17:59+4m→01:22:04，
+  nodeMonitorGracePeriod），其余节点不受影响（列表一致性）；agent 重启 → 秒级回 Ready=True。
+- **2.2-07 节点注销 ✅**：该版本 `kcctl drain` = 停 agent 服务 + 删 Node 对象（一条命令完成注销）；
+  `kcctl join --pk-file --ip-detect` 重建 → **新 Node ID**（57b82059→cd48560b）；3/3 + doctor 25/25。
+  **正向发现：drain 有集群占用保护**（"is used by the cluster r21-cache2" 拒绝 drain）与已部署防重入。
+- **2.2-06 agent 失联 ✅**：建群 T+47s 停 agent——operation 保持 Running、集群 Installing，
+  **无假失败无状态污染**；agent 恢复后在途步骤不自动续跑（与 R16 一致，等 90min deadline）；
+  协作式 cancel 20s 生效 → retry 续跑全部步骤（含被中断步 9m58s 重跑成功）→ calico 安装成功。
+  **新发现 P1（2.3 系）：1M 单 master 不带 --untaint-master 死锁**——CLI 给 master 打遗留
+  `node-role.kubernetes.io/master` taint（create_cluster.go:685），kubeadm 另打 control-plane taint，
+  v1.36 coredns 只容忍后者 → coredns 无法调度 → Health 步骤空转至 90min deadline
+  （`--untaint-master` 建群 3.5min 成功 Running）。
+- **A3 region ✅（2.1-27 + 2.2-13）**：drain→`join r21-b:IP` 改 region → 混合 master(default)+
+  worker(r21-b) 创建 → 400 "nodes belongs to different region"，零对象；region 列正确显示；
+  还原 default。join 语法 `--agent <region>:<ip>`。
+- **2.6-04 缓存 ✅**：冷/暖两次建群 Registry 访问对比——冷：`charts/tigera-operator` 1 manifest+
+  1 blob GET；暖：**零请求** + "calico-v3.31.5 chart packages offline install successfully"（agent
+  本地缓存直接命中）；k8s 二进制包在集群删除后重拉（delete 清节点包目录——缓存边界记录）。
+- **附**：发现已删集群的孤儿 Pending InstallComponents 操作（见 D1 泄漏事件）。
+
+**B 组（可逆环境准备，4 项）**：
+- **1.3-11 SSH 矩阵（部分闭环+2 缺陷）**：认证失败 → "ssh to user@host failed, please check
+  user、password or privatekey" + sudo PRECHECK FAILED（预检范围=加入节点+全部 ServerIP，
+  join.go:303）干净退出；**自定义端口 ✅**：sshd 2222（Ubuntu 24.04 需先 disable ssh.socket 切
+  service 模式）→ join `--ssh-port 2222` 成功。**缺陷 1：无 sudo 用户触发无限密码提示循环**
+  （"need enter passwd" 刷 1.5GB 日志，stdin EOF 即忙循环）；**缺陷 2：非 root+sudo join 失败**——
+  copy 步骤 `mkdir /tmp/etc/kubeclipper-agent/delivery` 不带 sudo，root 遗留 /tmp/etc 属主时
+  Permission denied。1.3-11 保持 ⚠️（两缺陷修复前不可闭环）。
+- **2.1-29 主机级预检 ✅（1 缺口确认）**：端口占用 → kubeadm preflight `[ERROR Port-6443]: Port
+  6443 is in use` 快速失败+清晰报错+重试一次；**磁盘 ❌**：kubeadm 1.36 preflight 无磁盘检查
+  （50MB tmpfs 挂 /var/lib/kubelet 实证 init 照常通过）→ 磁盘耗尽在运行时以 DiskPressure
+  Evicted（tigera-operator 反复驱逐）+ node NotReady + Health 空转呈现；**时间同步 ❌**：KC 与
+  kubeadm preflight 均无时间检查（代码确认）；**主机名**：OS 层拒绝非法主机名（systemd-hostnamed），
+  kubeadm hostname 检查实际不可达（正向防护）。**运行时 ENOSPC 全链路已捕获**（填盘后建群：
+  Evicted→NotReady→Health 空转，pod Event 明确）。
+- **2.1-12 apiserver 对外发布 ✅**：`--external-domain kc-r21.example.com --external-ip
+  172.16.131.146 --external-port 6443 --cert-sans` 建群 → apiserver 证书 SAN 含
+  `DNS:kc-r21.example.com, IP:172.16.131.146`；/etc/hosts 模拟 DNS → `curl
+  https://kc-r21.example.com:6443/healthz` **200 "ok" 且 TLS verify=0**（域名+端口+证书链全通；
+  外部 IP 直连同样 verify=0——external-ip 也入 SAN）；admin.conf 用内部名（外部 kubeconfig 走
+  SyncKubeConfig 通道）。
+- **2.2-11 Agent 身份保护 ✅（1 缺口）**：dev-4 agent 证书对 dev-3 身份伪造——跨注册 → **403**
+  `agent "cd48560b…" cannot register Node "5f896e5f…"`；跨状态更新 → **403** cannot update；
+  自身 RV 篡改 → **409** "node UID or resourceVersion changed"；正控（自身正确 RV）→ 200。
+  **缺口：GET /nodes/{name} 无名字域隔离**（RBAC get 未按 resourceNames 限定，任意 agent 可读
+  任意节点全量数据—— RBAC 角色 kubeclipper-agent-operation-v2 对 nodes 为全名空间 get/create/
+  update/patch，写路径有 handler 层保护、读路径没有）。临时证书即用即删。
+
+**C 组（重建认证 distribution，2 项闭环）**：从 5003 `bootstrap/registry:3.1.1` 包提取 registry
+二进制 → dev-2:9443 起 distribution 3.1.1（TLS 自签 CA SAN=IP+htpasswd bcrypt）→ 无凭据 401/
+带凭据 200；skopeo 从 5003 复制 15 个镜像（k8s 组件/calico/tigera/kubectl 全套）→ 建群
+`--image-registry kc-ext-reg --cri-registry kc-ext-reg`：
+- **2.1-21 双 Registry 分离 ✅**：packages 走 5003、images 走 9443——建群期间 5003 从该节点
+  **零 blob GET**，9443 日志 containerd/v2.2.4 authorized 拉取（401 challenge→200 正常流）。
+- **2.1-22 私有 CRI Registry 下发 ✅**：`/etc/containerd/certs.d/<host>/hosts.toml`（server+**CA
+  文件下发**+capabilities）与 `/etc/containerd/config.toml` registry.configs.<host>.auth（凭据）
+  双文件齐备并被消费。注：hosts.toml 同时 `skip_verify=true`（registry 资源 skip-tls-verify 默认
+  true，与 CA 并存——语义冗余记录）。`kcctl create registry --ca` 接受 PEM 内容（路径报
+  invalidate certificate）。清理：registry 进程/证书/凭据/htpasswd 全删；kc-ext-reg 资源保留
+  （CLI 无 registry delete）。
+
+**D 组（破坏性场景，2 闭环 1 缺陷集群）**：
+- **1.3-06 clean --all --force ✅**：两轮（3+3 拓扑与分离拓扑各一）——`clean --all --force
+  --deploy-config` 全量清理后三节点 kc-server/kc-agent/kc-etcd/kc-console 全 inactive、二进制/
+  配置//var/lib/kc-etcd 移除、8080/12379 端口释放，**零半残**；随后重部署均成功。
+- **1.2-06 server/agent 分离部署 ✅**：单 server(208)+双 agent(146/230) 拓扑部署成功——
+  server 节点 kc-agent inactive、agent 节点 kc-server inactive、平台 Healthy、2 节点纳管。
+- **1.3-12 初始密码 ❌（缺陷集群）**：①deploy-config 顶层 `initialPassword` 键**被静默忽略**
+  （正确位置=authentication.initialPassword 或 --initial-password flag，顶层键回退默认
+  Thinkbig1）；②**--initial-password flag 被 config 解析覆盖**（config 无 authentication 段时
+  解析回填默认值，flag 失效——server config 实测仍 Thinkbig1，登录 200）；③config 带
+  `authentication:` 段（仅 initialPassword）→ deploy **panic**（AuthenticationOptions.Validate
+  空指针，OAuthOptions 链）——自定义初始密码当前实际不可达。泄露面 ✅：三次部署密码值在
+  deploy 日志/kcctl config/console 页面 **0 命中**；deploy 会重写 config 并剔除 initialPassword
+  （用后即清，正向）。平台最终以默认密码 3+3 拓扑恢复（Healthy、doctor 25/25、console 200、
+  默认登录 200）。
+
+**D1 升级链（2.3-02/06/07 未闭环——被新 P1 阻断，过程证据完整）**：
+`cluster upgrade v1.36.4→v1.37.0` 提交时 agent 离线 28s 内 → operation **永久 Pending**
+（任务不派发、agent 恢复 30min+ 不补派）；cancel 请求对 Pending 无效（须重启 kc-server 才
+ transitioning Canceled）；retry 拒绝 Pending（"cannot be retried from phase Pending"）；Canceled
+ 后 retry "requested" 亦无新 generation；集群卡 Upgrading→UpgradeFailed，新 upgrade op
+ （agent 在线时创建）同样 Pending。**P1：UpgradeCluster 操作派发死锁 + 无恢复入口**。
+**P1：已删集群操作无限泄漏**——r21-split 删除后 clustercontroller CRI-registry 对账
+（controller.go:568 registriesEqual spec≠status → 创建 InstallComponents op → status 更新失败
+→ 重入）持续创建孤儿 Pending 操作至 **16,595 个**（API 无 operations DELETE 路由，无法清理，
+仅等 etcd 重建清除；Terminating 后泄漏停止——对象无 deletionTimestamp 曾僵尸 Running）。
+2.3-06/07（packagePlan 边界/digest 固定）无成功升级操作可分析，未闭环。
+
+**E 组（代码评审，均维持原状）**：
+- **2.2-04 convertNodes ❌ 维持**：API 仅 NodesOperationAdd/Remove 两种（handler.go:263-277），
+  ConvertNodes 是 add/remove 流内子机制（node.go:54,78-80 把转换节点并入 Masters/Workers），
+  无独立 master↔worker 转换操作——产品缺口确认（同 2.2-03 模式）。
+- **2.6-11 extension 隔离 ⚠️ 维持**：k8s-extension 是节点操作内嵌步骤（clusteroperation/node.go
+  四处 InstallStepsWithContext），resolver 有参与/过滤逻辑（resolver.go:139），但无独立用户命令
+  入口（CLI 无 extension 安装命令）——"真实命令+对象证据"不可达。
+
+**终态**：平台 3+3 拓扑 rc.11（etcd 两轮重建，孤儿操作/僵尸集群/16.6K 泄漏操作随之清除），
+Healthy、doctor 25/25、3 节点 default region、console 200、默认凭据登录正常；registry 资源
+kc-image-registry（5003）与 kc-ext-reg（9443，端点已拆除）并存——CLI 无 registry 删除；
+containerd 在集群删除后 inactive（按设计）。共享 Registry/caas4//var/lib/kc-etcd 最终态未损。
+临时证书/凭据/测试用户/sshd 2222/htpasswd 全部拆除（sshd 恢复 service 模式仅保留 22）。
+dev-2/Mac /tmp 临时产物全清。
+
+**checklist 闭环合计**：✅ 新增 11 项（1.2-04、1.2-06、1.3-04、1.3-06、2.1-12、2.1-21、2.1-22、
+2.1-27、2.1-29、2.2-06、2.2-07、2.2-11、2.2-12、2.6-04 中 11 项闭环+1.3-11 部分闭环），
+❌/⚠️ 维持 3 项（1.3-11、1.3-12、2.2-04、2.6-11——均附缺陷/缺口定性）。**新发现 8 项**：
+升级 Pending 死锁（P1）、孤儿操作泄漏（P1）、1M 默认 taint 死锁（P1）、无 sudo join 死循环、
+非 root join /tmp/etc 失败、agent 跨节点读未隔离、--initial-password flag 失效、
+authentication 段 panic（另：drain 占用保护、deploy 重写剔除密码为正向发现）。
+
+文档同步：checklist 14 行更新、gaps P1 新发现清单 + R21 段、本节 §12.17。

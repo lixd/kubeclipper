@@ -49,9 +49,9 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.2-01 | 单 server + 多 agent | ✅ | R2/R3，3 个 agent |
 | 1.2-02 | server 与 agent/k8s 节点混部同机 | ✅ | R2/R3 |
 | 1.2-03 | **多 server HA（3× server，etcd 奇数集群）** | ✅ | R4：三 Server/三 etcd/三 Agent 实测；R7：新候选 `e9e95f4` 重新部署并验收（doctor 25/25、etcd 3 成员 non-learner、三台 /healthz ok），运行包 provenance 已更新 |
-| 1.2-04 | console 组件部署与访问 | ⚠️ | 服务起✅，页面未验 |
+| 1.2-04 | console 组件部署与访问 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：SSH 隧道+真实浏览器渲染登录页（欢迎语/表单/背景图完整，截图留档）；/version 返回平台版本、/api 未认证 403 JSON、静态资源 200 |
 | 1.2-05 | 单 server + 单 agent | ✅ | R2/R3，server/agent/k8s 节点混部 |
-| 1.2-06 | server 与 agent 分离部署 | ⚠️ | 多机环境隐含覆盖，缺少独立验收证据 |
+| 1.2-06 | server 与 agent 分离部署 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：单 server(208)+双 agent(146/230) 分离拓扑部署成功——server 节点 kc-agent inactive、agent 节点 kc-server inactive、平台 Healthy、节点正常纳管；随后按计划恢复 3+3 拓扑 |
 | 1.2-07 | HA server/etcd 单点故障与滚动重启 | ✅ | R4/R6 停止/恢复 dev4 `kc-server`、`kc-etcd`；R7 在新候选上复测 server/etcd 两种故障窗口均通过；R19（rc.10，2026-09-24）补齐 Watch 与 Console 入口证据：停非连接节点（dev-3）watch 流与 kcctl 不受影响（quorum 2/3）；停被连接节点（dev-2）流断、重连被拒、进程退出——**发现：kcctl 客户端单地址无 failover**；窗口期 dev-2 console 登录页 200、`/api` 经 caddy 健康检查摘坏上游由存活上游应答（非 502）、dev-3/dev-4 console 200；恢复后 watch 重建立成功。另发现：卡在健康检查重试环的创建 Operation 无法取消（R7 新问题 5，已随 P0 行 7 于 R10/R16 闭环） |
 
 ### 1.3 容错与增量运维
@@ -61,15 +61,15 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-01 | 预检失败引导（不可达/缺包报错） | ✅ | R2/R3 |
 | 1.3-02 | etcd 冷启动竞态（写探针+重试） | ✅ | R3 |
 | 1.3-03 | clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
-| 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ⚠️ | R5：预检明确拒绝且平台 Healthy；R7 在新候选上复测一致（`kc-etcd.service already exists`），平台保持 Healthy |
+| 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17） rc.11 复测一致：不带 clean 再次 deploy → 三节点 kc-etcd.service already exists PRECHECK FAILED（逐节点列出）+"clean old environment before deploying"，零触碰、平台保持 Healthy（doctor 25/25） |
 | 1.3-05 | `kcctl join` 独立纳管新节点 | ✅ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready。R13-C4（2026-09-22）补认证/负向：join 下发 0600 `package-registry.json`（凭据经 base64 落盘）、被加入节点直连认证拉取、错误口令 join EXIT=1 可读 `UNAUTHORIZED` 且零部分安装；多网卡需 `--ip-detect interface=<nic>`（first-found 触发交互确认，后台 EOF 崩溃，见 R13-C4 过程发现） |
-| 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ❌ | 命令可用但 R4 未覆盖；应在 kc-server 不可达时使用本地 deploy-config 完成全量清理，并验证无半残服务 |
+| 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：两轮 clean --all --force --deploy-config（3+3 拓扑与分离拓扑各一）——清理后三节点 kc-server/kc-agent/kc-etcd/kc-console 全 inactive、二进制/配置//var/lib/kc-etcd 移除、端口释放，零半残；随后重部署均成功（含 etcd 重建） |
 | 1.3-07 | **`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）** | ✅ | B1 E2E（2026-09-20，R7 报告 §11）：三机 server+agent 实际升级 rc.3→`057f45e1`，逐台 stop→backup→install→start→healthz，成功后 staging 清理；错 digest/repointed tag 在触碰节点前拒绝；升级后 Healthy、doctor 25/25、配置数据保留。R19（rc.10 `c356fbaf`）：all 语义扩展至四组件 12 槽位（server×3→agent×3→console×3→kcctl×3）~106s 全成功，platform API 报 rc.10、doctor 25/25（R7 报告 §12.15） |
 | 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |
 | 1.3-09 | **`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）** | ✅ | 下载器行为已经代理隧道实测：可达 GitHub、不存在的版本正确返回 404+离线指引。另：设 `HTTPS_PROXY` 必须配 `NO_PROXY` 排除平台内网地址，否则平台 API 请求也被送进代理而失败。**R20（rc.11 `9a1dbb75`，2026-09-24）正向下载+checksum 闭环**（R7 报告 §12.16）：本地 GitHub 镜像法——dev-2 自签 CA 进系统信任（/usr/local/share/ca-certificates + update-ca-certificates）+ SNI 证书 SAN=github.com + /etc/hosts + 443 HTTPS，供给与真实 release 同构的 `…/releases/download/v2.0.3/release-manifest-v2.0.3.yaml(+.sha256)`；`kcctl upgrade all --version v2.0.3` 全链路 rc=0（"manifest downloaded for v2.0.3"→sha256 校验→版本策略幂等→9 槽位 skip→platform API 复核）；负向：`.sha256` 篡改报 `release manifest checksum mismatch` 拒绝。镜像拆除：443 释放、hosts 恢复、CA 移除 + update-ca-certificates --fresh（临时证书即用即删）。`--manifest` 离线路径见 1.3-07/1.3-10 |
 | 1.3-10 | `kcctl upgrade server/agent/console/kcctl` 组件独立升级 | ✅ | `server`/`agent` 独立升级三机实测（B1 E2E：server 先、agent 后，逐台替换，只更新目标组件）。R19（rc.10 `c356fbaf`，2026-09-24）console/kcctl 闭环（R7 报告 §12.15）：`upgrade kcctl` 同 revision 三节点幂等 skip；`upgrade console` 同版本幂等重装（dist/caddy sha256 前后一致、ConsolePort HTTP 2xx 探测）；负向：缺 bootstrap/console artifact 的 manifest EXIT=1、console 错 digest 触碰节点前拒绝（repointed tag 防护）、console 版本策略豁免（v1.6.0 独立版本流与平台 semver 不可比，sourceRevision mismatch 仅警告）。**R20（rc.11 `9a1dbb75`）故障注入矩阵四场景**（R7 报告 §12.16）：T-A server 安装+启动成功但健康探测被 iptables 阻断 → waitServerHealthy 180s 超时 → restoreNodeBinary 自动恢复 rc.10 基线、后续槽位停止（EXIT=1）；T-C staging kcctl 腐化 → 替换后 probe 失败 → restoreKcctl（三节点 md5=基线）；T-D console 探针 180s 超时（错误信息明示 probing http port 80）→ restoreConsole（caddy md5+dist 树哈希逐字节一致、console 200）；T-B 中断后重跑 upgrade all → 已完成节点 skip、余下补齐、platform API 复核 + doctor 25/25 |
-| 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ⚠️ | 已使用部分 SSH 配置；需分别验证认证失败、sudo 失败和修正后重试 |
-| 1.3-12 | 初始化管理员密码 | ❌ | 自定义初始密码可登录；敏感值不出现在配置回显和日志中 |
+| 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ⚠️ | R21（2026-09-25，rc.11，R7 报告 §12.17） 部分闭环+2 缺陷：认证失败干净报错（ssh to user@host failed + sudo PRECHECK FAILED，预检范围=加入节点+全部 ServerIP）；自定义端口 ✅（sshd 2222 + join --ssh-port 成功；Ubuntu 24.04 须先 disable ssh.socket）。缺陷①：无 sudo 用户触发无限密码提示循环（1.5GB 日志）；缺陷②：非 root+sudo join 失败（/tmp/etc/kubeclipper-agent/delivery mkdir 不带 sudo，root 遗留目录属主时 Permission denied） |
+| 1.3-12 | 初始化管理员密码 | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 缺陷集群：①deploy-config 顶层 initialPassword 键被静默忽略（回退默认）；②--initial-password flag 被 config 解析覆盖（server config 实测仍默认值）；③config 带 authentication 段（仅 initialPassword）→ deploy panic（AuthenticationOptions.Validate 空指针）——自定义初始密码当前不可达。正向：三次部署密码值在日志/kcctl config/console 0 命中；deploy 重写 config 自动剔除 initialPassword |
 
 ## 2. 集群相关操作
 
@@ -88,21 +88,21 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-09 | proxyMode iptables | ✅ | R6：API dry-run 与真实创建均接受 `proxyMode=iptables`；CreateCluster `a16b1a64-02cb-46ce-bdf1-f2a6ff46df87` 成功，kube-proxy ConfigMap 的 `mode` 为 `iptables`。当前 CLI 未暴露该参数，因此用 API 验证，删除已完成 |
 | 2.1-10 | 创建集群时拒绝支持矩阵外版本 | ✅ | R3；同版本/降级属于升级校验，见 2.3-08 |
 | 2.1-11 | 网络自定义（pod/service 网段、DNS 域） | ✅ | R3 即用即验（172.25/16 + cluster.local） |
-| 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ⚠️ | R6：合法参数落库，apiserver 证书 SAN 含外部 IP/域名，kubeconfig 使用 external-ip；域名 DNS/代理端口连通性未验证 |
+| 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17） 补齐连通性：--external-domain/--external-ip/--external-port/--cert-sans 建群 → apiserver 证书 SAN 含 DNS:kc-r21.example.com 与外部 IP；hosts 模拟 DNS → https://域名:6443/healthz 200 ok 且 TLS verify=0（外部 IP 直连同样 verify=0）；admin.conf 用内部名，外部 kubeconfig 走 SyncKubeConfig 通道 |
 | 2.1-14 | untaint-master（master 允许调度） | ✅ | R5：AIO 创建使用 `--untaint-master`，CoreDNS 和测试 Pod 均成功调度到 Master |
 | 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
 | 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：`Overlay-Vxlan-All` 建群+烟测；R7 复测（r7-min 1M1W，跨节点 ping 0% 丢包、DNS、API via svc） |
 | 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ✅ | R5：cross-subnet AIO 通过；R7 复测 `Overlay-Vxlan-Cross-Subnet` 落库+烟测通过 |
 | 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ✅ | R4/R5 三方法通过；R7 复测 interface（r7-min）、can-reach（r7-matrix，落库验证）、first-found（r7-aio） |
-| 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ⚠️ | R6：`r6-reg-separation-2-20260917` 的 `imageRegistry=aio-img-reg`、CRI `registryRef=r6-cri-reg-2-20260917` 分别落库并完成建群；两资源当前指向同一 HTTP 端点，不足以证明不同端点的隔离 |
-| 2.1-22 | 私有 CRI Registry 配置下发 | ⚠️ | R6：HTTP CRI Registry 引用下发到 `/etc/containerd/certs.d/.../hosts.toml` 并可消费；账号认证、自签 CA 和独立端点未测 |
+| 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：packages 走 5003 + images 走自建认证 distribution(9443, TLS+htpasswd) 分离端点建群——建群期间 5003 零镜像 blob GET、9443 日志 containerd authorized 拉取（15 镜像全套） |
+| 2.1-22 | 私有 CRI Registry 配置下发 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：--cri-registry 认证 Registry → hosts.toml（server+CA 文件下发+capabilities）与 containerd config.toml registry.configs.<host>.auth 双文件齐备并被消费（401 challenge→authorized 拉取）；注：hosts.toml skip_verify=true 与 CA 并存（registry 资源默认 skip-tls-verify=true，语义冗余）；--ca 接受 PEM 内容而非路径 |
 | 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
 | 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4 通过；R7 复测 `r7-min-20260919`（新候选包，~2.5 分钟 Running），删除后节点复用 |
 | 2.1-25 | 集群在线安装 | ✅ | R6：`r6-online-cluster-20260917` 使用 `--offline=false` 建群，Cluster 无 offline annotation，CreateCluster `e11f819e-05ed-403c-8ccf-01a3c2c1263f` 与 SyncKubeConfig 均 Succeeded，packagePlan 落库后删除 |
 | 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | R5/R6 通过；R7 复测占用节点拒绝 `some nodes in used or disabled` |
-| 2.1-27 | Master/Worker 跨 Region | ❌ | 按当前同 Region 约束拒绝，并指出冲突节点和 Region |
+| 2.1-27 | Master/Worker 跨 Region | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：join --agent <region>:<ip> 改节点 region → master(default)+worker(r21-b) 混合创建 400 "nodes belongs to different region"，零对象创建；已删集群 drain 有占用保护、已部署节点 join 有防重入 |
 | 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ✅ | 真实历史：R6 基线 ❌（重叠网段被接受创建 Installing Cluster）；R7 batch-1 修复（`a989b14f`，`netutil.ValidateSubnetOverlap` 接入 API 400 + CLI fail-fast），rc.1 复验重叠 400 拒绝零对象（R7 报告 §9），此后 rc.3/4/5 均生效。**更正（2026-09-20）：R7 新候选基线 ❌ 与 R8 "rc.5 仍接受重叠"两条记录有误**——R9 dryRun 探针实测 rc.5 重叠 400，与代码/单测/§9 复验一致。R9 补齐边界缺口：列表内嵌套、每地址族最多 1 条、IPv4-mapped IPv6 拒绝、主机网段冲突（`ValidateCIDRHostConflict`，API 层取请求节点 `NodeIpv4DefaultIP` 校验；CLI 不拉节点列表故仅服务端），单测覆盖。**rc.6（`29a9bf8a`，2026-09-21）真机负向矩阵复验通过**：8 项非法输入（重叠/列表内嵌套/双 v4 pod/双 v6 service/v4-mapped/主机冲突 pod .0/24/主机冲突 service .208/29）全部 400 且错误理由逐项匹配，.144/28 未含节点 IP 正确放行（边界不误伤），合法双栈与单栈 dryRun 200；CLI 重叠本地 exit 1、CLI 主机冲突转发服务端 400；全程零 Cluster/Operation 残留。2.1-32 双栈仅在单测与 dryRun 层面覆盖（真机无 IPv6 环境），见该行 |
-| 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ⚠️ | R6/R7：非法 external 端口/域名、master/worker 同 IP、未知 image-registry、docker CRI 均前置拒绝且无对象；主机级预检仍未覆盖 |
+| 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：端口占用 → kubeadm preflight [ERROR Port-6443] 快速失败+清晰报错；磁盘 ❌ 缺口确认——kubeadm 1.36 preflight 无磁盘检查（50MB tmpfs 实证 init 通过），磁盘耗尽在运行时以 DiskPressure Evicted+node NotReady+Health 空转呈现（全链路捕获）；时间同步无检查（代码确认）；主机名由 OS 层拒绝非法值（kubeadm 检查实际不可达，正向防护） |
 | 2.1-30 | 创建中断后的 retry 或安全删除 | ✅ | R6：取消 CIDR 创建后 Cluster/Operation、节点标签和主机副作用未自动清理，需 reset/精确清理；R8（rc.5，`978b1b43`）失败路径删除已释放节点占用标签、force 删除逃生门可用（`echo yes \| kcctl delete cluster <name> -F`，跳过 agent 卸载、主机残留属预期需运维清理）。**rc.7（`e7d99421`，2026-09-21）真机 retry 验证通过**：Running 中取消（协作式收敛 Canceled/InstallFailed，在途步自然完成、Pending 步取消）后 `kcctl operation retry` 重试同一 Operation——前 6 步保留原时间戳未重做（§3.3-5 语义），仅执行剩余步骤 ~60s 回 Succeeded，集群 InstallFailed → Running；重复取消（终态后与 Running 中并发双取消）分别被 CLI 与 API Conflict 干净拒绝；取消后安全删除 20～30 秒清空（Cluster/Operation/节点标签），同节点重建 2 分钟 Running，kubelet inactive、无 /etc/kubernetes 残留、doctor 25/25。证据：dev-2 /tmp/r10-*.txt。**R16（rc.8，2026-09-23）超时注入补充**：API `POST /clusters?timeout=120` 显式压缩 Operation 期限（Spec.Timeout=2m0s，deadline=02:15:04）——运行中的 `kubeadm init` 步在 deadline 恰好被 SIGTERM（agent 日志 `signal: terminated`），任务回写 `TimedOut`/`DeadlineExceeded` "task deadline exceeded"，Operation 终态 `TimedOut`/`DeadlineExceeded` "operation deadline exceeded"，Cluster→InstallFailed；force 删除后手动镜像卸载语义清理（kubeadm reset、kubelet/containerd disable、缓存与配置目录移除）即达零残留。证据原存 dev-2 /tmp/r16-evidence（终态清理时删除，结论见 R7 报告 §12.12） |
 | 2.1-31 | 创建成功后的固定健康验收 | ✅ | API Server、etcd、controller、scheduler、CoreDNS、CNI、kube-proxy、Node Ready |
 | 2.1-33 | 离线建群缺省 `imageRegistry` 创建前拒绝 | ✅ | **R17（rc.8）发现产品缺口**：离线 payload 未显式 `imageRegistry` 时 kubeadm.yaml 不渲染 `imageRepository`（默认 registry.k8s.io），离线 init 拉 7 镜像 i/o timeout 慢失败（单 attempt ~18 分钟），创建前零校验。**修复并真机闭环（R18，rc.9 `5e4cfb4b`，2026-09-24）**：`createClusterCheck` 新增离线+空 imageRegistry 前置校验——真实 POST（无 imageRegistry，离线 annotation）**48ms** 400，文案 `offline cluster requires an explicit imageRegistry (a Registry object name); otherwise kubeadm pulls control-plane images from registry.k8s.io which is unreachable offline`；dryRun 同 400、clusters 数组 0（零对象）；对照组带 `kc-package-registry` 的 dryRun 200 正常放行。单测覆盖（handler_test.go 正负两例） |
@@ -114,28 +114,28 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.2-01 | worker 添加（含 packagePlan 不变性） | ✅ | R2/R3；R7 复测（API add，Operation Succeeded，4 个 slot digest 前后一致）；R17 复测（rc.8 v2 operation 模型真机）：dev-2 入双 master 集群 Ready，Operation 下 28 个 OperationTask（task-XXXX 独立资源，按 stepID×节点派发，spec.operationRef 关联）全部 Succeeded |
 | 2.2-02 | worker 移除（含不可 drain 容错） | ✅ | R2/R3；R7 复测（remove Operation 20 秒收敛）；R17 复测（rc.8 真机）：remove Operation 收敛，节点移出集群——集群标签清空、/etc/hosts 集群条目清除、无 kubelet/containerd 二进制残留（注：`/tmp/.k8s` 不随 remove 与 cluster delete 清理，记小观察项） |
 | 2.2-03 | **master 添加 / 移除** | ✅ | R4 尝试 Master add 被 API 以 `invalid node role` 拒绝。R17（rc.8）定性为产品缺口：`makeMasterCompare`（pkg/clusteroperation/node.go:101-104）无条件 `return ErrInvalidNodesRole`。**修复并真机闭环（R18，rc.9 `5e4cfb4b`，2026-09-24）**：master add/remove 完整实现（v2 operation 步骤序列与 worker 对称）——双 master 集群（r18-cluster，dev-3+dev-4，离线+`imageRegistry=kc-package-registry`）Ready 后 API add dev-2 role=master → Operation Succeeded、8/8 OperationTasks Succeeded（getJoinCommand 在存活 master、renderMasterJoinConfig `controlPlane=true`、joinNode、waitForAddedNodesReady），dev-2 Ready control-plane，etcd 3 成员全部 started；remove dev-2 → 13/13 OperationTasks Succeeded（removeEtcdMember 在存活 master、drainNode、kubeadmReset、removeEtcdDataDir、clearVIPDomain 等），etcd 回 2 成员、kubectl 无该 Node、/etc/kubernetes 与 /var/lib/etcd（集群 etcd，非 /var/lib/kc-etcd）清空、dummy VIP 接口与 IPVS 规则清除、kubelet/containerd inactive；负向：remove 1 of 2 → 400 `invalid nodes topology: ... would break etcd quorum, at least 2 masters must remain`（直调与 `?dryRun=true` 均拒绝，零副作用） |
-| 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | |
+| 2.2-04 | master↔worker 角色转换（convertNodes） | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 代码评审确认产品缺口：API 仅 NodesOperationAdd/Remove 两种操作类型，ConvertNodes 是 add/remove 流内子机制（转换节点并入 Masters/Workers），无独立 master↔worker 转换操作入口 |
 | 2.2-05 | 节点 disable / enable | ✅ | R3/R4 通过；R7 复测（`PATCH /nodes/{name}/disable|enable` 均 200，禁用期建群被拒，label 实际键 `kubeclipper.io/nodeDisable`） |
-| 2.2-06 | 节点失联后操作收敛（agent down） | ⚠️ | R2 自然样本，无系统注入 |
-| 2.2-07 | agent 节点注销（`DELETE /nodes/{name}`） | ⚠️ | R6：drain 后独立 join 恢复；R7 复测 drain→join 主路径通过（新 Node `049e40a2`，3/3 恢复） |
+| 2.2-06 | 节点失联后操作收敛（agent down） | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：建群 T+47s 停 kc-agent——operation 保持 Running、集群 Installing，无假失败无状态污染；agent 恢复后在途步骤不自动续跑（等 90min deadline，与 R16 一致）；cancel→retry 续跑全部步骤成功。注意：升级类操作在 agent 离线时提交会 Pending 死锁（见 gaps P1 新发现） |
+| 2.2-07 | agent 节点注销（`DELETE /nodes/{name}`） | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：该版本 drain=停 agent 服务+删 Node 对象（一条命令完成注销）；join --pk-file --ip-detect 重建产生新 Node ID；3/3 恢复+doctor 25/25；drain 有集群占用保护、join 有防重入 |
 | 2.2-08 | Worker 添加时复用原 `status.packagePlan` | ✅ | R2/R3；各 slot digest 不随 Registry tag 漂移 |
 | 2.2-09 | Master 添加后 etcd/control-plane quorum | ✅ | **R18（rc.9 `5e4cfb4b`）真机闭环**：双 master 集群 add dev-2 后 etcd member list 3 成员全部 started（146/230/208），kubectl 3 节点 Ready control-plane，集群 `controlPlaneHealth` 三节点 Healthy、packagePlan 四 slot digest 不漂移（复用既有 5003 物料）；add Operation 8/8 OperationTasks Succeeded |
 | 2.2-10 | Master 移除后的 etcd 成员与 VIP 收敛 | ✅ | **R18（rc.9 `5e4cfb4b`）真机闭环**：remove dev-2 后 etcd member list 回 2 成员（146/230 started，被移除成员经 `etcdctl member remove` 显式摘除）、集群回 Running 且 `controlPlaneHealth` 两节点 Healthy；离开节点清理彻底——/etc/kubernetes、/var/lib/etcd、static pod manifests、dummy VIP 接口（kube-lvscare-vip）与 169.254.169.100 地址、IPVS 规则全部不存在，kubelet/containerd inactive，kubectl Node 对象消失。边界标注：本轮拓扑 0 worker，worker 侧 lvscare static pod 的 refreshLvsCare reconcile 路径按设计不生成步骤、未真机覆盖（代码单测覆盖 joining/leaving 过滤，见 masterscale_test.go）；quorum 守卫真机验证（remove 1 of 2 → 400） |
-| 2.2-11 | Agent 注册身份与 Node 状态更新保护 | ❌ | Agent 只能注册/更新自身 Node；UID/resourceVersion 不匹配应拒绝 |
-| 2.2-12 | Node Lease、Ready/Unknown 与重连恢复 | ⚠️ | R2 有自然掉线样本；需验证超时、恢复及列表状态一致性 |
-| 2.2-13 | Region 归属、列表和同 Region 调度约束 | ⚠️ | Region 基础接口存在；多 Region 完整场景未验证 |
+| 2.2-11 | Agent 注册身份与 Node 状态更新保护 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：agent 证书跨节点伪造——注册他节点名 403（cannot register Node）、跨节点状态更新 403（cannot update Node）、自身 resourceVersion 篡改 409（node UID or resourceVersion changed）、正控 200。缺口：GET /nodes/{name} 无名字域隔离（RBAC 未按 resourceNames 限定，任意 agent 可读任意节点全量数据） |
+| 2.2-12 | Node Lease、Ready/Unknown 与重连恢复 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：停 kc-agent → 最后心跳+4m00s 精确转 Unknown（nodeMonitorGracePeriod），其余节点不受影响；agent 重启秒级回 Ready；列表状态一致 |
+| 2.2-13 | Region 归属、列表和同 Region 调度约束 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：同 2.1-27 场次——跨 Region 创建 400 拒绝即同 Region 调度约束实证；节点列表 region 列正确显示（join --agent <region>:<ip> 语法）；集群 REGION 字段随 master 归属 |
 
 ### 2.3 升级与证书
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2/R3；R7 在新候选上复测 ~90 秒完成，两节点 v1.37.0 Ready |
-| 2.3-02 | 升级中途失败 → op retry | ❌ | |
+| 2.3-02 | 升级中途失败 → op retry | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 未闭环——被 P1 阻断：UpgradeCluster 操作派发死锁（提交时 agent 离线 28s → 永久 Pending，agent 恢复不补派，cancel/retry 均无效，须重启 kc-server 才能取消；新 op agent 在线创建同样 Pending），无成功升级操作可做中途失败注入（见 gaps P1） |
 | 2.3-03 | 升级失败 → 集群状态恢复（reset status） | ✅ | R3 实际使用 |
 | 2.3-04 | **集群证书更新（/certification）** | ✅ | R6 通过；R7 复测 serial `2F3488595FA57564`→`3E1B08278426788C`、有效期+1y，节点 Ready |
 | 2.3-05 | agent 证书重新签发 | ✅ | R6 通过；R7 复测 drain→join 后 serial `33644819B666ED24`→`35C8E2A87BEB075B`，CN 与新 Node 一致 |
-| 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R3 升级已通过；需确认只更新目标版本相关 slot，其他 digest 不漂移 |
-| 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | retry 必须复用 Task/Plan 固定引用，不重新解析 tag |
+| 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R21（2026-09-25，rc.11，R7 报告 §12.17） 未闭环：升级链被 P1（Pending 死锁）阻断，无成功升级操作可对比前后 slot |
+| 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | R21（2026-09-25，rc.11，R7 报告 §12.17） 未闭环：同 2.3-02 被阻断；且共享 5003 禁止 repoint tag，需独立测试 Registry 才能做真 tag 重指场景 |
 | 2.3-08 | 同版本、降级、跨越不支持版本升级拒绝 | ✅ | R3；R7 复测同版本/降级均在创建 Operation 前拒绝 |
 | 2.3-09 | Master/Worker 滚动顺序与业务可用性 | ⚠️ | R3 升级成功；需固定验证顺序、drain、PDB 和服务连续性 |
 
@@ -172,14 +172,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.6-01 | 创建集群解析并持久化 `status.packagePlan` | ✅ | R2/R3；R7 验证新候选包 digest（`ebe86ff7` 等）落库并被扩容 Operation 复用 |
 | 2.6-02 | packagePlan 不保存 blob 或 Registry 凭据 | ✅ | R16（rc.8，2026-09-23）取证：直接 GET API 创建的 Cluster 对象（6930 字节），`packagePlan` 字段集合与 schema（ResolvedArtifactPlan/ResolvedComponent/TransportRef/ArtifactContent）完全一致，整对象对 `password|credential|token|secret|username` 大小写不敏感扫描 0 命中；plan 仅含 version/os/arch/slot/kind/name/required/transport{type,ref,digest}/contents[{name,file,digest,mediaType}]，blob 与凭据不落 etcd 的设计成立（types.go 编码注释同义）。注：dangling blob 的 Agent 拉取路径（R15 gzip CRC 阻断同源）与计划内"创建前预检 404 拒绝"互补 |
 | 2.6-03 | Agent 首次按 digest 拉取、校验、解包和执行 | ✅ | R2/R3 建群主路径 |
-| 2.6-04 | Agent 命中本地校验缓存 | ⚠️ | 隐含覆盖，需日志证明相同 digest 不重复下载且缓存有效。R12 间接实证：neg3 建群时 dev-2 calico chart 缓存有效→零 chart GET（对照篡改后重拉），bootstrap 旧缓存跨删除幸存且不被重拉 |
+| 2.6-04 | Agent 命中本地校验缓存 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17） 直接证据：冷/暖两次建群 Registry 访问对比——冷：charts/tigera-operator 1 manifest+1 blob GET；暖：零请求 + "calico chart packages offline install successfully"（agent 本地缓存命中）；边界：k8s 二进制包在集群删除后重拉（delete 清节点包目录，chart 缓存为 agent 生命周期） |
 | 2.6-05 | 缓存损坏或 digest 不符 | ✅ | R12 篡改探针（rc.8 三机）：master `charts.tgz` 翻一字节（sha256 变化）→ 建群时 `validCachedHelmChart` payloadDigest 校验拒绝 → digest-pinned 重拉（registry 侧 tigera-operator blob GET 佐证）→ sha 恢复原值，Operation Succeeded；包 contents 路径同构校验（`loadCachedComponent`/`packageFilePayloadDigest`）。R15 包 contents 路径真机探针（registry 侧 blob 篡改，9443 测试源）：浅篡改 → server indexer `archive/tar: invalid tar header` 剔除出清单；显式指定 → CLI fail-fast `missing packages: containerd 1.7.29`（EXIT=1 零对象）；深篡改（数据区）→ 两节点 agent 侧 gzip CRC 阻断（`gzip: invalid checksum`）3 秒 Failed 无半装；恢复 blob 后清缓存显式建群 Running（排除误伤）。未回退 tag |
 | 2.6-06 | Registry 暂时不可达时的缓存行为 | ✅ | R12 断连：retry 中途 kill registry → in-flight containerd 拉取经 graceful shutdown 完成，后续任务 `dial tcp: connect: connection refused` 明确失败；registry 恢复后 retry → 三节点 k8s 包全部从头重拉（56MB layer ×3，半成品未被信任），Succeeded、集群 Running。删除集群时组件包缓存随 uninstall 清理（无陈旧缓存残留）。R15 佐证：两节点 1.7.29 缓存手动清除后建群真实走 registry 重拉（9443 GET 200），恢复后的 blob 消费正常 |
 | 2.6-07 | Package Registry 配置优先级与文件权限 | ✅ | R6/R7 实测两个配置文件 0644。R9 更正：写入侧自 batch-1 `a989b14f` 已强制 0600（Config.Dump 与 deploy-config WriteToFile，目录 0700），存量 0644 是旧版本写入的遗留，重写时收紧；R9 补齐原子替换（同目录 0600 临时文件+Sync+rename，失败保留原文件）、拒绝符号链接、umask 无关性与 §4.4 回归测试。**rc.7（`e7d99421`，2026-09-21）远端复验**：dev-2 `/root/.kc/config` 与 `deploy-config.yaml` 实测 0600（升级流程重写后收紧生效）；dev-3/dev-4 无 .kc 目录（kcctl 仅在 dev-2 执行）。**R16（rc.8，2026-09-23）专项补测**：①优先级——server 侧 delivery/package-registry.json 改指 9443 而 deploy-config `packageRegistry` 保持 5003 时，componentmeta 与 dryRun packagePlan 全部仍解析至 **5003**（deploy-config 单一事实源成立，json 按地址匹配仅提供 scheme/凭据）；反向（json=5003/dc=9443）时 componentmeta 返回 `registry: 172.16.131.146:5003` 即 json 覆盖 deploy-config 的记录**作废**——R16 证实以 deploy-config 为准，此前 dc=json 双写相同值无法区分；②凭据脱敏——8443 htpasswd 认证 registry：正确口令 componentmeta 200、错误口令 401 并留在 registry 侧；口令写入 server json、GET API 与 kc-server/kc-agent journal 及 /etc /root /var/lib/kubeclipper 全量 grep 均 0 泄漏（R16 补注：本轮部署-config 优先级下 server json 凭据随 json 与 deploy-config 解耦，不再下发到 agent 路径）。2.6-07 关闭 ✅ |
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
 | 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6 通过；R7 复测（`v1.36.*`→`v1.34.*` 后创建 v1.36.4 在 Operation 前拒绝，策略精确恢复） |
 | 2.6-10 | Delivery Policy 缺失 slot/repository | ✅ | R6：移除 `cni` slot、将 `calico` 改为不存在的 `missing-calico` 后，均在创建前拒绝且无 Cluster/Operation。**R16（rc.8，2026-09-23）余量补齐**：①缺失 blob——9443 测试 registry（distribution 3.1.1）skopeo 拷入 containerd:1.7.29 后删除 layer blob 数据文件：server 索引器读包清单（需取 blob）失败→tag 记 `skip invalid OCI package image` 从清单剔除→POST 显式容器运行时返回 `ArtifactNotPublished: artifact cri/containerd:1.7.29 is not published` 400，零对象（distribution 对 blob 路径 digest 不符不做在线校验、200 的观察项不改变创建前拦截结论）；②多候选冲突——policy `k8s-v1.35` 复制出第二个允许同版本 containerd 的 slot（cri-alt）：dryRun 与真实 POST 均 400 `DuplicateResolvedComponent: component cri/containerd selected by slots "cri" and "cri-alt"`（同 slot 重名直接 400 `duplicate component slot "cri"`；单 slot 双 option 名字不同不触发——按 name 匹配 option）。policy/deloy-config 双还原，验证 dryRun 200 |
-| 2.6-11 | bootstrap/standalone extension 与集群 packagePlan 隔离 | ⚠️ | 单测/代码有门禁，缺真实命令和对象证据 |
+| 2.6-11 | bootstrap/standalone extension 与集群 packagePlan 隔离 | ⚠️ | R21（2026-09-25，rc.11，R7 报告 §12.17） 代码评审维持：k8s-extension 是节点操作内嵌步骤（clusteroperation/node.go 四处 InstallStepsWithContext），resolver 有参与过滤逻辑，但无独立用户命令入口（CLI 无 extension 安装命令），真实命令证据不可达 |
 
 ## 3. `kcctl` 命令覆盖（每条至少跑通一次核心路径）
 
