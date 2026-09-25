@@ -1087,7 +1087,7 @@ index digest rc.15=`sha256:450d0980…`。
 | join 无 sudo 用户死循环 | sudo.go:非交互 sudo 前置探测 + 提示上限 3 次 + 非交互 stdin 快速失败 | kc-nosudo join → 1s 内干净报错（R21:1.5GB 日志） |
 | 非 root join /tmp/etc 失败 | sshutils:中转文件改 home 相对路径（kc-transit/,随机后缀）——/tmp 非世界可写的主机也可用 | kcprobe(NOPASSWD) join → 15s 完成,不再 permission denied |
 | agent 跨节点读未隔离 | DescribeNode 加身份守卫（与注册/状态更新同界） | dev-4 证书 GET dev-3 节点 → 403 "cannot access Node"；GET 自身 → 200 |
-| --initial-password flag 失效 | flag 绑定独立字段,Complete 在 config 加载后重施（config authentication 段不再丢弃 flag） | deploy --initial-password FlagPass12x → 登录 200;config 段密码 401（flag 优先级实证） |
+| --initial-password flag 失效 | flag 绑定独立字段,Complete 在 config 加载后重施（config authentication 段不再丢弃 flag） | deploy --initial-password <test-flag-password> → 登录 200;config 段密码 401（flag 优先级实证） |
 | authentication 段 deploy panic | AuthenticationOptions.Validate nil 防护 + DeployConfig.Complete 恢复默认 | 带 authentication 段 deploy rc=0（R21 为 nil panic）。**边界**:段内 loginHistory* 字段必须给有效值（Validate 拒绝零值）,模板字段需全量给出 |
 
 **新观察（未修复,记录跟进）**：升级中段一次步骤执行丢失（op 步骤标 Running 但任务对象被
@@ -1095,7 +1095,7 @@ purge/消失,agent 无执行痕迹,33min 无进展;取消后收敛）——疑�
 另:平台升级期间 etcd leader 切换会使 reconcile 停滞数分钟（自愈）。
 
 **终态**：平台 3+3 拓扑 rc.15（9f61c944…+中转修复=a064cffe…）,Healthy、doctor 25/25、
-console 200、3 节点 default region;管理员密码经 --initial-password 设置（值不入文档）;共享
+console 200、3 节点 default region;管理员密码经 --initial-password 设置（值不入任何文档）;共享
 Registry 仅增 rc.13/14/15 tag（18 个 v2.0* tag）;caas4/*、/var/lib/kc-etcd 最终态未损;测试用户
 与临时产物全清。单测:operationv2（驱逐 3 例）、clustercontroller（守卫 2 例）、sudo（快速失败
 1 例）、sshutils（中转名 1 例）、authentication/options（nil 防护 2 例）、cli/deploy（flag 优先级
