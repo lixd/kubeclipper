@@ -1179,3 +1179,30 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 
 文档同步：gaps P0 行 11（"步骤丢失"误诊修正+drain 修复闭环）、checklist 2.1-16/2.1-23/
 2.3-02/2.3-06/2.3-07/2.3-09 更新、首个验收记录（B6）、本节 §12.19。
+
+### 12.20 R24 追加轮（2026-09-26，rc.16→rc.20 f4908e4b）：身份/登录专项——6 项修复（含平台级锁死与审计泄漏）+ 4-08/4-08c/4-08d/4-18 闭环
+
+**背景**：R24 按计划做"身份/登录余量"API 级闭环（4-08/4-08c/4-08d/4-18）。以 3 节点 rc.16 平台为对象，用 API 矩阵（临时 Python 脚本经 dev-2 执行，即用即删）逐项验证；过程中发现并修复 6 个缺陷，跨 4 个候选（rc.17/18/19/20）逐个真机复验。
+
+**① 平台级锁死（P0 级，先在现网复现）**：`POST /oauth/login` 对 admin 直接 **429 "Too many request"**——平台管理员被锁死。根因链：部署侧 `Omitempty()`（unmarshal+marshal 的零值结构体往返）把 deploy-config authentication 段未写的键变成**显式零值**写进 kc-server 配置（实测 `authenticateRateLimiterMaxTries: 0`、`authenticateRateLimiterDuration: 0s`）；运行时限流器 `count >= MaxTries(0)` 恒真，且计数键以 `TTL=0` 写入 etcd token store（TTL 0 = 永不过期），R22 一次口令错误留下的 `auth-rate-limit-admin` **永久**拦截后续一切登录（含正确口令），文案 "try again in 0 minutes"。修复（rc.17，`954a1865`）：①`AuthenticationOptions.RestoreZeroDefaults()` 在 deploy Complete 恢复运维旋钮默认值（凭据字段不动，空口令仍 Validate 报错）；②登录处理器 `MaxTries<=0` 视为禁用、`Duration<=0` 回退 10m 并用于 429 文案。真机：现场改 5/2m 重启即恢复登录（成功登录清除 immortal 计数键）；再以 0/0s 坏配置复验加固——错误 2 次后正确口令仍 200（修复前必 429）。终态配置 5/10m（写进文档）。
+
+**② 登录记录从未落库（P1）**：`GET /users/{name}/loginrecords` 恒 0 条。根因：`CreateLoginRecord` 用裸 context 调存储，每次写入被拒 `no namespace information found in request context`（重试 5 次后丢弃）——同文件其它 Create 均有 `WithNamespace`。修复（rc.17）：Create/Get/Delete/List 全部显式注入（iam_status 清理器同受益）。真机：rc.17 起登录即出记录（type/provider/sourceIP/userAgent/success/reason，admin 历史登录同见）。
+
+**③ 角色 API 两处 500（P2）**：重复建角色返回 **500**（CreateUsers 同场景为 400）；`PUT /roles/{name}` 不带 resourceVersion 返回 **500**。修复（rc.17）：AlreadyExists→400；更新时以刚读取对象的 RV 兜底。真机复验：重复 400、无 RV 更新 200。角色为**聚合式**设计（CLI `--rules=role-template-*` 即聚合注解），inline rules 被清空属设计语义（非缺陷）。
+
+**④ 未知角色引用产生悬挂绑定（P2）**：带不存在的角色注解建用户被接受，留下 roleRef 指向不存在角色的 GlobalRoleBinding，且 `GET /users/{name}/roles` 404。修复（rc.17）：create/update 前校验角色存在（400 且零对象）。真机：`role r24-nope not found` 400、用户未创建；真实 internal 角色正向仍 200。**注**：测试用假角色名 `read-only` 留下的悬挂绑定（subjects 里同一用户出现两次——更新路径对未解析角色会重复追加 subject，属记录项）已从 etcd 定点清除。
+
+**⑤ MFA/验证码路径整条不可用（P0 级，三个独立缺陷链）**：
+- **provider 未注册**：`pkg/authentication/mfa/sms` 无任何包导入，init 注册的工厂从未执行；一旦 deploy-config 启用 `mfaOptions`，kc-server 启动即 `mfa provider fake_sms is not supported` → **三节点 crash-loop、平台 API 全宕**（真机复现，现场移除配置恢复）。修复（rc.18，`64775c6a`）：server.go 空白导入 + 回归测试（SetupWithOptions/GetProvider）。
+- **验证码校验 panic**：`verificationCodeGrant` 用 `var values url.Values` 零值再 `Set`（nil map 赋值必 panic）→ 任何验证码登录 500。修复（rc.18）。
+- **fake provider 键冲突**：限流标记与验证码共用同一 cache key，而 etcd cache 的 Set 是"已存在即 AlreadyExists"的 create → 第二次写必败：验证码永不落库/不打印，500 后标记又把该手机号永久限流。修复（rc.19，`468fb5bd`）：标记独立键 `…-rate-limit`，写码前移除上个窗口的残留码。
+- **透明 token 永不清理**：tokencontroller 写完 `Status.ExpiresAt` 即 return，若 lister 返回无状态的过期缓存副本则**不再入队**，过期对象（MFA 码键等）长生 → 键存在使重发永久被限流。修复（rc.19）：由对象自身计算 deadline、写完状态落穿到过期判断、始终 RequeueAfter。单测：stale lister 下过期必删/未过期必入队。
+- 真机全流程（rc.19，fake_sms ttl 60s）：口令正确 → **428**（provider 列表+掩码手机号）→ 发码（journal 取码）→ 校验 → token；**错码 401、复用 401、过期 401（65s）、间隔内重发被拒（窗口后 200）**；**tokens 列表 fake_sms 键 0 残留**（清理器实证）。
+
+**⑥ 审计事件明文记录凭据（P1 级安全）**：审计请求体原样保留——建用户含 `spec.password` 明文、改密含 `currentPassword/newPassword` 明文、MFA 请求含会话 token 值，且审计事件持久化后可经审计 API 读取（4-08d"token 不得出现在审计正文"直接违反）。修复（rc.20，`f4908e4b`）：redactAuditFields 白名单扩到 password/currentPassword/newPassword/initialPassword/passwd/pkPasswd/jwtSecret/clientSecret/token → `[REDACTED]`。真机：rc.20 建用户审计体 `"password":"[REDACTED]"`、journal 0 明文。**注**：本修复前测试产生的审计事件含测试口令（非生产凭据，保留以维持审计完整性，按 168h 保留期自然过期）。
+
+**其余真机矩阵（rc.17）**：用户 CRUD 全字段（创建/重复 400/读取不回显/fieldSelector/HEAD/更新+名不匹配 400/改密旧 401 新 200 错当前 400/disable 后登录 403→enable 200/删除幂等/404/admin 保护 400/无密码 400）；限流 5 阈值/隔离/2m 窗口恢复/成功清零（见 4-18）；token 生命周期（登录签发 2h exp、列表+describe、logout 撤销后 401）；internal 角色删改 400。**记录项（未改行为）**：弱口令建用户被接受（口令策略仅约束 admin 初始口令）；`POST /oauth/logout` 需 JSON Content-Type/Accept（否则 406，go-restful 协商行为）；重发限流响应码 500（文档写 429）；第 5 次失败 401+reason 而非 429；tokens API 无创建/删除路由（CreateTokens handler 未注册）。
+
+**发布链**：rc.17（`954a1865`）→ rc.18（`64775c6a`）→ rc.19（`468fb5bd`）→ rc.20（`f4908e4b`），均经 wrapper→dev-2→5003（只增 tag）；平台四次 `upgrade all` 全成功（API 报 rc.20 revision f4908e4b）。平台配置变更（记录在案）：限流 0/0s→5/10m（修复动作）；MFA 启用→关闭（测试后还原）；临时用户/角色/绑定/脚本全清；平台 etcd 数据目录未动（仅删除两个测试遗留的 token 键与一个悬挂绑定）。单测新增/更新：models/iam（namespace 注入）、oauth（限流禁用/阈值/回退）、iam handler（重复 400/RV/未知角色）、options（零值回填）、mfa/sms（create-only cache 语义）、tokencontroller（stale lister 修剪）、auditing（凭据脱敏）、server（provider 注册）。
+
+文档同步：checklist 4-08/4-08c/4-08d/4-18（❌/⚠️→✅）、4-16 追加审计脱敏修复、gaps P0 行 13/14（新发现行）+ P1 行 7 更新、本节 §12.20。

@@ -226,16 +226,16 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-05 | addons：uninstall 容错（空 config / ErrIgnore 链） | ✅ | R3 三修复合验 |
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
 | 4-07 | **console UI 端到端（含任务失败展示）** | ❌ | fork console 分支未配镜验证 |
-| 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ❌ | 基础身份管理属于核心平台能力 |
+| 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ✅ | R24（2026-09-26，rc.17-rc.20，R7 报告 §12.20）全矩阵真机：创建/重复名 400/读取（不回显口令）/fieldSelector 列表/HEAD/更新（含 URL 名不匹配 400）/改密（旧口令 401、新口令 200、错当前口令 400）/disable→登录 403→enable→200/删除（幂等 200、404 复核、admin 受保护 400、未带密码 400、弱口令被接受=记录项）/角色聚合建（`--rules=role-template-*` 语义）与重复 400/更新（无 resourceVersion 亦可）/internal 角色删改 400 保护/用户角色查询。**登录记录修复前恒 0 条（namespace 缺失写入全败），rc.17 起真实落库**（type/provider/sourceIP/userAgent/success/reason 全字段） |
 | 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ✅ | R7 判 ❌ 后于 batch-3 复验改判：403 归因于测试用错注解键（应为 `iam.kubeclipper.io/role`）；正确键下创建 binding 后授权内 `GET /clusters`、`/nodes` 200，越权创建 Registry 403 |
-| 4-08c | 密码登录与验证码登录 | ⚠️ | R6：正确密码登录路径已成功；验证码过期/重复使用、失败限流及第三方 OAuth 未测 |
-| 4-08d | 长期 token 创建、查询、撤销与过期 | ❌ | token 不得出现在普通日志和审计正文 |
+| 4-08c | 密码登录与验证码登录 | ✅ | R24（rc.19，§12.20）验证码全流程真机（fake_sms provider）：口令正确→**428 返回 provider 列表**→发送验证码（journal 落码）→校验→签发 token；错码 401、**一次性**（复用 401）、**过期拒绝**（ttl 60s，65s 后 401）、**重发限流**（间隔内被拒、窗口后成功）。修复链：provider 包未导入导致配置即 crash-loop、验证码路径 url.Values nil map panic、限流标记与验证码共用 key 撞 AlreadyExists、透明 token 不清理——均已修复并复验。第三方 OAuth 登录属第 7 章扩展项（7-01），不在本行 |
+| 4-08d | 长期 token 创建、查询、撤销与过期 | ✅ | R24（rc.17/rc.20，§12.20）：token 由登录签发（JWT，`accessTokenMaxAge=2h`，exp 声明实测；无独立创建路由，CreateTokens handler 未注册=记录项），`GET /tokens` 列表 + describe 可用，logout 撤销后旧 token 401（Content-Type/Accept 需 JSON，否则 406=记录项），TTL 透明对象由 tokencontroller 清理——修复前过期对象永不删除（MFA 码键长生），rc.19 起实测过期键被修剪。**审计泄漏已修复**：用户创建（spec.password）与改密（currentPassword/newPassword）及 token 值原先明文进审计事件，rc.20 起 `[REDACTED]`（真机 grep 0 明文） |
 | 4-12 | kubeconfig 下载 | ⚠️ | 文件可用、权限正确；集群未就绪或凭据过期时明确失败 |
 | 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6 四端点 200；R7 复测一致 |
 | 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6 通过；R7 复测（本轮全部操作均有审计记录） |
-| 4-16 | 敏感信息脱敏 | ✅ | 旧缺口已闭环：写入侧权限收紧自 batch-1（`a989b14f`，R9 B3：0600+原子替换+拒绝符号链接）；**R23 复核（rc.16）**：三节点 `/root/.kc/config` 与 `/root/.kc/deploy-config.yaml` 实测均 **0600**（R6 的 0644 为旧版遗留）；日志泄漏证据：R12/R16 htpasswd 口令在 server json / GET API / kc-server/kc-agent journal / /etc /root /var/lib/kubeclipper 全量 grep 0 泄漏，`/metrics` 无 password/token/secret/private-key 字段名 |
+| 4-16 | 敏感信息脱敏 | ✅ | 旧缺口已闭环：写入侧权限收紧自 batch-1（`a989b14f`，R9 B3：0600+原子替换+拒绝符号链接）；**R23 复核（rc.16）**：三节点 `/root/.kc/config` 与 `/root/.kc/deploy-config.yaml` 实测均 **0600**（R6 的 0644 为旧版遗留）；日志泄漏证据：R12/R16 htpasswd 口令在 server json / GET API / kc-server/kc-agent journal / /etc /root /var/lib/kubeclipper 全量 grep 0 泄漏，`/metrics` 无 password/token/secret/private-key 字段名 |。**R24 追加（rc.20，§12.20）**：审计事件原先明文保留用户创建 `spec.password`、改密 `currentPassword/newPassword` 与 token 值（真机审计流与持久化事件均可见），已加入 redactAuditFields 白名单 → `[REDACTED]`，真机复验 journal grep 0 明文
 | 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：均 200、108 行无敏感字段名；R7 复测一致 |
-| 4-18 | 登录失败限流与恢复 | ❌ | 连续错误密码触发限流；窗口结束或成功登录后行为符合设计 |
+| 4-18 | 登录失败限流与恢复 | ✅ | R24（2026-09-26，rc.17，§12.20）真机全矩阵：5 次错口令 → 计数达阈值（第 5 次 401 且 reason "auth rate limit exceeded"，其后 429 文案含窗口时长）、**正确口令在窗口内同样 429**、**按用户隔离**（他人不受影响）、窗口过期（2m 实测）后正确登录 200、**成功登录清零计数**（3 错→成功→再错从 0 计）。**重大修复**：部署侧 authentication 段零值回填 + 运行时限流器 MaxTries<=0 视为禁用 + Duration<=0 回退 10m——修复前 `authenticateRateLimiterMaxTries=0` 使首次错误即**永久锁死**（实测平台 admin 被 429 锁死，共享 etcd 里 immortal 计数键），窗口文案 "0 minutes" |
 | 4-19 | Addon OCI chart/runtime-image-set 来源与 digest | ✅ | R2/R3；NFS CSI、MetalLB 主路径来源检查可复用 |
 | 4-20 | Addon 安装失败后的 retry/卸载清理 | ❌ | 状态准确；已创建资源可重试或安全清理 |
 
