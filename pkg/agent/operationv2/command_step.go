@@ -42,6 +42,18 @@ func (e CommandStepExecutor) Reconcile(ctx context.Context, task *operations.Ope
 	if payload.LastTaskReply != "" {
 		ctx = component.WithExtraData(ctx, []byte(payload.LastTaskReply))
 	}
+	// The task context only carries the operation deadline, but a step also
+	// declares its own Timeout. Components that wait in a retry loop
+	// (utils.RetryFunc) only observe their context, so without this bound a
+	// step whose declared timeout is three minutes kept running until the
+	// operation deadline — the nfs-csi checkCSIHealth step ran for well over
+	// six minutes, blocked a cancel (cooperative cancellation waits for the
+	// in-flight step) and only exited at the operation deadline (R25).
+	if payload.Step.Timeout.Duration > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, payload.Step.Timeout.Duration)
+		defer cancel()
+	}
 
 	commands := make([]corev1.Command, 0, len(payload.Step.BeforeRunCommands)+len(payload.Step.Commands)+len(payload.Step.AfterRunCommands))
 	commands = append(commands, payload.Step.BeforeRunCommands...)
