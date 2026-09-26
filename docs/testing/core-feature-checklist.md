@@ -191,30 +191,30 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-01 | `kcctl deploy` | ⚠️ | 在线、同步仓库、纯离线分别记录；目前纯离线未通过，不能整体标 ✅ |
 | 3-02 | `kcctl clean --all` | ✅ | R3；清理后可重部署。当前不支持单节点/按角色 clean |
 | 3-03 | `kcctl doctor` | ✅ | R3/R4；R4 为 25 项，异常项、节点和退出码准确 |
-| 3-04 | `kcctl join` | ⚠️ | R6：dev4 独立 join 成功并 Ready；重复 join、错误凭据、Package Registry 认证/CA 失败路径未测 |
+| 3-04 | `kcctl join` | ✅ | R6 独立 join 主路径；R13-C4 错误凭据与失败清理（认证 registry 下 0600 凭据下发、错误口令 EXIT=1 零残留）；R21 已部署节点 join 防重入 + 已删集群 drain 占用保护（2.1-27）；2.2-07 drain→join 重建闭环（3/3 恢复 + doctor 25/25） |
 | 3-05 | `kcctl create cluster` | ✅ | R4：CLI 实建 `ha-core-20260917`（3M/0W）和 `min-core-20260917`（1M/1W），参数与 packagePlan 落库；3M/0W 需显式 untaint 才能调度 CoreDNS |
 | 3-06 | `kcctl create/delete user`、`role` | ✅ | R6：CRUD/重名拒绝通过；R7 复测 CRUD 通过；R7 batch-3（v2.0.3-rc.2）重名 user 改为 400 Bad request `already exists`（原 500），自定义 role 授权见 4-08b 改判 |
 | 3-07 | `kcctl create/delete registry` | ✅ | 管理平台中的集群镜像 Registry 资源；基础 CRUD 已验证 |
 | 3-08 | `kcctl delete cluster` | ✅ | R4：CLI 删除 `ha-core-20260917`、`min-core-20260917` 均返回成功并最终 NotFound；删除后平台 doctor 仍为 Healthy |
-| 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | R6：六类资源的 singular list、JSON 形状、Node label selector 和 field selector 已扫过；User label selector 未按预期过滤，且 JSON 输出在单对象/列表间不一致，需修复并补 name/selector 矩阵 |
+| 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ✅ | R6 六类资源 singular list/JSON 形状/Node 双 selector；**R24 补验 User selector**：labelSelector `r24=a` 精确命中、fieldSelector `spec.email=` 命中、无匹配空集（旧行"User label selector 未按预期"结论已作废） |
 | 3-10 | `kcctl get --watch` | ✅ | R7 batch-3（`12d59d9b`）修复：持续输出 watch 事件；服务端流在 watch 超时后关闭时 2 秒退避重连并继续，Ctrl-C 正常退出。服务端流快速关闭的根因（watch 超时漏乘 time.Second）已在 R7 N9 修复（`b23a9ab2`，rc.3 验证流持续、实时事件送达） |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
 | 3-12 | `kcctl operation cancel` | ✅ | R5/R6 旧缺口（需重启 Server、孤立 Running）已由 R8 饿死根因修复（`1413e849`）+ R9/R10 真机矩阵闭环：Running 中取消协作式收敛、最早取消 <23s、终态后重复取消 CLI 干净拒绝、并发双取消 API Conflict、无需重启。R23 复验：卡 drain 的升级 op 取消收敛（Running→Canceled）。证据见 gaps P0 行 7（R7 报告 §12.6） |
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
 | 3-14 | `kcctl set cluster` | ✅ | R3/R4：external IP/port 设置与 clear 均成功，get 输出中的 labels 随之出现/清除 |
-| 3-15 | `kcctl drain` | ⚠️ | R6：空闲 Agent drain rc=0 并删除 Node；当前命令只支持 KubeClipper Agent，不是 Kubernetes Pod eviction，used/force/重复执行未测 |
+| 3-15 | `kcctl drain` | ✅ | R6 空闲 Agent drain；**R24 补验 used 保护**：drain 集群在用节点 → `drain agent node failed: ... is used by the cluster r24-1m`（零副作用）；不存在节点 → `node with ip ... not found, please use node id instead`。边界：force 与重复执行未单独跑（-F 语义=强制删在用节点，R18 master remove 已覆盖同族路径）；文案拼写 "draind" 为记录项 |
 | 3-16 | `kcctl upgrade all --manifest/--version` | ✅ | B1 按 OCI 契约重写并移除旧 `--pkg/--online`：`--manifest` 三机实测通过（幂等复跑全 skip、降级明确拒绝、错 digest 拒绝，R7 报告 §11；R19-R23 各轮平台升级持续复跑）；`--version` 在线正向下载 R20（§12.16）以本地 GitHub 镜像法闭环（自签 CA 进系统信任 + /etc/hosts + 443 HTTPS，URL 与真实 release 同构；全链路 rc=0、`.sha256` 篡改报 checksum mismatch 拒绝、临时证书即用即删） |
 | 3-17 | `kcctl upgrade server/agent/console/kcctl` | ✅ | `server`/`agent` 独立升级实测通过（节点级幂等：已达标 revision 跳过，不重启）；`console`/`kcctl` step 2 已于 R19（§12.15）实施并真机验证（console：停服→备份→替换→起服→HTTP 探活；kcctl：替换后 `kcctl version` 校验；同版本重装幂等、降级拒绝），R22/R23 各轮 `upgrade all` 四组件链路持续复跑 |
 | 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 |
-| 3-19 | `kcctl registry list/deploy/clean/push/delete` | ⚠️ | R6：list/image/非法 push 已测；R7 补充 `--registry-port 5003` 下 repository/image 列表正常 |
+| 3-19 | `kcctl registry list/deploy/clean/push/delete` | ✅ | R6/R7 list/image/非法 push/`--registry-port`；**R24 补验**：repository 列表（`--node` + `--registry-port 5003`，只读）、delete 不存在 tag → fetch-first 干净报错（`MANIFEST_UNKNOWN`，零变更）。边界：对共享 5003 的真实 clean/delete 受"只增 tag"约束未做（策略性排除） |
 | 3-20 | `kcctl resource list` | ✅ | R3/R4：14 个 OCI package；R7 复测（新候选包同步后仍 14 个，digest 为新构建） |
 | 3-21 | `kcctl resource inspect` | ✅ | R3/R4：指定 package 可展示 repository、tag、digest、platform 和内容画像 |
 | 3-22 | `kcctl resource refresh` | ✅ | R3/R4：强制扫描指定 Registry，输出 `refreshed 14 OCI packages`；不将其解释为持久缓存更新 |
 | 3-23 | `kcctl delivery-policy template/get/apply/diff` | ✅ | R4：模板生成、custom `allowedVersions` apply/get、diff 和恢复均通过；策略文件的非法 selection 被拒绝 |
-| 3-24 | `kcctl delivery-policy validate` | ⚠️ | R4：合法模板通过，`selection: many` 被拒绝；未知 slot 名称当前按可扩展字段接受，白名单制品存在性/冲突尚未覆盖 |
+| 3-24 | `kcctl delivery-policy validate` | ✅ | R4 合法模板/`selection: many` 拒绝；**R24 补验**：`delivery-policy template -o yaml` → `validate` "delivery support policy is valid"；白名单制品存在性/冲突由 R16（2.6-10）经投递 dryRun 实证（`ArtifactNotPublished`/`DuplicateResolvedComponent` 400） |
 | 3-25 | `kcctl login` | ✅ | R3/R4/R7：错误密码 unauthorized 一致；正确登录 R22（§12.18，deploy `--initial-password` 后登录 200、config 段密码 401 的 flag 优先级矩阵）与 R23 复验闭环 |
 | 3-26 | `kcctl status` | ✅ | R4：准确报告三台 `kc-server`、三台 `kc-etcd`、三台 `kc-agent`，平台 Healthy |
-| 3-27 | `kcctl deploy config` | ⚠️ | R6：生成/非法 YAML 拒绝；R7 复测生成成功 |
+| 3-27 | `kcctl deploy config` | ✅ | R6/R7 生成/非法 YAML 拒绝；**R24 补验**：生成模板 OK、非法 YAML 秒级干净报错、顶层 initialPassword 拒绝（R23 文案）、authentication 段零值回填（R24 单测 + 平台配置实证，见 4-18） |
 | 3-28 | `kcctl version` | ✅ | client/server 版本和 Git revision 准确 |
 
 ## 4. 其他核心平台功能
@@ -230,14 +230,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ✅ | R7 判 ❌ 后于 batch-3 复验改判：403 归因于测试用错注解键（应为 `iam.kubeclipper.io/role`）；正确键下创建 binding 后授权内 `GET /clusters`、`/nodes` 200，越权创建 Registry 403 |
 | 4-08c | 密码登录与验证码登录 | ✅ | R24（rc.19，§12.20）验证码全流程真机（fake_sms provider）：口令正确→**428 返回 provider 列表**→发送验证码（journal 落码）→校验→签发 token；错码 401、**一次性**（复用 401）、**过期拒绝**（ttl 60s，65s 后 401）、**重发限流**（间隔内被拒、窗口后成功）。修复链：provider 包未导入导致配置即 crash-loop、验证码路径 url.Values nil map panic、限流标记与验证码共用 key 撞 AlreadyExists、透明 token 不清理——均已修复并复验。第三方 OAuth 登录属第 7 章扩展项（7-01），不在本行 |
 | 4-08d | 长期 token 创建、查询、撤销与过期 | ✅ | R24（rc.17/rc.20，§12.20）：token 由登录签发（JWT，`accessTokenMaxAge=2h`，exp 声明实测；无独立创建路由，CreateTokens handler 未注册=记录项），`GET /tokens` 列表 + describe 可用，logout 撤销后旧 token 401（Content-Type/Accept 需 JSON，否则 406=记录项），TTL 透明对象由 tokencontroller 清理——修复前过期对象永不删除（MFA 码键长生），rc.19 起实测过期键被修剪。**审计泄漏已修复**：用户创建（spec.password）与改密（currentPassword/newPassword）及 token 值原先明文进审计事件，rc.20 起 `[REDACTED]`（真机 grep 0 明文） |
-| 4-12 | kubeconfig 下载 | ⚠️ | 文件可用、权限正确；集群未就绪或凭据过期时明确失败 |
+| 4-12 | kubeconfig 下载 | ✅ | R6 文件可用/权限；**R24 补验负向**：建群中 → 500 `no master node available: all master nodes 6443 port unreachable`；不存在集群 → 500 `clusters... not found`；就绪集群 → 200 返回 kubeconfig。记录项：未就绪/不存在宜 404/503（现为 500） |
 | 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6 四端点 200；R7 复测一致 |
 | 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6 通过；R7 复测（本轮全部操作均有审计记录） |
 | 4-16 | 敏感信息脱敏 | ✅ | 旧缺口已闭环：写入侧权限收紧自 batch-1（`a989b14f`，R9 B3：0600+原子替换+拒绝符号链接）；**R23 复核（rc.16）**：三节点 `/root/.kc/config` 与 `/root/.kc/deploy-config.yaml` 实测均 **0600**（R6 的 0644 为旧版遗留）；日志泄漏证据：R12/R16 htpasswd 口令在 server json / GET API / kc-server/kc-agent journal / /etc /root /var/lib/kubeclipper 全量 grep 0 泄漏，`/metrics` 无 password/token/secret/private-key 字段名 |。**R24 追加（rc.20，§12.20）**：审计事件原先明文保留用户创建 `spec.password`、改密 `currentPassword/newPassword` 与 token 值（真机审计流与持久化事件均可见），已加入 redactAuditFields 白名单 → `[REDACTED]`，真机复验 journal grep 0 明文
 | 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：均 200、108 行无敏感字段名；R7 复测一致 |
 | 4-18 | 登录失败限流与恢复 | ✅ | R24（2026-09-26，rc.17，§12.20）真机全矩阵：5 次错口令 → 计数达阈值（第 5 次 401 且 reason "auth rate limit exceeded"，其后 429 文案含窗口时长）、**正确口令在窗口内同样 429**、**按用户隔离**（他人不受影响）、窗口过期（2m 实测）后正确登录 200、**成功登录清零计数**（3 错→成功→再错从 0 计）。**重大修复**：部署侧 authentication 段零值回填 + 运行时限流器 MaxTries<=0 视为禁用 + Duration<=0 回退 10m——修复前 `authenticateRateLimiterMaxTries=0` 使首次错误即**永久锁死**（实测平台 admin 被 429 锁死，共享 etcd 里 immortal 计数键），窗口文案 "0 minutes" |
 | 4-19 | Addon OCI chart/runtime-image-set 来源与 digest | ✅ | R2/R3；NFS CSI、MetalLB 主路径来源检查可复用 |
-| 4-20 | Addon 安装失败后的 retry/卸载清理 | ❌ | 状态准确；已创建资源可重试或安全清理 |
+| 4-20 | Addon 安装失败后的 retry/卸载清理 | ✅ | R24（§12.21，r24-1m）真机：①非法 config（scName `Bad_Name!`）→ 500 `invalid name of storage class` 零副作用（状态准确；宜 400=记录项）；②正向安装 nfs-csi → SC `r24-sc` + csi-nfs controller/node pods Running；③安装 op 末步 checkCSIHealth 长时间 Running（见 gaps 行 15 记录项），cancel 协作收敛 Canceled；④排队卸载 op 获锁后 Succeeded，集群侧 **SC 消失、nfs pods 0 残留** |
 
 ## 5. Operation V2 核心可靠性
 
@@ -296,8 +296,8 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 7-01 | 第三方 OAuth/OIDC 登录 | ❌ | 回调、用户映射、token 过期和登出 |
 | 7-02 | `kcctl completion` | ✅ | R6：bash、zsh 生成 rc=0，分别通过 `bash -n`/`zsh -n`；当前 help 明确只支持 bash/zsh，fish 返回 Unsupported shell，不再作为产品能力要求 |
 | 7-03 | 多节点并发任务基础容量 | ❌ | 先定义目标规模和资源上限，再执行性能验证 |
-| 2.1-13 | Kubernetes feature-gates 透传 | ⚠️ | R1 验过 20 项；R3 未复跑 |
+| 2.1-13 | Kubernetes feature-gates 透传 | ✅ | R1 验过 20 项。**R24（rc.21，§12.21）发现并修复产品缺陷**：kubeadm v1.37 拒绝 ClusterConfiguration 的 featureGates map（实测其自身 kubelet 认识的 alpha/beta gate 亦被判 "not a valid feature name"），任何 `--feature-gates` 建群都在 kubeadm init 失败回滚。修复：渲染为 apiServer/controllerManager/scheduler `extraArgs` + KubeletConfiguration.featureGates。真机复验：r24-1m（v1.37.0，`APIServingWithRoutine=true`）**Running**，三组件 static pod `--feature-gates=` 与 kubelet config 均实测命中 |
 | 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ❌ | 自带网络场景；安装第三方 CNI 后恢复 Ready |
-| 2.1-17 | kubeadm preflight ignore 定制 | ⚠️ | R2 隐含使用，无显式用例 |
+| 2.1-17 | kubeadm preflight ignore 定制 | ✅ | R24（rc.21，§12.21）：`--kubeadm-init-ignore-preflight-errors=Swap` → Cluster 注解 `kubeclipper.io/ignore-preflight-errors: Swap` 落库（2.1-27 同场建群实证） |
 | 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ❌ | API/CNI 路径要求同时提供 IPv4、IPv6 Pod CIDR；现有 sh-dev 主机无可控 IPv6 环境，未安排真机 E2E |
 | 4-04 | Addon 同组件多实例 | ❌ | 以 StorageClassName/实例名区分，状态和卸载互不影响 |
