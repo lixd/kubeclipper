@@ -275,7 +275,7 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 					ShellCommand: []string{"/bin/bash", "-c", fmt.Sprintf(`
 kubeadm upgrade apply %s -f --ignore-preflight-errors all --config /tmp/.k8s/kubeadm.yaml
 sleep 10
-kubectl drain %s --ignore-daemonsets || true
+kubectl drain %s --ignore-daemonsets --timeout=120s || true
 systemctl stop kubelet
 systemctl daemon-reload && systemctl restart kubelet
 kubectl uncordon %s || true`,
@@ -300,7 +300,7 @@ kubectl uncordon %s || true`,
 					ShellCommand: []string{"/bin/bash", "-c", fmt.Sprintf(`
 kubeadm upgrade node
 sleep 10
-kubectl drain %s --ignore-daemonsets || true
+kubectl drain %s --ignore-daemonsets --timeout=120s || true
 systemctl stop kubelet
 systemctl daemon-reload && systemctl restart kubelet
 kubectl uncordon %s || true`,
