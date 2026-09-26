@@ -264,6 +264,14 @@ func redactAuditFields(value any, resource string) {
 			switch key {
 			case "kubeConfig", "privateKey":
 				object[key] = redactedAuditValue
+			// Credential material used to reach audit events verbatim: creating
+			// a user kept the plaintext password under spec.password and a
+			// password change kept currentPassword/newPassword, both in the
+			// request object and in the persisted audit event (R24). Token
+			// values are bearer credentials — the event only needs the ref.
+			case "password", "currentPassword", "newPassword", "initialPassword",
+				"passwd", "pkPasswd", "jwtSecret", "clientSecret", "token":
+				object[key] = redactedAuditValue
 			case "outputs":
 				if resource == "operationtasks" {
 					object[key] = redactedAuditValue

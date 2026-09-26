@@ -235,6 +235,24 @@ func TestRedactAuditObject(t *testing.T) {
 			body:     `{"terminal":{"privateKey":"private-key"}}`,
 			secrets:  []string{"private-key"},
 		},
+		{
+			name:     "user create password",
+			resource: "users",
+			body:     `{"metadata":{"name":"u1"},"spec":{"email":"u1@example.com","password":"SuperSecret1"}}`,
+			secrets:  []string{"SuperSecret1"},
+		},
+		{
+			name:     "password change",
+			resource: "users",
+			body:     `{"currentPassword":"OldSecret1","newPassword":"NewSecret1"}`,
+			secrets:  []string{"OldSecret1", "NewSecret1"},
+		},
+		{
+			name:     "mfa session token and deploy secrets",
+			resource: "",
+			body:     `{"type":"fake_sms","token":"4d0b8b6e-1111-2222-3333-444455556666","jwtSecret":"signing-key","pkPasswd":"ssh-secret"}`,
+			secrets:  []string{"4d0b8b6e-1111-2222-3333-444455556666", "signing-key", "ssh-secret"},
+		},
 	}
 
 	for _, tt := range tests {
