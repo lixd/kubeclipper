@@ -23,11 +23,12 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/kubeclipper/kubeclipper/pkg/authentication/mfa"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/cache"
 )
 
 var (
-	ErrSMSRateLimitExceeded = fmt.Errorf("verification code was sent too frequently. Please try again later")
+	ErrSMSRateLimitExceeded = fmt.Errorf("%w. Please try again later", mfa.ErrRateLimited)
 	ErrSMSSendLimitExceeded = fmt.Errorf("SMS sending limit reached")
 )
 

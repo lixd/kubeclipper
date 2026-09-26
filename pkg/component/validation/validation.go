@@ -20,14 +20,20 @@ package validation
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 )
 
 var (
-	ErrInvalidSCName        = errors.New("invalid name of storage class")
-	ErrInvalidNamespace     = errors.New("invalid namespace")
-	ErrInvalidReclaimPolicy = errors.New("invalid reclaim policy")
-	ErrInvalidLBMode        = errors.New("invalid load balancer mode")
+	// ErrInvalidComponentConfig marks configuration the caller can fix (a
+	// storage class name, a namespace, a mode). The API maps it to 400: a
+	// typo in an addon config used to surface as a 500 server error (R25).
+	ErrInvalidComponentConfig = errors.New("invalid component config")
+
+	ErrInvalidSCName        = fmt.Errorf("%w: invalid name of storage class", ErrInvalidComponentConfig)
+	ErrInvalidNamespace     = fmt.Errorf("%w: invalid namespace", ErrInvalidComponentConfig)
+	ErrInvalidReclaimPolicy = fmt.Errorf("%w: invalid reclaim policy", ErrInvalidComponentConfig)
+	ErrInvalidLBMode        = fmt.Errorf("%w: invalid load balancer mode", ErrInvalidComponentConfig)
 )
 
 const (

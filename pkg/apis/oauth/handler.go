@@ -131,6 +131,10 @@ func (h *handler) SendVerificationCode(req *restful.Request, response *restful.R
 		return
 	}
 	if err := h.mfaAuthenticator.ProviderRequest(sendSmsRequest); err != nil {
+		if errors.Is(err, mfa.ErrRateLimited) {
+			restplus.HandleTooManyRequests(response, req, err)
+			return
+		}
 		restplus.HandleInternalError(response, req, err)
 		return
 	}

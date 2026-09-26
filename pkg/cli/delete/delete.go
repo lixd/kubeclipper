@@ -171,6 +171,9 @@ func (l *DeleteOptions) RunDelete() error {
 
 func (l *DeleteOptions) precheck() bool {
 	if l.force {
+		if options.AssumeYes {
+			return true
+		}
 		_, _ = l.IOStreams.Out.Write([]byte("Force delete cluster which is in used maybe cause data inconsistency." +
 			" Are you sure this cluster are not in used or your really want to force delete?  Please input (yes/no)"))
 		return utils.AskForConfirmation()

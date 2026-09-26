@@ -217,7 +217,7 @@ func (c *DrainOptions) preCheck() bool {
 	for _, agent := range c.agents {
 		if !c.deployConfig.Agents.ExistsByID(agent) {
 			_, _ = c.IOStreams.Out.Write([]byte(fmt.Sprintf("agent %s not in deploy config agent list, maybe input a wrong agent id or deploy config is not synced，still drain?  Please input (yes/no)", agent)))
-			if !utils.AskForConfirmation() {
+			if !options.AssumeYes && !utils.AskForConfirmation() {
 				return false
 			}
 		}
@@ -226,7 +226,7 @@ func (c *DrainOptions) preCheck() bool {
 	if c.force {
 		_, _ = c.IOStreams.Out.Write([]byte("force delete node which is in used maybe cause data inconsistency." +
 			"are you sure this node are not in used or your really want to force delete used node?  Please input (yes/no)"))
-		return utils.AskForConfirmation()
+		return options.AssumeYes || utils.AskForConfirmation()
 	}
 
 	return true
@@ -271,14 +271,14 @@ func (c *DrainOptions) checkAgentNode(id string) (*v1.Node, error) {
 		return nil, err
 	}
 	if len(nodeList.Items) == 0 {
-		return nil, fmt.Errorf("the node could not be draind. reason: %s does not exist", id)
+		return nil, fmt.Errorf("the node could not be drained. reason: %s does not exist", id)
 	}
 	node := nodeList.Items[0]
 	clusterName, ok := node.Labels[common.LabelClusterName]
 	if !ok || c.force {
 		return &node, nil
 	}
-	return nil, fmt.Errorf("the node could not be draind. reason: %s is used by the cluster %s", id, clusterName)
+	return nil, fmt.Errorf("the node could not be drained. reason: %s is used by the cluster %s", id, clusterName)
 }
 
 func (c *DrainOptions) removeAgentData(node *v1.Node) error {

@@ -19,6 +19,7 @@
 package mfa
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 
@@ -87,6 +88,11 @@ func SetupWithOptions(p cache.Interface, opts *Options) error {
 	}
 	return nil
 }
+
+// ErrRateLimited marks a provider-side send limit (the code was requested
+// again inside the resend interval). The login handler maps it to 429; it used
+// to surface as a 500 although the route documents 429 (R25).
+var ErrRateLimited = errors.New("verification code was sent too frequently")
 
 type UserMFAProvider struct {
 	Type  string `json:"type,omitempty"`

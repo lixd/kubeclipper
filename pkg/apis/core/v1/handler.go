@@ -60,6 +60,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/clustermanage"
 	"github.com/kubeclipper/kubeclipper/pkg/clusteroperation"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentvalidation "github.com/kubeclipper/kubeclipper/pkg/component/validation"
 	"github.com/kubeclipper/kubeclipper/pkg/controller"
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/client"
 	"github.com/kubeclipper/kubeclipper/pkg/controller/cloudprovidercontroller"
@@ -710,6 +711,10 @@ func (h *handler) GetKubeConfig(request *restful.Request, response *restful.Resp
 	ctx := request.Request.Context()
 	clu, err := h.clusterOperator.GetCluster(ctx, name)
 	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
@@ -753,7 +758,11 @@ func (h *handler) GetKubeConfig(request *restful.Request, response *restful.Resp
 
 		_ = masters
 		_ = externalAddress
-		restplus.HandleInternalError(response, request, fmt.Errorf("cluster kubeconfig is not ready"))
+		// The cluster exists but its kubeconfig is not available yet (still
+		// installing, or the control plane is unreachable): that is a
+		// transient state, not an internal failure (R25).
+		restplus.HandlerErrorWithCustomCode(response, request, http.StatusServiceUnavailable, http.StatusServiceUnavailable,
+			http.StatusText(http.StatusServiceUnavailable), fmt.Errorf("cluster kubeconfig is not ready"))
 		return
 	}
 
@@ -1828,6 +1837,12 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 	}
 	op, err := h.parseOperationFromComponent(ctx, extraMeta, pcs.Addons, clu, action)
 	if err != nil {
+		// A component config the caller can fix (bad storage class name,
+		// namespace or mode) is a 400, not a server failure (R25).
+		if errors.Is(err, componentvalidation.ErrInvalidComponentConfig) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}

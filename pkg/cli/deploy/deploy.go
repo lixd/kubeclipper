@@ -1505,9 +1505,10 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 	if reg == nil || reg.Registry == "" {
 		return
 	}
+	scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
 	if existing, err := client.DescribeRegistries(context.TODO(), constatns.DefaultImageRegistryName); err == nil &&
 		len(existing.Items) > 0 && existing.Items[0].Name == constatns.DefaultImageRegistryName {
-		if existing.Items[0].Host == reg.Registry {
+		if existing.Items[0].Host == reg.Registry && existing.Items[0].Scheme == scheme {
 			return
 		}
 		if err := client.DeleteRegistry(context.TODO(), constatns.DefaultImageRegistryName); err != nil {
@@ -1523,10 +1524,10 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 			Name: constatns.DefaultImageRegistryName,
 		},
 		RegistrySpec: v1.RegistrySpec{
-			Scheme:     reg.Scheme,
+			Scheme:     scheme,
 			Host:       reg.Registry,
-			SkipVerify: reg.SkipTLSVerify,
-			CA:         reg.CA,
+			SkipVerify: skipVerify,
+			CA:         ca,
 		},
 	}
 	if reg.Username != "" {
@@ -1544,7 +1545,7 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 	if err != nil {
 		logger.Fatalf("create default image registry failed: %v", err)
 	}
-	logger.Infof("default image registry %q (%s %s) initialized", constatns.DefaultImageRegistryName, reg.Scheme, reg.Registry)
+	logger.Infof("default image registry %q (%s %s) initialized", constatns.DefaultImageRegistryName, scheme, reg.Registry)
 }
 
 func uploadDeliveryPolicy(client *kc.Client) {
@@ -1786,4 +1787,48 @@ func (d *DeployOptions) precheckPackageRegistry() error {
 func (d *DeployOptions) packageRegistryPrecheckError(cause error) error {
 	return fmt.Errorf("PACKAGE-REGISTRY PRECHECK FAILED: package registry %q (%s) is unreachable or missing the bootstrap catalog: %w; for offline or mirror deployments run 'kcctl registry sync' to mirror the release into a local registry and pass --package-registry <that registry>",
 		d.deployConfig.PackageRegistry, d.packageRegistrySource(), cause)
+}
+
+// resolveSeedRegistryScheme picks the scheme recorded in the default image
+// Registry resource. The configured scheme defaults to https, but the resource
+// feeds containerd's hosts.toml for cluster image pulls and a mismatch there
+// fails every pull with "server gave HTTP response to HTTPS client" (observed
+// live: the shared registry answers plain HTTP while the seeded resource said
+// https). The kcctl/agent package path tolerates the mismatch, the resource
+// does not, so probe the registry and fall back to the scheme that answers.
+func resolveSeedRegistryScheme(reg *deliveryregistry.Config) (scheme string, skipVerify bool, ca string) {
+	if reg == nil {
+		return "", false, ""
+	}
+	if registryReachable(reg.Scheme, reg.Registry, reg.SkipTLSVerify) {
+		return reg.Scheme, reg.SkipTLSVerify, reg.CA
+	}
+	if reg.Scheme != deliveryregistry.SchemeHTTP && registryReachable(deliveryregistry.SchemeHTTP, reg.Registry, false) {
+		logger.Warnf("registry %s answers plain HTTP while scheme %q is configured; seeding the default image registry resource with http so cluster image pulls keep working",
+			reg.Registry, reg.Scheme)
+		// plain HTTP cannot carry a CA or skip-verify setting
+		return deliveryregistry.SchemeHTTP, false, ""
+	}
+	return reg.Scheme, reg.SkipTLSVerify, reg.CA
+}
+
+// registryReachable reports whether the registry answers on this scheme: a
+// registry responds 200 (open) or 401 (auth required) on /v2/.
+func registryReachable(scheme, host string, skipVerify bool) bool {
+	if host == "" {
+		return false
+	}
+	client := &http.Client{Timeout: 3 * time.Second}
+	if scheme == deliveryregistry.SchemeHTTPS {
+		client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify}, //nolint:gosec // scheme probe only
+		}
+	}
+	resp, err := client.Get(fmt.Sprintf("%s://%s/v2/", scheme, host))
+	if err != nil {
+		return false
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+	return resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized
 }

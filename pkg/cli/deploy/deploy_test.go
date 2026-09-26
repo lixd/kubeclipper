@@ -34,6 +34,8 @@ import (
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
+	"net/http"
+	"net/http/httptest"
 )
 
 type fakeEtcdHealthClient struct {
@@ -494,4 +496,54 @@ authentication:
 	if got := d.deployConfig.AuthenticationOpts.InitialPassword; got != "FromConfig1" {
 		t.Fatalf("initial password = %q, want the config value", got)
 	}
+}
+
+// The seeded default image registry resource must carry the scheme the
+// registry actually answers on: containerd turns it into hosts.toml, and a
+// mismatch fails every cluster image pull with "server gave HTTP response to
+// HTTPS client" (observed live while the configured scheme defaulted to
+// https against a plain-HTTP registry).
+func TestResolveSeedRegistryScheme(t *testing.T) {
+	t.Run("plain http registry wins over configured https", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/v2/" {
+				t.Errorf("probe path = %s, want /v2/", r.URL.Path)
+			}
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer srv.Close()
+		reg := &deliveryregistry.Config{
+			Registry: strings.TrimPrefix(srv.URL, "http://"),
+			Scheme:   deliveryregistry.SchemeHTTPS,
+		}
+		scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
+		if scheme != deliveryregistry.SchemeHTTP || skipVerify || ca != "" {
+			t.Fatalf("resolved (%s, %v, %q), want (http, false, \"\")", scheme, skipVerify, ca)
+		}
+	})
+
+	t.Run("https registry keeps configured scheme", func(t *testing.T) {
+		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusUnauthorized) // auth-required registry
+		}))
+		defer srv.Close()
+		reg := &deliveryregistry.Config{
+			Registry:      strings.TrimPrefix(srv.URL, "https://"),
+			Scheme:        deliveryregistry.SchemeHTTPS,
+			SkipTLSVerify: true,
+			CA:            "test-ca",
+		}
+		scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
+		if scheme != deliveryregistry.SchemeHTTPS || !skipVerify || ca != "test-ca" {
+			t.Fatalf("resolved (%s, %v, %q), want (https, true, test-ca)", scheme, skipVerify, ca)
+		}
+	})
+
+	t.Run("unreachable registry keeps configured scheme", func(t *testing.T) {
+		reg := &deliveryregistry.Config{Registry: "127.0.0.1:1", Scheme: deliveryregistry.SchemeHTTPS, SkipTLSVerify: true}
+		scheme, skipVerify, _ := resolveSeedRegistryScheme(reg)
+		if scheme != deliveryregistry.SchemeHTTPS || !skipVerify {
+			t.Fatalf("resolved (%s, %v), want the configured (https, true)", scheme, skipVerify)
+		}
+	})
 }

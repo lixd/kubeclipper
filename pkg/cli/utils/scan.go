@@ -25,16 +25,17 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/term"
-
-	"github.com/kubeclipper/kubeclipper/pkg/cli/logger"
 )
 
 func AskForConfirmation() bool {
 	var response string
 
-	_, err := fmt.Scanln(&response)
-	if err != nil {
-		logger.Fatal(err)
+	if _, err := fmt.Scanln(&response); err != nil {
+		// Scanning fails when stdin is closed (no TTY): report it as a normal
+		// refusal instead of dumping a fatal goroutine stack. Non-interactive
+		// callers are expected to pass --assumeyes (R25).
+		fmt.Fprintln(os.Stderr, "no interactive input available; pass --assumeyes (-y) to confirm non-interactively")
+		return false
 	}
 
 	switch strings.ToLower(response) {
