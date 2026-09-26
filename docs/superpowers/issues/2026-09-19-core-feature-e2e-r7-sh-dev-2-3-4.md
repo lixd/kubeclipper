@@ -1240,3 +1240,23 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **终态**：平台 rc.22（e5d0d5f7）Healthy、3/3 agents；r25-1m1w 已删、dev-3/dev-4 清理、临时脚本/manifest 全清；共享 Registry 仅增 rc.22 tag（本轮共 rc.17-rc.22 六个候选）；平台 etcd 数据目录未动。单测新增：command_step step timeout（2 例）。
 
 文档同步：checklist 5-05/5-07/5-08/5-09/5-10/5-12/5-13/5-14（→✅，含边界与记录项）、gaps 行 17（step timeout 缺陷，已修复）、本节 §12.22。
+
+### 12.23 R26 追加轮（2026-09-26，rc.23→rc.24）：记录项小修（registry 协议/状态码/交互确认/文案）+ 文档去重
+
+**背景**：R25 收尾时列出的"记录项（小瑕疵）"按计划集中清理；同时发现并修复 gaps 文档的结构缺陷。
+
+**① gaps 文档去重（`a5bfa395`）**：`round-2026-09-gaps.md` 的 P1/P2/已废弃/证据/N 表/R7-R21 叙事块被**字节一致地重复了 8 份**（2252 行，疑似早期轮次追加脚本重复写入）→ 保留一份（315 行）。按证据回填 5 行：4-17（healthz/metrics 200+无敏感字段，R24 复测）、6-01（`release-policy-verify` 在 qualification 与 release 两个 workflow 的 prepare job 均执行，候选=run 36216971172）、6-02/6-03（该候选 manifest **110 制品**：package-image 10 + helm-chart 2 + runtime-image 98，种类齐全）、6-05（发布器 tag 冲突拒绝 R22 实证 + R23 复验）。6-04/6-08 维持 ⚠️（待真实 stable 发布轮）。
+
+**② registry 协议（gaps 行 16 闭环，rc.23 `4c9546a9`）**：实测确认共享 5003 **仅 HTTP**（https 握手失败），而部署播种的 `kc-package-registry` 资源 scheme=https（配置未写 scheme 时默认 https）→ 用它 `--image-registry` 建群，containerd 按 https 拉取失败（`server gave HTTP response to HTTPS client`）。修复：播种前探测 `/v2/`（配置 scheme 失败则回落 plain HTTP，带告警），并把 scheme 纳入"过期资源"判定（重部署自动修复）；现网资源经 API 更正为 http。单测：https 注册表保持、http 回落、不可达保持配置值。真机：`--image-registry kc-package-registry` 建群 **Running**（rc.23 r26-1m、rc.24 r26-1m2 两次）。
+
+**③ 状态码三处（rc.23/rc.24）**：①组件配置校验错误（scName/namespace/mode）→ 统一基类 `validation.ErrInvalidComponentConfig` 映射 **400**（真机：addon 非法 config 400 `invalid component config: invalid name of storage class`）；②kubeconfig：不存在 → **404**、建群未就绪/控制面不可达 → **503**（`component.ErrNoReachableMaster` typed error，真机建群窗口 poll → 503 `cluster kubeconfig is not ready`）；③MFA 重发限流 → **429**（`mfa.ErrRateLimited`，真机 send1 200 → send2 429）。
+
+**④ CLI 交互与文案（rc.23）**：`AskForConfirmation` 遇 stdin 关闭（无 TTY）不再 `logger.Fatal` 打 goroutine 堆栈，改为干净提示 "no interactive input available; pass --assumeyes (-y)"；`delete cluster -F` 与 `drain` 采纳全局 `-y/--assumeyes`（真机：`-F -y` 直接走到资源查询并干净报 not found）；`drain` 文案 "draind"→"drained"（真机复核）。
+
+**⑤ 未动的记录项（保留在案）**：弱口令建用户被接受（口令策略仅约束 admin 初始口令；**建议纳入策略，待产品决策**）；`POST /oauth/logout` 需 JSON Content-Type/Accept（否则 406，go-restful 协商，客户端行为）；第 5 次失败返回 401+reason（其后 429，行为可接受）；tokens API 无创建/删除路由（CreateTokens handler 未注册）；scheme `AutomaticRetry` 字段未被消费；5-09 真机网络注入未做；`kcctl delete cluster -F` 的 force 语义与重复执行未单独跑。
+
+**发布链**：rc.23（`4c9546a9`）→ rc.24（`c5574935`），均经 wrapper→dev-2→5003；两次 `upgrade all` 成功。**发布器防护又一次实证**：手工 manifest 误改 console digest → `refusing to upgrade from a repointed tag`（顺带验证 6-05）。
+
+**终态**：平台 rc.24（c5574935）Healthy、3/3 agents、无集群；r26-1m/r26-1m2 已删、dev-3 清理、临时文件全清；MFA 测试后已关闭（plain login 200）；共享 Registry 仅增 rc.23/rc.24 tag（累计 v2.0* tag 至 rc.24）；平台 etcd 数据目录未动。
+
+文档同步：gaps 行 16（→已修复）、checklist 3-15/4-12/4-18/4-20 更新（含记录项现状）、本节 §12.23。
