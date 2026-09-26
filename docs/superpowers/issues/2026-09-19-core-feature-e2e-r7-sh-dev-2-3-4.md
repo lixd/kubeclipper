@@ -1220,3 +1220,23 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **终态**：平台 rc.21（2778f818）Healthy；r24-1m 已删、dev-3 清理（kubeadm reset、/etc/kubernetes、/var/lib/{kubelet,etcd}、certs.d 旧 hosts.toml）、临时脚本/manifest 全清；共享 Registry 仅增 rc.17-rc.21 tag（rc.17/18/19/20/21 共 5 个）；平台 etcd 数据目录未动。单测新增：kubeadm 渲染断言（feature-gates 位置+确定性）。
 
 文档同步：checklist 2.1-13/2.1-17/3-04/3-09/3-15/3-19/3-24/3-27/4-12/4-20（→✅，含边界与记录项）、gaps 行 15（feature-gates 缺陷，已修复）/行 16（registry scheme 记录项）、本节 §12.21。
+
+### 12.22 R25 追加轮（2026-09-26，rc.22 e5d0d5f7）：Operation V2 可靠性专项（5-05/07/08/09/10/12/13/14）+ step timeout 缺陷修复
+
+**① 5-14/step timeout：发现并修复（rc.22，`e5d0d5f7`）**。R24-B 记录的"checkCSIHealth 声明 3m 实挂 >6min"本轮定位到根因：agent 命令执行器只用 **operation deadline** 构造任务 ctx（`Step.Timeout` 从未被消费），而组件侧的 `utils.RetryFunc` 是无界循环（仅 `<-ctx.Done()` 退出）→ 步骤可一直挂到 90min 操作期限；协作式 cancel 又必须等在途步骤，于是 op 卡死、cancel 无效（本轮第二次真机复现：nfs 安装 op 取消 60s+ 仍 Running）。修复：执行器在运行命令前按 `payload.Step.Timeout` 派生 ctx（>0 时），超时错误经 worker 既有的 `errors.Is(reconcileErr, context.DeadlineExceeded)` 判定映射为 **TaskTimedOut**，ErrIgnore 步骤保持"任意终态即消费目标"语义（reducer 明确按 `nodeFinished` 判定，不受 phase 影响）。单测：150ms step timeout 截断 30s 任务期限；无 timeout 时保持任务 ctx。**真机复验（rc.22）**：重装 nfs-csi → checkCSIHealth 两次尝试均 **TimedOut**（每次 ~3m），op 于 ~4min 自动收敛 `Failed: step ... exhausted its retry limit`（修复前：挂到操作期限）；升级重启后原卡死 op 收敛 **Canceled**。
+
+**② 5-05 barrier/输出传递（r25-1m1w，1M1W 真机）**：CreateCluster 15 步，其中 4 步双 target → 每节点各 1 task（NodeRef=master/worker 两个 UID 区分），19 tasks 全 Succeeded 且无 step×node 重复；worker 的 join 任务 payload 携带 master `getJoinCommand` 产出的 join 材料（输出传递），最终集群 Running。
+
+**③ 5-07 自动/人工 retry**：`RetryLimit=min(RetryTimes,3)`；`nextAttempt` 以 `1+RetryLimit` 判定耗尽；两次真机自动重试耗尽实证（坏 gate 建群、nfs 健康检查）；人工 retry 沿用 R23（不可变 plan 哈希不变）。记录项：scheme `AutomaticRetry` 字段未被消费。
+
+**④ 5-08 互斥**：集群删除在有 op 在飞时被拒（400 `can't delete cluster when cluster is Updating`）+ ExecutionLock 串行（排队卸载 op 在安装 op 释放锁后 Succeeded）。
+
+**⑤ 5-09/5-10 fail-closed（代码级）**：任务名确定性（opUID/generation/stepID/nodeUID/attempt），AlreadyExists 时比对 spec、不一致即 `invalidExecutionFacts`→op Failed（`failInvalidFacts` 先取消同批 Pending，有 Running 任务只 requeue）；agent 只执行 Pending，终态任务不重放 → 响应丢失不致重复执行。边界：真机网络注入未做。
+
+**⑥ 5-12 日志 offset**：`offset=0/300` 两段内容不同（全量 1147B 切片）、跨 task 前缀不同（不串流）。
+
+**⑦ 5-13 重复提交**：连续两次相同 addon 安装 → 第二次 400（component has been installed），无并行重复 op；直接 POST Operation 需完整 spec 非用户路径。
+
+**终态**：平台 rc.22（e5d0d5f7）Healthy、3/3 agents；r25-1m1w 已删、dev-3/dev-4 清理、临时脚本/manifest 全清；共享 Registry 仅增 rc.22 tag（本轮共 rc.17-rc.22 六个候选）；平台 etcd 数据目录未动。单测新增：command_step step timeout（2 例）。
+
+文档同步：checklist 5-05/5-07/5-08/5-09/5-10/5-12/5-13/5-14（→✅，含边界与记录项）、gaps 行 17（step timeout 缺陷，已修复）、本节 §12.22。

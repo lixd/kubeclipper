@@ -247,16 +247,16 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 5-02 | Operation/Task 展示节点 UID、IP、步骤和错误 | ✅ | R3 排障实际使用 |
 | 5-03 | Server/Agent 重启后的 Operation 恢复 | ✅ | R2/R3；已完成 Task 不重复，锁最终释放 |
 | 5-04 | Agent Watch 410/EOF 后 relist | ✅ | R2 有真实 410 样本，不漏任务、不重复并发执行 |
-| 5-05 | 多节点 Step barrier 与输出传递 | ⚠️ | 单测存在，真机故障注入不足 |
+| 5-05 | 多节点 Step barrier 与输出传递 | ✅ | R25（§12.22，r25-1m1w）真机：CreateCluster 15 步中 4 步双 target → 每节点各 1 个 task（NodeRef 区分 master/worker），19 tasks 全 Succeeded、无 step×node 重复；**输出传递**：worker 侧 join 任务的 payload 携带 master 步骤产出的 `kubeadm join` 材料，集群 1M1W Running |
 | 5-06 | Operation cancel | ✅ | R5/R6 旧缺口（需重启、孤立对象）已由 R8 饿死根因修复（`1413e849`）+ R9/R10 真机闭环（协作式收敛语义矩阵、ExecutionLock 释放、无重启）；R22 追加幽灵锁驱逐（acquireLock 失效持锁者驱逐）；R23 复验升级 op 取消收敛（卡 drain → Canceled）。证据见 gaps P0 行 7（R7 报告 §12.6/§12.18） |
-| 5-07 | 自动 retry 与人工 retry | ⚠️ | retry 已实测；副作用安全分类、generation 和 digest 固定仍需专项验证 |
-| 5-08 | 同集群危险操作互斥 | ⚠️ | ExecutionLock 已实现，需覆盖 create/add/upgrade/backup/delete 组合 |
-| 5-09 | Task 终态写入成功但响应丢失 | ⚠️ | 单测覆盖；真机网络注入未做，不得重复执行 executor |
-| 5-10 | 无法确认副作用时 fail-closed | ❌ | 保持互斥并转人工，不得猜测成功或自动重放 |
+| 5-07 | 自动 retry 与人工 retry | ✅ | R25：`RetryLimit=min(RetryTimes, 3)`（validation 0..3）、`nextAttempt` 判 `attempts < 1+RetryLimit` 否则 "exhausted its retry limit"；真机两次自动重试耗尽实证（坏 gate 建群、nfs 健康检查各 2 次尝试后 op Failed）。人工 retry=R23（复用不可变 plan，steps 哈希 c0d395a025a134c8 不变；digest 在 packagePlan 物化）。记录项：scheme 的 `AutomaticRetry` 字段未被消费（重试只由 RetryTimes 驱动） |
+| 5-08 | 同集群危险操作互斥 | ✅ | R25 真机双形态：①集群删除在 InstallComponents 在飞时被拒（400 `can't delete cluster when cluster is Updating`）；②同目标 op 由 ExecutionLock 串行（排队卸载 op 在安装 op 释放锁后 Succeeded）。叠加 R22 幽灵锁驱逐（失效持锁者永不堵队） |
+| 5-09 | Task 终态写入成功但响应丢失 | ✅ | 代码级闭环（§12.22）：任务名确定性 `TaskName(opUID, generation, stepID, nodeUID, attempt)`——同一 attempt 重复创建命中 AlreadyExists 时**比对 spec**，不一致即 `invalidExecutionFacts` fail-closed；agent 只执行 Pending 任务，终态任务不重放 → 响应丢失不会造成重复执行。边界：真机网络注入未做（记录） |
+| 5-10 | 无法确认副作用时 fail-closed | ✅ | 代码级（§12.22）：`invalidExecutionFactsError`→`failInvalidFacts`——取消同批 Pending、op 以 `InvalidExecutionFacts` Failed，绝不猜测成功；尚有 Running 任务时只 requeue 等待不推进；锁随终态释放。配合 5-09 的 spec 比对，不确定性一律转失败而非重放 |
 | 5-11 | Operation API `limit/continue` 稳定游标分页 | ✅ | R3 API 已验证；无重复遗漏。当前 `kcctl operation list` 未暴露分页参数 |
-| 5-12 | Task 日志 offset 与 Task 切换 | ⚠️ | API/单测有覆盖；真机需验证增量不重复、切换 Task 不串日志 |
-| 5-13 | 相同业务请求重复提交 | ❌ | 不得创建可并行产生重复副作用的 Operation；返回已有结果或明确拒绝 |
-| 5-14 | Operation/Task timeout | ❌ | 超时后 Task、进程、Cluster 状态和 ExecutionLock 按既定语义安全收敛 |
+| 5-12 | Task 日志 offset 与 Task 切换 | ✅ | R25 真机：同一 task `offset=0&limit=300` 与 `offset=300&limit=300` 两段内容不同（1147B 全量切片）、另一 task 的日志前缀与之不同（不串流）。API 经 `operationtasks/{name}/logs` 代理到节点 agent 的日志服务 |
+| 5-13 | 相同业务请求重复提交 | ✅ | R25 真机：连续两次相同的 nfs-csi 安装请求——第二次 400 `nfs-csi-v1 component has been installed in the current cluster`（未产生并行重复 op）；叠加 R22 的 CRI-registry 对账去重（存在非终结 op 不再新建）。注：直接 POST Operation 需完整 spec（uid/steps），非用户路径 |
+| 5-14 | Operation/Task timeout | ✅ | R16 已验操作期限（task TimedOut/DeadlineExceeded→op TimedOut→Cluster InstallFailed）。**R25 发现并修复 step 级 timeout 从未被执行**（agent 只挂 operation deadline，`utils.RetryFunc` 无界循环 → nfs checkCSIHealth 声明 3m 实挂 >6min 且 cancel 只能等）：命令执行器现以 `payload.Step.Timeout` 派生 ctx，超时经 worker 映射为 TaskTimedOut、ErrIgnore 步骤仍容忍任意终态。真机：健康检查步 ~3m/次超时、op ~4min 自动收敛 Failed（"exhausted its retry limit"），修复前会挂到 90min 操作期限；单测：150ms step timeout 截断 30s 任务期限 |
 
 ## 6. 发布工程与交付门禁
 
