@@ -50,6 +50,9 @@ const (
 	refreshTokenGrantType = "refresh_token"
 	verificationCodeType  = "mfa"
 	rateLimitPrefix       = "auth-rate-limit-%s"
+	// defaultRateLimiterDuration is the counter lifetime used when the
+	// configured one is non-positive (see rateLimitTTL).
+	defaultRateLimiterDuration = 10 * time.Minute
 )
 
 type LoginRequest struct {
@@ -137,7 +140,7 @@ func (h *handler) SendVerificationCode(req *restful.Request, response *restful.R
 func (h *handler) passwordGrant(username string, password string, req *restful.Request, response *restful.Response) {
 	if err := h.rateLimiterChecker(username); err != nil {
 		if errors.Is(err, auth.ErrRateLimitExceeded) {
-			restplus.HandleTooManyRequests(response, req, fmt.Errorf("too many password errors, please try again in %d minutes", int(h.authOptions.AuthenticateRateLimiterDuration.Minutes())))
+			restplus.HandleTooManyRequests(response, req, fmt.Errorf("too many password errors, please try again in %s", h.rateLimitTTL()))
 			return
 		}
 		restplus.HandleInternalError(response, req, err)
@@ -296,7 +299,25 @@ func (h *handler) callback(req *restful.Request, response *restful.Response) {
 	_ = response.WriteEntity(result)
 }
 
+// rateLimitTTL returns the lifetime for the per-user failure counter. A
+// non-positive configured duration would store a counter that never expires
+// (the token cache treats TTL 0 as no expiration), so fall back to the
+// built-in default instead of pinning the account forever (R24).
+func (h *handler) rateLimitTTL() time.Duration {
+	if h.authOptions.AuthenticateRateLimiterDuration > 0 {
+		return h.authOptions.AuthenticateRateLimiterDuration
+	}
+	return defaultRateLimiterDuration
+}
+
 func (h *handler) rateLimiterChecker(username string) error {
+	// A non-positive threshold disables the limiter: treating 0 as a real
+	// threshold makes the very first recorded failure reject every later
+	// attempt, including the correct password, which locks the account with
+	// no way back (R24).
+	if h.authOptions.AuthenticateRateLimiterMaxTries <= 0 {
+		return nil
+	}
 	key := fmt.Sprintf(rateLimitPrefix, username)
 	str, err := h.cache.Get(key)
 	if err != nil {
@@ -316,6 +337,9 @@ func (h *handler) rateLimiterChecker(username string) error {
 }
 
 func (h *handler) rateLimiterCounter(username string) error {
+	if h.authOptions.AuthenticateRateLimiterMaxTries <= 0 {
+		return nil
+	}
 	key := fmt.Sprintf(rateLimitPrefix, username)
 	exist, err := h.cache.Exist(key)
 	if err != nil {
@@ -340,7 +364,7 @@ func (h *handler) rateLimiterCounter(username string) error {
 		}
 		return nil
 	}
-	return h.cache.Set(key, "1", h.authOptions.AuthenticateRateLimiterDuration)
+	return h.cache.Set(key, "1", h.rateLimitTTL())
 }
 
 func (h *handler) rateLimiterFinalizer(username string) error {

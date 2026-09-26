@@ -505,6 +505,12 @@ func (i *iamOperator) GetLoginRecord(ctx context.Context, name string) (*iamv1.L
 }
 
 func (i *iamOperator) CreateLoginRecord(ctx context.Context, record *iamv1.LoginRecord) (*iamv1.LoginRecord, error) {
+	// The storage layer takes the namespace from the request context; every
+	// other create path in this file sets it from the object, but this one
+	// passed the caller's bare context, so every login record create failed
+	// with "no namespace information found in request context" and login
+	// history stayed empty (R24).
+	ctx = genericapirequest.WithNamespace(ctx, record.Namespace)
 	obj, err := i.loginRecordStorage.Create(ctx, record, nil, &metav1.CreateOptions{})
 	if err != nil {
 		return nil, err
@@ -513,6 +519,7 @@ func (i *iamOperator) CreateLoginRecord(ctx context.Context, record *iamv1.Login
 }
 
 func (i *iamOperator) DeleteLoginRecord(ctx context.Context, name string) error {
+	ctx = genericapirequest.WithNamespace(ctx, metav1.NamespaceNone)
 	var err error
 	_, _, err = i.loginRecordStorage.Delete(ctx, name, func(ctx context.Context, obj runtime.Object) error {
 		return nil
@@ -521,6 +528,7 @@ func (i *iamOperator) DeleteLoginRecord(ctx context.Context, name string) error 
 }
 
 func (i *iamOperator) DeleteLoginRecordCollection(ctx context.Context, query *query.Query) error {
+	ctx = genericapirequest.WithNamespace(ctx, metav1.NamespaceNone)
 	if _, err := i.loginRecordStorage.DeleteCollection(ctx, func(ctx context.Context, obj runtime.Object) error {
 		return nil
 	}, &metav1.DeleteOptions{}, &metainternalversion.ListOptions{
@@ -533,10 +541,14 @@ func (i *iamOperator) DeleteLoginRecordCollection(ctx context.Context, query *qu
 }
 
 func (i *iamOperator) ListLoginRecordEx(ctx context.Context, query *query.Query) (*models.PageableResponse, error) {
+	// ListExV2 also reads the namespace from the context; the record list
+	// routes call it with the request context, which carries none.
+	ctx = genericapirequest.WithNamespace(ctx, metav1.NamespaceNone)
 	return models.ListExV2(ctx, i.loginRecordStorage, query, i.loginRecordFuzzyFilter, nil, nil)
 }
 
 func (i *iamOperator) GetLoginRecordEx(ctx context.Context, name string, resourceVersion string) (*iamv1.LoginRecord, error) {
+	ctx = genericapirequest.WithNamespace(ctx, metav1.NamespaceNone)
 	token, err := models.GetV2(ctx, i.loginRecordStorage, name, resourceVersion, nil)
 	if err != nil {
 		return nil, err

@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestMetadataLogPort(t *testing.T) {
@@ -75,5 +76,51 @@ serverIPs:
 	}
 	if !strings.Contains(err.Error(), "authentication.initialPassword") {
 		t.Fatalf("error %q does not point at the correct location", err)
+	}
+}
+
+// A deploy-config that spells only part of the authentication section used to
+// leave the omitted knobs at zero, and a server deployed with
+// authenticateRateLimiterMaxTries=0 locks an account on its first password
+// mistake forever (R24). Complete must restore the built-in defaults for the
+// operational knobs while still leaving credentials alone.
+func TestCompleteRestoresZeroAuthenticationDefaults(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "deploy-config.yaml")
+	body := `ssh:
+  user: root
+serverIPs:
+- 10.0.0.1
+authentication:
+  initialPassword: Admin@1234
+  jwtSecret: keep-me
+  loginHistoryMaximumEntries: 100
+  loginHistoryRetentionPeriod: 168h0m0s
+  authenticateRateLimiterMaxTries: 0
+  authenticateRateLimiterDuration: 0s
+`
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := NewDeployOptions()
+	c.Config = cfg
+	if err := c.Complete(); err != nil {
+		t.Fatalf("Complete() error = %v", err)
+	}
+	auth := c.AuthenticationOpts
+	if auth.AuthenticateRateLimiterMaxTries != 5 {
+		t.Fatalf("authenticateRateLimiterMaxTries = %d, want 5", auth.AuthenticateRateLimiterMaxTries)
+	}
+	if auth.AuthenticateRateLimiterDuration != 10*time.Minute {
+		t.Fatalf("authenticateRateLimiterDuration = %s, want 10m", auth.AuthenticateRateLimiterDuration)
+	}
+	if auth.MaximumClockSkew != 10*time.Second {
+		t.Fatalf("maximumClockSkew = %s, want 10s", auth.MaximumClockSkew)
+	}
+	if auth.JwtSecret != "keep-me" {
+		t.Fatalf("jwtSecret = %q, want the configured value", auth.JwtSecret)
+	}
+	if auth.InitialPassword != "Admin@1234" {
+		t.Fatalf("initialPassword = %q, want the configured value", auth.InitialPassword)
 	}
 }

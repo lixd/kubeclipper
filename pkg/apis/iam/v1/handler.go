@@ -96,7 +96,7 @@ func (h *handler) watchToken(req *restful.Request, resp *restful.Response, q *qu
 		timeout = time.Duration(*q.TimeoutSeconds) * time.Second
 	}
 	if timeout == 0 {
-		timeout = time.Duration(float64(query.MinTimeoutSeconds) * (rand.Float64() + 1.0)) * time.Second
+		timeout = time.Duration(float64(query.MinTimeoutSeconds)*(rand.Float64()+1.0)) * time.Second
 	}
 
 	watcher, err := h.iamOperator.WatchTokens(req.Request.Context(), q)
@@ -164,6 +164,14 @@ func (h *handler) CreateUsers(request *restful.Request, response *restful.Respon
 
 	role := u.Annotations[common.RoleAnnotation]
 	delete(u.Annotations, common.RoleAnnotation)
+	if err := h.validateRoleReference(request.Request.Context(), role); err != nil {
+		if apimachineryErrors.IsBadRequest(err) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
 	// TODO: make user status maintainer in controller
 	stateActive := iamv1.UserActive
 	u.Status.State = &stateActive
@@ -375,6 +383,10 @@ func (h *handler) CreateRoles(request *restful.Request, response *restful.Respon
 
 	result, err := h.iamOperator.CreateRole(request.Request.Context(), globalRole)
 	if err != nil {
+		if apimachineryErrors.IsAlreadyExists(err) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
@@ -521,6 +533,12 @@ func (h *handler) UpdateRole(request *restful.Request, response *restful.Respons
 			globalRole.Rules = append(globalRole.Rules, aggregationRole.Rules...)
 		}
 	}
+	// An update body without a resourceVersion used to reach the storage as
+	// an unconditional write and failed with a 500; bind it to the object we
+	// just read so callers can PUT the role they got from the API as-is (R24).
+	if globalRole.ResourceVersion == "" {
+		globalRole.ResourceVersion = oldRole.ResourceVersion
+	}
 
 	updated, err := h.iamOperator.UpdateRole(request.Request.Context(), &globalRole)
 	if err != nil {
@@ -567,6 +585,14 @@ func (h *handler) UpdateUser(request *restful.Request, response *restful.Respons
 	}
 	role := user.Annotations[common.RoleAnnotation]
 	delete(user.Annotations, common.RoleAnnotation)
+	if err := h.validateRoleReference(request.Request.Context(), role); err != nil {
+		if apimachineryErrors.IsBadRequest(err) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
 
 	updated, err := h.updateUser(request.Request.Context(), &user)
 	if err != nil {
@@ -605,7 +631,26 @@ func (h *handler) updateUser(ctx context.Context, user *iamv1.User) (*iamv1.User
 	return h.iamOperator.UpdateUser(ctx, user)
 }
 
+// validateRoleReference rejects a user create/update that points at a role
+// that does not exist. The binding used to be created anyway, leaving a
+// dangling GlobalRoleBinding and a 404 from GET /users/{name}/roles (R24).
+func (h *handler) validateRoleReference(ctx context.Context, role string) error {
+	if role == "" {
+		return nil
+	}
+	if _, err := h.iamOperator.GetRoleEx(ctx, role, "0"); err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			return apimachineryErrors.NewBadRequest(fmt.Sprintf("role %q not found", role))
+		}
+		return err
+	}
+	return nil
+}
+
 func (h *handler) updateRoleBinding(ctx context.Context, operator authuser.Info, user *iamv1.User, role string) error {
+	if err := h.validateRoleReference(ctx, role); err != nil {
+		return err
+	}
 	oldRole, err := h.iamOperator.GetRoleOfUser(ctx, user.Name)
 	if err != nil && !apimachineryErrors.IsNotFound(err) {
 		return err

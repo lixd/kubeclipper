@@ -19,11 +19,15 @@
 package iam
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	genericapirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"k8s.io/apiserver/pkg/registry/rest"
 
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	iamv1 "github.com/kubeclipper/kubeclipper/pkg/scheme/iam/v1"
@@ -311,5 +315,50 @@ func Test_iamOperator_tokenFuzzyFilter(t *testing.T) {
 				t.Errorf("tokenFuzzyFilter() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// fakeNamespaceStorage records the namespace the request context carried into
+// the storage call; every other method comes from the embedded interface.
+type fakeNamespaceStorage struct {
+	rest.StandardStorage
+	createdNS string
+	createdOK bool
+	deletedNS string
+}
+
+func (f *fakeNamespaceStorage) Create(ctx context.Context, obj runtime.Object, _ rest.ValidateObjectFunc, _ *metav1.CreateOptions) (runtime.Object, error) {
+	f.createdNS, f.createdOK = genericapirequest.NamespaceFrom(ctx)
+	return obj, nil
+}
+
+func (f *fakeNamespaceStorage) Delete(ctx context.Context, _ string, _ rest.ValidateObjectFunc, _ *metav1.DeleteOptions) (runtime.Object, bool, error) {
+	f.deletedNS, _ = genericapirequest.NamespaceFrom(ctx)
+	return nil, true, nil
+}
+
+// Login record writes used a context without a namespace and every create
+// failed with "no namespace information found in request context", so login
+// history stayed empty (R24). The create path must carry the record's
+// namespace, and the delete path must carry an explicit one.
+func TestLoginRecordCarriesNamespace(t *testing.T) {
+	storage := &fakeNamespaceStorage{}
+	op := &iamOperator{loginRecordStorage: storage}
+
+	if _, err := op.CreateLoginRecord(context.TODO(), &iamv1.LoginRecord{}); err != nil {
+		t.Fatalf("CreateLoginRecord() error = %v", err)
+	}
+	if !storage.createdOK {
+		t.Fatal("CreateLoginRecord() context carries no namespace, storage would reject it")
+	}
+	if storage.createdNS != "" {
+		t.Fatalf("CreateLoginRecord() namespace = %q, want the record's empty namespace", storage.createdNS)
+	}
+
+	if err := op.DeleteLoginRecord(context.TODO(), "rec-1"); err != nil {
+		t.Fatalf("DeleteLoginRecord() error = %v", err)
+	}
+	if storage.deletedNS != metav1.NamespaceNone {
+		t.Fatalf("DeleteLoginRecord() namespace = %q, want %q", storage.deletedNS, metav1.NamespaceNone)
 	}
 }

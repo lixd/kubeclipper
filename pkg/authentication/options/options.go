@@ -66,6 +66,34 @@ func NewAuthenticateOptions() *AuthenticationOptions {
 	}
 }
 
+// RestoreZeroDefaults fills the operational authentication knobs that came
+// back as zero. A deploy-config spells its authentication section key by key
+// and the deploy path round-trips it through a zero-valued struct, so keys
+// the operator did not write arrive as explicit zeros: an
+// authenticateRateLimiterMaxTries of 0 turns the login limiter into a
+// permanent lockout (every attempt after the first failure is rejected while
+// the counter token never expires), and a zero limiter duration stores
+// counters that outlive their window. Credentials are deliberately left
+// alone so a missing password or JWT secret stays a loud Validate error.
+func (a *AuthenticationOptions) RestoreZeroDefaults() {
+	defaults := NewAuthenticateOptions()
+	if a.AuthenticateRateLimiterMaxTries <= 0 {
+		a.AuthenticateRateLimiterMaxTries = defaults.AuthenticateRateLimiterMaxTries
+	}
+	if a.AuthenticateRateLimiterDuration <= 0 {
+		a.AuthenticateRateLimiterDuration = defaults.AuthenticateRateLimiterDuration
+	}
+	if a.MaximumClockSkew <= 0 {
+		a.MaximumClockSkew = defaults.MaximumClockSkew
+	}
+	if a.LoginHistoryMaximumEntries <= 0 {
+		a.LoginHistoryMaximumEntries = defaults.LoginHistoryMaximumEntries
+	}
+	if a.LoginHistoryRetentionPeriod <= 0 {
+		a.LoginHistoryRetentionPeriod = defaults.LoginHistoryRetentionPeriod
+	}
+}
+
 func (a *AuthenticationOptions) Validate() []error {
 	var errs []error
 	// A deploy-config that spells an authentication section replaces this

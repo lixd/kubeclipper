@@ -392,6 +392,16 @@ func (c *DeployConfig) Complete() error {
 	if c.AuthenticationOpts == nil {
 		c.AuthenticationOpts = options.NewAuthenticateOptions()
 	}
+	// The Omitempty round-trip above marshals the authentication section
+	// field by field with no omitempty tags, so a section that spells only
+	// some keys comes back with explicit zeros for the rest — and a deployed
+	// server with authenticateRateLimiterMaxTries=0 blocks every login after
+	// the first failure with a counter token that never expires (R24). Treat
+	// zero as "not set" for the operational knobs and restore the built-in
+	// defaults. Credentials (initialPassword, jwtSecret) stay untouched: a
+	// missing password must still be a loud Validate error, never a silent
+	// fallback to the built-in default.
+	c.AuthenticationOpts.RestoreZeroDefaults()
 	// fill default region
 	for ip := range c.Agents {
 		metadata := c.Agents[ip]
