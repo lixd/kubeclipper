@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -134,24 +135,30 @@ type KubeadmConfig struct {
 	ClusterConfigAPIVersion string `json:"clusterConfigAPIVersion"`
 	// If both Docker and containerd are detected, Docker takes precedence,so we must specify cri.
 	// https://v1-20.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime
-	ContainerRuntime      string          `json:"containerRuntime"`
-	Etcd                  v1.Etcd         `json:"etcd"`
-	Networking            v1.Networking   `json:"networking"`
-	KubeProxy             v1.KubeProxy    `json:"kubeProxy"`
-	Kubelet               v1.Kubelet      `json:"kubelet"`
-	ClusterName           string          `json:"clusterName"`
-	KubernetesVersion     string          `json:"kubernetesVersion"`
-	ControlPlaneEndpoint  string          `json:"controlPlaneEndpoint"`
-	CertSANs              []string        `json:"certSANs"`
-	ImageRegistry         string          `json:"imageRegistry"`
-	Offline               bool            `json:"offline"`
-	IsControlPlane        bool            `json:"isControlPlane,omitempty"`
-	CACertHashes          string          `json:"caCertHashes,omitempty"`
-	BootstrapToken        string          `json:"bootstrapToken,omitempty"`
-	CertificateKey        string          `json:"certificateKey,omitempty"`
-	AdvertiseAddress      string          `json:"advertiseAddress,omitempty"`
-	FeatureGates          map[string]bool `json:"featureGates,omitempty"`
-	IgnorePreflightErrors []string        `json:"ignorePreflightErrors,omitempty"`
+	ContainerRuntime     string          `json:"containerRuntime"`
+	Etcd                 v1.Etcd         `json:"etcd"`
+	Networking           v1.Networking   `json:"networking"`
+	KubeProxy            v1.KubeProxy    `json:"kubeProxy"`
+	Kubelet              v1.Kubelet      `json:"kubelet"`
+	ClusterName          string          `json:"clusterName"`
+	KubernetesVersion    string          `json:"kubernetesVersion"`
+	ControlPlaneEndpoint string          `json:"controlPlaneEndpoint"`
+	CertSANs             []string        `json:"certSANs"`
+	ImageRegistry        string          `json:"imageRegistry"`
+	Offline              bool            `json:"offline"`
+	IsControlPlane       bool            `json:"isControlPlane,omitempty"`
+	CACertHashes         string          `json:"caCertHashes,omitempty"`
+	BootstrapToken       string          `json:"bootstrapToken,omitempty"`
+	CertificateKey       string          `json:"certificateKey,omitempty"`
+	AdvertiseAddress     string          `json:"advertiseAddress,omitempty"`
+	FeatureGates         map[string]bool `json:"featureGates,omitempty"`
+	// FeatureGatesArg is the sorted "k=v,k=v" form handed to the kubeadm-
+	// managed components. kubeadm v1beta4 no longer accepts a top-level
+	// ClusterConfiguration featureGates map — it rejects every name with
+	// "not a valid feature name" — so the gates travel as component
+	// extraArgs instead (R24).
+	FeatureGatesArg       string   `json:"featureGatesArg,omitempty"`
+	IgnorePreflightErrors []string `json:"ignorePreflightErrors,omitempty"`
 }
 
 type ControlPlane struct {
@@ -381,6 +388,7 @@ func (stepper KubeadmConfig) Install(ctx context.Context, opts component.Options
 		return nil, err
 	}
 	stepper.ClusterConfigAPIVersion = apiVersion
+	stepper.FeatureGatesArg = renderFeatureGatesArg(stepper.FeatureGates)
 	if stepper.Kubelet.RootDir == "" {
 		stepper.Kubelet.RootDir = KubeletDefaultDataDir
 	}
@@ -439,6 +447,7 @@ func (stepper KubeadmConfig) Render(ctx context.Context, opts component.Options)
 		return err
 	}
 	stepper.ClusterConfigAPIVersion = apiVersion
+	stepper.FeatureGatesArg = renderFeatureGatesArg(stepper.FeatureGates)
 	stepper.Networking.Services.CIDRBlocks = []string{strings.Join(stepper.Networking.Services.CIDRBlocks, ",")}
 	stepper.Networking.Pods.CIDRBlocks = []string{strings.Join(stepper.Networking.Pods.CIDRBlocks, ",")}
 
@@ -467,6 +476,9 @@ func (stepper KubeadmConfig) Render(ctx context.Context, opts component.Options)
 }
 
 func (stepper *KubeadmConfig) renderTo(w io.Writer) error {
+	// Derive the arg here as well so a directly constructed stepper (tests,
+	// dry-run) renders the same config as the Render path.
+	stepper.FeatureGatesArg = renderFeatureGatesArg(stepper.FeatureGates)
 	at := tmplutil.New()
 	_, err := at.RenderTo(w, kubeadmTemplate, stepper)
 	return err
@@ -479,6 +491,24 @@ func (stepper *KubeadmConfig) renderJoin(w io.Writer) error {
 }
 
 // TODO: use kubeadm migrate
+// renderFeatureGatesArg renders the gates in a deterministic order so the
+// rendered kubeadm config is stable across runs.
+func renderFeatureGatesArg(gates map[string]bool) string {
+	if len(gates) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(gates))
+	for k := range gates {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, fmt.Sprintf("%s=%t", k, gates[k]))
+	}
+	return strings.Join(pairs, ",")
+}
+
 func (stepper *KubeadmConfig) matchClusterConfigAPIVersion() (string, error) {
 	version := stepper.KubernetesVersion
 

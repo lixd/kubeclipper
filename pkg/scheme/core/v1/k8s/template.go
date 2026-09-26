@@ -59,6 +59,15 @@ apiServer:
     mountPath: "/etc/localtime"
     readOnly: true
     pathType: File
+{{- if .FeatureGatesArg}}
+  extraArgs:
+{{- if eq .ClusterConfigAPIVersion "v1beta4"}}
+    - name: feature-gates
+      value: "{{.FeatureGatesArg}}"
+{{- else}}
+    feature-gates: "{{.FeatureGatesArg}}"
+{{- end}}
+{{- end}}
   certSANs:{{range .CertSANs}}
   - {{.}}{{end}}
 controllerManager:
@@ -68,6 +77,15 @@ controllerManager:
     mountPath: "/etc/localtime"
     readOnly: true
     pathType: File
+{{- if .FeatureGatesArg}}
+  extraArgs:
+{{- if eq .ClusterConfigAPIVersion "v1beta4"}}
+    - name: feature-gates
+      value: "{{.FeatureGatesArg}}"
+{{- else}}
+    feature-gates: "{{.FeatureGatesArg}}"
+{{- end}}
+{{- end}}
 scheduler:
   extraVolumes:
   - name: localtime
@@ -75,11 +93,17 @@ scheduler:
     mountPath: "/etc/localtime"
     readOnly: true
     pathType: File
+{{- if .FeatureGatesArg}}
+  extraArgs:
+{{- if eq .ClusterConfigAPIVersion "v1beta4"}}
+    - name: feature-gates
+      value: "{{.FeatureGatesArg}}"
+{{- else}}
+    feature-gates: "{{.FeatureGatesArg}}"
+{{- end}}
+{{- end}}
 {{with .ImageRegistry}}imageRepository: {{.}}{{end}}
 {{with .ClusterName}}clusterName: {{.}}{{end}}
-{{if gt (len .FeatureGates) 0}}
-featureGates:{{range $key,$value := .FeatureGates}}
-  {{$key}}: {{$value}}{{end}}{{end}}
 {{- if eq .ClusterConfigAPIVersion "1beta4"}}
 certificateValidityPeriod: 87600h
 caCertificateValidityPeriod: 867240h
@@ -99,6 +123,10 @@ authentication:
   x509:
     clientCAFile: /etc/kubernetes/pki/ca.crt
 kind: KubeletConfiguration
+{{- if gt (len .FeatureGates) 0}}
+featureGates:{{range $key,$value := .FeatureGates}}
+  {{$key}}: {{$value}}{{end}}
+{{- end}}
 cgroupDriver: systemd
 healthzBindAddress: 127.0.0.1
 healthzPort: 10248

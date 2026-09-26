@@ -461,3 +461,71 @@ func TestKubeadmConfig_renderJoin(t *testing.T) {
 		})
 	}
 }
+
+// kubeadm v1beta4 rejects ClusterConfiguration.featureGates with "not a
+// valid feature name" for every gate (observed live on v1.37.0: gate names
+// its own kubelet accepts were refused), so the gates must travel as
+// component extraArgs plus KubeletConfiguration.featureGates (R24).
+func TestKubeadmConfigRendersFeatureGatesAsComponentArgs(t *testing.T) {
+	stepper := &KubeadmConfig{
+		ClusterConfigAPIVersion: "v1beta4",
+		KubernetesVersion:       "v1.37.0",
+		FeatureGates: map[string]bool{
+			"APIServingWithRoutine": true,
+			"CSIVolumeHealth":       false,
+		},
+	}
+	output := &bytes.Buffer{}
+	if err := stepper.renderTo(output); err != nil {
+		t.Fatal(err)
+	}
+	rendered := output.String()
+
+	clusterConfig := rendered[:strings.Index(rendered, "\n---\n")]
+	if strings.Contains(clusterConfig, "featureGates:") {
+		t.Fatalf("ClusterConfiguration still carries a featureGates map; kubeadm v1beta4 rejects it:\n%s", clusterConfig)
+	}
+	// sorted, deterministic arg
+	const arg = `value: "APIServingWithRoutine=true,CSIVolumeHealth=false"`
+	if got := strings.Count(rendered, arg); got != 3 {
+		t.Fatalf("feature-gates extraArg appears %d times, want 3 (apiServer/controllerManager/scheduler)", got)
+	}
+	for _, component := range []string{"apiServer", "controllerManager", "scheduler"} {
+		section := componentSection(rendered, component)
+		if !strings.Contains(section, "name: feature-gates") || !strings.Contains(section, arg) {
+			t.Fatalf("%s section lacks the feature-gates extraArg:\n%s", component, section)
+		}
+	}
+	kubeletIdx := strings.Index(rendered, "kind: KubeletConfiguration")
+	if kubeletIdx < 0 {
+		t.Fatal("rendered config has no KubeletConfiguration document")
+	}
+	kubelet := rendered[kubeletIdx:]
+	if sep := strings.Index(kubelet, "\n---"); sep >= 0 {
+		kubelet = kubelet[:sep]
+	}
+	if !strings.Contains(kubelet, "featureGates:") ||
+		!strings.Contains(kubelet, "APIServingWithRoutine: true") ||
+		!strings.Contains(kubelet, "CSIVolumeHealth: false") {
+		t.Fatalf("KubeletConfiguration lacks featureGates:\n%s", kubelet)
+	}
+}
+
+// componentSection returns the block of a rendered kubeadm document starting
+// at the given key until the next top-level key or document separator.
+func componentSection(rendered, key string) string {
+	idx := strings.Index(rendered, "\n"+key+":")
+	if idx < 0 {
+		return ""
+	}
+	rest := rendered[idx+1:]
+	lines := strings.Split(rest, "\n")
+	end := len(lines)
+	for i, ln := range lines[1:] {
+		if ln == "---" || (ln != "" && !strings.HasPrefix(ln, " ") && !strings.HasPrefix(ln, "\t") && strings.Contains(ln, ":") && !strings.HasPrefix(ln, "-")) {
+			end = i + 1
+			break
+		}
+	}
+	return strings.Join(lines[:end], "\n")
+}
