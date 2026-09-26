@@ -234,7 +234,9 @@ func (h *handler) verificationCodeGrant(req *restful.Request, response *restful.
 		restplus.HandleBadRequest(response, req, err)
 		return
 	}
-	var values url.Values
+	// url.Values is a map and Set on its zero value panics, so every MFA
+	// verification-code login used to blow up before the code was checked (R24).
+	values := url.Values{}
 	values.Set("code", code)
 	authenticated, err := h.mfaAuthenticator.Authenticate(provider, token, values)
 	if err != nil {

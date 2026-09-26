@@ -48,6 +48,11 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/auditing"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/auth"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/mfa"
+	// MFA providers register themselves through init(); without this import
+	// the registry stays empty, a deploy that enables mfaOptions fails at
+	// startup with "mfa provider <type> is not supported" and crash-loops
+	// kc-server (R24).
+	_ "github.com/kubeclipper/kubeclipper/pkg/authentication/mfa/sms"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/request/anonymous"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/request/bearertoken"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/request/internaltoken"
