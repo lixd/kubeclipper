@@ -20,7 +20,7 @@ package component
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -80,10 +80,15 @@ func (l NodeList) GetNodeIDs() (nodes []string) {
 	return
 }
 
+// ErrNoReachableMaster is a transient condition: the control plane exists but
+// its API port does not answer yet (still installing) or is currently down.
+// The API maps it to 503 rather than 500 (R26).
+var ErrNoReachableMaster = errors.New("no master node available: all master nodes 6443 port unreachable")
+
 func (l NodeList) AvailableKubeMasters() (NodeList, error) {
 	masters := l.ReachableNodes("tcp", 6443, time.Second*2)
 	if len(masters) == 0 {
-		return nil, fmt.Errorf("no master node available: all master nodes 6443 port unreachable")
+		return nil, ErrNoReachableMaster
 	}
 
 	return masters, nil

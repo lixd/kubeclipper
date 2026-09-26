@@ -748,6 +748,13 @@ func (h *handler) GetKubeConfig(request *restful.Request, response *restful.Resp
 
 		masters, err := extraMeta.Masters.AvailableKubeMasters()
 		if err != nil {
+			// The control plane is not answering yet (still installing) or
+			// currently down: a transient state, not an internal failure (R26).
+			if errors.Is(err, component.ErrNoReachableMaster) {
+				restplus.HandlerErrorWithCustomCode(response, request, http.StatusServiceUnavailable, http.StatusServiceUnavailable,
+					http.StatusText(http.StatusServiceUnavailable), err)
+				return
+			}
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
