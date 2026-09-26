@@ -1270,3 +1270,17 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **终态**：平台 rc.24（c5574935）Healthy、3/3 agents、doctor 25/25、无集群；dev-4 以新 Node ID 重新纳管；临时文件/脚本全清；共享 Registry 未新增 tag（本轮无发布）。
 
 文档同步：checklist 3-15/5-09（→✅，含边界与定性说明）、本节 §12.24。
+
+### 12.25 R28 追加轮（2026-09-26，rc.25 b459b0a2）：口令策略 + 6-13 现场核查 + 4-04 定性 + 7-03 容量基线
+
+**① 口令策略落地（rc.25，`b459b0a2`；行为变更）**：此前口令策略（8-16 位、含大小写与数字，`^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,16}$`）只约束 admin 初始口令，用户创建/改密仅校验非空 → 弱口令可入库（R24 记录项）。实现：策略与校验函数下沉到 `pkg/scheme/iam/validation`（`PasswordPolicy`/`ValidatePassword`，regexp2 同正则），`ValidateUserSpec` 对创建校验、`UpdateUserPassword` 对改密校验，CLI 示例口令改为合规值。真机（rc.25）：`123456` 建用户 **400** `password must be 8-16 characters and contain at least one digit, one lower-case and one upper-case letter`、`Abcd1234` 200、弱口令改密 400、合规用户清理 200。单测：策略边界 8 例 + ValidateUserSpec 正负两例。
+
+**② 6-13 legacy 旧入口现场核查（rc.25 三节点）**：平台侧全部清理干净——无 static-server/nfs-provisioner/tar-downloader 进程；systemd 仅 kc-server/kc-agent/kc-etcd/kc-console（dev-3 另有受保护的 kc-oci-r3-registry）；无 legacy 端口监听；`/usr/local/bin` 无相关二进制；默认 delivery policy 槽位为 cri/cni/k8s-extension/bootstrap-*/k8s-*，无旧组件；registry 包清单无旧包。**Console 侧不通过（新发现）**：`/etc/kc-console/dist/main.bundle.1780368211.js` 的 storage addon 选项列表含 `"nfs-provisioner"`（与 nfs-csi 并列）、`page.bundle.1780368211.js` 仍含 `{name:"nfs-provisioner",schema:{...}}` 安装表单定义——即 Console UI 仍暴露已退休组件；修复需 console 源码分支（不在本仓库），已记录。
+
+**③ 4-04 Addon 同组件多实例：定性为产品缺口**：真机（r28-a）第二次安装 nfs-csi（即使 `scName` 不同）→ 400 `nfs-csi-v1 component has been installed in the current cluster`；API 无实例名/多实例入口，与 2.2-04 convertNodes 同类（第 7 章扩展能力，发布承诺前需先实现）。
+
+**④ 7-03 多节点并发任务基础容量：定义基线并实测**：目标=3 节点平台（4c/8c/8c）+ 2 个 1M 离线建群并发（dev-3、dev-4 各一，同一共享 registry 取包）。结果：13:53:50 同时提交 → 两集群 **Running（约 4.6 分钟）**、两个 CreateCluster op 及各自 SyncKubeConfig 均 Succeeded、期间 `kcctl status` 全程 3/3 Healthy（server/etcd/agent），无 step 失败、无锁争用。上限说明：≥3 并发需更多主机（每节点同时仅承载 1 个测试集群），更大规模按同法复测。
+
+**终态**：平台 rc.25（b459b0a2）Healthy、3/3 agents、无集群、ops 已随终态清空；r28-a/r28-b 已删、dev-3/dev-4 清理（含 /tmp/.nfs-csi、/tmp/.csi-healthcheck、/tmp/.k8s）；共享 Registry 仅增 rc.25 tag（累计 rc.17-rc.25 九个候选）；平台 etcd 数据目录未动。
+
+文档同步：checklist 4-04（❌定性）、7-03（✅容量基线）、4-08（口令策略追加）、6-13（平台侧全清 + Console 侧发现）、本节 §12.25。
