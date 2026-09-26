@@ -16,7 +16,12 @@
 
 package options
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
 
 func TestMetadataLogPort(t *testing.T) {
 	tests := []struct {
@@ -44,5 +49,31 @@ func TestMetadataLogPort(t *testing.T) {
 				t.Fatalf("LogPort() = (%d, nil), want validation error", got)
 			}
 		})
+	}
+}
+
+// A top-level initialPassword key in the deploy config is silently dropped by
+// the decode and deploys then fall back to the built-in default password —
+// reject the mistake instead (R22).
+func TestCompleteRejectsTopLevelInitialPassword(t *testing.T) {
+	dir := t.TempDir()
+	cfg := filepath.Join(dir, "deploy-config.yaml")
+	body := `ssh:
+  user: root
+initialPassword: oops
+serverIPs:
+- 10.0.0.1
+`
+	if err := os.WriteFile(cfg, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := NewDeployOptions()
+	c.Config = cfg
+	err := c.Complete()
+	if err == nil {
+		t.Fatal("top-level initialPassword accepted, want an error")
+	}
+	if !strings.Contains(err.Error(), "authentication.initialPassword") {
+		t.Fatalf("error %q does not point at the correct location", err)
 	}
 }

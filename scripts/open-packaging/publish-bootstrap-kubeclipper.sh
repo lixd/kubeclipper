@@ -40,6 +40,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Guard against the R21 mispublish: on a non-linux dev machine the script
+# defaulted arch to `go env GOARCH` (arm64 on Apple silicon) and published a
+# build the platform can never consume. Require an explicit --arch there.
+host_arch="$(go env GOHOSTARCH 2>/dev/null || echo amd64)"
+if [[ "$arch" != "amd64" && -z "${KC_ALLOW_NON_AMD64:-}" ]]; then
+  die "refusing to publish arch '$arch' (host: $host_arch); pass --arch amd64 explicitly or set KC_ALLOW_NON_AMD64=1"
+fi
+
 init_bootstrap_publish_workspace
 
 build_core_binaries

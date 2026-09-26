@@ -1,0 +1,31 @@
+# The exact commit the qualification run and acceptance round tested.
+candidate_sha: 3be0ffe83ea3054a77f66bd16ca54220ad984f24
+# passed | failed. The gate blocks on anything other than `passed`.
+result: passed
+# sha256 of the qualification run's `oci-release-manifest-<run_id>` artifact
+# (the release-manifest.yaml uploaded by publish-oci-qualification.yml,
+# Actions run 36216971172). This pins the release to the exact bytes that
+# were qualified.
+release_manifest_sha256: 2e5bf6be74aac9a57d9110f81bb331a9f5f69f44a08ab60ac0d68877e1b964b8
+# Optional. Must match the released tag when present. v2.0.0 is the
+# packaging/resources.yaml release stamp at this candidate; a later stable
+# tag requires its own bump commit, re-qualification and record.
+release_tag: v2.0.0
+# Optional provenance for future audits.
+round: R23
+notes: >-
+  Acceptance rounds R21-R23 on the OCI delivery branch, platform
+  kubeclipper v2.0.3-rc.16 (candidate commit 3be0ffe8) on a 3-node cluster
+  (dev-2/dev-3/dev-4, containerd CRI, k8s v1.35.8 -> v1.37.0 upgrade
+  exercises). Scope and evidence: R7 report section 12.17 (R21 acceptance
+  round, 14 checklist items closed), 12.18 (R22 fix round, 8 findings fixed
+  and re-verified on rc.15), 12.19 (R23: upgrade-drain PDB deadlock fixed by
+  bounding kubectl drain --timeout=120s; operation retry and agent-offline
+  resumption re-verified on rc.16 with an immutable plan hash
+  c0d395a025a134c8; rolling 2-node upgrade Succeeded in 62s; bring-your-own
+  CA apiserver certificate chain verified; network-partition tolerance
+  verified with iptables REJECT, 30k+ connection attempts absorbed).
+  Qualification manifest produced by publish-oci-qualification.yml run
+  36216971172 (success, 19m4s, ghcr.io/lixd/kubeclipper/qualification-3be0ffe8...),
+  verify-release-manifest.sh passed inside CI. No credentials, tokens or
+  kubeconfigs are recorded here.

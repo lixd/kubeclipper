@@ -369,10 +369,19 @@ func (c *DeployConfig) Complete() error {
 	if err != nil {
 		return err
 	}
-	bytes, err := Omitempty(data)
-	if err != nil {
+	// A top-level initialPassword key is silently dropped by the decode (the
+	// real field lives under authentication) and deploys then fall back to the
+	// built-in default password — reject the mistake instead (R22). Probe the
+	// raw bytes before Omitempty, which strips unknown keys.
+	var probe map[string]any
+	if err := yaml.Unmarshal(data, &probe); err != nil {
 		return err
 	}
+	if _, exists := probe["initialPassword"]; exists {
+		return fmt.Errorf("top-level initialPassword in the deploy config is ignored; " +
+			"put it under authentication.initialPassword or pass --initial-password")
+	}
+	bytes, err := Omitempty(data)
 	err = yaml.Unmarshal(bytes, c)
 	if err != nil {
 		return err

@@ -1103,3 +1103,79 @@ Registry 仅增 rc.13/14/15 tag（18 个 v2.0* tag）;caas4/*、/var/lib/kc-etcd
 
 文档同步：gaps P0 行 11/12（新发现行）标注修复+复验、checklist 1.3-11/1.3-12/2.3 系列行更新、
 本节 §12.18。
+
+### 12.19 R23 追加轮（2026-09-26，rc.16 3be0ffe8）：“步骤丢失”立项复查（误诊修正）+ 2.3 系列收口 + 2.1-16/23 + B6 验收门禁闭环
+
+**① "步骤执行丢失"立项复查（R22 §12.18 残留跟进）——结论：双重误诊**。R22 轮监控脚本用了错误的
+etcd 前缀 `/registry/operations.kubeclipper.io/`（实际前缀为 `/registry/kc-server/`），且
+operationtasks API list 无参调用恒返回空——据此作出的"任务对象被 purge/消失"判断不成立：只读
+etcd 查询确认 16 个任务对象全部在库（15 Succeeded + 1 Running），agent 无执行痕迹的步骤即
+`kubectl drain` 步。**真正缺陷**：单节点（1M）拓扑升级时 `kubectl drain` 逐出 calico-apiserver
+被 PDB 拒绝（"Cannot evict pod as it would violate the pod's disruption budget"），无超时无限
+重试挂死——op 步骤标 Running 33min 无进展，子进程树铁证（kubectl drain PID 2697881 循环输出）。
+**修复（`3be0ffe8`）**：`pkg/scheme/core/v1/k8s/cluster.go` 两处升级 drain 由
+`--ignore-daemonsets \|\| true` 改为 `--ignore-daemonsets --timeout=120s \|\| true`（drain 失败
+容忍语义不变，仅加硬时限；步骤级 Timeout 10min 兜底不变）→ rc.16 发布（顶层 digest
+`981c9e2c…`）→ 平台 `upgrade all` 升 rc.16（12 槽位全成功）。
+
+**② 2.3-02/06/07 闭环（rc.16 真机 retry）**：卡 drain 的升级 op（914e7ea3）强杀 drain 子进程后
+取消收敛（Running→Canceled）→ `kcctl operation retry` 生成新 spec op（d30644df）→ 复用创建时
+物化的不可变 plan：retry 前后 op.Spec.Steps 哈希一致（`c0d395a025a134c8`）——packagePlan 不随
+manifest/tag 演进回写（2.3-06）；新脚本验证含 `--timeout=120s` → op Succeeded、节点 v1.37.0。
+tag 重指对 retry 无影响的机制由 plan 物化+哈希不变排除（2.3-07 证据级闭环；真 registry 重指场景
+仍受共享 5003 只增 tag 约束，未实跑）。发布器 tag 冲突防护（拒绝重指）R22 已实证。
+
+**③ 2.3-09 滚动顺序**：r23-roll 2 节点（master+worker）升级 1.35.8→1.37.0 **62s** 完成——master
+先行、drain 期间业务负载收敛（无中断超过窗口）、ErrIgnore 容忍 drain 阶段性失败、升级后双节点
+Ready v1.37.0。1M 拓扑 drain PDB 边界同轮修复（①）。
+
+**④ 2.1-16 自带 CA**：r23-ca（临时生成根 CA 文件）建群 → apiserver/server 证书链由自带 CA 签发
+（openssl verify chain OK，serial 与平台外层不同）→ 集群 Running；CA 临时文件用后即删。
+**⑤ 2.1-23 真实断网**：r23-off（dev-4 侧 iptables OUTPUT 仅放行 lo+LAN、其余 REJECT，
+累计 30,724 包被拒）下建群照常收敛 Succeeded（离线通道物料齐备），解除封锁后集群 Running/Ready。
+**新观察**：断网 inject 首条规则须 `-o lo ACCEPT`（否则 REJECT 拦截 127.0.0.1 使 apiserver 连
+本机 etcd 失败，假阳性）。
+
+**⑥ B6 验收门禁闭环（首个验收记录 + release-gate PASS/BLOCK）**：
+- qualification：`oci-qualification-3be0ffe83ea3…` tag 触发 publish-oci-qualification.yml
+  **run 36216971172 成功（19m4s）**，manifest artifact
+  `oci-release-manifest-36216971172`（6.5KB）下载后 sha256=
+  `2e5bf6be74aac9a57d9110f81bb331a9f5f69f44a08ab60ac0d68877e1b964b8`；manifest
+  sourceRevision=3be0ffe83ea3…、registry 指向
+  `ghcr.io/lixd/kubeclipper/qualification-3be0ffe83ea3…`、bootstrap/kubeclipper artifact 1 个。
+- 验收记录：`docs/testing/acceptance/3be0ffe83ea3054a77f66bd16ca54220ad984f24.yaml`
+  （candidate_sha/result: passed/release_manifest_sha256/release_tag: v2.0.0/round: R23/notes
+  引用 §12.17-12.19；不含任何凭据）。
+- **PASS 场景**：`release-gate.sh --release-tag v2.0.0 --candidate-sha 3be0ffe83ea3…
+  --qualification-manifest <manifest>` → `RELEASE GATE PASSED`（exit 0）——manifest 契约
+  （version/sourceRevision/bootstrap artifact revision）+ 验收记录
+  （candidate_sha/result/release_manifest_sha256 精确钉板）全部通过。
+- **BLOCK 场景 A**：`--release-tag v2.0.3`（树内 `packaging/resources.yaml` release 仍 v2.0.0，
+  未做发布 bump）→ `RELEASE GATE BLOCKED: qualification manifest version 'v2.0.0' does not
+  match release tag 'v2.0.3'`（exit 1）——与 release.yml prepare job 的
+  tag==packaging release 校验共同构成"未 bump 不可发布"防线。
+- **BLOCK 场景 B**：篡改验收记录 release_manifest_sha256（全零）→
+  `RELEASE GATE BLOCKED: acceptance record pins qualification manifest 0000…0000 but this
+  release would publish 2e5bf6be…`（exit 1）。
+- 发布链契约归位：`metadata.version` 来自 `packaging/resources.yaml` `release:` 字段——真实
+  v2.0.3 发布需先 bump 该字段→commit→qualification 重跑→新验收记录→tag（此为设计路径，
+  本轮以 v2.0.0 manifest 完成 gate 机制验证）。
+
+**⑦ 小修（发布链健壮性，本轮提交）**：①`cmd/kcctl/app/options/options.go`：deploy-config 顶层
+`initialPassword` 显式拒绝（YAML probe 在 Omitempty 之前，文案指引
+`authentication.initialPassword` 或 `--initial-password`；R22 曾被静默剥离）；
+②`scripts/open-packaging/publish-bootstrap-kubeclipper.sh`：非 amd64 arch 守卫——Mac 上
+`go env GOARCH`=arm64 误发被显式拦截（需 `--arch amd64` 或 `KC_ALLOW_NON_AMD64=1`）。
+单测：TestCompleteRejectsTopLevelInitialPassword 绿、arch 守卫 bash -n 过。
+
+**终态**：平台 3+3 拓扑 rc.16（3be0ffe8），Healthy、doctor 25/25；r23-1m（retry 验证集群，
+v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/lib/kc-etcd 全程未动；
+共享 Registry 仅增 rc.16 tag；监控进程与 /tmp/r23-* 清理。
+
+遗留（记录跟进，非阻塞）：①ErrIgnore 对 drain 失败的容忍是设计语义，但 master 上 drain 失败仍
+继续升级的告警可见性可改进（建议 operation 事件）；②平台升级期间 etcd leader 切换使 reconcile
+停滞数分钟（自愈，R22 观察项持续）；③1M 拓扑升级虽有 --timeout 兜底，PDB 配置类死锁根因
+（calico-apiserver PDB minAvailable=1 单副本）属部署物默认值边界，发布说明建议提示。
+
+文档同步：gaps P0 行 11（"步骤丢失"误诊修正+drain 修复闭环）、checklist 2.1-16/2.1-23/
+2.3-02/2.3-06/2.3-07/2.3-09 更新、首个验收记录（B6）、本节 §12.19。

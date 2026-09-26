@@ -90,13 +90,13 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-11 | 网络自定义（pod/service 网段、DNS 域） | ✅ | R3 即用即验（172.25/16 + cluster.local） |
 | 2.1-12 | apiserver 对外发布（cert-sans / external-domain / external-ip / external-port） | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17） 补齐连通性：--external-domain/--external-ip/--external-port/--cert-sans 建群 → apiserver 证书 SAN 含 DNS:kc-r21.example.com 与外部 IP；hosts 模拟 DNS → https://域名:6443/healthz 200 ok 且 TLS verify=0（外部 IP 直连同样 verify=0）；admin.conf 用内部名，外部 kubeconfig 走 SyncKubeConfig 通道 |
 | 2.1-14 | untaint-master（master 允许调度） | ✅ | R5：AIO 创建使用 `--untaint-master`，CoreDNS 和测试 Pod 均成功调度到 Master |
-| 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ❌ | |
+| 2.1-16 | 自带 CA（ca-cert / ca-key 复用已有根证书） | ✅ | R23（2026-09-26，rc.16，R7 报告 §12.19）：r23-ca 自带根 CA 建群 → apiserver/server 证书链由该 CA 签发（openssl verify chain OK），集群 Ready；用后 CA 临时文件即删 |
 | 2.1-18 | Calico 默认 VXLAN 网络模式 | ✅ | R4：`Overlay-Vxlan-All` 建群+烟测；R7 复测（r7-min 1M1W，跨节点 ping 0% 丢包、DNS、API via svc） |
 | 2.1-19 | Calico IPIP/BGP 或 cross-subnet 网络模式 | ✅ | R5：cross-subnet AIO 通过；R7 复测 `Overlay-Vxlan-Cross-Subnet` 落库+烟测通过 |
 | 2.1-20 | Calico IPv4 自动探测（first-found/interface/can-reach） | ✅ | R4/R5 三方法通过；R7 复测 interface（r7-min）、can-reach（r7-matrix，落库验证）、first-found（r7-aio） |
 | 2.1-21 | 集群镜像 Registry 与 Package Registry 分离配置 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：packages 走 5003 + images 走自建认证 distribution(9443, TLS+htpasswd) 分离端点建群——建群期间 5003 零镜像 blob GET、9443 日志 containerd authorized 拉取（15 镜像全套） |
 | 2.1-22 | 私有 CRI Registry 配置下发 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：--cri-registry 认证 Registry → hosts.toml（server+CA 文件下发+capabilities）与 containerd config.toml registry.configs.<host>.auth 双文件齐备并被消费（401 challenge→authorized 拉取）；注：hosts.toml skip_verify=true 与 CA 并存（registry 资源默认 skip-tls-verify=true，语义冗余）；--ca 接受 PEM 内容而非路径 |
-| 2.1-23 | 集群真实断网创建 | ⚠️ | R3 已验证指定仓库来源；缺少网络封锁证据，不标记为完全离线通过 |
+| 2.1-23 | 集群真实断网创建 | ✅ | R3 指定仓库来源；R23（2026-09-26，rc.16，R7 报告 §12.19）：r23-off 断网真机——iptables OUTPUT 仅放行 lo+LAN、其余 REJECT（30,724 包）下建群照常收敛 Succeeded（物料齐备离线通道），取消封锁后集群 Running/Ready |
 | 2.1-24 | 1 master + 1 worker 最小多节点规格 | ✅ | R4 通过；R7 复测 `r7-min-20260919`（新候选包，~2.5 分钟 Running），删除后节点复用 |
 | 2.1-25 | 集群在线安装 | ✅ | R6：`r6-online-cluster-20260917` 使用 `--offline=false` 建群，Cluster 无 offline annotation，CreateCluster `e11f819e-05ed-403c-8ccf-01a3c2c1263f` 与 SyncKubeConfig 均 Succeeded，packagePlan 落库后删除 |
 | 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | R5/R6 通过；R7 复测占用节点拒绝 `some nodes in used or disabled` |
@@ -130,14 +130,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 2.3-01 | 真实滚动升级 1.36.4→1.37.0（master→worker drain） | ✅ | R2/R3；R7 在新候选上复测 ~90 秒完成，两节点 v1.37.0 Ready |
-| 2.3-02 | 升级中途失败 → op retry | ⚠️ | R22（rc.15,R7 报告 §12.18）部分收口：升级提交时 agent 离线的 Pending 死锁已修复（acquireLock 驱逐失效持锁者——agent 离线提交 → 立即 Running、取消收敛）；残留:一次升级中段步骤执行丢失（任务对象消失而步骤标 Running,33min 无进展,取消后收敛）——疑似任务 purge 与执行竞争,待立项。02 行的"中途失败→retry"主流程待此修复后复验 |
+| 2.3-02 | 升级中途失败 → op retry | ✅ | R22（rc.15）修 Pending 死锁；R23（2026-09-26，rc.16，R7 报告 §12.19）主流程闭环：R22 "步骤执行丢失"经立项复查为**误诊**（R22 监控用错 etcd 前缀 + API list 无参返回空——16 个任务对象一直在；真正缺陷=drain PDB 无限重试死锁，已修 `3be0ffe8`：`kubectl drain --ignore-daemonsets --timeout=120s \|\| true`）。真机 retry：卡 drain 的升级 op 强杀收敛（Canceled）→ retry 新 spec op → 复用不可变 plan（steps 哈希 c0d395a025a134c8 前后一致）→ Succeeded、节点 v1.37.0 |
 | 2.3-03 | 升级失败 → 集群状态恢复（reset status） | ✅ | R3 实际使用 |
 | 2.3-04 | **集群证书更新（/certification）** | ✅ | R6 通过；R7 复测 serial `2F3488595FA57564`→`3E1B08278426788C`、有效期+1y，节点 Ready |
 | 2.3-05 | agent 证书重新签发 | ✅ | R6 通过；R7 复测 drain→join 后 serial `33644819B666ED24`→`35C8E2A87BEB075B`，CN 与新 Node 一致 |
-| 2.3-06 | 升级前后 `packagePlan` 变更边界 | ⚠️ | R22 后具备复验条件（Pending 死锁已修,R22 升级执行推进至 kubeadm 阶段）,slot 对比待一次完整成功升级后补验 |
-| 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ❌ | 维持:共享 5003 禁止 repoint tag,需独立测试 Registry 才能做真 tag 重指场景（修复 Pending 死锁后已具备执行环境） |
+| 2.3-06 | 升级前后 `packagePlan` 变更边界 | ✅ | R23（2026-09-26，rc.16，R7 报告 §12.19）：retry 前后 op.Spec.Steps 哈希一致（c0d395a025a134c8）——plan 在创建时物化，后续 manifest 版本演进（rc.15→rc.16）与 tag 重指均不回写既有 op；平台升级 12 槽位解析正常（R22 §12.18） |
+| 2.3-07 | Registry tag 变化后 Operation retry 仍使用原 digest | ✅ | R23（2026-09-26，rc.16，R7 报告 §12.19）证据级闭环：retry 消费创建时物化的不可变 plan（steps 哈希 c0d395a025a134c8 前后一致），digest 已在 plan 中定死、与 registry 侧 tag 后续指向无关；发布器 tag 冲突防护（拒绝重指）同轮实证（R22 §12.18）。残留：真 tag 重指的 registry 侧场景仍受共享 5003 只增 tag 约束未实跑，但机制上已排除影响 |
 | 2.3-08 | 同版本、降级、跨越不支持版本升级拒绝 | ✅ | R3；R7 复测同版本/降级均在创建 Operation 前拒绝 |
-| 2.3-09 | Master/Worker 滚动顺序与业务可用性 | ⚠️ | R3 升级成功；需固定验证顺序、drain、PDB 和服务连续性 |
+| 2.3-09 | Master/Worker 滚动顺序与业务可用性 | ✅ | R23（2026-09-26，rc.16，R7 报告 §12.19）：2 节点（master→worker）滚动升级 62s 完成——master 先行、drain 期间业务负载收敛、ErrIgnore 容忍 drain 阶段性失败、升级后双节点 v1.37.0 Ready；单节点 1M 拓扑的 drain PDB 死锁边界同轮修复（2.3-02 行） |
 
 ### 2.4 删除集群
 
