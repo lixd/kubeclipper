@@ -1260,3 +1260,13 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **终态**：平台 rc.24（c5574935）Healthy、3/3 agents、无集群；r26-1m/r26-1m2 已删、dev-3 清理、临时文件全清；MFA 测试后已关闭（plain login 200）；共享 Registry 仅增 rc.23/rc.24 tag（累计 v2.0* tag 至 rc.24）；平台 etcd 数据目录未动。
 
 文档同步：gaps 行 16（→已修复）、checklist 3-15/4-12/4-18/4-20 更新（含记录项现状）、本节 §12.23。
+
+### 12.24 R27 收尾轮（2026-09-26，rc.24 c5574935）：5-09 单测闭环定性 + 3-15 drain/join 完整生命周期
+
+**① 5-09（Task 终态写入成功但响应丢失）闭环定性**。复查代码发现该场景已被两道守卫覆盖：①派发前 `getLiveTask` 重读服务端任务，`live.Status.Phase.IsTerminal()` 即跳过执行（不复用 informer 的陈旧副本）；②`finish` 在 `UpdateStatus` 失败后 GET 复核——服务端已终态→视为成功（即"写入落地、响应丢失"），任务被 purge→视为已决。单测直击：`TestWorkerAcceptsPersistedTerminalAfterLostResponse`（fake 以 `loseTerminalResponse` 模拟"终态已持久化但响应丢弃"→ sync 返回成功且任务终态不回退）、`TestWorkerReturnsPromptlyWhenTaskPurgedAfterTerminalUpdate`。**真机注入的边界说明**：iptables 只能整段阻断 agent↔server，产生的是"写入未落地"（任务仍 Running → 按设计恢复执行，R2/R3/R24 已覆盖），无法复现"仅响应丢失"的时序，故本项以"代码守卫+定向单测"闭环，真机探针不作为通过条件。
+
+**② 3-15 drain/join 完整生命周期（rc.24 真机）**：`kcctl drain --agent <dev-4>` → `agent node drain completed`、节点列表 2/3、dev-4 kc-agent 停止；**重复 drain 同一 ID** → 无 `-y` 时弹出 "not in deploy config agent list ... still drain?" 且无 TTY 时输出 R26 的干净提示，带 `-y` 时执行并得到 `drain agent node failed: Object not found ... not found`（幂等拒绝）；`kcctl join --agent default:172.16.131.230 --pk-file /root/.ssh/id_ed25519 --package-registry 172.16.131.146:5003 --package-registry-scheme http --ip-detect interface=ens3 --node-ip-detect cidr=172.16.131.0/24`（server 侧执行）→ `agent node join completed`、**新 Node ID**（4e362f79→a1ac1855）、`kcctl get node` 3/3、`kcctl status` 3/3 agents Healthy、**doctor 25 passed / 0 failed**。附带验证：join 的 `--package-registry-scheme http` 显式声明（与 R26 registry 协议修复同源）在多网卡主机上必须显式 `--ip-detect`（precheck 拒绝并要求确认，行为正确）。
+
+**终态**：平台 rc.24（c5574935）Healthy、3/3 agents、doctor 25/25、无集群；dev-4 以新 Node ID 重新纳管；临时文件/脚本全清；共享 Registry 未新增 tag（本轮无发布）。
+
+文档同步：checklist 3-15/5-09（→✅，含边界与定性说明）、本节 §12.24。
