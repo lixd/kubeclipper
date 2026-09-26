@@ -234,7 +234,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6 四端点 200；R7 复测一致 |
 | 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6 通过；R7 复测（本轮全部操作均有审计记录） |
 | 4-16 | 敏感信息脱敏 | ✅ | 旧缺口已闭环：写入侧权限收紧自 batch-1（`a989b14f`，R9 B3：0600+原子替换+拒绝符号链接）；**R23 复核（rc.16）**：三节点 `/root/.kc/config` 与 `/root/.kc/deploy-config.yaml` 实测均 **0600**（R6 的 0644 为旧版遗留）；日志泄漏证据：R12/R16 htpasswd 口令在 server json / GET API / kc-server/kc-agent journal / /etc /root /var/lib/kubeclipper 全量 grep 0 泄漏，`/metrics` 无 password/token/secret/private-key 字段名 |。**R24 追加（rc.20，§12.20）**：审计事件原先明文保留用户创建 `spec.password`、改密 `currentPassword/newPassword` 与 token 值（真机审计流与持久化事件均可见），已加入 redactAuditFields 白名单 → `[REDACTED]`，真机复验 journal grep 0 明文
-| 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：均 200、108 行无敏感字段名；R7 复测一致 |
+| 4-17 | `/healthz` 与 `/metrics` | ✅ | R6 均 200、metrics 108 行无 password/token/secret/private-key 字段名；R7 复测一致；R24 全轮多次复查 `/healthz` 200（各候选升级后健康核验均用此端点） |
 | 4-18 | 登录失败限流与恢复 | ✅ | R24（2026-09-26，rc.17，§12.20）真机全矩阵：5 次错口令 → 计数达阈值（第 5 次 401 且 reason "auth rate limit exceeded"，其后 429 文案含窗口时长）、**正确口令在窗口内同样 429**、**按用户隔离**（他人不受影响）、窗口过期（2m 实测）后正确登录 200、**成功登录清零计数**（3 错→成功→再错从 0 计）。**重大修复**：部署侧 authentication 段零值回填 + 运行时限流器 MaxTries<=0 视为禁用 + Duration<=0 回退 10m——修复前 `authenticateRateLimiterMaxTries=0` 使首次错误即**永久锁死**（实测平台 admin 被 429 锁死，共享 etcd 里 immortal 计数键），窗口文案 "0 minutes" |
 | 4-19 | Addon OCI chart/runtime-image-set 来源与 digest | ✅ | R2/R3；NFS CSI、MetalLB 主路径来源检查可复用 |
 | 4-20 | Addon 安装失败后的 retry/卸载清理 | ✅ | R24（§12.21，r24-1m）真机：①非法 config（scName `Bad_Name!`）→ 500 `invalid name of storage class` 零副作用（状态准确；宜 400=记录项）；②正向安装 nfs-csi → SC `r24-sc` + csi-nfs controller/node pods Running；③安装 op 末步 checkCSIHealth 长时间 Running（见 gaps 行 15 记录项），cancel 协作收敛 Canceled；④排队卸载 op 获锁后 Succeeded，集群侧 **SC 消失、nfs pods 0 残留** |
@@ -265,11 +265,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 门禁 | 状态 | 备注 |
 |---|---|---|---|
-| 6-01 | 支持策略与 `packaging/resources.yaml` 一致 | ⚠️ | `release-policy-verify` CI 已覆盖，需保留发布候选证据 |
-| 6-02 | bootstrap、Kubernetes、CRI、CNI、extension、addon OCI 制品完整 | ⚠️ | 构建/发布 CI 通过；真实消费分别见第 1、2、4 章 |
-| 6-03 | Release Manifest 包含 package、chart、runtime image 和 bootstrap | ⚠️ | qualification CI 覆盖 |
+| 6-01 | 支持策略与 `packaging/resources.yaml` 一致 | ✅ | `release-policy-verify` 在 CI 双处执行：qualification workflow prepare job（`--publish-matrix`，run 36216971172 通过）与 release.yml prepare job；候选证据=R23 qualification 成功轮 + 各 rc 升级矩阵仅消费策略内版本（R21-R23） |
+| 6-02 | bootstrap、Kubernetes、CRI、CNI、extension、addon OCI 制品完整 | ✅ | R23 qualification 候选 manifest（run 36216971172，sha256 2e5bf6be…）枚举 **110 个制品**：package-image 10（bootstrap kubeclipper/console/etcd/registry、cri containerd、cni calico、k8s、k8s-extension、kc-runtime、addon）+ helm-chart 2（tigera-operator）+ runtime-image 98，组件种类齐全；真实消费见第 1/2/4 章（rc.16-rc.22 部署/升级/建群） |
+| 6-03 | Release Manifest 包含 package、chart、runtime image 和 bootstrap | ✅ | 同一候选 manifest 四类齐备：bootstrap（kubeclipper/console/etcd/registry package-image）、package-image（k8s/cri/cni/extension/addon/kc-runtime）、helm-chart（tigera-operator）、runtime-image（98 条，k8s-extension 附带）；`verify-release-manifest.sh` 在 qualification CI 内通过 |
 | 6-04 | digest、source、revision、version provenance 正确 | ⚠️ | 升级侧 revision 防护已真机验证（R13-C5 双拦截）；R14：发布侧 bootstrap SourceRevision 必填（单测）+ `release-gate.sh` 门禁+release workflow `release-gate` job（fixture 自测 11 例，见 plan §7.6）。**R23（§12.19）：门禁+首个验收记录已闭环**——qualification run 36216971172（sourceRevision=候选 sha）、验收记录钉板 manifest sha256、gate 对真实 manifest PASS + 两类 BLOCK（未 bump tag / 篡改记录）实证。**剩余**：真实 stable 发布轮（resources.yaml bump → tag → release workflow 实跑）后升 ✅ |
-| 6-05 | 制品不可变性与重复发布保护 | ⚠️ | 相同 repo:tag 不得被静默覆盖 |
+| 6-05 | 制品不可变性与重复发布保护 | ✅ | **R22 真机实证**：重发已存在的 repo:tag 被发布器拒绝（`package tag conflict ... refusing`），据此顺延版本号（rc.12→rc.13）；R23 复验 tag 冲突防护仍在生效；共享 Registry 运维策略=只增 tag |
 | 6-06 | amd64/arm64 Manifest 与架构过滤 | ⚠️ | amd64/all 有 CI；arm64 真机需复验 |
 | 6-07 | Registry sync 与目标仓库消费 | ✅ | R2/R3 真实同步并用于部署；每个发布候选仍需保存证据 |
 | 6-08 | 完整 qualification 发布 | ⚠️ | Workflow 已实现；输出必须能完成真实部署和建群 |
