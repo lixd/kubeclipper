@@ -750,6 +750,12 @@ func (h *handler) UpdateUserPassword(request *restful.Request, response *restful
 		restplus.HandleBadRequest(response, request, fmt.Errorf("new password must be valid"))
 		return
 	}
+	// The same policy the admin initial password must satisfy: a password
+	// change used to accept anything non-empty (R28).
+	if err := validation.ValidatePassword(passwordReset.NewPassword); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
 
 	currentUser, ok := apirequest.UserFrom(request.Request.Context())
 	if !ok {

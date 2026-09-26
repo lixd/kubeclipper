@@ -41,10 +41,10 @@ const (
   Create user using command line`
 	createUserExample = `
   # Create user with required parameters
-  kcctl create user --name simple-user --role=platform-view --password 123456 --phone 10086 --email simple@example.com
+  kcctl create user --name simple-user --role=platform-view --password Abcd1234 --phone 10086 --email simple@example.com
 
   # Create user with all parameters
-  kcctl create user --name full-user --role=platform-view --password 123456 --phone 10010 --email full@example.com --description 'a full info user' --display-name 'full'
+  kcctl create user --name full-user --role=platform-view --password Abcd1234 --phone 10010 --email full@example.com --description 'a full info user' --display-name 'full'
 
   Please read 'kcctl create user -h' get more create user flags.`
 )

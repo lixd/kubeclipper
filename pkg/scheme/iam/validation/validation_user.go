@@ -19,6 +19,10 @@
 package validation
 
 import (
+	"fmt"
+
+	"github.com/dlclark/regexp2"
+
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/iam/v1"
 	apimachineryvalidation "k8s.io/apimachinery/pkg/api/validation"
@@ -33,6 +37,30 @@ func ValidateUser(u *corev1.User) field.ErrorList {
 	return allErrs
 }
 
+// PasswordPolicy is the account password policy. It is the same rule the
+// platform already applies to the admin initial password (R21): 8-16
+// characters with at least one digit, one lower-case and one upper-case
+// letter. Go's regexp has no lookahead, so regexp2 does the matching.
+const PasswordPolicy = `^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,16}$`
+
+// ValidatePassword reports whether a plaintext password satisfies
+// PasswordPolicy. User creation and password changes used to accept anything
+// non-empty while the admin password already had to satisfy the policy (R28).
+func ValidatePassword(password string) error {
+	reg, err := regexp2.Compile(PasswordPolicy, 0)
+	if err != nil {
+		return err
+	}
+	ok, err := reg.MatchString(password)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("password must be 8-16 characters and contain at least one digit, one lower-case and one upper-case letter")
+	}
+	return nil
+}
+
 func ValidateUserSpec(spec *corev1.UserSpec, fldPath *field.Path) field.ErrorList {
 	allErrs := field.ErrorList{}
 
@@ -41,6 +69,8 @@ func ValidateUserSpec(spec *corev1.UserSpec, fldPath *field.Path) field.ErrorLis
 	//}
 	if spec.EncryptedPassword == "" {
 		allErrs = append(allErrs, field.Invalid(fldPath.Child("password"), spec.EncryptedPassword, "must be valid password"))
+	} else if err := ValidatePassword(spec.EncryptedPassword); err != nil {
+		allErrs = append(allErrs, field.Invalid(fldPath.Child("password"), "", err.Error()))
 	}
 	// TODO: validate user other field
 	return allErrs
