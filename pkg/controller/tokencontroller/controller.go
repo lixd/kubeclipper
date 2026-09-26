@@ -70,16 +70,24 @@ func (t *TokenReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	if token.Status.ExpiresAt == nil || token.Status.ExpiresAt.IsZero() || !token.Status.ExpiresAt.Equal(&expireAt) {
 		token.Status.ExpiresAt = &expireAt
 		log.Debug("token expires at is zeor, update it", zap.Time("createAt", token.CreationTimestamp.Time), zap.Time("expireAt", expireAt.Time))
-		_, err = t.TokenWriter.UpdateToken(ctx, token)
-		return ctrl.Result{}, err
+		if _, err = t.TokenWriter.UpdateToken(ctx, token); err != nil {
+			return ctrl.Result{}, err
+		}
+		// Fall through instead of returning: the lister can hand back a stale
+		// copy right after the update, in which case this branch runs again and
+		// returning here would leave the token without any requeue. An expired
+		// temporary token then survived forever instead of being pruned (R24:
+		// an MFA code key stayed alive long past its TTL and kept rate-limiting
+		// resends). The deadline below is computed from the object itself, so
+		// it does not depend on the cached status.
 	}
 	now := metav1.Now()
-	if now.After(token.Status.ExpiresAt.Time) {
+	if now.After(expireAt.Time) {
 		log.Debug("token expires, delete it")
 		err = t.TokenWriter.DeleteToken(ctx, token.Name)
 		return ctrl.Result{}, err
 	}
-	waitToDelete := token.Status.ExpiresAt.Sub(now.Time)
+	waitToDelete := time.Until(expireAt.Time)
 	log.Debug("token requeue later", zap.Duration("requeueAt", waitToDelete))
 	return ctrl.Result{
 		RequeueAfter: waitToDelete,

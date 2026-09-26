@@ -39,6 +39,15 @@ func smsCacheKey(Type, phone string) string {
 	return fmt.Sprintf("%s-%s", Type, phone)
 }
 
+// smsRateLimitKey is deliberately a different key from the verification code.
+// Both used to share one key, and against the etcd-backed cache (Set is a
+// create that fails on an existing name) the second write always failed with
+// AlreadyExists: the code was never stored, the send answered 500, and the
+// marker left behind then rate-limited the phone until it was pruned (R24).
+func smsRateLimitKey(Type, phone string) string {
+	return fmt.Sprintf("%s-%s-rate-limit", Type, phone)
+}
+
 func generateNumberCode(n int) string {
 	if n <= 0 {
 		return ""

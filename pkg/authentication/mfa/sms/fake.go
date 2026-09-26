@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"time"
 
+	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apiserver/pkg/authentication/user"
 
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/mfa"
@@ -81,15 +82,19 @@ func (d *fakeSMSProvider) Verify(req url.Values, user user.Info) error {
 
 func (d *fakeSMSProvider) Request(user user.Info) error {
 	phone := user.GetExtra()["phone"][0]
-	key := smsCacheKey(FakeSMSProvider, phone)
-	err := rateLimit(d.cache, key, smsSendInterval)
-	if err != nil {
+	if err := rateLimit(d.cache, smsRateLimitKey(FakeSMSProvider, phone), smsSendInterval); err != nil {
 		return err
 	}
 
 	code := generateNumberCode(6)
-	err = d.cache.Set(smsCacheKey(FakeSMSProvider, phone), code, d.ttl)
-	if err != nil {
+	codeKey := smsCacheKey(FakeSMSProvider, phone)
+	// The etcd-backed cache only creates keys and prunes them lazily, so a
+	// code left over from the previous window would make this create fail
+	// with AlreadyExists and the caller would never get a code (R24).
+	if err := d.cache.Remove(codeKey); err != nil && !cache.IsNotExists(err) && !apimachineryErrors.IsNotFound(err) {
+		return err
+	}
+	if err := d.cache.Set(codeKey, code, d.ttl); err != nil {
 		return err
 	}
 	fmt.Printf("fake SMS Verification code:%s phone: %s \n", code, phone)
