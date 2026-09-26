@@ -251,7 +251,7 @@ control-plane taint，v1.36 coredns 只容忍后者 → coredns 无法调度 →
 | 2 | `2.1-21`、`2.1-22` | 镜像 Registry 与 Package Registry 分工 | R6 已用不同资源名分别落库并确认 CRI `hosts.toml` 下发，但两者仍指向同一 HTTP 端点；还需不同端点、认证和自签 CA，并验证 Pod 拉取 |
 | 3 | `2.1-12`、`2.1-27`～`2.1-30` | 创建集群负向与恢复 | R6 已验证合法外部 IP/SAN、占用节点、Master/Worker 重复和非法端口/域名前置拒绝；仍需域名代理连通性、跨 Region、CIDR 冲突修复、完整主机预检及中断 retry/安全删除 |
 | 4 | `2.2-06`、`2.2-07`、`2.2-11`～`2.2-13` | 节点管理边界 | R6 已验证空闲 Agent drain/delete 后 join 恢复；仍需掉线注入、集群占用保护、Lease/证书残留、Agent 身份保护和 Region 约束；disable/enable 已在 R4 覆盖 |
-| 5 | `2.3-02`、`2.3-07`、`2.3-09` | 集群升级故障与可用性 | 注入中断后安全 retry；Registry tag 变化不影响固定 digest；滚动顺序、PDB 和业务连续性明确 |
+| 5 | `2.3-02`、`2.3-07`、`2.3-09` | 集群升级故障与可用性 | 注入中断后安全 retry；Registry tag 变化不影响固定 digest；滚动顺序、PDB 和业务连续性明确。**已闭环（R23，2026-09-26，rc.16 `3be0ffe8`，R7 报告 §12.19）**：①2.3-02 注入中断（卡 drain 强杀）→取消收敛→retry 复用不可变 plan→Succeeded；②2.3-07 证据级闭环（plan 物化+steps 哈希 c0d395a025a134c8 前后一致，registry tag 后续指向不影响 retry；真 tag 重指受共享 5003 约束未实跑）；③2.3-09 2 节点滚动 62s、master 先、负载收敛；①②的真缺陷——单节点 `kubectl drain` 遭 PDB（calico-apiserver）无限重试死锁——已修（两处 drain 加 `--timeout=120s \|\| true`） |
 | 6 | `2.5-11` | Backup 详情查询 API | **已闭环（R11，rc.8）**：已有 Backup 的 `GET /backups/{name}` 200 返回全字段（backupStatus/clusterNodes/preferredNode），不存在对象 404；列表和集群范围查询不受影响（见 checklist 2.5-11） |
 | 7 | `4-08`～`4-08d`、`4-18` | 用户、登录和 RBAC | R6 已完成临时 user/role CLI CRUD、重复名拒绝和正确密码登录；内置只读用户越权 403 通过，但自定义 role 登录后读取 Cluster/Node 仍 403，需修复绑定授权并补 enable/disable、验证码、Token 和限流闭环 |
 | 8 | `4-07` | Console 核心 E2E | 登录、建群、升级、备份、删除、Operation 进度和失败原因展示与 API 状态一致 |

@@ -199,12 +199,12 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-09 | `kcctl get cluster/node/user/role/configmap/registry` | ⚠️ | R6：六类资源的 singular list、JSON 形状、Node label selector 和 field selector 已扫过；User label selector 未按预期过滤，且 JSON 输出在单对象/列表间不一致，需修复并补 name/selector 矩阵 |
 | 3-10 | `kcctl get --watch` | ✅ | R7 batch-3（`12d59d9b`）修复：持续输出 watch 事件；服务端流在 watch 超时后关闭时 2 秒退避重连并继续，Ctrl-C 正常退出。服务端流快速关闭的根因（watch 超时漏乘 time.Second）已在 R7 N9 修复（`b23a9ab2`，rc.3 验证流持续、实时事件送达） |
 | 3-11 | `kcctl operation list/describe/logs/retry` | ✅ | list 按集群筛选；logs follow 增量不重复；retry 终态限制正确 |
-| 3-12 | `kcctl operation cancel` | ⚠️ | R5：`e290a5f7-ddba-4994-b3d3-8bf03eb088af` 重启 Server 后才 Canceled；R6 CIDR 创建取消后又出现孤立 Running Operation/Installing Cluster，需人工清理 |
+| 3-12 | `kcctl operation cancel` | ✅ | R5/R6 旧缺口（需重启 Server、孤立 Running）已由 R8 饿死根因修复（`1413e849`）+ R9/R10 真机矩阵闭环：Running 中取消协作式收敛、最早取消 <23s、终态后重复取消 CLI 干净拒绝、并发双取消 API Conflict、无需重启。R23 复验：卡 drain 的升级 op 取消收敛（Running→Canceled）。证据见 gaps P0 行 7（R7 报告 §12.6） |
 | 3-13 | `kcctl cluster upgrade` | ✅ | R3；参数传递、滚动顺序和最终状态正确 |
 | 3-14 | `kcctl set cluster` | ✅ | R3/R4：external IP/port 设置与 clear 均成功，get 输出中的 labels 随之出现/清除 |
 | 3-15 | `kcctl drain` | ⚠️ | R6：空闲 Agent drain rc=0 并删除 Node；当前命令只支持 KubeClipper Agent，不是 Kubernetes Pod eviction，used/force/重复执行未测 |
-| 3-16 | `kcctl upgrade all --manifest/--version` | ⚠️ | B1 按 OCI 契约重写并移除旧 `--pkg/--online`：`--manifest` 三机实测通过（幂等复跑全 skip、降级明确拒绝、错 digest 拒绝，R7 报告 §11）；`--version` 网络链路经代理隧道实测正常，正向下载待首个 v2 stable 发布 |
-| 3-17 | `kcctl upgrade server/agent/console/kcctl` | ⚠️ | `server`/`agent` 独立升级实测通过（节点级幂等：已达标 revision 跳过，不重启）；`console`/`kcctl` 未实施（step 2），报错明确 |
+| 3-16 | `kcctl upgrade all --manifest/--version` | ✅ | B1 按 OCI 契约重写并移除旧 `--pkg/--online`：`--manifest` 三机实测通过（幂等复跑全 skip、降级明确拒绝、错 digest 拒绝，R7 报告 §11；R19-R23 各轮平台升级持续复跑）；`--version` 在线正向下载 R20（§12.16）以本地 GitHub 镜像法闭环（自签 CA 进系统信任 + /etc/hosts + 443 HTTPS，URL 与真实 release 同构；全链路 rc=0、`.sha256` 篡改报 checksum mismatch 拒绝、临时证书即用即删） |
+| 3-17 | `kcctl upgrade server/agent/console/kcctl` | ✅ | `server`/`agent` 独立升级实测通过（节点级幂等：已达标 revision 跳过，不重启）；`console`/`kcctl` step 2 已于 R19（§12.15）实施并真机验证（console：停服→备份→替换→起服→HTTP 探活；kcctl：替换后 `kcctl version` 校验；同版本重装幂等、降级拒绝），R22/R23 各轮 `upgrade all` 四组件链路持续复跑 |
 | 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 |
 | 3-19 | `kcctl registry list/deploy/clean/push/delete` | ⚠️ | R6：list/image/非法 push 已测；R7 补充 `--registry-port 5003` 下 repository/image 列表正常 |
 | 3-20 | `kcctl resource list` | ✅ | R3/R4：14 个 OCI package；R7 复测（新候选包同步后仍 14 个，digest 为新构建） |
@@ -212,7 +212,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-22 | `kcctl resource refresh` | ✅ | R3/R4：强制扫描指定 Registry，输出 `refreshed 14 OCI packages`；不将其解释为持久缓存更新 |
 | 3-23 | `kcctl delivery-policy template/get/apply/diff` | ✅ | R4：模板生成、custom `allowedVersions` apply/get、diff 和恢复均通过；策略文件的非法 selection 被拒绝 |
 | 3-24 | `kcctl delivery-policy validate` | ⚠️ | R4：合法模板通过，`selection: many` 被拒绝；未知 slot 名称当前按可扩展字段接受，白名单制品存在性/冲突尚未覆盖 |
-| 3-25 | `kcctl login` | ⚠️ | R3/R4：错误密码 unauthorized；R7 复测错误密码拒绝路径一致，正确登录仍待闭环 |
+| 3-25 | `kcctl login` | ✅ | R3/R4/R7：错误密码 unauthorized 一致；正确登录 R22（§12.18，deploy `--initial-password` 后登录 200、config 段密码 401 的 flag 优先级矩阵）与 R23 复验闭环 |
 | 3-26 | `kcctl status` | ✅ | R4：准确报告三台 `kc-server`、三台 `kc-etcd`、三台 `kc-agent`，平台 Healthy |
 | 3-27 | `kcctl deploy config` | ⚠️ | R6：生成/非法 YAML 拒绝；R7 复测生成成功 |
 | 3-28 | `kcctl version` | ✅ | client/server 版本和 Git revision 准确 |
@@ -233,7 +233,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-12 | kubeconfig 下载 | ⚠️ | 文件可用、权限正确；集群未就绪或凭据过期时明确失败 |
 | 4-13 | 平台自省：/configz、/status、/components、/componentmeta | ✅ | R6 四端点 200；R7 复测一致 |
 | 4-14 | 审计事件查询（/events，auditing 组） | ✅ | R6 通过；R7 复测（本轮全部操作均有审计记录） |
-| 4-16 | 敏感信息脱敏 | ❌ | R6：`/metrics` 未命中 password/token/secret/private-key 字段名，但 `/root/.kc/config` 实测为 0644 且含 mTLS 私钥材料；CLI、server、agent、Operation 和审计日志仍需全链路验证 |
+| 4-16 | 敏感信息脱敏 | ✅ | 旧缺口已闭环：写入侧权限收紧自 batch-1（`a989b14f`，R9 B3：0600+原子替换+拒绝符号链接）；**R23 复核（rc.16）**：三节点 `/root/.kc/config` 与 `/root/.kc/deploy-config.yaml` 实测均 **0600**（R6 的 0644 为旧版遗留）；日志泄漏证据：R12/R16 htpasswd 口令在 server json / GET API / kc-server/kc-agent journal / /etc /root /var/lib/kubeclipper 全量 grep 0 泄漏，`/metrics` 无 password/token/secret/private-key 字段名 |
 | 4-17 | `/healthz` 与 `/metrics` | ⚠️ | R6：均 200、108 行无敏感字段名；R7 复测一致 |
 | 4-18 | 登录失败限流与恢复 | ❌ | 连续错误密码触发限流；窗口结束或成功登录后行为符合设计 |
 | 4-19 | Addon OCI chart/runtime-image-set 来源与 digest | ✅ | R2/R3；NFS CSI、MetalLB 主路径来源检查可复用 |
@@ -248,7 +248,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 5-03 | Server/Agent 重启后的 Operation 恢复 | ✅ | R2/R3；已完成 Task 不重复，锁最终释放 |
 | 5-04 | Agent Watch 410/EOF 后 relist | ✅ | R2 有真实 410 样本，不漏任务、不重复并发执行 |
 | 5-05 | 多节点 Step barrier 与输出传递 | ⚠️ | 单测存在，真机故障注入不足 |
-| 5-06 | Operation cancel | ⚠️ | R5：需重启 `kc-server` 才归约到 Canceled；R6 取消 CIDR 创建后留下孤立 Cluster/Operation 并需精确清理，自动收敛和锁释放仍未闭环 |
+| 5-06 | Operation cancel | ✅ | R5/R6 旧缺口（需重启、孤立对象）已由 R8 饿死根因修复（`1413e849`）+ R9/R10 真机闭环（协作式收敛语义矩阵、ExecutionLock 释放、无重启）；R22 追加幽灵锁驱逐（acquireLock 失效持锁者驱逐）；R23 复验升级 op 取消收敛（卡 drain → Canceled）。证据见 gaps P0 行 7（R7 报告 §12.6/§12.18） |
 | 5-07 | 自动 retry 与人工 retry | ⚠️ | retry 已实测；副作用安全分类、generation 和 digest 固定仍需专项验证 |
 | 5-08 | 同集群危险操作互斥 | ⚠️ | ExecutionLock 已实现，需覆盖 create/add/upgrade/backup/delete 组合 |
 | 5-09 | Task 终态写入成功但响应丢失 | ⚠️ | 单测覆盖；真机网络注入未做，不得重复执行 executor |
@@ -268,7 +268,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-01 | 支持策略与 `packaging/resources.yaml` 一致 | ⚠️ | `release-policy-verify` CI 已覆盖，需保留发布候选证据 |
 | 6-02 | bootstrap、Kubernetes、CRI、CNI、extension、addon OCI 制品完整 | ⚠️ | 构建/发布 CI 通过；真实消费分别见第 1、2、4 章 |
 | 6-03 | Release Manifest 包含 package、chart、runtime image 和 bootstrap | ⚠️ | qualification CI 覆盖 |
-| 6-04 | digest、source、revision、version provenance 正确 | ⚠️ | 升级侧 revision 防护已真机验证（R13-C5 双拦截）；R14：发布侧 bootstrap SourceRevision 必填（单测）+ `release-gate.sh` 门禁+release workflow `release-gate` job（tag 绑定/qualification 解析/manifest 契约/验收记录校验，fixture 自测 11 例，见 plan §7.6）。待真实发布轮走通门禁+首个验收记录后升 ✅ |
+| 6-04 | digest、source、revision、version provenance 正确 | ⚠️ | 升级侧 revision 防护已真机验证（R13-C5 双拦截）；R14：发布侧 bootstrap SourceRevision 必填（单测）+ `release-gate.sh` 门禁+release workflow `release-gate` job（fixture 自测 11 例，见 plan §7.6）。**R23（§12.19）：门禁+首个验收记录已闭环**——qualification run 36216971172（sourceRevision=候选 sha）、验收记录钉板 manifest sha256、gate 对真实 manifest PASS + 两类 BLOCK（未 bump tag / 篡改记录）实证。**剩余**：真实 stable 发布轮（resources.yaml bump → tag → release workflow 实跑）后升 ✅ |
 | 6-05 | 制品不可变性与重复发布保护 | ⚠️ | 相同 repo:tag 不得被静默覆盖 |
 | 6-06 | amd64/arm64 Manifest 与架构过滤 | ⚠️ | amd64/all 有 CI；arm64 真机需复验 |
 | 6-07 | Registry sync 与目标仓库消费 | ✅ | R2/R3 真实同步并用于部署；每个发布候选仍需保存证据 |
@@ -276,7 +276,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-09 | linux/amd64 主路径 | ✅ | 当前主要实测架构；覆盖平台部署、建群、升级和删除 |
 | 6-10 | linux/arm64 主路径 | ⚠️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据 |
 | 6-11 | Tier 1 OS 矩阵 | ⚠️ | 需先固定正式支持 OS 清单，再逐项跑部署、建群和删除 |
-| 6-12 | Docker CRI 废弃入口清理 | ❌ | R6：`--cri docker --cri-version 20.10.24` 返回 rc=1、`unsupported cri version,support [] now` 且无对象；但 help/参数校验/代码仍暴露 Docker，需移除入口。Docker CRI 不安排 E2E |
+| 6-12 | Docker CRI 废弃入口清理 | ✅ | **R19（2026-09-24，§12.15）已执行**：CLI 侧 `--cri docker` 落入显式拒绝（`Docker CRI is not supported, use containerd`，create_cluster.go）；服务端 `AllowedCRIType` 仅 containerd、`CRIDocker` 常量与 enum 已删、createClusterCheck 前置拒绝；`pkg/scheme/core/v1/cri/docker.go` 整文件删除；`scripts/migrate-legacy-packages-to-oci.sh` 同步移除。Docker CRI 不安排 E2E（已无入口） |
 | 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ⚠️ | 代码/发布清单已有静态门禁；需检查部署进程、默认策略和 Console 无旧入口 |
 
 ## 7. 扩展能力
