@@ -313,3 +313,10 @@ Operation ID、故障注入和清理证据见
 [`R4 报告`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md) 和
 [`R5 报告`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)、
 [`R6 报告`](../superpowers/issues/2026-09-17-core-feature-e2e-r6-sh-dev-2-3-4.md)。
+
+## R29 状态更新（2026-09-27）
+
+- **6-04 关闭**：qualification run `36290525268` 与验收记录绑定 manifest SHA256 `e864b6f6272ce028ffabaea2cb49091e508fa247346a10ae257db6e05dffbdd8`；stable tag `v2.0.3` 指向候选提交 `474ba45d8fba0e26965642eac5cdd7a5b09686f4`，release-gate PASS，GitHub Release 已发布。
+- **6-08 关闭**：Release manifest 在隔离 Registry 上完成真实建群，CreateCluster 与 SyncKubeConfig 均 Succeeded，14/14 系统 Pod Ready；详细 Operation、镜像来源、启动期告警与清理边界见 R7 报告 §12.27。
+- **发布执行边界**：release.yml 总体失败于 6 个既有 GHCR canonical tag digest 冲突；发布器拒绝覆盖，manifest 与 GitHub Release 使用已验收 qualification namespace。没有重指冲突 tag；共享 Registry `172.16.131.146:5003` 未写入或删除。本轮精确冲突摘要见 R7 §12.27。
+- **仍待验证**：1.1-01 默认 GHCR 在线直装仍需空白 Linux 主机；arm64 runtime 未做真机验证。两项保持原状态。

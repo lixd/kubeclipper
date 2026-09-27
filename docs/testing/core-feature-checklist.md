@@ -31,7 +31,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 1.1-01 | 在线部署：默认 ghcr 直装 | ⚠️ | 预检✅；从未真从 ghcr 直装（都先 sync） |
+| 1.1-01 | 在线部署：默认 ghcr 直装 | ⚠️ | 尚无空白 Linux 主机直接从默认 GHCR 源执行 kcctl deploy；此前均先 sync |
 | 1.1-02 | 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） |
 | 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ✅ | R13-C5（2026-09-22，rc.8 三机）：5003 export（skopeo --preserve-digests，5 制品 368MB）→ scp 离线拷贝 → 空白 9443 registry import ×2 → iptables 断公网（外网 DNS/连接全 REJECT，REJECT 计数实证）→ componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖），calico/coredns 全 Running |
 | 1.1-04 | 私有仓库 http | ✅ | R3 全程 :5003 |
@@ -268,11 +268,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-01 | 支持策略与 `packaging/resources.yaml` 一致 | ✅ | `release-policy-verify` 在 CI 双处执行：qualification workflow prepare job（`--publish-matrix`，run 36216971172 通过）与 release.yml prepare job；候选证据=R23 qualification 成功轮 + 各 rc 升级矩阵仅消费策略内版本（R21-R23） |
 | 6-02 | bootstrap、Kubernetes、CRI、CNI、extension、addon OCI 制品完整 | ✅ | R23 qualification 候选 manifest（run 36216971172，sha256 2e5bf6be…）枚举 **110 个制品**：package-image 10（bootstrap kubeclipper/console/etcd/registry、cri containerd、cni calico、k8s、k8s-extension、kc-runtime、addon）+ helm-chart 2（tigera-operator）+ runtime-image 98，组件种类齐全；真实消费见第 1/2/4 章（rc.16-rc.22 部署/升级/建群） |
 | 6-03 | Release Manifest 包含 package、chart、runtime image 和 bootstrap | ✅ | 同一候选 manifest 四类齐备：bootstrap（kubeclipper/console/etcd/registry package-image）、package-image（k8s/cri/cni/extension/addon/kc-runtime）、helm-chart（tigera-operator）、runtime-image（98 条，k8s-extension 附带）；`verify-release-manifest.sh` 在 qualification CI 内通过 |
-| 6-04 | digest、source、revision、version provenance 正确 | ⚠️ | 升级侧 revision 防护已真机验证（R13-C5 双拦截）；R14：发布侧 bootstrap SourceRevision 必填（单测）+ `release-gate.sh` 门禁+release workflow `release-gate` job（fixture 自测 11 例，见 plan §7.6）。**R23（§12.19）：门禁+首个验收记录已闭环**——qualification run 36216971172（sourceRevision=候选 sha）、验收记录钉板 manifest sha256、gate 对真实 manifest PASS + 两类 BLOCK（未 bump tag / 篡改记录）实证。**剩余**：真实 stable 发布轮（resources.yaml bump → tag → release workflow 实跑）后升 ✅ |
+| 6-04 | digest、source、revision、version provenance 正确 | ✅ | R29：qualification run 36290525268 success，验收记录绑定 manifest SHA256 `e864b6f6272ce028ffabaea2cb49091e508fa247346a10ae257db6e05dffbdd8`；tag `v2.0.3` 指向候选 `474ba45d8fba0e26965642eac5cdd7a5b09686f4`，release-gate job PASS，GitHub Release 已发布。注意 release.yml 总体失败：6 个已有 GHCR canonical tag digest 冲突，发布器拒绝重指；Release 使用已验收 qualification manifest 与 CI 构建的 kcctl 资产，制品引用仍在 qualification namespace，未覆盖冲突 tag（R7 §12.27） |
 | 6-05 | 制品不可变性与重复发布保护 | ✅ | **R22 真机实证**：重发已存在的 repo:tag 被发布器拒绝（`package tag conflict ... refusing`），据此顺延版本号（rc.12→rc.13）；R23 复验 tag 冲突防护仍在生效；共享 Registry 运维策略=只增 tag |
 | 6-06 | amd64/arm64 Manifest 与架构过滤 | ⚠️ | amd64/all 有 CI；arm64 真机需复验 |
 | 6-07 | Registry sync 与目标仓库消费 | ✅ | R2/R3 真实同步并用于部署；每个发布候选仍需保存证据 |
-| 6-08 | 完整 qualification 发布 | ⚠️ | Workflow 已实现；输出必须能完成真实部署和建群 |
+| 6-08 | 完整 qualification 发布 | ✅ | R29 发布后用 Release manifest 在隔离 Registry `172.16.131.208:9443` 复验：25 个目标制品均 digest 匹配（0 copied/25 skipped），pause:3.10.2 也匹配；CreateCluster Operation `f520695c-8029-480d-9fb5-f1df33cb50be` Succeeded，SyncKubeConfig `sync-kubeconfig-05343d7e-51ed-4bb1-88bf-7af7e3e61f30` Succeeded，Kubernetes v1.37.0 的 14/14 系统 Pod Ready，12 个 workload image refs 均走隔离 Registry。启动期路由/就绪告警恢复；4 个控制面 Pod 各有 1 次启动重启，随后两次检查稳定。清理后仍有 5 条 NotReady CRI sandbox 元数据（无 container/task，不改 CRI DB；R7 §12.27） |
 | 6-09 | linux/amd64 主路径 | ✅ | 当前主要实测架构；覆盖平台部署、建群、升级和删除 |
 | 6-10 | linux/arm64 主路径 | ⚠️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据 |
 | 6-11 | Tier 1 OS 矩阵 | ⚠️ | 需先固定正式支持 OS 清单，再逐项跑部署、建群和删除 |

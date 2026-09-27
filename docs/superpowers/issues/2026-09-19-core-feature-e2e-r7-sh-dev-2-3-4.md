@@ -1298,3 +1298,27 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **⑤ 清理与边界**：删掉 KubeClipper 集群对象，dev-3 kubelet inactive、containerd active；`crictl ps -a`、`ctr containers`、`ctr tasks` 均为空，但 CRI 仍列出 5 个本轮沙箱的 `SANDBOX_NOTREADY` 元数据（无容器/task）；不直接编辑 containerd metadata DB。ConfigMap `packageRegistry` 与 6 份 server/agent delivery 配置均按备份原样恢复。`/var/lib/kc-etcd` 清理前后设备/ inode/大小/mtime 相同；平台 Healthy、3/3 agents、doctor 25/25、无集群对象。稳定 tag 发布后的 6-08 复验与临时 Registry 收尾待 §12.27；1.1-01 仍需空白 Linux 主机验证，不能为此清空受保护的 live `/var/lib/kc-etcd`；arm64 runtime 未验证。
 
 **⑥ 发布门禁**：`release-gate.sh --release-tag v2.0.3 --candidate-sha 474ba45d8fba0e26965642eac5cdd7a5b09686f4` 对该 manifest 与验收记录 **PASS**。改 release tag 为 v2.0.4 时因 manifest version 不匹配 **BLOCK**；把记录中的 manifest SHA256 改为另一有效 64-hex 值时因 checksum 不匹配 **BLOCK**。
+
+### 12.27 R29 发布与发布后 6-08 收尾（2026-09-27，v2.0.3）
+
+**① Stable 发布证据与 GHCR 冲突**：stable tag `v2.0.3` 指向候选 `474ba45d8fba0e26965642eac5cdd7a5b09686f4`。qualification run `36290525268` 成功，110 artifacts 的 manifest SHA256 为 `e864b6f6272ce028ffabaea2cb49091e508fa247346a10ae257db6e05dffbdd8`；验收记录 `docs/testing/acceptance/474ba45d8fba0e26965642eac5cdd7a5b09686f4.yaml` 绑定该摘要，release-gate PASS。release workflow run `36297067534` 的 prepare、release-gate、build-cli 成功，但整体 **failure**：发布矩阵遇到 6 个已有 GHCR canonical tag digest 冲突，manifest 与 GitHub Release job 因依赖失败被 skip。冲突（已有 digest → 本次拒绝发布的 digest）：
+- bootstrap-console `v1.6.0`：`b927d89a…` → `a4d3c886…`
+- resource-containerd `2.2.4`：`7e5d7c27…` → `ea3600c4…`
+- bootstrap-etcd `3.5.21`：`f21ed1ed…` → `6229af62…`
+- bootstrap-registry `3.1.1`：`0c3ae019…` → `16851f7a…`
+- resource-containerd `1.7.29`：`1fa9f055…` → `70d4043a…`
+- resource-k8s-extension `v1`：`05894abf…` → `99c1bd7c…`
+
+发布器拒绝重指这些既有 tag。使用已 gate-approved 的 qualification manifest 与该 workflow 构建成功的 kcctl 二进制，发布 GitHub Release [v2.0.3](https://github.com/lixd/kubeclipper/releases/tag/v2.0.3)：4 个平台 kcctl 二进制、checksums、manifest 和 SHA256 sidecar 共 7 个资产。manifest 中制品引用保留在 `ghcr.io/lixd/kubeclipper/qualification-474ba45d...` namespace；没有覆盖上述冲突 tag。共享 Registry `172.16.131.146:5003` 本轮未写入或删除。
+
+**② Mac 代理与远端 Registry**：按用户说明，使用 Mac 本机 HTTP 代理 `127.0.0.1:7890`，通过 SSH 转发给 sh-dev-2 的 `127.0.0.1:17890`，远端据此访问 GitHub/GHCR；Mac 没有运行或充当 Registry。代理请求验证 GitHub HTTP 200。同步目标为隔离 Registry `172.16.131.208:9443`：cluster subset 43 manifest items / 25 unique target artifacts 的结果为 0 copied、25 skipped（本地均已存在且 digest 匹配）；pause-only 2 项为 0 copied、2 skipped。pause:3.10.2 amd64 digest 为 `sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17`。临时 GHCR token 文件已删除；GitHub CLI 登录权限保留。本轮结束时关闭了仅为此次访问建立的 SSH 转发，本机代理服务仍 active。
+
+**③ 发布后 6-08 真机建群**：平台基线为 v2.0.3、3/3 agents Healthy、doctor 25/25、无集群。使用隔离 Registry 的临时 `r29-oci-qual-474ba45d` Registry 资源和已验收 Release manifest 创建集群 `r29-oci-qual`：CreateCluster Operation `f520695c-8029-480d-9fb5-f1df33cb50be` **Succeeded**；单 master sh-dev-3，Kubernetes v1.37.0、containerd 2.2.4。SyncKubeConfig Operation `sync-kubeconfig-05343d7e-51ed-4bb1-88bf-7af7e3e61f30` **Succeeded**。检查时节点 Ready、系统 Pod **14/14 Running+Ready**，无后续重启增长；12 个 workload image refs 均为隔离 Registry 地址，pause digest 与 manifest 一致。
+
+启动期间观察到 Calico 对旧 CNI route 的冲突告警、CoreDNS readiness timeout、kc-kubectl 初始 serviceaccount 暂缺；组件最终恢复 Ready。4 个 control-plane static Pod 在 bootstrap 阶段各重启 1 次；相隔约 20 秒的两次检查计数稳定，14 个 Pod 均 Ready。以上作为启动期瞬态记录，不隐去。
+
+**④ 清理与平台不变量**：删除集群对象后 `kcctl get cluster` 为空；sh-dev-2 `kcctl status` Healthy、3/3 agents，doctor **25 passed / 0 failed**。sh-dev-3 `crictl ps -a`、`ctr -n k8s.io containers list`、`ctr -n k8s.io tasks list` 均为空；CRI 仍列 5 个本轮 sandbox 的 `NotReady` 元数据，无运行容器/task，不直接改 CRI metadata DB。sh-dev-3 kubelet inactive、containerd active。ConfigMap `packageRegistry` 与 6 份 node delivery configs 均按备份原样恢复；临时 Registry 资源、进程和数据目录清除；远端临时清单、脚本、token 文件清除。共享 Registry 服务 `kc-oci-r3-registry.service` 仍 active。
+
+`/var/lib/kc-etcd` 当前设备/inode/大小/mtime 为 `64769:7345588:4096:1790329441`，与测试前记录一致；该平台 etcd 目录未清理。Mac 本机代理服务与 GitHub CLI 登录权限保留。临时 SSH 转发和本轮下载/临时文件已清理。
+
+**⑤ 验收边界**：6-04 provenance 与 6-08 发布产物建群闭环，更新为 ✅。1.1-01 仍需空白 Linux 主机从默认 GHCR 源直接部署，本轮的隔离 Registry sync 不满足该条件；arm64 runtime 仍无真机环境。CRI sandbox 的 5 条 NotReady 元数据如上保留，不伪报为完全零残留。
