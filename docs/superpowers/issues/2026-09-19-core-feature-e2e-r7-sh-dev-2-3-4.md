@@ -1284,3 +1284,17 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **终态**：平台 rc.25（b459b0a2）Healthy、3/3 agents、无集群、ops 已随终态清空；r28-a/r28-b 已删、dev-3/dev-4 清理（含 /tmp/.nfs-csi、/tmp/.csi-healthcheck、/tmp/.k8s）；共享 Registry 仅增 rc.25 tag（累计 rc.17-rc.25 九个候选）；平台 etcd 数据目录未动。
 
 文档同步：checklist 4-04（❌定性）、7-03（✅容量基线）、4-08（口令策略追加）、6-13（平台侧全清 + Console 侧发现）、本节 §12.25。
+
+### 12.26 R29 追加轮（2026-09-27，候选 `474ba45d`）：v2.0.3 qualification 与真实建群
+
+**① 候选制品**：`oci-qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4` 的 workflow run `36290525268` 为 success。只下载命名产物 `oci-release-manifest-36290525268`；完整 manifest 110 artifacts，SHA256 `e864b6f6272ce028ffabaea2cb49091e508fa247346a10ae257db6e05dffbdd8`。manifest `version=v2.0.3`、`sourceRevision=474ba45d8fba0e26965642eac5cdd7a5b09686f4`。
+
+**② 三节点真实升级**：从该 qualification manifest 生成只重写 Registry 地址的临时副本，保留制品 digest；隔离 Registry `172.16.131.208:9443` 中 `kcctl registry sync` 结果 `2 copied, 23 skipped`，upgrade bootstrap 再 `1 copied, 1 skipped`。`kcctl upgrade all --manifest ... --package-registry-scheme http` 完成 server/agent/console/kcctl 各 3 个槽位；API 与 `kcctl version` 报 `v2.0.3` / revision `474ba45d8fba`，`kcctl status` Healthy、3/3 agents，doctor 25/25。
+
+**③ Qualification artifact 建群**：筛选出的集群测试清单有 43 个 manifest 项、25 个目标仓库，无 `caas4/*`。首个 Operation `f346de19-c481-4852-b6b6-2b9cf908b987` 先在 kubeadm reset 清理 6 个旧 sandbox 时记录 `cni plugin not initialized`（dev-3 当时没有 CNI 配置），随后 kubeadm preflight 因隔离 Registry 缺 `pause:3.10.2` 报 `manifest unknown`；这是临时筛选清单漏了 runtime image，官方 qualification manifest 本身含该制品，amd64 digest 为 `sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17`。从原 manifest 加入这一项后同步结果 `1 copied, 1 skipped`（bootstrap/kubeclipper digest 匹配），Registry 日志记录 dev-3 对 `HEAD /v2/pause/manifests/3.10.2` 返回 200。第二次 CreateCluster Operation `0edc73b5-1634-4bfc-84d5-4e94094a8af1` 13/13 steps Succeeded：单 master dev-3、Kubernetes v1.37.0、containerd 2.2.4、Calico v3.31.5；节点 Ready，14 个系统 Pod 全 Running、0 restart；12 个 workload image ref 指向隔离 Registry。首轮失败来自临时筛选清单，不是 qualification manifest 缺制品。
+
+**④ 共享 Registry 不可变冲突**：`172.16.131.146:5003` 对 `kubeclipper/packages/bootstrap/console:v1.6.0` 报 expected `sha256:308ed56e1871a29a6d1136674c8c0b1ac4fff4557eca2d482fc2e1faeddfbbfd`、actual `sha256:084c4eade76da4ca2d9a2ff172d2d570b07e2a24b0bded2434eb4bd5adef284e`；对 `kubeclipper/packages/bootstrap/etcd:3.5.21` 报 expected `sha256:6229af62e83de3792cb4a6b2a1e7efca3bced24cd902254186ea95a88b2aa24a`、actual `sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd`。同步器拒绝改写；后续 E2E 全部走隔离 Registry，共享 Registry 未写入或删除 tag，`kc-oci-r3-registry.service` 保持 active。
+
+**⑤ 清理与边界**：删掉 KubeClipper 集群对象，dev-3 kubelet inactive、containerd active；`crictl ps -a`、`ctr containers`、`ctr tasks` 均为空，但 CRI 仍列出 5 个本轮沙箱的 `SANDBOX_NOTREADY` 元数据（无容器/task）；不直接编辑 containerd metadata DB。ConfigMap `packageRegistry` 与 6 份 server/agent delivery 配置均按备份原样恢复。`/var/lib/kc-etcd` 清理前后设备/ inode/大小/mtime 相同；平台 Healthy、3/3 agents、doctor 25/25、无集群对象。稳定 tag 发布后的 6-08 复验与临时 Registry 收尾待 §12.27；1.1-01 仍需空白 Linux 主机验证，不能为此清空受保护的 live `/var/lib/kc-etcd`；arm64 runtime 未验证。
+
+**⑥ 发布门禁**：`release-gate.sh --release-tag v2.0.3 --candidate-sha 474ba45d8fba0e26965642eac5cdd7a5b09686f4` 对该 manifest 与验收记录 **PASS**。改 release tag 为 v2.0.4 时因 manifest version 不匹配 **BLOCK**；把记录中的 manifest SHA256 改为另一有效 64-hex 值时因 checksum 不匹配 **BLOCK**。

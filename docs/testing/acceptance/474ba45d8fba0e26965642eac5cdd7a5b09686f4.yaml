@@ -1,0 +1,16 @@
+candidate_sha: 474ba45d8fba0e26965642eac5cdd7a5b09686f4
+result: passed
+release_manifest_sha256: e864b6f6272ce028ffabaea2cb49091e508fa247346a10ae257db6e05dffbdd8
+release_tag: v2.0.3
+round: R29
+notes: >-
+  The candidate upgraded the three-node platform to v2.0.3; status stayed
+  Healthy with 3/3 agents and doctor 25/25. CreateCluster
+  0edc73b5-1634-4bfc-84d5-4e94094a8af1 succeeded for one master on Kubernetes
+  v1.37.0; the node was Ready and all 14 system pods were Running with zero
+  restarts. The test used qualification-manifest artifacts in an isolated
+  registry. A first filtered test manifest omitted pause:3.10.2; adding the
+  exact amd64 artifact from the unchanged qualification manifest fixed the
+  preflight pull. No shared registry tag was overwritten. arm64 runtime was
+  not tested. Fresh-host default GHCR installation remains unverified because
+  no spare Linux host is available and the live /var/lib/kc-etcd is protected.
