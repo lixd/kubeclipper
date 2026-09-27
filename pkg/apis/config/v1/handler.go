@@ -193,7 +193,7 @@ func (h *handler) DescribeTemplate(req *restful.Request, resp *restful.Response)
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
-	_ = resp.WriteHeaderAndEntity(http.StatusOK, setting.Template)
+	_ = resp.WriteHeaderAndEntity(http.StatusOK, redactRegistryPasswords(setting.Template))
 }
 
 // Deprecated: use core/v1/handler.UpdateTemplate instead
@@ -222,6 +222,7 @@ func (h *handler) UpdateTemplate(req *restful.Request, resp *restful.Response) {
 		setting.Template = *c
 		_, err = h.platformOperator.CreatePlatformSetting(req.Request.Context(), setting)
 	} else {
+		preserveRegistryPasswords(c, setting.Template)
 		setting.Template = *c
 		_, err = h.platformOperator.UpdatePlatformSetting(req.Request.Context(), setting)
 	}
@@ -229,7 +230,29 @@ func (h *handler) UpdateTemplate(req *restful.Request, resp *restful.Response) {
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
-	_ = resp.WriteHeaderAndEntity(http.StatusOK, c)
+	_ = resp.WriteHeaderAndEntity(http.StatusOK, redactRegistryPasswords(*c))
+}
+
+func redactRegistryPasswords(template v1.DockerRegistry) v1.DockerRegistry {
+	redacted := *template.DeepCopy()
+	for i := range redacted.InsecureRegistry {
+		redacted.InsecureRegistry[i].Password = ""
+	}
+	return redacted
+}
+
+func preserveRegistryPasswords(template *v1.DockerRegistry, previous v1.DockerRegistry) {
+	for i := range template.InsecureRegistry {
+		if template.InsecureRegistry[i].Password != "" {
+			continue
+		}
+		for _, registry := range previous.InsecureRegistry {
+			if registry.Host == template.InsecureRegistry[i].Host {
+				template.InsecureRegistry[i].Password = registry.Password
+				break
+			}
+		}
+	}
 }
 
 func (h *handler) GetSSHRSAKey(req *restful.Request, resp *restful.Response) {
