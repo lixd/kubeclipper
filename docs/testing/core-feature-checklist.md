@@ -13,9 +13,9 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
   不再变更或复用。功能下线时把状态标为 `🗑 废弃` 并保留编号，新增 Case 在小节末尾追加。
 - **状态含义**：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · 🗑 废弃。
   状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
-- **轮次记号**：备注中 R1～R31 指验证发生的轮次；每轮详细证据记录在
+- **轮次记号**：备注中 R1～R32 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告或 `docs/testing/status-*.md` 中，本文档只留结论与指针。
-- 最新覆盖快照：R31 [`status-2026-09-27-r31.md`](status-2026-09-27-r31.md)；当前未闭环项和历史变化见
+- 最新覆盖快照：R32 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)；当前未闭环项和历史变化见
   [`round-2026-09-gaps.md`](round-2026-09-gaps.md)。
 - 三机实测报告：R4 [`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)，
   R5 [`2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)，
@@ -227,7 +227,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-02 | addons：metallb L2 安装/卸载 | ✅ | R3 |
 | 4-05 | addons：uninstall 容错（空 config / ErrIgnore 链） | ✅ | R3 三修复合验 |
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
-| 4-07 | **console UI 端到端（含任务失败展示）** | ❌ | R30：Console fork 已修复并构建，但未部署到验收环境；当前无集群，登录、建群、升级、备份、删除与 Operation 展示尚无 UI E2E |
+| 4-07 | **console UI 端到端（含任务失败展示）** | ⚠️ | **R32**：Console 登录、离线 Registry 前置校验、选择 `kc-package-registry` 后建群通过；CreateCluster `37c3c681-f82e-4ee4-9278-d1ff2c7a0273`（15 步）与 SyncKubeConfig `sync-kubeconfig-023c20fd-9923-48fa-9751-f1f270821ea4` 均成功，UI Operation 日志和集群 Running 状态一致。备份缺 BackupPoint；v1.37.0 无更高离线升级目标；前置校验错误不是 Failed Operation；UI 删除未提交。完整证据见 R32 状态报告 |
 | 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ✅ | R24（2026-09-26，rc.17-rc.20，R7 报告 §12.20）全矩阵真机：创建/重复名 400/读取（不回显口令）/fieldSelector 列表/HEAD/更新（含 URL 名不匹配 400）/改密（旧口令 401、新口令 200、错当前口令 400）/disable→登录 403→enable→200/删除（幂等 200、404 复核、admin 受保护 400、未带密码 400、弱口令被接受=记录项）/角色聚合建（`--rules=role-template-*` 语义）与重复 400/更新（无 resourceVersion 亦可）/internal 角色删改 400 保护/用户角色查询。**登录记录修复前恒 0 条（namespace 缺失写入全败），rc.17 起真实落库**（type/provider/sourceIP/userAgent/success/reason 全字段） |。**R28 追加**：口令策略落地——用户创建/改密现按 8-16 位且含大小写字母与数字校验（与 admin 初始口令同规则），弱口令 400 并给出说明（真机：`123456` 建用户 400、`Abcd1234` 200、弱口令改密 400）
 | 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ✅ | R7 判 ❌ 后于 batch-3 复验改判：403 归因于测试用错注解键（应为 `iam.kubeclipper.io/role`）；正确键下创建 binding 后授权内 `GET /clusters`、`/nodes` 200，越权创建 Registry 403 |
 | 4-08c | 密码登录与验证码登录 | ✅ | R24（rc.19，§12.20）验证码全流程真机（fake_sms provider）：口令正确→**428 返回 provider 列表**→发送验证码（journal 落码）→校验→签发 token；错码 401、**一次性**（复用 401）、**过期拒绝**（ttl 60s，65s 后 401）、**重发限流**（间隔内被拒、窗口后成功）。修复链：provider 包未导入导致配置即 crash-loop、验证码路径 url.Values nil map panic、限流标记与验证码共用 key 撞 AlreadyExists、透明 token 不清理——均已修复并复验。第三方 OAuth 登录属第 7 章扩展项（7-01），不在本行 |
@@ -292,14 +292,14 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-09 | 集群模板 templates | ⚠️ | **R31 rc.28**：不存在模板 GET/PUT/DELETE 均 404；创建/读取/更新/删除为 201/200/200/200，删除后 GET=404，临时对象清理。完整集群实例化/删除引用保护未验收；当前 Cluster API 没有 templateRef，Console 选择模板是表单预填，服务端 DeleteTemplate 不检查集群引用，需先定清引用语义 |
 | 4-10 | DNS domains / records | ✅ | **R31 rc.28 live**：A/AAAA 合法创建与 A 更新=200；非法 A 语法、A/AAAA 错地址族、TXT 类型及对应非法更新=400；domain 删除=200、后续 GET=404。临时域名和记录已清理 |
 | 4-11 | cloudproviders / 外部集群纳管 | ❌ | kubeconfig 预检、同步、异常和移除 |
-| 4-12a | Web 节点/集群终端 | ❌ | 鉴权、窗口 resize、断连和重连 |
-| 4-12b | Pod exec | ❌ | namespace/pod/container 选择、鉴权和断连 |
+| 4-12a | Web 节点/集群终端 | ✅ | **R32 rc.29**：集群与节点终端无 mTLS 证书均 403；集群命令回显和断连重连通过；节点终端 resize 从 `30 100` 更新到 `42 132`，重连成功，临时 SSH 用户已删 |
+| 4-12b | Pod exec | ✅ | **R32 rc.29**：无证书 403、错误 container 400、缺失 Pod 404；正确容器执行命令并断连重连成功；临时 Pod 与集群已删除 |
 | 4-15 | PlatformSetting（镜像仓库模板、Web 终端密钥） | ✅ | **R31 rc.28**：修复 `/template` GET/PUT 响应回显密码并在空密码更新时清除存量凭据；现在响应遮蔽密码、同 Host 空/省略密码保留存量值（`pkg/apis/config/v1` 回归测试）。live 随机 canary 的 PUT/GET/省略密码路径均不回显，`kc-server` journal 未发现 canary，原模板快照已恢复；无角色用户访问 template/terminal key 均 403，临时用户删除后 404；管理员 GET 不返回私钥，POST 轮换后公钥变化。测试账号与临时配置已清理 |
 | 7-01 | 第三方 OAuth/OIDC 登录 | ❌ | 回调、用户映射、token 过期和登出 |
 | 7-02 | `kcctl completion` | ✅ | R6：bash、zsh 生成 rc=0，分别通过 `bash -n`/`zsh -n`；当前 help 明确只支持 bash/zsh，fish 返回 Unsupported shell，不再作为产品能力要求 |
 | 7-03 | 多节点并发任务基础容量 | ✅ | R28（rc.25，§12.25）定义并实测基线：3 节点平台（4c/8c/8c）+ **2 个 1M 离线建群并发**（dev-3 与 dev-4，同一共享 registry 取包）→ 两个 CreateCluster op 均 Succeeded、两集群 **Running（13:53:50→约 13:58:2x，~4.6min）**、期间 `kcctl status` 全程 3/3 Healthy（server/etcd/agent）、无 step 失败与锁争用。上限说明：≥3 并发受现有主机数量约束（每节点同时最多承载 1 个测试集群），更大规模需扩机器后按同法复测 |
 | 2.1-13 | Kubernetes feature-gates 透传 | ✅ | R1 验过 20 项。**R24（rc.21，§12.21）发现并修复产品缺陷**：kubeadm v1.37 拒绝 ClusterConfiguration 的 featureGates map（实测其自身 kubelet 认识的 alpha/beta gate 亦被判 "not a valid feature name"），任何 `--feature-gates` 建群都在 kubeadm init 失败回滚。修复：渲染为 apiServer/controllerManager/scheduler `extraArgs` + KubeletConfiguration.featureGates。真机复验：r24-1m（v1.37.0，`APIServingWithRoutine=true`）**Running**，三组件 static pod `--feature-gates=` 与 kubelet config 均实测命中 |
-| 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ❌ | 自带网络场景；安装第三方 CNI 后恢复 Ready |
+| 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ✅ | **R32 rc.29**：CreateCluster `14343b80-caea-46f1-9e83-0ff886d659a4` 与 SyncKubeConfig `sync-kubeconfig-5c45eb6e-e51b-44b5-9c8e-ca129ed13668` 成功；无 CNI 时节点 NotReady；安装内部 `tigera-operator-v3.31.5.tgz` 后三节点 Ready，Calico/CoreDNS Running；临时集群删除 |
 | 2.1-17 | kubeadm preflight ignore 定制 | ✅ | R24（rc.21，§12.21）：`--kubeadm-init-ignore-preflight-errors=Swap` → Cluster 注解 `kubeclipper.io/ignore-preflight-errors: Swap` 落库（2.1-27 同场建群实证） |
 | 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ❌ | API/CNI 路径要求同时提供 IPv4、IPv6 Pod CIDR；现有 sh-dev 主机无可控 IPv6 环境，未安排真机 E2E |
 | 4-04 | Addon 同组件多实例 | ❌ | R28（rc.25，§12.25）定性为**产品缺口**（与 2.2-04 同类）：API 按组件去重——同一集群第二次安装 nfs-csi 即使 scName 不同也 400 `nfs-csi-v1 component has been installed in the current cluster`，无实例名/多实例入口；属第 7 章扩展能力，发布若承诺需先实现 |

@@ -284,13 +284,12 @@ handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 t
 - `2.1-32`：IPv4/IPv6 dual-stack，需要双栈主机、双 Pod/Service CIDR、Calico 双栈和跨节点/Service 验收；当前三机没有可控 IPv6 环境。
 - `2.2-04`：Master/Worker 角色转换；当前 API 只有节点增删操作，无转换操作入口，需先定转换约束和失败回滚语义。
 - `4-04`：Addon 同组件多实例及实例隔离；当前按组件去重，需先定实例身份及安装/卸载语义。
-- `4-09`：模板 CRUD 正向已过；NotFound 404 修复只在 fork，且实例化和引用删除保护未测，待部署复验。
-- `4-10`：DNS CRUD 正向已过；非法记录校验修复只在 fork，待部署复验。
+- `4-07`：Console 登录、建群与成功 Operation 展示已验；Failed Operation、升级、备份与 UI 删除仍不完整。
+- `4-09`：模板 CRUD/NotFound 已 live 验；实例化和引用删除保护未测，且当前 Cluster API 无 `templateRef`，需先定语义。
 - `4-11`：CloudProvider/外部集群纳管，需要可用 provider 与 kubeconfig fixture。
-- `4-12a`、`4-12b`：Web Terminal、Pod exec，需要运行中的节点/集群以及连接生命周期验收。
-- `4-15`：PlatformSetting 仅验证非敏感模板持久化和公钥响应；权限、密钥轮换和敏感字段矩阵待补。
+- `4-12a`、`4-12b`：R32 已完成 Web Terminal 与 Pod exec 的鉴权、命令、resize、断连/重连真机矩阵，不再列为遗留。
 - `7-01`：OAuth/OIDC，需要受控第三方身份提供方。`7-02` CLI completion 与 `7-03` 容量基线已通过，不再列作遗留。
-- `6-10`、`6-11`：arm64 真机及正式 Tier 1 OS 矩阵；当前不能只凭构建结果判定通过。
+- `6-06`、`6-10`、`6-11`：arm64 manifest/runtime 真机及正式 Tier 1 OS 矩阵；当前不能只凭构建结果判定通过。
 - 大于 3 Worker 的批量增删及多任务容量，执行前先定义规模目标和通过阈值。
 
 ## 已废弃残留与迁移边界
@@ -352,3 +351,11 @@ Operation ID、故障注入和清理证据见
 - **候选与平台**：KubeClipper `v2.0.3-rc.28` source revision `818377bc6c9fb77c8270e6a30b94bc8db4597f8a`，OCI top digest `sha256:fedd1a6611d268690528af36f9145cd0b6cf6f27080ca7834c87498df1332f72`；Console `v1.6.0-r31.1` source `50f1a4a8`，top digest `sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94`。sh-dev-2 查询 Healthy、server/etcd/agent 3/3，doctor 25/25，Cluster 0；Registry active 且 `/v2/`=200；templates/domains/cloudproviders 均 0 项。
 - **环境边界**：dev-2/3/4 均 Ubuntu 24.04.3 amd64；FRR inactive，IPv6 无默认路由（仅 dev-4 有 lxdbr0 ULA）；三机仍有 Calico interface 残留（128/93/66），dev-2 有 `10-calico.conflist`。无活跃 KC Cluster，不清理这些主机网络残留，因此集群终端、Pod exec、第三方 CNI、BGP 与 dual-stack E2E 未跑。此前一次 `kcctl clean -A -f` 删除旧 `/var/lib/kc-etcd`，随后平台重部署生成新目录；本轮没有再次执行全平台 clean。
 - **R31 覆盖数**：194 项中 **177 ✅、7 ⚠️、10 ❌**。未闭环 case 与环境/产品前置见 [`status-2026-09-27-r31.md`](status-2026-09-27-r31.md)。
+
+## R32 遗留用例复验（2026-09-27）
+
+- **2.1-15**：rc.29 的 `--only-install-kubernetes-component` 创建与 kubeconfig 同步 Operation 成功；未装 CNI 时节点 NotReady，安装真实内部 Tigera Operator chart 后三节点 Ready、Calico/CoreDNS Running。临时集群已删除。
+- **4-12a/4-12b**：集群/节点终端和 Pod exec 的 mTLS 拒绝、命令回显、resize 与断连重连均通过；错误 container 400、缺失 Pod 404；临时 Pod、集群及节点 SSH 用户已清理。
+- **4-07 部分验证**：Console 登录、离线模式缺 Registry 时的前置拒绝、选择 `kc-package-registry` 后 UI 建群与 CreateCluster/SyncKubeConfig 成功展示完成。当前无 BackupPoint，离线升级目标列表为空，且未产生安全可控的 Failed Operation；4-07 由 ❌ 调整为 ⚠️。
+- **清理**：按用户指示从 sh-dev-2 执行 `kcctl clean -A -f --assumeyes`，三台的 server/agent/etcd/console 已停止且 etcd 数据目录清除；sh-dev-3 的 Registry 服务仍 active、`/v2/`=200，本机 7890 隧道仍运行。
+- **当前覆盖数**：194 项中 **180 ✅、8 ⚠️、6 ❌**。完整 case 清单和剩余前置见 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)。
