@@ -59,6 +59,22 @@ func TestSelectBootstrapPackageUsesNewestVersion(t *testing.T) {
 	}
 }
 
+func TestSelectBootstrapPackageUsesNewestPrereleaseNumber(t *testing.T) {
+	inventory := deliveryapis.NewPackageInventory("registry")
+	inventory.Spec.Packages = []deliveryapis.PackageEntry{
+		bootstrapPackage("kubeclipper-agent", "v2.0.3-rc.9"),
+		bootstrapPackage("kubeclipper-agent", "v2.0.3-rc.26"),
+	}
+
+	pkg, ok := selectBootstrapPackage(inventory, "kubeclipper", []bootstrapAsset{{PackageName: "kubeclipper", Name: "kubeclipper-agent"}}, "amd64")
+	if !ok {
+		t.Fatal("selectBootstrapPackage() ok = false")
+	}
+	if pkg.Version != "v2.0.3-rc.26" {
+		t.Fatalf("selected version = %q, want v2.0.3-rc.26", pkg.Version)
+	}
+}
+
 func bootstrapPackage(name, version string) deliveryapis.PackageEntry {
 	return deliveryapis.PackageEntry{
 		Kind:           bootstrapKind,

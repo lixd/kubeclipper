@@ -19,8 +19,9 @@
 package apis
 
 import (
-	"strconv"
 	"strings"
+
+	"github.com/Masterminds/semver/v3"
 )
 
 func ContentProfileForKind(kind string) string {
@@ -88,55 +89,15 @@ func MediaTypeForContent(name string) string {
 }
 
 func CompareVersions(left, right string) (int, bool) {
-	leftParts, ok := parseVersionParts(left)
-	if !ok {
+	left = strings.TrimPrefix(strings.TrimPrefix(left, "v"), "V")
+	leftVersion, err := semver.NewVersion(left)
+	if err != nil {
 		return 0, false
 	}
-	rightParts, ok := parseVersionParts(right)
-	if !ok {
+	right = strings.TrimPrefix(strings.TrimPrefix(right, "v"), "V")
+	rightVersion, err := semver.NewVersion(right)
+	if err != nil {
 		return 0, false
 	}
-	maxLen := len(leftParts)
-	if len(rightParts) > maxLen {
-		maxLen = len(rightParts)
-	}
-	for i := 0; i < maxLen; i++ {
-		var l, r int
-		if i < len(leftParts) {
-			l = leftParts[i]
-		}
-		if i < len(rightParts) {
-			r = rightParts[i]
-		}
-		if l < r {
-			return -1, true
-		}
-		if l > r {
-			return 1, true
-		}
-	}
-	return 0, true
-}
-
-func parseVersionParts(version string) ([]int, bool) {
-	version = strings.TrimPrefix(version, "v")
-	version = strings.TrimPrefix(version, "V")
-	version = strings.Split(version, "-")[0]
-	version = strings.Split(version, "+")[0]
-	if version == "" {
-		return nil, false
-	}
-	parts := strings.Split(version, ".")
-	nums := make([]int, 0, len(parts))
-	for _, part := range parts {
-		if part == "" {
-			return nil, false
-		}
-		n, err := strconv.Atoi(part)
-		if err != nil {
-			return nil, false
-		}
-		nums = append(nums, n)
-	}
-	return nums, true
+	return leftVersion.Compare(rightVersion), true
 }

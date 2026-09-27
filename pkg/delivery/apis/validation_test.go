@@ -642,6 +642,9 @@ func TestCompareVersions(t *testing.T) {
 		{name: "greater", left: "v3.30.0", right: "v3.29.1", want: 1, ok: true},
 		{name: "less", left: "1.6.3", right: "1.6.4", want: -1, ok: true},
 		{name: "equal", left: "v1.36.0", right: "1.36.0", want: 0, ok: true},
+		{name: "uppercase v prefix", left: "V1.2.3", right: "1.2.3", want: 0, ok: true},
+		{name: "numeric prerelease identifier", left: "v2.0.3-rc.26", right: "v2.0.3-rc.9", want: 1, ok: true},
+		{name: "stable after prerelease", left: "v2.0.3", right: "v2.0.3-rc.26", want: 1, ok: true},
 		{name: "invalid", left: "latest", right: "1.0.0", want: 0, ok: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

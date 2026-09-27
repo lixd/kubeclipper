@@ -11,6 +11,19 @@
   不改动其他团队物料、不再清理平台 etcd 数据目录、不把凭据写入仓库或报告。按既有约束不安排
   arm64 真机验收，也不做外部 stable tag / release 发布。
 
+## R31 现场发现
+
+- 默认 GHCR 两次在无节点副作用的预检阶段失败：匿名访问返回 `DENIED`；使用现有 `lixd`
+  读包权限后返回 `NAME_UNKNOWN`，默认仓库下没有 bootstrap catalog，`1.1-01` 仍未闭环。
+- 内部候选 `v2.0.3-rc.26` 已追加，顶层 OCI index digest 为
+  `sha256:a631d9906ae1847dc128fa3c7abee5cb30006c73195965948636277673da4a95`，source revision
+  `4e770eedf968c0565d13d74c3607fa3cc13499ea`。旧 `kcctl v2.0.3` 部署后服务实际为 rc.9；回归测试
+  复现版本比较丢弃 `-rc.N` 后按字符串排序。fork 已新增失败用例并以现有 SemVer 依赖修复；
+  `pkg/delivery/apis`、`pkg/cli/deploy`、`pkg/cli/upgrade` 定向测试通过。下一步以新候选升级，
+  再核实 server revision 后才开始 live API 用例。
+- 清理命令删除了 `/var/lib/kc-etcd`，随后三节点重部署创建了全新的平台 etcd 数据目录；之后不再
+  执行全平台 `clean`，仅按集群语义删除临时集群。
+
 ## 执行顺序
 
 | 阶段 | Case | 处理方式 | 完成证据 |
