@@ -13,8 +13,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
   不再变更或复用。功能下线时把状态标为 `🗑 废弃` 并保留编号，新增 Case 在小节末尾追加。
 - **状态含义**：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · 🗑 废弃。
   状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
-- **轮次记号**：备注中 R1～R6 指验证发生的轮次；每轮详细证据记录在
-  `docs/superpowers/issues/` 的轮次报告里，本文档只留结论与指针。
+- **轮次记号**：备注中 R1～R31 指验证发生的轮次；每轮详细证据记录在
+  `docs/superpowers/issues/` 的轮次报告或 `docs/testing/status-*.md` 中，本文档只留结论与指针。
+- 最新覆盖快照：R31 [`status-2026-09-27-r31.md`](status-2026-09-27-r31.md)；当前未闭环项和历史变化见
+  [`round-2026-09-gaps.md`](round-2026-09-gaps.md)。
 - 三机实测报告：R4 [`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)，
   R5 [`2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)，
   R6 [`2026-09-17-core-feature-e2e-r6-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-r6-sh-dev-2-3-4.md)。
@@ -277,7 +279,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-10 | linux/arm64 主路径 | ⚠️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据 |
 | 6-11 | Tier 1 OS 矩阵 | ⚠️ | 需先固定正式支持 OS 清单，再逐项跑部署、建群和删除 |
 | 6-12 | Docker CRI 废弃入口清理 | ✅ | **R19（2026-09-24，§12.15）已执行**：CLI 侧 `--cri docker` 落入显式拒绝（`Docker CRI is not supported, use containerd`，create_cluster.go）；服务端 `AllowedCRIType` 仅 containerd、`CRIDocker` 常量与 enum 已删、createClusterCheck 前置拒绝；`pkg/scheme/core/v1/cri/docker.go` 整文件删除；`scripts/migrate-legacy-packages-to-oci.sh` 同步移除。Docker CRI 不安排 E2E（已无入口） |
-| 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ⚠️ | **R28/R30**：平台侧全清——无 legacy 进程、systemd 仅 kc-{server,agent,etcd,console}（+dev-3 受保护的 kc-oci-r3-registry）、无 legacy 端口监听、`/usr/local/bin` 无 static/provisioner 二进制、默认 delivery policy 无旧组件、registry 包清单无旧包。Console fork `lixd/console` 分支 `fix/console-retired-addon-r29` 的 commit `50f1a4a` 已移除安装表单和 addon 列表入口，单测/构建通过；R30 现场仍运行旧 bundle（commit `4b85ac07`，两个 bundle 仍命中 `nfs-provisioner`），新 Console 尚未部署 |
+| 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ✅ | **R31**：Console fork commit `50f1a4a8` 已部署到 dev-2/3/4，三个 `kc-console` 均 active、HTTP `/`=200，`version.json` 均为 `fix/console-retired-addon-r29` 且 `add_workload=true`；三个 dist 均无 `nfs-provisioner` 标识。平台侧 legacy server/tar downloader 与旧包清理证据见 R28/R30。本项只验证退役入口清除；完整 Console UI E2E 仍是 4-07 |
 
 ## 7. 扩展能力
 
@@ -287,12 +289,12 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 4-03 | addons：metallb BGP | ❌ | 需邻居 AS 环境 |
-| 4-09 | 集群模板 templates | ⚠️ | R30 live v2.0.3：模板 CRUD 正向通过；不存在对象 GET/PUT/DELETE 曾返回 500，fork 修复 `IsNotFound`→404，`go test ./pkg/apis/core/v1 -count=1` 覆盖三路由通过。修复未部署；实例化和引用删除保护因无集群未测 |
-| 4-10 | DNS domains / records | ⚠️ | R30 live v2.0.3：domain/record CRUD 正向、非法域名/空记录/大小写重复记录拒绝通过；无效 A 记录 IP 曾被 200 接受。fork 增加 IP 解析、A/AAAA 地址族和记录类型校验，`TestCheckRecord` 矩阵通过；修复未部署，不能记为 live 闭环 |
+| 4-09 | 集群模板 templates | ⚠️ | **R31 rc.28**：不存在模板 GET/PUT/DELETE 均 404；创建/读取/更新/删除为 201/200/200/200，删除后 GET=404，临时对象清理。完整集群实例化/删除引用保护未验收；当前 Cluster API 没有 templateRef，Console 选择模板是表单预填，服务端 DeleteTemplate 不检查集群引用，需先定清引用语义 |
+| 4-10 | DNS domains / records | ✅ | **R31 rc.28 live**：A/AAAA 合法创建与 A 更新=200；非法 A 语法、A/AAAA 错地址族、TXT 类型及对应非法更新=400；domain 删除=200、后续 GET=404。临时域名和记录已清理 |
 | 4-11 | cloudproviders / 外部集群纳管 | ❌ | kubeconfig 预检、同步、异常和移除 |
 | 4-12a | Web 节点/集群终端 | ❌ | 鉴权、窗口 resize、断连和重连 |
 | 4-12b | Pod exec | ❌ | namespace/pod/container 选择、鉴权和断连 |
-| 4-15 | PlatformSetting（镜像仓库模板、Web 终端密钥） | ⚠️ | R30：临时非敏感 Registry 模板写入/读取持久化后已恢复原配置；`GET /terminal.key` 只返回公钥。权限矩阵、密钥轮换和敏感字段全路径保护尚未覆盖 |
+| 4-15 | PlatformSetting（镜像仓库模板、Web 终端密钥） | ✅ | **R31 rc.28**：修复 `/template` GET/PUT 响应回显密码并在空密码更新时清除存量凭据；现在响应遮蔽密码、同 Host 空/省略密码保留存量值（`pkg/apis/config/v1` 回归测试）。live 随机 canary 的 PUT/GET/省略密码路径均不回显，`kc-server` journal 未发现 canary，原模板快照已恢复；无角色用户访问 template/terminal key 均 403，临时用户删除后 404；管理员 GET 不返回私钥，POST 轮换后公钥变化。测试账号与临时配置已清理 |
 | 7-01 | 第三方 OAuth/OIDC 登录 | ❌ | 回调、用户映射、token 过期和登出 |
 | 7-02 | `kcctl completion` | ✅ | R6：bash、zsh 生成 rc=0，分别通过 `bash -n`/`zsh -n`；当前 help 明确只支持 bash/zsh，fish 返回 Unsupported shell，不再作为产品能力要求 |
 | 7-03 | 多节点并发任务基础容量 | ✅ | R28（rc.25，§12.25）定义并实测基线：3 节点平台（4c/8c/8c）+ **2 个 1M 离线建群并发**（dev-3 与 dev-4，同一共享 registry 取包）→ 两个 CreateCluster op 均 Succeeded、两集群 **Running（13:53:50→约 13:58:2x，~4.6min）**、期间 `kcctl status` 全程 3/3 Healthy（server/etcd/agent）、无 step 失败与锁争用。上限说明：≥3 并发受现有主机数量约束（每节点同时最多承载 1 个测试集群），更大规模需扩机器后按同法复测 |

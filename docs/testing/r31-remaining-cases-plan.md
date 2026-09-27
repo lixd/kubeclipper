@@ -11,7 +11,7 @@
   不改动其他团队物料、不再清理平台 etcd 数据目录、不把凭据写入仓库或报告。按既有约束不安排
   arm64 真机验收，也不做外部 stable tag / release 发布。
 
-## R31 现场发现
+## R31 开工现场发现（基线快照）
 
 - 默认 GHCR 两次在无节点副作用的预检阶段失败：匿名访问返回 `DENIED`；使用现有 `lixd`
   读包权限后返回 `NAME_UNKNOWN`，默认仓库下没有 bootstrap catalog，`1.1-01` 仍未闭环。
@@ -42,3 +42,18 @@
 - 共享 Registry 上目标 tag 已存在且 digest 不同：不覆盖，改用下一个未占用的新 tag。
 - 测试会要求修改其他团队物料、`/var/lib/kc-etcd` 或外部 stable 发布：立即跳过该动作并记录原因。
 - 产品语义、第三方凭据或真实网络/硬件前置不可得：保留未完成状态，不用单测、dry-run 或模拟服务宣称真机验收通过。
+
+## R31 执行结果（2026-09-27）
+
+| 阶段 | 结果 | 证据 / 未完成项 |
+|---|---|---|
+| 1. 恢复验收环境 | ✅ 完成 | KubeClipper fork `818377bc` 构建的 `v2.0.3-rc.28` 已部署三节点；Registry top digest `sha256:fedd1a6611d268690528af36f9145cd0b6cf6f27080ca7834c87498df1332f72`。console 候选 `v1.6.0-r31.1` 也已部署。平台 Healthy，3/3 server/etcd/agent，doctor 25/25，cluster=0。旧 etcd 数据目录被一次 clean 删除，重部署后新目录已存在；没有再运行全平台 clean。 |
+| 2. API 修复 live 复验 | ⚠️ 部分关闭 | 4-10 DNS 矩阵完成并清理，4-15 密码遮蔽/权限/密钥矩阵完成。4-09 CRUD 与 NotFound 三路由完成；模板实例化/引用删除保护未验，且当前产品无 `templateRef`。 |
+| 3. Console 部署和端到端 | ⚠️ 部分完成 | 6-13 已关闭：三台 Console active、HTTP 200、bundle 无 `nfs-provisioner`。4-07 全 UI E2E 未做；当前没有集群，桌面浏览器自动化无法启动。 |
+| 4. 活跃集群扩展路径 | ⏸ 未运行 | 当前 API 无 Cluster；三台仍有旧 Calico interfaces（128/93/66），dev-2 还留 CNI 配置。本轮未手工删主机网络数据。4-12a/4-12b/2.1-15 仍 ❌；4-09 保留引用/实例化待确认。 |
+| 5. 部署来源矩阵 | ⚠️ 部分完成 | 默认 GHCR 预检匿名为 `DENIED`、读包凭据下为 `NAME_UNKNOWN`；没有默认 bootstrap catalog。完整纯离线首次部署尚未运行，1.1-01 与 3-01 继续 ⚠️。 |
+| 6. 环境依赖评估 | ⚠️ 仅盘点 | 三台都是 Ubuntu 24.04.3 amd64；FRR inactive，无 IPv6 default route，dev-4 仅有 lxdbr0 ULA。无 arm64 主机、Tier 1 OS 正式矩阵、BGP 邻居、CloudProvider kubeconfig fixture 或外部 OIDC IdP。 |
+| 7. 产品语义缺口 | ⚠️ 已记录 | 2.2-04 无独立 Master/Worker 转换操作；4-04 无 addon 实例身份；2.6-11 无 standalone extension 命令。R31 不猜测产品语义，不以模拟结果替代。 |
+| 8. 收尾 | ✅ 完成（文档） | 4-10、4-15、6-13 升为 ✅；4-09 保持 ⚠️。当前总计 177 ✅、7 ⚠️、10 ❌；详见 [`status-2026-09-27-r31.md`](status-2026-09-27-r31.md)。临时对象已还原或删除，受保护 Registry 服务仍 active。 |
+
+R31 API 安全修复：新增 `/template` GET/PUT 密码遮蔽及空密码更新保留规则，旧实现的回归用例先失败，修复后 `go test ./pkg/apis/config/v1 ./pkg/apis/core/v1 ./pkg/delivery/apis ./pkg/cli/deploy ./pkg/cli/upgrade -count=1` 全通过。代码和候选只提交/发布到 fork 与共享 Registry 的新不可变 tag；没有向源仓库推送或移动 stable tag。

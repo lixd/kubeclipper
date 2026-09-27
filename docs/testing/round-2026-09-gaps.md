@@ -342,3 +342,13 @@ Operation ID、故障注入和清理证据见
 - **PlatformSetting**：临时非敏感 Registry 模板写入/读回后还原；终端密钥查询只返回公钥。权限、轮换及敏感字段矩阵不完整，4-15 从 ❌ 调整为 ⚠️。
 - **环境与清理**：2026-09-27 09:28 UTC sh-dev-2 为 Healthy、3/3 agents、无集群。templates/domains/cloudproviders API 均 200 且 0 items；Registry 列表只有原有 `kc-image-registry`、`kc-package-registry`。远端认证探针临时文件已删除，无 R30 临时资源残留。
 - **覆盖汇总**：194 项中 174 ✅、10 ⚠️、10 ❌。仍未完成的项目和其依赖条件见 R30 状态报告 [`status-2026-09-27-r30.md`](status-2026-09-27-r30.md)。
+
+## R31 遗留 Case 修复与复验（2026-09-27）
+
+- **版本排序修复**：KubeClipper fork `818377bc` 在现有 SemVer 依赖上比较 prerelease 版本；回归用例证明旧实现会在 `rc.9` 与 `rc.26` 间选错。`pkg/delivery/apis`、`pkg/cli/deploy`、`pkg/cli/upgrade` 定向测试通过。
+- **PlatformSetting（4-15）**：R31 发现 config `/template` GET/PUT 会回显 Registry 密码，且空密码更新会覆盖存量值。fork commit `818377bc` 已对 GET/PUT 响应遮蔽密码，并在同 Host 更新省略密码时保留存量值；回归测试在旧实现上失败、修复后通过。rc.28 live 随机 canary 检查 GET/PUT 不回显、`kc-server` journal 不含 canary、原模板快照恢复；非管理员 template/terminal key 请求均 403，临时用户删除后 404；终端公钥可轮换，私钥不出 GET 响应。
+- **Templates / DNS（4-09 / 4-10）**：修复版本 `v2.0.3-rc.28` live：模板缺失 GET/PUT/DELETE 均 404，CRUD 与删除后查询通过；DNS 合法 A/AAAA 与更新 200，错误语法/地址族/类型及更新负向均 400，临时对象已删。4-10 关闭；4-09 仍 ⚠️，因没有活跃测试集群，且 Cluster API 无 templateRef，引用删除保护语义需先明确。
+- **Console 退役入口（6-13）**：Console fork commit `50f1a4a8` 已发布到内部 Registry 并部署到 sh-dev-2/3/4；服务 active、HTTP 200，三份 bundle 均不含 `nfs-provisioner`。6-13 关闭；全 Console UI E2E 单列 4-07，尚未完成。
+- **候选与平台**：KubeClipper `v2.0.3-rc.28` source revision `818377bc6c9fb77c8270e6a30b94bc8db4597f8a`，OCI top digest `sha256:fedd1a6611d268690528af36f9145cd0b6cf6f27080ca7834c87498df1332f72`；Console `v1.6.0-r31.1` source `50f1a4a8`，top digest `sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94`。sh-dev-2 查询 Healthy、server/etcd/agent 3/3，doctor 25/25，Cluster 0；Registry active 且 `/v2/`=200；templates/domains/cloudproviders 均 0 项。
+- **环境边界**：dev-2/3/4 均 Ubuntu 24.04.3 amd64；FRR inactive，IPv6 无默认路由（仅 dev-4 有 lxdbr0 ULA）；三机仍有 Calico interface 残留（128/93/66），dev-2 有 `10-calico.conflist`。无活跃 KC Cluster，不清理这些主机网络残留，因此集群终端、Pod exec、第三方 CNI、BGP 与 dual-stack E2E 未跑。此前一次 `kcctl clean -A -f` 删除旧 `/var/lib/kc-etcd`，随后平台重部署生成新目录；本轮没有再次执行全平台 clean。
+- **R31 覆盖数**：194 项中 **177 ✅、7 ⚠️、10 ❌**。未闭环 case 与环境/产品前置见 [`status-2026-09-27-r31.md`](status-2026-09-27-r31.md)。
