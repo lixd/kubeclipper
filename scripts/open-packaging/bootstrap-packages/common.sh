@@ -80,6 +80,16 @@ init_bootstrap_publish_workspace() {
   mkdir -p "$artifact_dir" "$build_dir"
 }
 
+guard_bootstrap_publish_arch() {
+  local arch=$1
+  local arch_explicit=$2
+  local host_arch
+  host_arch="$(go env GOHOSTARCH 2>/dev/null || echo amd64)"
+  if [[ "$arch" != "amd64" && "$arch_explicit" != "true" && -z "${KC_ALLOW_NON_AMD64:-}" ]]; then
+    die "refusing to publish implicit arch '$arch' (host: $host_arch); pass --arch explicitly or set KC_ALLOW_NON_AMD64=1"
+  fi
+}
+
 find_asset() {
   local name=$1
   if [[ -x "$build_dir/$name" || -f "$build_dir/$name" ]]; then

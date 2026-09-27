@@ -8,6 +8,7 @@ source "$SCRIPT_DIR/bootstrap-packages/common.sh"
 registry_prefix=""
 version=""
 arch="$(go env GOARCH 2>/dev/null || echo amd64)"
+arch_explicit=false
 
 usage() {
   cat <<'EOF'
@@ -34,19 +35,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
   --registry-prefix) need_value "$@"; registry_prefix="$2"; shift 2 ;;
   --version) need_value "$@"; version="$2"; shift 2 ;;
-  --arch) need_value "$@"; arch="$2"; shift 2 ;;
+  --arch) need_value "$@"; arch="$2"; arch_explicit=true; shift 2 ;;
   -h | --help) usage; exit 0 ;;
   *) die "unknown argument: $1" ;;
   esac
 done
 
-# Guard against the R21 mispublish: on a non-linux dev machine the script
-# defaulted arch to `go env GOARCH` (arm64 on Apple silicon) and published a
-# build the platform can never consume. Require an explicit --arch there.
-host_arch="$(go env GOHOSTARCH 2>/dev/null || echo amd64)"
-if [[ "$arch" != "amd64" && -z "${KC_ALLOW_NON_AMD64:-}" ]]; then
-  die "refusing to publish arch '$arch' (host: $host_arch); pass --arch amd64 explicitly or set KC_ALLOW_NON_AMD64=1"
-fi
+# Guard against publishing the host's default architecture implicitly from a
+# developer machine. CI passes each Linux target architecture explicitly.
+guard_bootstrap_publish_arch "$arch" "$arch_explicit"
 
 init_bootstrap_publish_workspace
 

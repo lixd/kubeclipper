@@ -17,6 +17,13 @@ KC_SOURCE_REVISION="$(git -C "$ROOT" rev-parse HEAD)"
 KUBE_GIT_TREE_STATE=clean
 export KC_SOURCE_REVISION KUBE_GIT_TREE_STATE
 
+if (guard_bootstrap_publish_arch arm64 false) >/dev/null 2>&1; then
+  echo "implicit arm64 bootstrap publish unexpectedly passed the architecture guard" >&2
+  exit 1
+fi
+guard_bootstrap_publish_arch arm64 true
+guard_bootstrap_publish_arch amd64 true
+
 ldflags="$(kubeclipper_build_ldflags)"
 grep -Fq "gitCommit=$KC_SOURCE_REVISION" <<<"$ldflags"
 grep -Fq "gitTreeState=clean" <<<"$ldflags"
