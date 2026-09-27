@@ -32,6 +32,12 @@ notes: >-
   references. Never record credentials, tokens or kubeconfigs here.
 ```
 
+Create and commit the record after qualification and E2E acceptance. The stable
+release workflow fetches full history and resolves the record either from the
+candidate commit or from a fetched branch that descends from it. It blocks if
+fetched branches contain conflicting copies. Push the branch containing the
+record before pushing the stable release tag.
+
 ## What the gate verifies at release time
 
 For a stable `vX.Y.Z` tag on commit `<sha>`, before `publish` and `build-cli`

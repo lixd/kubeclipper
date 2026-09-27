@@ -9,10 +9,11 @@ import (
 
 func supportedManifest() buildManifest {
 	var manifest buildManifest
+	manifest.Release = "v2.0.3"
 	manifest.Architectures = []string{"amd64", "arm64"}
 	manifest.Registries.Package = officialRegistryPrefix
 	manifest.Registries.Image = officialRegistryPrefix
-	manifest.Bootstrap.KubeClipperVersion = "v2.0.0"
+	manifest.Bootstrap.KubeClipperVersion = "v2.0.3"
 	manifest.Bootstrap.ConsoleVersion = "v1.6.0"
 	manifest.Bootstrap.RegistryVersion = "3.1.1"
 	manifest.Bootstrap.EtcdVersion = "3.5.21"
@@ -37,7 +38,7 @@ func TestBuildPublishMatrixIncludesEveryReleaseComponent(t *testing.T) {
 		t.Fatalf("buildPublishMatrix() produced %d entries, want 16: %+v", len(matrix), matrix)
 	}
 	wanted := map[publishMatrixEntry]bool{
-		{Component: "bootstrap-kubeclipper", Version: "v2.0.0", Architecture: "all"}: false,
+		{Component: "bootstrap-kubeclipper", Version: "v2.0.3", Architecture: "all"}: false,
 		{Component: "resource-kc-runtime", Version: "v2.0.0", Architecture: "all"}:   false,
 		{Component: "resource-nfs", Version: "v4.1.0", Architecture: "all"}:          false,
 	}
@@ -57,6 +58,15 @@ func TestVerifyPolicyCoverageAcceptsReleaseManifest(t *testing.T) {
 	manifest := supportedManifest()
 	if err := verifyPolicyCoverage(&manifest, deliveryapis.DefaultSupportPolicy()); err != nil {
 		t.Fatalf("verifyPolicyCoverage() error: %v", err)
+	}
+}
+
+func TestVerifyPolicyCoverageRejectsMismatchedReleaseAndBootstrapVersions(t *testing.T) {
+	manifest := supportedManifest()
+	manifest.Bootstrap.KubeClipperVersion = "v2.0.0"
+	err := verifyPolicyCoverage(&manifest, deliveryapis.DefaultSupportPolicy())
+	if err == nil || !strings.Contains(err.Error(), "release version v2.0.3 does not match bootstrap/kubeclipper version v2.0.0") {
+		t.Fatalf("verifyPolicyCoverage() error = %v", err)
 	}
 }
 

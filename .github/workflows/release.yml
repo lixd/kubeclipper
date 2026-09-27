@@ -74,6 +74,41 @@ jobs:
             exit 1
           }
           echo "qualification_run_id=$run_id" >> "$GITHUB_ENV"
+      - name: Resolve acceptance record from candidate refs
+        env:
+          CANDIDATE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/*:refs/remotes/origin/*'
+          record_path="docs/testing/acceptance/${CANDIDATE_SHA}.yaml"
+          record_file="$RUNNER_TEMP/acceptance-${CANDIDATE_SHA}.yaml"
+          found=false
+
+          if [[ -f "$record_path" ]]; then
+            cp "$record_path" "$record_file"
+            found=true
+          fi
+
+          while IFS= read -r ref; do
+            git merge-base --is-ancestor "$CANDIDATE_SHA" "$ref" || continue
+            git cat-file -e "${ref}:${record_path}" 2>/dev/null || continue
+            git show "${ref}:${record_path}" > "$record_file.next"
+            if [[ "$found" == true ]]; then
+              cmp -s "$record_file" "$record_file.next" || {
+                echo "conflicting acceptance records for candidate $CANDIDATE_SHA in fetched refs" >&2
+                exit 1
+              }
+              unlink "$record_file.next"
+            else
+              mv "$record_file.next" "$record_file"
+              found=true
+            fi
+          done < <(git for-each-ref --format='%(refname)' refs/remotes/origin refs/heads)
+
+          [[ "$found" == true ]] || {
+            echo "no acceptance record for candidate $CANDIDATE_SHA in the candidate commit or a fetched descendant branch" >&2
+            exit 1
+          }
       - name: Download qualification manifest
         uses: actions/download-artifact@v7
         with:
@@ -90,7 +125,8 @@ jobs:
           scripts/open-packaging/release-gate.sh \
             --release-tag "$RELEASE_TAG" \
             --candidate-sha "$GITHUB_SHA" \
-            --qualification-manifest "$RUNNER_TEMP/kc-qualification/release-manifest.yaml"
+            --qualification-manifest "$RUNNER_TEMP/kc-qualification/release-manifest.yaml" \
+            --acceptance-record "$RUNNER_TEMP/acceptance-$GITHUB_SHA.yaml"
 
   publish:
     needs: [prepare, release-gate]

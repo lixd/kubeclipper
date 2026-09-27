@@ -23,6 +23,7 @@ import (
 const officialRegistryPrefix = "ghcr.io/kubeclipper/kubeclipper"
 
 type buildManifest struct {
+	Release       string   `json:"release"`
 	Architectures []string `json:"architectures"`
 	Registries    struct {
 		Package string `json:"package"`
@@ -205,6 +206,10 @@ func verifyKubernetesPolicyReferences(versions []string, policy *deliveryapis.Su
 }
 
 func verifyReleaseVersions(manifest *buildManifest) error {
+	if manifest.Release != manifest.Bootstrap.KubeClipperVersion {
+		return fmt.Errorf("release version %s does not match bootstrap/kubeclipper version %s", manifest.Release, manifest.Bootstrap.KubeClipperVersion)
+	}
+
 	versionSets := map[string][]string{
 		"bootstrap/kubeclipper":       {manifest.Bootstrap.KubeClipperVersion},
 		"bootstrap/etcd":              {manifest.Bootstrap.EtcdVersion},
