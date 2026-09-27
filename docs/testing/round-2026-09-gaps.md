@@ -336,7 +336,7 @@ Operation ID、故障注入和清理证据见
 
 ### 执行与证据
 
-- **发布流程**：fork 的 `.github/workflows/release.yml` 不再为 stable release 重建/发布 GHCR canonical tag，而从同 SHA 的 successful qualification run 下载已验收 manifest，保持 package 权限只读。新增 `release-workflow-test.sh` 固定检查制品 run-id 与不可变引用关系；`release-assembly-test.sh` 的版本断言改为读取 `packaging/resources.yaml` 的 `release` 字段，避免清单升级后因 `v2.0.0` 常量误报。workflow 结构、assembly（30 artifacts）、release-gate（11/11）和 release-policy Go 测试通过。R29 `v2.0.3` 的旧 Actions run 未重跑；新 workflow 尚待未来 stable tag 在 GitHub Actions 实跑。
+- **发布流程**：fork 的 `.github/workflows/release.yml` 不再为 stable release 重建/发布 GHCR canonical tag，而从同 SHA 的 successful qualification run 下载已验收 manifest，保持 package 权限只读。新增 `release-workflow-test.sh` 固定检查制品 run-id 与不可变引用关系；`release-assembly-test.sh` 的版本断言改为读取 `packaging/resources.yaml` 的 `release` 字段，避免清单升级后因 `v2.0.0` 常量误报。workflow 结构、assembly fixture（30 个测试制品，使用 mock `crane`）、release-gate（11/11）和 release-policy Go 测试通过。R29 `v2.0.3` 的旧 Actions run 未重跑；新 workflow 尚待未来 stable tag 在 GitHub Actions 实跑。
 - **Templates/DNS**：sh-dev-2 运行仍是 v2.0.3/revision `474ba45d8fba`。不存在模板 GET/PUT/DELETE 在旧版本均返回 500；fork 现在将 NotFound 返回 404，三路由回归测试通过。域名及记录 CRUD 正向通过；非法 A 记录曾被接受，fork 增加 IP、地址族与 A/AAAA 类型检查，`TestCheckRecord` 正负矩阵通过。两个修复均未部署，所以更新为 ⚠️ 而非 ✅；模板实例化/引用删除和修复后 DNS live 负向仍未覆盖。
 - **Console 退役入口**：`lixd/console` fork commit `50f1a4a` 删除安装表单与 storage addon 列表中的 `nfs-provisioner`，object mapper 单测 4/4、ESLint 无错误、生产构建通过。sh-dev-3 仍运行 commit `4b85ac07baa42f55a06c0fe5b0ae786a53a6e592` 的旧 bundle，两个 bundle 仍含该字符串；6-13 保持 ⚠️，4-07 完整 UI E2E 保持 ❌。
 - **PlatformSetting**：临时非敏感 Registry 模板写入/读回后还原；终端密钥查询只返回公钥。权限、轮换及敏感字段矩阵不完整，4-15 从 ❌ 调整为 ⚠️。
