@@ -246,6 +246,15 @@ func (runnable *Runnable) makeInstallSteps(ctx context.Context, metadata *compon
 			return nil, err
 		}
 		installSteps = append(installSteps, steps...)
+		heal := &Health{}
+		if err = heal.InitStepper(c.KubernetesVersion, DefaultKubeConfigPath); err != nil {
+			return nil, err
+		}
+		serviceAccountStep, err := heal.registerServiceAccountStep([]v1.StepNode{masters[0]})
+		if err != nil {
+			return nil, err
+		}
+		installSteps = append(installSteps, serviceAccountStep)
 		return installSteps, nil
 	}
 
@@ -675,7 +684,7 @@ func (stepper *Health) InstallSteps(nodes []v1.StepNode) ([]v1.Step, error) {
 	if err != nil {
 		return nil, err
 	}
-	registerSaCommands, err := stepper.getRegisterServiceAccountCommands()
+	registerSaStep, err := stepper.registerServiceAccountStep(nodes)
 	if err != nil {
 		return nil, err
 	}
@@ -697,16 +706,25 @@ func (stepper *Health) InstallSteps(nodes []v1.StepNode) ([]v1.Step, error) {
 				},
 			},
 		},
-		{
-			ID:         strutil.GetUUID(),
-			Name:       "registerServiceAccount",
-			Timeout:    metav1.Duration{Duration: 2 * time.Minute},
-			ErrIgnore:  false,
-			RetryTimes: 1,
-			Nodes:      nodes,
-			Action:     v1.ActionInstall,
-			Commands:   registerSaCommands,
-		}}, nil
+		registerSaStep,
+	}, nil
+}
+
+func (stepper *Health) registerServiceAccountStep(nodes []v1.StepNode) (v1.Step, error) {
+	commands, err := stepper.getRegisterServiceAccountCommands()
+	if err != nil {
+		return v1.Step{}, err
+	}
+	return v1.Step{
+		ID:         strutil.GetUUID(),
+		Name:       "registerServiceAccount",
+		Timeout:    metav1.Duration{Duration: 2 * time.Minute},
+		ErrIgnore:  false,
+		RetryTimes: 1,
+		Nodes:      nodes,
+		Action:     v1.ActionInstall,
+		Commands:   commands,
+	}, nil
 }
 
 // ClusterAccessStep returns the internal step used by the cluster controller

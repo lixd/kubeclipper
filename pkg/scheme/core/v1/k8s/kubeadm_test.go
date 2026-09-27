@@ -59,6 +59,35 @@ func TestClusterAccessStep(t *testing.T) {
 	}
 }
 
+func TestRegisterServiceAccountStepForKubernetesOnlyCluster(t *testing.T) {
+	health := &Health{}
+	if err := health.InitStepper("v1.37.0", DefaultKubeConfigPath); err != nil {
+		t.Fatal(err)
+	}
+	step, err := health.registerServiceAccountStep([]v1.StepNode{{ID: "master-1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Name != "registerServiceAccount" || len(step.Nodes) != 1 || step.Nodes[0].ID != "master-1" {
+		t.Fatalf("unexpected service account registration step: %#v", step)
+	}
+	if got, want := len(step.Commands), 4; got != want {
+		t.Fatalf("service account commands = %d, want %d", got, want)
+	}
+	wantCommands := []string{
+		"kubectl create sa kc-server -n kube-system",
+		"kc-server-secret.json",
+		"kubectl patch sa kc-server -n kube-system",
+		"kubectl create clusterrolebinding kc-server",
+	}
+	for i, want := range wantCommands {
+		command := strings.Join(step.Commands[i].ShellCommand, " ")
+		if step.Commands[i].Type != v1.CommandShell || !strings.Contains(command, want) {
+			t.Fatalf("command %d = %#v, want to contain %q", i, step.Commands[i], want)
+		}
+	}
+}
+
 func TestKubeConfigTokenFromSecret(t *testing.T) {
 	token, err := kubeConfigTokenFromSecret(&corev1.Secret{Data: map[string][]byte{"token": []byte("cluster-token")}})
 	if err != nil {
