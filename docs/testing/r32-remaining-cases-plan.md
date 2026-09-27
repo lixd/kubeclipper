@@ -24,7 +24,7 @@
 
 - 阶段 1、2 完成，关闭 2.1-15、4-12a、4-12b。
 - 阶段 3 部分完成：Console 登录、离线 Registry 前置校验、成功建群和 Operation 展示已实测；临时集群未绑定 BackupPoint，离线升级版本目录没有高于 v1.37.0 的目标版本，未产生安全可控的失败 Operation；UI 删除确认未提交。4-07 保持 ⚠️。
-- 阶段 4 仍有 8 个 ⚠️、6 个 ❌；具体依赖与状态见 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)。
-- 阶段 5 按用户要求完成：`kcctl clean -A -f --assumeyes` 从 sh-dev-2 执行成功；三台的 KubeClipper 服务和 etcd 数据已清理，sh-dev-3 的 Registry `/v2/` 仍返回 200，本机 7890 隧道仍运行。
+- 阶段 4 已复测 1.1-01：经本机 7890 代理，默认 GHCR deploy 到达 token 预检后返回 `DENIED`，未触碰节点；该项和 3-01 仍为 ⚠️。其余 7 个 ⚠️、6 个 ❌ 受缺少 arm64/OS 矩阵、外部服务或产品语义约束，具体见 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)。
+- 阶段 5 按用户要求完成：`kcctl clean -A -f --assumeyes` 从 sh-dev-2 执行成功；三台的 KubeClipper 服务和 etcd 数据已清理。随后两次 GHCR deploy 都在节点部署前预检退出，无新增资源，因此无需重复 clean。sh-dev-3 的 Registry `/v2/` 仍返回 200，本机到 sh-dev-2/3 的 7890 转发仍运行。
 
 本轮代码与报告只在 KubeClipper fork 工作树内更新；未改源仓库或 Console fork。

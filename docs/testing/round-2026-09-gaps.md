@@ -357,5 +357,6 @@ Operation ID、故障注入和清理证据见
 - **2.1-15**：rc.29 的 `--only-install-kubernetes-component` 创建与 kubeconfig 同步 Operation 成功；未装 CNI 时节点 NotReady，安装真实内部 Tigera Operator chart 后三节点 Ready、Calico/CoreDNS Running。临时集群已删除。
 - **4-12a/4-12b**：集群/节点终端和 Pod exec 的 mTLS 拒绝、命令回显、resize 与断连重连均通过；错误 container 400、缺失 Pod 404；临时 Pod、集群及节点 SSH 用户已清理。
 - **4-07 部分验证**：Console 登录、离线模式缺 Registry 时的前置拒绝、选择 `kc-package-registry` 后 UI 建群与 CreateCluster/SyncKubeConfig 成功展示完成。当前无 BackupPoint，离线升级目标列表为空，且未产生安全可控的 Failed Operation；4-07 由 ❌ 调整为 ⚠️。
+- **1.1-01 GHCR 代理重试**：通过本机 7890 反向转发真实执行默认 GHCR deploy 预检；配置文件优先级导致第一次仍命中内部 Registry，改用仅替换 Registry 地址的 0600 临时配置后到达 GHCR token endpoint，返回 `DENIED`。两次都在节点操作前退出，没有平台副作用；临时配置已删除，1.1-01 与 3-01 仍为 ⚠️。
 - **清理**：按用户指示从 sh-dev-2 执行 `kcctl clean -A -f --assumeyes`，三台的 server/agent/etcd/console 已停止且 etcd 数据目录清除；sh-dev-3 的 Registry 服务仍 active、`/v2/`=200，本机 7890 隧道仍运行。
 - **当前覆盖数**：194 项中 **180 ✅、8 ⚠️、6 ❌**。完整 case 清单和剩余前置见 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)。

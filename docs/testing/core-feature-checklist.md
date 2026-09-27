@@ -33,7 +33,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 1.1-01 | 在线部署：默认 ghcr 直装 | ⚠️ | 尚无空白 Linux 主机直接从默认 GHCR 源执行 kcctl deploy；此前均先 sync |
+| 1.1-01 | 在线部署：默认 ghcr 直装 | ⚠️ | **R32**：经本机 7890 代理真实执行 deploy 预检，到达 GHCR token endpoint 后返回 `DENIED`，未部署节点；此前读包权限测试为 `NAME_UNKNOWN` |
 | 1.1-02 | 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） |
 | 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ✅ | R13-C5（2026-09-22，rc.8 三机）：5003 export（skopeo --preserve-digests，5 制品 368MB）→ scp 离线拷贝 → 空白 9443 registry import ×2 → iptables 断公网（外网 DNS/连接全 REJECT，REJECT 计数实证）→ componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖），calico/coredns 全 Running |
 | 1.1-04 | 私有仓库 http | ✅ | R3 全程 :5003 |
@@ -190,7 +190,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 命令/用法 | 状态 | 最小验收点 |
 |---|---|---|---|
-| 3-01 | `kcctl deploy` | ⚠️ | 在线、同步仓库、纯离线分别记录；目前纯离线未通过，不能整体标 ✅ |
+| 3-01 | `kcctl deploy` | ⚠️ | R32：内部 OCI 候选升级与离线建群通过；默认 GHCR 经 7890 代理预检返回 `DENIED`，完全断公网的首次离线 deploy 未闭环 |
 | 3-02 | `kcctl clean --all` | ✅ | R3；清理后可重部署。当前不支持单节点/按角色 clean |
 | 3-03 | `kcctl doctor` | ✅ | R3/R4；R4 为 25 项，异常项、节点和退出码准确 |
 | 3-04 | `kcctl join` | ✅ | R6 独立 join 主路径；R13-C4 错误凭据与失败清理（认证 registry 下 0600 凭据下发、错误口令 EXIT=1 零残留）；R21 已部署节点 join 防重入 + 已删集群 drain 占用保护（2.1-27）；2.2-07 drain→join 重建闭环（3/3 恢复 + doctor 25/25） |
