@@ -8,22 +8,19 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
-  packages: write
+  contents: read
+  packages: read
 
 jobs:
   prepare:
     runs-on: ubuntu-24.04
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
-      - name: Validate release tag and build publish matrix
-        id: matrix
+      - name: Validate release tag and package policy
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
@@ -37,12 +34,13 @@ jobs:
             echo "release tag $RELEASE_TAG does not match packaging release $manifest_version" >&2
             exit 1
           }
-          matrix="$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)"
-          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          go run ./tools/release-policy-verify --manifest packaging/resources.yaml
 
   release-gate:
     needs: prepare
     runs-on: ubuntu-24.04
+    outputs:
+      qualification_run_id: ${{ steps.qualification.outputs.run_id }}
     permissions:
       contents: read
       actions: read
@@ -65,6 +63,7 @@ jobs:
             exit 1
           }
       - name: Resolve successful qualification run
+        id: qualification
         run: |
           set -euo pipefail
           run_id="$(gh api "repos/${{ github.repository }}/actions/workflows/publish-oci-qualification.yml/runs?head_sha=${GITHUB_SHA}&status=success&per_page=100" \
@@ -73,7 +72,7 @@ jobs:
             echo "no successful publish-oci-qualification run for candidate $GITHUB_SHA; qualify the candidate first" >&2
             exit 1
           }
-          echo "qualification_run_id=$run_id" >> "$GITHUB_ENV"
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
       - name: Resolve acceptance record from candidate refs
         env:
           CANDIDATE_SHA: ${{ github.sha }}
@@ -113,7 +112,7 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           pattern: oci-release-manifest-*
-          run-id: ${{ env.qualification_run_id }}
+          run-id: ${{ steps.qualification.outputs.run_id }}
           github-token: ${{ github.token }}
           path: ${{ runner.temp }}/kc-qualification
           merge-multiple: true
@@ -127,21 +126,6 @@ jobs:
             --candidate-sha "$GITHUB_SHA" \
             --qualification-manifest "$RUNNER_TEMP/kc-qualification/release-manifest.yaml" \
             --acceptance-record "$RUNNER_TEMP/acceptance-$GITHUB_SHA.yaml"
-
-  publish:
-    needs: [prepare, release-gate]
-    strategy:
-      fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
-    uses: ./.github/workflows/_publish-oci-component.yml
-    with:
-      component: ${{ matrix.component }}
-      version: ${{ matrix.version }}
-      architecture: ${{ matrix.architecture }}
-      registry_prefix: ghcr.io/${{ github.repository_owner }}/kubeclipper
-      upload_release_input: true
-    secrets: inherit
 
   build-cli:
     needs: release-gate
@@ -178,10 +162,14 @@ jobs:
           retention-days: 2
 
   manifest:
-    needs: publish
+    needs: release-gate
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      packages: read
     env:
-      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper
+      REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper/qualification-${{ github.sha }}
     steps:
       - uses: actions/checkout@v7
       - uses: docker/login-action@v4
@@ -196,44 +184,33 @@ jobs:
           sudo apt-get install -y python3-yaml
       - uses: actions/download-artifact@v7
         with:
-          pattern: oci-release-input-${{ github.run_id }}-*
+          pattern: oci-release-manifest-*
+          run-id: ${{ needs.release-gate.outputs.qualification_run_id }}
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/kc-release
           merge-multiple: true
-      - name: Generate and verify release manifest
-        env:
-          RELEASE_TAG: ${{ github.ref_name }}
+      - name: Verify approved qualification manifest
         run: |
           set -euo pipefail
-          resource_dir="$RUNNER_TEMP/kc-release"
-          output="$resource_dir/release-manifest-$RELEASE_TAG.yaml"
-          scripts/open-packaging/generate-resource-metadata.sh \
-            --resource-dir "$resource_dir" \
-            --image-registry "$REGISTRY_PREFIX"
-          scripts/open-packaging/generate-release-manifest.sh \
-            --build-manifest packaging/resources.yaml \
-            --resource-dir "$resource_dir" \
-            --output "$output" \
-            --package-registry "$REGISTRY_PREFIX" \
-            --image-registry "$REGISTRY_PREFIX" \
-            --include-bootstrap \
-            --arch all \
-            --resolve-digests \
-            --source-revision "$GITHUB_SHA"
+          manifest="$RUNNER_TEMP/kc-release/release-manifest.yaml"
+          test -f "$manifest"
           scripts/open-packaging/verify-release-manifest.sh \
-            --manifest "$output" \
+            --manifest "$manifest" \
             --registry "$REGISTRY_PREFIX"
-          sha256sum "$output" > "$output.sha256"
+          sha256sum "$manifest" > "$manifest.sha256"
       - uses: actions/upload-artifact@v6
         with:
           name: release-manifest-${{ github.run_id }}
           path: |
-            ${{ runner.temp }}/kc-release/release-manifest-${{ github.ref_name }}.yaml
-            ${{ runner.temp }}/kc-release/release-manifest-${{ github.ref_name }}.yaml.sha256
+            ${{ runner.temp }}/kc-release/release-manifest.yaml
+            ${{ runner.temp }}/kc-release/release-manifest.yaml.sha256
           retention-days: 2
 
   github-release:
     needs: [build-cli, manifest]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v7
         with:

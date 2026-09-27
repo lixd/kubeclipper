@@ -225,7 +225,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-02 | addons：metallb L2 安装/卸载 | ✅ | R3 |
 | 4-05 | addons：uninstall 容错（空 config / ErrIgnore 链） | ✅ | R3 三修复合验 |
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
-| 4-07 | **console UI 端到端（含任务失败展示）** | ❌ | fork console 分支未配镜验证 |
+| 4-07 | **console UI 端到端（含任务失败展示）** | ❌ | R30：Console fork 已修复并构建，但未部署到验收环境；当前无集群，登录、建群、升级、备份、删除与 Operation 展示尚无 UI E2E |
 | 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ✅ | R24（2026-09-26，rc.17-rc.20，R7 报告 §12.20）全矩阵真机：创建/重复名 400/读取（不回显口令）/fieldSelector 列表/HEAD/更新（含 URL 名不匹配 400）/改密（旧口令 401、新口令 200、错当前口令 400）/disable→登录 403→enable→200/删除（幂等 200、404 复核、admin 受保护 400、未带密码 400、弱口令被接受=记录项）/角色聚合建（`--rules=role-template-*` 语义）与重复 400/更新（无 resourceVersion 亦可）/internal 角色删改 400 保护/用户角色查询。**登录记录修复前恒 0 条（namespace 缺失写入全败），rc.17 起真实落库**（type/provider/sourceIP/userAgent/success/reason 全字段） |。**R28 追加**：口令策略落地——用户创建/改密现按 8-16 位且含大小写字母与数字校验（与 admin 初始口令同规则），弱口令 400 并给出说明（真机：`123456` 建用户 400、`Abcd1234` 200、弱口令改密 400）
 | 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ✅ | R7 判 ❌ 后于 batch-3 复验改判：403 归因于测试用错注解键（应为 `iam.kubeclipper.io/role`）；正确键下创建 binding 后授权内 `GET /clusters`、`/nodes` 200，越权创建 Registry 403 |
 | 4-08c | 密码登录与验证码登录 | ✅ | R24（rc.19，§12.20）验证码全流程真机（fake_sms provider）：口令正确→**428 返回 provider 列表**→发送验证码（journal 落码）→校验→签发 token；错码 401、**一次性**（复用 401）、**过期拒绝**（ttl 60s，65s 后 401）、**重发限流**（间隔内被拒、窗口后成功）。修复链：provider 包未导入导致配置即 crash-loop、验证码路径 url.Values nil map panic、限流标记与验证码共用 key 撞 AlreadyExists、透明 token 不清理——均已修复并复验。第三方 OAuth 登录属第 7 章扩展项（7-01），不在本行 |
@@ -277,7 +277,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-10 | linux/arm64 主路径 | ⚠️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据 |
 | 6-11 | Tier 1 OS 矩阵 | ⚠️ | 需先固定正式支持 OS 清单，再逐项跑部署、建群和删除 |
 | 6-12 | Docker CRI 废弃入口清理 | ✅ | **R19（2026-09-24，§12.15）已执行**：CLI 侧 `--cri docker` 落入显式拒绝（`Docker CRI is not supported, use containerd`，create_cluster.go）；服务端 `AllowedCRIType` 仅 containerd、`CRIDocker` 常量与 enum 已删、createClusterCheck 前置拒绝；`pkg/scheme/core/v1/cri/docker.go` 整文件删除；`scripts/migrate-legacy-packages-to-oci.sh` 同步移除。Docker CRI 不安排 E2E（已无入口） |
-| 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ⚠️ | **R28 现场核查（rc.25 三节点）**：平台侧全清——无 legacy 进程、systemd 仅 kc-{server,agent,etcd,console}（+dev-3 受保护的 kc-oci-r3-registry）、无 legacy 端口监听、`/usr/local/bin` 无 static/provisioner 二进制、默认 delivery policy 无旧组件（cri/cni/extension/bootstrap/k8s 槽位）、registry 包清单无旧包。**未通过项（记录）**：Console 产物仍含旧入口——`/etc/kc-console/dist/main.bundle.*.js` 的 storage addon 选项含 `nfs-provisioner`、`page.bundle.*.js` 仍定义 `{name:"nfs-provisioner", schema:{...}}` 安装表单；修复需改 console 源码分支（不在本仓库范围） |
+| 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ⚠️ | **R28/R30**：平台侧全清——无 legacy 进程、systemd 仅 kc-{server,agent,etcd,console}（+dev-3 受保护的 kc-oci-r3-registry）、无 legacy 端口监听、`/usr/local/bin` 无 static/provisioner 二进制、默认 delivery policy 无旧组件、registry 包清单无旧包。Console fork `lixd/console` 分支 `fix/console-retired-addon-r29` 的 commit `50f1a4a` 已移除安装表单和 addon 列表入口，单测/构建通过；R30 现场仍运行旧 bundle（commit `4b85ac07`，两个 bundle 仍命中 `nfs-provisioner`），新 Console 尚未部署 |
 
 ## 7. 扩展能力
 
@@ -287,12 +287,12 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 4-03 | addons：metallb BGP | ❌ | 需邻居 AS 环境 |
-| 4-09 | 集群模板 templates | ❌ | CRUD、实例化和引用删除保护 |
-| 4-10 | DNS domains / records | ❌ | 域名、记录 CRUD 与非法值拒绝 |
+| 4-09 | 集群模板 templates | ⚠️ | R30 live v2.0.3：模板 CRUD 正向通过；不存在对象 GET/PUT/DELETE 曾返回 500，fork 修复 `IsNotFound`→404，`go test ./pkg/apis/core/v1 -count=1` 覆盖三路由通过。修复未部署；实例化和引用删除保护因无集群未测 |
+| 4-10 | DNS domains / records | ⚠️ | R30 live v2.0.3：domain/record CRUD 正向、非法域名/空记录/大小写重复记录拒绝通过；无效 A 记录 IP 曾被 200 接受。fork 增加 IP 解析、A/AAAA 地址族和记录类型校验，`TestCheckRecord` 矩阵通过；修复未部署，不能记为 live 闭环 |
 | 4-11 | cloudproviders / 外部集群纳管 | ❌ | kubeconfig 预检、同步、异常和移除 |
 | 4-12a | Web 节点/集群终端 | ❌ | 鉴权、窗口 resize、断连和重连 |
 | 4-12b | Pod exec | ❌ | namespace/pod/container 选择、鉴权和断连 |
-| 4-15 | PlatformSetting（镜像仓库模板、Web 终端密钥） | ❌ | CRUD、权限、持久化和敏感字段保护 |
+| 4-15 | PlatformSetting（镜像仓库模板、Web 终端密钥） | ⚠️ | R30：临时非敏感 Registry 模板写入/读取持久化后已恢复原配置；`GET /terminal.key` 只返回公钥。权限矩阵、密钥轮换和敏感字段全路径保护尚未覆盖 |
 | 7-01 | 第三方 OAuth/OIDC 登录 | ❌ | 回调、用户映射、token 过期和登出 |
 | 7-02 | `kcctl completion` | ✅ | R6：bash、zsh 生成 rc=0，分别通过 `bash -n`/`zsh -n`；当前 help 明确只支持 bash/zsh，fish 返回 Unsupported shell，不再作为产品能力要求 |
 | 7-03 | 多节点并发任务基础容量 | ✅ | R28（rc.25，§12.25）定义并实测基线：3 节点平台（4c/8c/8c）+ **2 个 1M 离线建群并发**（dev-3 与 dev-4，同一共享 registry 取包）→ 两个 CreateCluster op 均 Succeeded、两集群 **Running（13:53:50→约 13:58:2x，~4.6min）**、期间 `kcctl status` 全程 3/3 Healthy（server/etcd/agent）、无 step 失败与锁争用。上限说明：≥3 并发受现有主机数量约束（每节点同时最多承载 1 个测试集群），更大规模需扩机器后按同法复测 |

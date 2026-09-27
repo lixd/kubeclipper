@@ -1322,3 +1322,17 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 `/var/lib/kc-etcd` 当前设备/inode/大小/mtime 为 `64769:7345588:4096:1790329441`，与测试前记录一致；该平台 etcd 目录未清理。Mac 本机代理服务与 GitHub CLI 登录权限保留。临时 SSH 转发和本轮下载/临时文件已清理。
 
 **⑤ 验收边界**：6-04 provenance 与 6-08 发布产物建群闭环，更新为 ✅。1.1-01 仍需空白 Linux 主机从默认 GHCR 源直接部署，本轮的隔离 Registry sync 不满足该条件；arm64 runtime 仍无真机环境。CRI sandbox 的 5 条 NotReady 元数据如上保留，不伪报为完全零残留。
+
+### 12.28 R30 修复与剩余用例状态（2026-09-27）
+
+**① 本轮计划**：修复 stable release 重复发布不可变 GHCR canonical tag 的工作流；修复 live API 探针发现的模板 NotFound 和 DNS 记录校验缺陷并补测试；在 Console fork 清除 retired `nfs-provisioner` UI 入口；重查远端健康、集群和临时资源；按证据更新状态，不把未部署修复当作 live 验收。
+
+**② Stable release 工作流**：fork 的 `.github/workflows/release.yml` 将 stable tag 发布改为读取同 SHA、已 gate-approved qualification run 的 manifest；manifest 通过同一 Registry namespace 的 digest 校验后随 GitHub Release 上传。Stable workflow 不再重建或写入 GHCR canonical package tags，package 权限降为 read。`scripts/open-packaging/tests/release-workflow-test.sh` 校验 qualification run ID 链接、只读 package 权限和不可变 tag 路径；`release-assembly-test.sh` 的版本断言改为使用 `packaging/resources.yaml` 的 `release` 字段。验证：workflow 结构测试通过、release assembly 30/30 artifact digest 通过、release-gate 11/11、`go test ./tools/release-policy-verify -count=1` 通过。R29 `v2.0.3` tag 和 workflow run 未移动或重跑；R30 workflow 尚无下一次 stable GitHub Actions 实际运行证据。
+
+**③ Templates 与 DNS API 缺陷**：R30 live v2.0.3（revision `474ba45d8fba`）上，不存在模板的 GET/PUT/DELETE 均返回 500；fork 将 Kubernetes NotFound 映射为 HTTP 404，三条路由回归测试通过。模板 CRUD 正向曾通过，但集群实例化及被引用时删除保护未覆盖。DNS domain/record CRUD 正向曾通过；非法 domain、空 record、大小写重复 RR 拒绝通过，但非法 A 地址 `not-an-ip` 曾返回 200。fork 的 `checkRecord` 现校验 IP 语法、A/AAAA 地址族和支持类型，`TestCheckRecord` 正负矩阵通过。服务修复 commit `25700ec9` 尚未部署；4-09、4-10 仅记为 ⚠️。
+
+**④ Console retired addon**：`lixd/console` fork 分支 `fix/console-retired-addon-r29` 的 commit `50f1a4a` 删除安装表单和 storage addon 列表的 `nfs-provisioner`；object mapper 单测 4/4、ESLint 无错误、生产构建通过，生成 bundle 不含旧标识。sh-dev-3 `kc-console` 仍 active，但服务版本是 commit `4b85ac07baa42f55a06c0fe5b0ae786a53a6e592`；当前 main/page bundle 仍含 `nfs-provisioner`。6-13 等待部署，4-07 完整 Console E2E 仍未完成。
+
+**⑤ PlatformSetting 和环境清理**：非敏感 Registry 模板写入/读回后恢复原设置；`GET /terminal.key` 返回公钥，不返回私钥。权限、key rotation 和敏感字段路径未测完，4-15 从 ❌ 提升到 ⚠️。2026-09-27 09:28 UTC 复查 sh-dev-2：平台 Healthy、3/3 agents、无 Cluster；templates/domains/cloudproviders API 均 200、0 items；Registry 仍只有原有 `kc-image-registry` 与 `kc-package-registry`。R30 mTLS 临时证书文件由远端探针脚本退出时删除；没有创建或留下测试 Cluster/Registry/API 对象。
+
+**⑥ 状态变化与边界**：194 项当前为 174 ✅、10 ⚠️、10 ❌。本轮仅将 4-09、4-10、4-15 从未执行改为部分验收；6-13 源码修复尚未部署，仍为 ⚠️；无集群的 4-07 仍为 ❌。1.1-01/3-01 需空白 Linux 主机完成默认在线直装及纯离线首次 deploy；arm64、IPv6、BGP、CloudProvider、Terminal/Pod exec、OAuth 仍缺各自环境。2.2-04 与 4-04 是当前产品缺口，没有擅自扩展其 API/数据模型。本轮所有变更只在 `lixd/kubeclipper` 与 `lixd/console` fork 工作树；未向上游源仓库推送。

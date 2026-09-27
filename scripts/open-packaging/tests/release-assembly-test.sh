@@ -110,7 +110,7 @@ with open(build_path, encoding="utf-8") as stream:
 with open(release_path, encoding="utf-8") as stream:
     release = yaml.safe_load(stream)
 
-assert release["metadata"]["version"] == "v2.0.0"
+assert release["metadata"]["version"] == build["release"]
 assert release["metadata"]["sourceRevision"] == "release-revision"
 assert release["registries"] == {
     "package": "ghcr.io/kubeclipper/kubeclipper",

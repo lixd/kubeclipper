@@ -282,10 +282,14 @@ handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 t
 
 - `4-03`：MetalLB BGP，需要可控的 BGP 邻居环境。
 - `2.1-32`：IPv4/IPv6 dual-stack，需要双栈主机、双 Pod/Service CIDR、Calico 双栈和跨节点/Service 验收；当前三机没有可控 IPv6 环境。
-- `4-04`：Addon 同组件多实例及实例隔离。
-- `4-09`～`4-11`：模板、DNS、CloudProvider/外部集群纳管。
-- `4-12a`、`4-12b`、`4-15`：Web Terminal、Pod exec、PlatformSetting。
-- `7-01`～`7-03`：OAuth/OIDC、CLI completion 和容量基线。
+- `2.2-04`：Master/Worker 角色转换；当前 API 只有节点增删操作，无转换操作入口，需先定转换约束和失败回滚语义。
+- `4-04`：Addon 同组件多实例及实例隔离；当前按组件去重，需先定实例身份及安装/卸载语义。
+- `4-09`：模板 CRUD 正向已过；NotFound 404 修复只在 fork，且实例化和引用删除保护未测，待部署复验。
+- `4-10`：DNS CRUD 正向已过；非法记录校验修复只在 fork，待部署复验。
+- `4-11`：CloudProvider/外部集群纳管，需要可用 provider 与 kubeconfig fixture。
+- `4-12a`、`4-12b`：Web Terminal、Pod exec，需要运行中的节点/集群以及连接生命周期验收。
+- `4-15`：PlatformSetting 仅验证非敏感模板持久化和公钥响应；权限、密钥轮换和敏感字段矩阵待补。
+- `7-01`：OAuth/OIDC，需要受控第三方身份提供方。`7-02` CLI completion 与 `7-03` 容量基线已通过，不再列作遗留。
 - `6-10`、`6-11`：arm64 真机及正式 Tier 1 OS 矩阵；当前不能只凭构建结果判定通过。
 - 大于 3 Worker 的批量增删及多任务容量，执行前先定义规模目标和通过阈值。
 
@@ -320,3 +324,21 @@ Operation ID、故障注入和清理证据见
 - **6-08 关闭**：Release manifest 在隔离 Registry 上完成真实建群，CreateCluster 与 SyncKubeConfig 均 Succeeded，14/14 系统 Pod Ready；详细 Operation、镜像来源、启动期告警与清理边界见 R7 报告 §12.27。
 - **发布执行边界**：release.yml 总体失败于 6 个既有 GHCR canonical tag digest 冲突；发布器拒绝覆盖，manifest 与 GitHub Release 使用已验收 qualification namespace。没有重指冲突 tag；共享 Registry `172.16.131.146:5003` 未写入或删除。本轮精确冲突摘要见 R7 §12.27。
 - **仍待验证**：1.1-01 默认 GHCR 在线直装仍需空白 Linux 主机；arm64 runtime 未做真机验证。两项保持原状态。
+
+## R30 修复与剩余项（2026-09-27）
+
+### 计划
+
+1. 修复 stable release 因重复写 GHCR canonical tags 冲突而跳过 Release artifact 的流程；只复用通过同 SHA qualification 和验收门禁的制品，不移动既有 tag。
+2. 处理 R30 live API 探针发现的模板 NotFound 与 DNS 记录校验缺陷，添加回归测试。
+3. 在 Console fork 移除已退休 `nfs-provisioner` 的 UI 入口，跑单测和生产构建，并检查部署现状。
+4. 重查远端平台、集群和临时对象，更新所有能凭证据变化的用例状态；环境或产品语义不足的保持未完成。
+
+### 执行与证据
+
+- **发布流程**：fork 的 `.github/workflows/release.yml` 不再为 stable release 重建/发布 GHCR canonical tag，而从同 SHA 的 successful qualification run 下载已验收 manifest，保持 package 权限只读。新增 `release-workflow-test.sh` 固定检查制品 run-id 与不可变引用关系；`release-assembly-test.sh` 的版本断言改为读取 `packaging/resources.yaml` 的 `release` 字段，避免清单升级后因 `v2.0.0` 常量误报。workflow 结构、assembly（30 artifacts）、release-gate（11/11）和 release-policy Go 测试通过。R29 `v2.0.3` 的旧 Actions run 未重跑；新 workflow 尚待未来 stable tag 在 GitHub Actions 实跑。
+- **Templates/DNS**：sh-dev-2 运行仍是 v2.0.3/revision `474ba45d8fba`。不存在模板 GET/PUT/DELETE 在旧版本均返回 500；fork 现在将 NotFound 返回 404，三路由回归测试通过。域名及记录 CRUD 正向通过；非法 A 记录曾被接受，fork 增加 IP、地址族与 A/AAAA 类型检查，`TestCheckRecord` 正负矩阵通过。两个修复均未部署，所以更新为 ⚠️ 而非 ✅；模板实例化/引用删除和修复后 DNS live 负向仍未覆盖。
+- **Console 退役入口**：`lixd/console` fork commit `50f1a4a` 删除安装表单与 storage addon 列表中的 `nfs-provisioner`，object mapper 单测 4/4、ESLint 无错误、生产构建通过。sh-dev-3 仍运行 commit `4b85ac07baa42f55a06c0fe5b0ae786a53a6e592` 的旧 bundle，两个 bundle 仍含该字符串；6-13 保持 ⚠️，4-07 完整 UI E2E 保持 ❌。
+- **PlatformSetting**：临时非敏感 Registry 模板写入/读回后还原；终端密钥查询只返回公钥。权限、轮换及敏感字段矩阵不完整，4-15 从 ❌ 调整为 ⚠️。
+- **环境与清理**：2026-09-27 09:28 UTC sh-dev-2 为 Healthy、3/3 agents、无集群。templates/domains/cloudproviders API 均 200 且 0 items；Registry 列表只有原有 `kc-image-registry`、`kc-package-registry`。远端认证探针临时文件已删除，无 R30 临时资源残留。
+- **覆盖汇总**：194 项中 174 ✅、10 ⚠️、10 ❌。仍未完成的项目和其依赖条件见 R30 状态报告 [`status-2026-09-27-r30.md`](status-2026-09-27-r30.md)。
