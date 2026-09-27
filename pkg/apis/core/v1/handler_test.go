@@ -20,10 +20,13 @@ package v1
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,6 +38,99 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 )
+
+func TestTemplateMissingEndpointsReturnNotFound(t *testing.T) {
+	notFound := apimachineryErrors.NewNotFound(v1.Resource("templates"), "missing")
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   string
+		setup  func(*mock.MockOperator)
+		route  func(*restful.WebService, *handler)
+	}{
+		{
+			name:   "get",
+			method: http.MethodGet,
+			path:   "/templates/missing",
+			setup: func(operator *mock.MockOperator) {
+				operator.EXPECT().GetTemplateEx(gomock.Any(), "missing", "0").Return(nil, notFound)
+			},
+			route: func(ws *restful.WebService, h *handler) {
+				ws.Route(ws.GET("/templates/{name}").To(h.DescribeTemplate))
+			},
+		},
+		{
+			name:   "update",
+			method: http.MethodPut,
+			path:   "/templates/missing",
+			body:   `{"metadata":{"name":"missing"}}`,
+			setup: func(operator *mock.MockOperator) {
+				operator.EXPECT().UpdateTemplate(gomock.Any(), gomock.Any()).Return(nil, notFound)
+			},
+			route: func(ws *restful.WebService, h *handler) {
+				ws.Route(ws.PUT("/templates/{name}").To(h.UpdateTemplate))
+			},
+		},
+		{
+			name:   "delete",
+			method: http.MethodDelete,
+			path:   "/templates/missing",
+			setup: func(operator *mock.MockOperator) {
+				operator.EXPECT().DeleteTemplate(gomock.Any(), "missing").Return(notFound)
+			},
+			route: func(ws *restful.WebService, h *handler) {
+				ws.Route(ws.DELETE("/templates/{name}").To(h.DeleteTemplate))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			operator := mock.NewMockOperator(ctrl)
+			tt.setup(operator)
+			container := restful.NewContainer()
+			ws := new(restful.WebService)
+			ws.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+			tt.route(ws, newHandler(nil, operator, nil, nil, nil, nil, nil))
+			container.Add(ws)
+			request := httptest.NewRequest(tt.method, tt.path, strings.NewReader(tt.body))
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("Accept", "application/json")
+			response := httptest.NewRecorder()
+			container.ServeHTTP(response, request)
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusNotFound, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestCheckRecord(t *testing.T) {
+	tests := []struct {
+		name        string
+		parseRecord []v1.ParseRecord
+		wantError   bool
+	}{
+		{name: "empty records", wantError: true},
+		{name: "valid A record", parseRecord: []v1.ParseRecord{{Type: "A", IP: "192.0.2.10"}}},
+		{name: "valid AAAA record", parseRecord: []v1.ParseRecord{{Type: "AAAA", IP: "2001:db8::10"}}},
+		{name: "unsupported record type", parseRecord: []v1.ParseRecord{{Type: "TXT", IP: "192.0.2.10"}}, wantError: true},
+		{name: "invalid IPv4 address", parseRecord: []v1.ParseRecord{{Type: "A", IP: "not-an-ip"}}, wantError: true},
+		{name: "A record with IPv6 address", parseRecord: []v1.ParseRecord{{Type: "A", IP: "2001:db8::10"}}, wantError: true},
+		{name: "AAAA record with IPv4 address", parseRecord: []v1.ParseRecord{{Type: "AAAA", IP: "192.0.2.10"}}, wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := checkRecord(&v1.Record{ParseRecord: tt.parseRecord})
+			if (err != nil) != tt.wantError {
+				t.Fatalf("checkRecord() error = %v, wantError %t", err, tt.wantError)
+			}
+		})
+	}
+}
 
 // fakeOperationStore serves the deletion-operation lookups of activeDeletionOp
 // from an in-memory map; missing names surface as real NotFound errors.

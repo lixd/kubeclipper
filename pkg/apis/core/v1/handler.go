@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -2462,7 +2463,25 @@ func (h *handler) CreateRecords(request *restful.Request, response *restful.Resp
 
 func checkRecord(r *v1.Record) error {
 	if len(r.ParseRecord) == 0 {
-		return fmt.Errorf("resolve record cann not be empty")
+		return fmt.Errorf("resolve record cannot be empty")
+	}
+	for _, record := range r.ParseRecord {
+		ip := net.ParseIP(record.IP)
+		if ip == nil {
+			return fmt.Errorf("invalid IP address for %s record", record.Type)
+		}
+		switch strings.ToUpper(record.Type) {
+		case "A":
+			if ip.To4() == nil {
+				return fmt.Errorf("A record requires an IPv4 address")
+			}
+		case "AAAA":
+			if ip.To4() != nil {
+				return fmt.Errorf("AAAA record requires an IPv6 address")
+			}
+		default:
+			return fmt.Errorf("unsupported DNS record type %q", record.Type)
+		}
 	}
 	return nil
 }
@@ -2844,7 +2863,11 @@ func (h *handler) DescribeTemplate(request *restful.Request, response *restful.R
 	templateName := request.PathParameter(query.ParameterName)
 	template, err := h.clusterOperator.GetTemplateEx(request.Request.Context(), templateName, "0")
 	if err != nil {
-		restplus.HandleInternalError(response, request, err)
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+		} else {
+			restplus.HandleInternalError(response, request, err)
+		}
 		return
 	}
 	_ = response.WriteHeaderAndEntity(http.StatusOK, template)
@@ -2892,7 +2915,11 @@ func (h *handler) UpdateTemplate(request *restful.Request, response *restful.Res
 	}
 	template, err = h.clusterOperator.UpdateTemplate(request.Request.Context(), template)
 	if err != nil {
-		restplus.HandleInternalError(response, request, err)
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+		} else {
+			restplus.HandleInternalError(response, request, err)
+		}
 		return
 	}
 	_ = response.WriteHeaderAndEntity(http.StatusOK, template)
@@ -2902,7 +2929,11 @@ func (h *handler) DeleteTemplate(request *restful.Request, response *restful.Res
 	templateName := request.PathParameter(query.ParameterName)
 	err := h.clusterOperator.DeleteTemplate(request.Request.Context(), templateName)
 	if err != nil {
-		restplus.HandleInternalError(response, request, err)
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+		} else {
+			restplus.HandleInternalError(response, request, err)
+		}
 		return
 	}
 	response.WriteHeader(http.StatusOK)
