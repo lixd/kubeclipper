@@ -13,9 +13,9 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
   不再变更或复用。功能下线时把状态标为 `🗑 废弃` 并保留编号，新增 Case 在小节末尾追加。
 - **状态含义**：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · 🗑 废弃。
   状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
-- **轮次记号**：备注中 R1～R32 指验证发生的轮次；每轮详细证据记录在
+- **轮次记号**：备注中 R1～R33 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告或 `docs/testing/status-*.md` 中，本文档只留结论与指针。
-- 最新覆盖快照：R32 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)；当前未闭环项和历史变化见
+- 最新覆盖快照：R33 [`status-2026-09-28-r33.md`](status-2026-09-28-r33.md)；当前未闭环项和历史变化见
   [`round-2026-09-gaps.md`](round-2026-09-gaps.md)。
 - 三机实测报告：R4 [`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)，
   R5 [`2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)，
@@ -190,10 +190,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 命令/用法 | 状态 | 最小验收点 |
 |---|---|---|---|
-| 3-01 | `kcctl deploy` | ⚠️ | R32：内部 OCI 候选升级与离线建群通过；默认 GHCR 经 7890 代理预检返回 `DENIED`，完全断公网的首次离线 deploy 未闭环 |
+| 3-01 | `kcctl deploy` | ✅ | **R33**：完全断公网条件下从隔离 OCI Registry 首次部署三机平台成功；kcctl/server revision 均为 `0eee6cd5`，Healthy，doctor 25/25。默认 GHCR 代理访问仍由 1.1-01 单独跟踪 |
 | 3-02 | `kcctl clean --all` | ✅ | R3；清理后可重部署。当前不支持单节点/按角色 clean |
 | 3-03 | `kcctl doctor` | ✅ | R3/R4；R4 为 25 项，异常项、节点和退出码准确 |
-| 3-04 | `kcctl join` | ✅ | R6 独立 join 主路径；R13-C4 错误凭据与失败清理（认证 registry 下 0600 凭据下发、错误口令 EXIT=1 零残留）；R21 已部署节点 join 防重入 + 已删集群 drain 占用保护（2.1-27）；2.2-07 drain→join 重建闭环（3/3 恢复 + doctor 25/25） |
+| 3-04 | `kcctl join` | ✅ | R6、R13-C4、R21、R27 的 join 主路径/失败边界通过。**R33**：rc.30 client 查询运行中 server commit `0eee6cd5`，从包含无 provenance `rc.5-1`、异 revision `rc.29` 和匹配 revision `rc.30` 的隔离 Registry 安装 agent；sh-dev-4 加入成功，agent commit 与 server 相同，doctor 17/17 |
 | 3-05 | `kcctl create cluster` | ✅ | R4：CLI 实建 `ha-core-20260917`（3M/0W）和 `min-core-20260917`（1M/1W），参数与 packagePlan 落库；3M/0W 需显式 untaint 才能调度 CoreDNS |
 | 3-06 | `kcctl create/delete user`、`role` | ✅ | R6：CRUD/重名拒绝通过；R7 复测 CRUD 通过；R7 batch-3（v2.0.3-rc.2）重名 user 改为 400 Bad request `already exists`（原 500），自定义 role 授权见 4-08b 改判 |
 | 3-07 | `kcctl create/delete registry` | ✅ | 管理平台中的集群镜像 Registry 资源；基础 CRUD 已验证 |
@@ -227,7 +227,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 4-02 | addons：metallb L2 安装/卸载 | ✅ | R3 |
 | 4-05 | addons：uninstall 容错（空 config / ErrIgnore 链） | ✅ | R3 三修复合验 |
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | ✅ | R3 |
-| 4-07 | **console UI 端到端（含任务失败展示）** | ⚠️ | **R32**：Console 登录、离线 Registry 前置校验、选择 `kc-package-registry` 后建群通过；CreateCluster `37c3c681-f82e-4ee4-9278-d1ff2c7a0273`（15 步）与 SyncKubeConfig `sync-kubeconfig-023c20fd-9923-48fa-9751-f1f270821ea4` 均成功，UI Operation 日志和集群 Running 状态一致。备份缺 BackupPoint；v1.37.0 无更高离线升级目标；前置校验错误不是 Failed Operation；UI 删除未提交。完整证据见 R32 状态报告 |
+| 4-07 | **console UI 端到端（含任务失败展示）** | ⚠️ | **R32**：Console 登录、离线 Registry 前置校验、选择 `kc-package-registry` 后建群通过；CreateCluster `37c3c681-f82e-4ee4-9278-d1ff2c7a0273`（15 步）与 SyncKubeConfig `sync-kubeconfig-023c20fd-9923-48fa-9751-f1f270821ea4` 均成功，UI Operation 日志和集群 Running 状态一致。**R33** 浏览器状态读取超时，未新增 UI 证据；备份缺 BackupPoint、离线升级无更高目标、未触发安全可控的 Failed Operation，UI 删除仍未提交。详见 R33 状态报告 |
 | 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ✅ | R24（2026-09-26，rc.17-rc.20，R7 报告 §12.20）全矩阵真机：创建/重复名 400/读取（不回显口令）/fieldSelector 列表/HEAD/更新（含 URL 名不匹配 400）/改密（旧口令 401、新口令 200、错当前口令 400）/disable→登录 403→enable→200/删除（幂等 200、404 复核、admin 受保护 400、未带密码 400、弱口令被接受=记录项）/角色聚合建（`--rules=role-template-*` 语义）与重复 400/更新（无 resourceVersion 亦可）/internal 角色删改 400 保护/用户角色查询。**登录记录修复前恒 0 条（namespace 缺失写入全败），rc.17 起真实落库**（type/provider/sourceIP/userAgent/success/reason 全字段） |。**R28 追加**：口令策略落地——用户创建/改密现按 8-16 位且含大小写字母与数字校验（与 admin 初始口令同规则），弱口令 400 并给出说明（真机：`123456` 建用户 400、`Abcd1234` 200、弱口令改密 400）
 | 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ✅ | R7 判 ❌ 后于 batch-3 复验改判：403 归因于测试用错注解键（应为 `iam.kubeclipper.io/role`）；正确键下创建 binding 后授权内 `GET /clusters`、`/nodes` 200，越权创建 Registry 403 |
 | 4-08c | 密码登录与验证码登录 | ✅ | R24（rc.19，§12.20）验证码全流程真机（fake_sms provider）：口令正确→**428 返回 provider 列表**→发送验证码（journal 落码）→校验→签发 token；错码 401、**一次性**（复用 401）、**过期拒绝**（ttl 60s，65s 后 401）、**重发限流**（间隔内被拒、窗口后成功）。修复链：provider 包未导入导致配置即 crash-loop、验证码路径 url.Values nil map panic、限流标记与验证码共用 key 撞 AlreadyExists、透明 token 不清理——均已修复并复验。第三方 OAuth 登录属第 7 章扩展项（7-01），不在本行 |

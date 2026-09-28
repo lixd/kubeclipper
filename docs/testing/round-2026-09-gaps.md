@@ -253,7 +253,7 @@ control-plane taint，v1.36 coredns 只容忍后者 → coredns 无法调度 →
 
 | 顺序 | Case | 缺口 | 完成条件 |
 |---:|---|---|---|
-| 1 | `1.3-05`、`3-04` | `kcctl join` 独立纳管的负向与安全边界 | R6 已完成空闲 dev4 的独立 join 主路径。**更新（R13-C4，2026-09-22）：错误凭据与失败清理闭环**——auth registry 8443 下 join：凭据 0600 下发、被加入节点直连认证拉取、错误口令 EXIT=1 可读 `UNAUTHORIZED` 且零部分安装（agent 二进制/服务均未创建）；HTTPS+自签 CA 场景经系统信任隐式覆盖（join 资产拉取在 kcctl 所在节点经系统信任池校验 8443 TLS）。仍缺：重复 join 边界、join 前自签 CA 未入信任库的显式负向 |
+| 1 | `1.3-05`、`3-04` | `kcctl join` 独立纳管的负向与安全边界 | R6 已完成空闲 dev4 的独立 join 主路径。**更新（R13-C4，2026-09-22）：错误凭据与失败清理闭环**——auth registry 8443 下 join：凭据 0600 下发、被加入节点直连认证拉取、错误口令 EXIT=1 可读 `UNAUTHORIZED` 且零部分安装（agent 二进制/服务均未创建）；HTTPS+自签 CA 场景经系统信任隐式覆盖（join 资产拉取在 kcctl 所在节点经系统信任池校验 8443 TLS）。**R33** deploy/join 均按精确 source revision 选 KubeClipper bootstrap 包；最小拓扑 live join sh-dev-4 成功，Agent commit 与 server 一致、doctor 17/17。仍缺：重复 join 边界、join 前自签 CA 未入信任库的显式负向 |
 | 2 | `2.1-21`、`2.1-22` | 镜像 Registry 与 Package Registry 分工 | R6 已用不同资源名分别落库并确认 CRI `hosts.toml` 下发，但两者仍指向同一 HTTP 端点；还需不同端点、认证和自签 CA，并验证 Pod 拉取 |**已闭环（R21，rc.11，§12.17）**：packages 走 5003 + images 走自建认证 distribution(9443,TLS+htpasswd) 分离端点建群——建群期间 5003 零镜像 blob GET、9443 日志 containerd authorized 拉取（15 镜像全套）；`--cri-registry` 认证 Registry → hosts.toml（server+CA+capabilities）与 config.toml auth 双文件齐备并被消费（401 challenge→authorized） |
 | 3 | `2.1-12`、`2.1-27`～`2.1-30` | 创建集群负向与恢复 | R6 已验证合法外部 IP/SAN、占用节点、Master/Worker 重复和非法端口/域名前置拒绝；仍需域名代理连通性、跨 Region、CIDR 冲突修复、完整主机预检及中断 retry/安全删除 |**已闭环（R9/R10/R16 + R21，§12.17）**：外部域名代理连通性（TLS verify=0 200）、跨 Region 400、CIDR 冲突 8 项负向矩阵+边界放行（rc.6 真机）、主机预检（端口占用快速失败；磁盘/时间同步缺口确认）、中断 retry 与安全删除（R10/R16 超时注入）——checklist 2.1-12/27/28/29/30 均已 ✅ 并指向本节 |
 | 4 | `2.2-06`、`2.2-07`、`2.2-11`～`2.2-13` | 节点管理边界 | R6 已验证空闲 Agent drain/delete 后 join 恢复；仍需掉线注入、集群占用保护、Lease/证书残留、Agent 身份保护和 Region 约束；disable/enable 已在 R4 覆盖 |**已闭环（R21，§12.17；2.2-07 另见 R27 §12.24）**：掉线收敛（停 agent→op 保持 Running→恢复后 cancel/retry 续跑）、集群占用保护（drain used 拒绝）、Lease/证书残留（重签 serial 变化、新 Node ID）、Agent 身份保护（注册/状态更新 403、跨节点读守卫 R22）、Region 约束（跨 region 建群 400）；drain→join 完整生命周期与 doctor 25/25 在 R27 复测 |
@@ -284,7 +284,7 @@ handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 t
 - `2.1-32`：IPv4/IPv6 dual-stack，需要双栈主机、双 Pod/Service CIDR、Calico 双栈和跨节点/Service 验收；当前三机没有可控 IPv6 环境。
 - `2.2-04`：Master/Worker 角色转换；当前 API 只有节点增删操作，无转换操作入口，需先定转换约束和失败回滚语义。
 - `4-04`：Addon 同组件多实例及实例隔离；当前按组件去重，需先定实例身份及安装/卸载语义。
-- `4-07`：Console 登录、建群与成功 Operation 展示已验；Failed Operation、升级、备份与 UI 删除仍不完整。
+- `4-07`：Console 登录、建群与成功 Operation 展示已验；R33 浏览器状态读取超时、未新增 UI 证据；Failed Operation、升级、备份与 UI 删除仍不完整。
 - `4-09`：模板 CRUD/NotFound 已 live 验；实例化和引用删除保护未测，且当前 Cluster API 无 `templateRef`，需先定语义。
 - `4-11`：CloudProvider/外部集群纳管，需要可用 provider 与 kubeconfig fixture。
 - `4-12a`、`4-12b`：R32 已完成 Web Terminal 与 Pod exec 的鉴权、命令、resize、断连/重连真机矩阵，不再列为遗留。
@@ -360,3 +360,12 @@ Operation ID、故障注入和清理证据见
 - **1.1-01 GHCR 代理重试**：通过本机 7890 反向转发真实执行默认 GHCR deploy 预检；配置文件优先级导致第一次仍命中内部 Registry，改用仅替换 Registry 地址的 0600 临时配置后到达 GHCR token endpoint，返回 `DENIED`。两次都在节点操作前退出，没有平台副作用；临时配置已删除，1.1-01 与 3-01 仍为 ⚠️。
 - **清理**：按用户指示从 sh-dev-2 执行 `kcctl clean -A -f --assumeyes`，三台的 server/agent/etcd/console 已停止且 etcd 数据目录清除；sh-dev-3 的 Registry 服务仍 active、`/v2/`=200，本机 7890 隧道仍运行。
 - **当前覆盖数**：194 项中 **180 ✅、8 ⚠️、6 ❌**。完整 case 清单和剩余前置见 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)。
+
+## R33 遗留用例复验（2026-09-28）
+
+- **3-01 离线首次 deploy**：发现 bootstrap selector 只按 SemVer 选包，可能让历史 tag `v2.0.3-rc.5-1` 压过 `rc.29`。KubeClipper fork commit `0eee6cd5d2d35361b3744473eec41804410cc547` 修复为：deploy 只选与 kcctl 同 revision 的 kubeclipper 包；join 只选与运行中 server 同 revision 的 agent 包；etcd、console、registry 等独立包仍按 SemVer 选取。`go test ./pkg/cli/deploy ./pkg/cli/join` 通过。
+- **真实部署**：sh-dev-2/3/4 先用 `kcctl clean -A -f` 清空；从 fork commit 构建 `v2.0.3-rc.30` linux/amd64，构建脚本核实 server/agent/kcctl 均为干净树上的 `0eee6cd5`。只在 sh-dev-3 临时起 5004 Registry，复制 5003 的 etcd `3.5.21`、console `v1.6.0-r31.1`、registry `3.1.1` 包，没有写共享 5003。IPv4/IPv6 临时规则阻断公网出口并放行 loopback、已建立连接与私网；命令未设置 HTTP(S) 代理。`kcctl deploy` 退出码 0；client/server GitCommit 相同，平台 Healthy，doctor 25 passed、0 warning、0 failed。故 3-01 调为 ✅；默认 GHCR 的 DENIED 仍归 1.1-01。
+- **3-04 live join**：先以 dev-2 为单 server、dev-3 为 agent 部署，再从含 `rc.5-1`、`rc.29`、`rc.30` 的隔离 Registry 将 dev-4 加入。首次调用因 join CLI 未提供 SSH key 在本地参数校验退出、没有触碰目标；复用 0600 临时 join-config 后重试成功。dev-4 的 agent 报 `v2.0.3-rc.30` / commit `0eee6cd5`，与 server 相同；doctor 17 passed、0 warning、0 failed。3-04 保持 ✅。
+- **4-07**：尝试读取浏览器上下文，桌面自动化在超时后重置；未新增 Console 操作证据。R32 已通过的登录/创建/成功 Operation 展示保留；升级、备份、Failed Operation 与 UI 删除仍未闭环。
+- **清理**：第二次全平台 clean 成功；三台 kc-server/agent/etcd/console inactive，配置的 `/var/lib/kc-etcd` 不存在。临时 5004 服务、数据、端口转发、部署配置和日志均已删除；共享 5003 仍 active 且 `/v2/` 返回 200。只删除本轮 `KC_R33_OFFLINE` IPv4/IPv6 链与跳转，其他规则未改；本轮未触碰 SSH 权限或 7890 转发，最终检查未发现三台 remote 7890 listener。
+- **当前覆盖数**：194 项中 **181 ✅、7 ⚠️、6 ❌**。3-01 的纯离线首次 deploy 已通过；完整快照见 [`status-2026-09-28-r33.md`](status-2026-09-28-r33.md)。
