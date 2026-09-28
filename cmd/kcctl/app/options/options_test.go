@@ -17,12 +17,58 @@
 package options
 
 import (
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kubeclipper/kubeclipper/pkg/authentication/oauth"
+	authoptions "github.com/kubeclipper/kubeclipper/pkg/authentication/options"
 )
+
+func TestAuthenticationOptionsValidateRegistersOIDCProvider(t *testing.T) {
+	var issuer string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/openid-configuration" {
+			http.NotFound(w, r)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                issuer,
+			"authorization_endpoint":                issuer + "/auth",
+			"token_endpoint":                        issuer + "/token",
+			"jwks_uri":                              issuer + "/keys",
+			"response_types_supported":              []string{"code"},
+			"subject_types_supported":               []string{"public"},
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+		})
+	}))
+	defer server.Close()
+	issuer = server.URL
+
+	name := fmt.Sprintf("kcctl-oidc-test-%p", &server)
+	options := authoptions.NewAuthenticateOptions()
+	options.OAuthOptions.IdentityProviders = []oauth.IdentityProviderOptions{{
+		Name:          name,
+		Type:          "OIDC",
+		MappingMethod: oauth.MappingMethodAuto,
+		Provider: oauth.DynamicOptions{
+			"issuer":       issuer,
+			"clientID":     "kcctl-test-client",
+			"clientSecret": "kcctl-test-secret",
+			"redirectURL":  issuer + "/callback",
+		},
+	}}
+
+	if errs := options.Validate(); len(errs) != 0 {
+		t.Fatalf("Validate() errors = %v, want none", errs)
+	}
+}
 
 func TestMetadataLogPort(t *testing.T) {
 	tests := []struct {

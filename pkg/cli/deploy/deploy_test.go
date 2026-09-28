@@ -27,13 +27,16 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	"github.com/kubeclipper/kubeclipper/pkg/authentication/oauth"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
+	yamlv2 "gopkg.in/yaml.v2"
 	"net/http"
 	"net/http/httptest"
 )
@@ -203,6 +206,52 @@ func TestKcServerConfigUsesAuthenticationJWTSecret(t *testing.T) {
 	}
 	if !strings.Contains(content, "jwtSecret: authentication-secret") {
 		t.Fatalf("server config does not use authentication JWT secret:\n%s", content)
+	}
+}
+
+func TestKcServerConfigIncludesOAuthOptions(t *testing.T) {
+	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.AuthenticationOpts.OAuthOptions.AccessTokenMaxAge = 15 * time.Second
+	d.deployConfig.AuthenticationOpts.OAuthOptions.IdentityProviders = []oauth.IdentityProviderOptions{{
+		Name:          "r34-oidc",
+		Type:          "OIDC",
+		MappingMethod: oauth.MappingMethodAuto,
+		Provider: oauth.DynamicOptions{
+			"issuer":       "http://127.0.0.1:5556",
+			"clientID":     "kc-test-client",
+			"clientSecret": "kc-test-secret",
+		},
+	}}
+
+	content, err := d.deployConfig.GetKcServerConfigTemplateContent("192.0.2.10")
+	if err != nil {
+		t.Fatalf("GetKcServerConfigTemplateContent() error = %v", err)
+	}
+	for _, want := range []string{
+		"oauthOptions:",
+	} {
+		if !strings.Contains(content, want) {
+			t.Errorf("server config does not contain %q:\n%s", want, content)
+		}
+	}
+	var got struct {
+		Authentication struct {
+			OAuthOptions oauth.Options `yaml:"oauthOptions"`
+		} `yaml:"authentication"`
+	}
+	if err := yamlv2.Unmarshal([]byte(content), &got); err != nil {
+		t.Fatalf("generated server config is invalid YAML: %v", err)
+	}
+	options := got.Authentication.OAuthOptions
+	if options.AccessTokenMaxAge != 15*time.Second {
+		t.Errorf("accessTokenMaxAge = %s, want 15s", options.AccessTokenMaxAge)
+	}
+	if len(options.IdentityProviders) != 1 {
+		t.Fatalf("identityProviders = %d, want 1", len(options.IdentityProviders))
+	}
+	provider := options.IdentityProviders[0]
+	if provider.Name != "r34-oidc" || provider.Provider["issuer"] != "http://127.0.0.1:5556" || provider.Provider["clientSecret"] != "kc-test-secret" {
+		t.Errorf("OAuth provider options were not preserved: name=%q issuer=%v clientSecretPresent=%t", provider.Name, provider.Provider["issuer"], provider.Provider["clientSecret"] == "kc-test-secret")
 	}
 }
 

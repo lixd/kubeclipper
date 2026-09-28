@@ -357,7 +357,7 @@ Operation ID、故障注入和清理证据见
 - **2.1-15**：rc.29 的 `--only-install-kubernetes-component` 创建与 kubeconfig 同步 Operation 成功；未装 CNI 时节点 NotReady，安装真实内部 Tigera Operator chart 后三节点 Ready、Calico/CoreDNS Running。临时集群已删除。
 - **4-12a/4-12b**：集群/节点终端和 Pod exec 的 mTLS 拒绝、命令回显、resize 与断连重连均通过；错误 container 400、缺失 Pod 404；临时 Pod、集群及节点 SSH 用户已清理。
 - **4-07 部分验证**：Console 登录、离线模式缺 Registry 时的前置拒绝、选择 `kc-package-registry` 后 UI 建群与 CreateCluster/SyncKubeConfig 成功展示完成。当前无 BackupPoint，离线升级目标列表为空，且未产生安全可控的 Failed Operation；4-07 由 ❌ 调整为 ⚠️。
-- **1.1-01 GHCR 代理重试**：通过本机 7890 反向转发真实执行默认 GHCR deploy 预检；配置文件优先级导致第一次仍命中内部 Registry，改用仅替换 Registry 地址的 0600 临时配置后到达 GHCR token endpoint，返回 `DENIED`。两次都在节点操作前退出，没有平台副作用；临时配置已删除，1.1-01 与 3-01 仍为 ⚠️。
+- **1.1-01 GHCR 代理重试**：通过本机 7890 反向转发真实执行默认 GHCR deploy 预检；配置文件优先级导致第一次仍命中内部 Registry，改用仅替换 Registry 地址的 0600 临时配置后到达 GHCR token endpoint，返回 `DENIED`。两次都在节点操作前退出，没有平台副作用；临时配置已删除，1.1-01 保持 ⚠️；3-01 随后通过 R33 隔离 Registry 离线部署闭环为 ✅。
 - **清理**：按用户指示从 sh-dev-2 执行 `kcctl clean -A -f --assumeyes`，三台的 server/agent/etcd/console 已停止且 etcd 数据目录清除；sh-dev-3 的 Registry 服务仍 active、`/v2/`=200，本机 7890 隧道仍运行。
 - **当前覆盖数**：194 项中 **180 ✅、8 ⚠️、6 ❌**。完整 case 清单和剩余前置见 [`status-2026-09-27-r32.md`](status-2026-09-27-r32.md)。
 
@@ -369,3 +369,12 @@ Operation ID、故障注入和清理证据见
 - **4-07**：尝试读取浏览器上下文，桌面自动化在超时后重置；未新增 Console 操作证据。R32 已通过的登录/创建/成功 Operation 展示保留；升级、备份、Failed Operation 与 UI 删除仍未闭环。
 - **清理**：第二次全平台 clean 成功；三台 kc-server/agent/etcd/console inactive，配置的 `/var/lib/kc-etcd` 不存在。临时 5004 服务、数据、端口转发、部署配置和日志均已删除；共享 5003 仍 active 且 `/v2/` 返回 200。只删除本轮 `KC_R33_OFFLINE` IPv4/IPv6 链与跳转，其他规则未改；本轮未触碰 SSH 权限或 7890 转发，最终检查未发现三台 remote 7890 listener。
 - **当前覆盖数**：194 项中 **181 ✅、7 ⚠️、6 ❌**。3-01 的纯离线首次 deploy 已通过；完整快照见 [`status-2026-09-28-r33.md`](status-2026-09-28-r33.md)。
+
+## R34 遗留用例推进（2026-09-28）
+
+- **4-03 MetalLB BGP**：fork Addon 安装成功，生成的 v1beta1/v1beta2 BGPPeer ASN schema 为 `int64`，最大值 server-side dry-run 通过，无手工 schema 修改。外部 FRR 与 speaker Established，FRR 学到 VIP `/32` 且 Service 删除后撤路；NodePort 返回 `R34_BGP_OK`。LoadBalancer VIP 超时：speaker 发出的 VIP 源 SYN-ACK 未到达外部 FRR 主机，可能需 OpenStack 网络侧 allowed address pair。未改云端策略，故完整 VIP 往返仍为 ⚠️。Agent 新健康检查等待逻辑已有参数/错误传播单测，但成功重试只重跑 IPAddressPool、未重跑 `checkMetalLBHealth`，现场时序未验证。
+- **7-01 OIDC**：Dex 授权码登录、自动映射用户、15 秒 token 到期和 logout 撤销均真实通过，状态改为 ✅。fork 补齐 kcctl OIDC 工厂注册和 server `oauthOptions` 配置生成，相关回归测试通过。
+- **4-11 / 2.1-32**：非法 kubeconfig 与不支持 provider 的 400 负向预检单测通过；外部 CloudProvider 纳管仍无真实集群。三机 ULA 跨节点 ping 失败，双栈 E2E 仍缺可用 IPv6 underlay。
+- **审计日志**：本轮部署时的旧 server 曾将 ConfigMap `DeployConfig` 中的 SSH 私钥和初始口令记录到审计日志。fork 已加入整项脱敏和回归测试；旧运行时未包含修复，历史记录未清除，未撤销或轮换用户 SSH 授权。细节见 [`R34 状态报告`](status-2026-09-28-r34.md)。
+- **清理复核**：按用户授权在 sh-dev-2/3/4 执行 `kubeadm reset -f` 与 `kcctl clean -A -f` 并清理该集群专属 CRI/CNI/IPVS 网络残留。复查时 KubeClipper 服务、kubelet、containerd 均 inactive；6443/5004/5556/179 无监听，KUBE/CALI 规则、Pod 路由、CNI 文件/结果和网络命名空间为 0。sh-dev-3 共享 Registry 5003 `/v2/` 仍为 200；本轮临时 Registry 数据、FRR、配置和 Agent 文件已删除。
+- **当前覆盖数**：194 项中 **182 ✅、8 ⚠️、4 ❌**；5 个带字母后缀编号（4-08b/c/d、4-12a/b）也计入总数。当前状态与未闭环前置见 [`status-2026-09-28-r34.md`](status-2026-09-28-r34.md)。

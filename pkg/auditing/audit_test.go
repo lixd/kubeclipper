@@ -253,6 +253,12 @@ func TestRedactAuditObject(t *testing.T) {
 			body:     `{"type":"fake_sms","token":"4d0b8b6e-1111-2222-3333-444455556666","jwtSecret":"signing-key","pkPasswd":"ssh-secret"}`,
 			secrets:  []string{"4d0b8b6e-1111-2222-3333-444455556666", "signing-key", "ssh-secret"},
 		},
+		{
+			name:     "deploy config embedded in ConfigMap",
+			resource: "configmaps",
+			body:     `{"metadata":{"name":"deploy-config"},"Data":{"DeployConfig":"ssh:\n  privateKey: ssh-private-key\nauthentication:\n  initialPassword: initial-password"}}`,
+			secrets:  []string{"ssh-private-key", "initial-password"},
+		},
 	}
 
 	for _, tt := range tests {

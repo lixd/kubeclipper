@@ -272,6 +272,14 @@ func redactAuditFields(value any, resource string) {
 			case "password", "currentPassword", "newPassword", "initialPassword",
 				"passwd", "pkPasswd", "jwtSecret", "clientSecret", "token":
 				object[key] = redactedAuditValue
+			case "DeployConfig", "deployConfig", "deployconfig":
+				if resource == "configmaps" {
+					// The deploy ConfigMap embeds YAML as a string, so the normal
+					// recursive JSON redaction cannot see credentials inside it.
+					object[key] = redactedAuditValue
+					continue
+				}
+				redactAuditFields(child, resource)
 			case "outputs":
 				if resource == "operationtasks" {
 					object[key] = redactedAuditValue

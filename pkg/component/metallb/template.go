@@ -659,7 +659,7 @@ spec:
                 type: string
               myASN:
                 description: AS number to use for the local end of the session.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer
@@ -698,7 +698,7 @@ spec:
                 type: string
               peerASN:
                 description: AS number to expect from the remote end of the session.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer
@@ -779,7 +779,7 @@ spec:
                 type: string
               myASN:
                 description: AS number to use for the local end of the session.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer
@@ -855,7 +855,7 @@ spec:
                 type: object
               peerASN:
                 description: AS number to expect from the remote end of the session.
-                format: int32
+                format: int64
                 maximum: 4294967295
                 minimum: 0
                 type: integer

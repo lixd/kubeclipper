@@ -25,12 +25,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/subosito/gotenv"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kubeclipper/kubeclipper/pkg/auditing/option"
+	_ "github.com/kubeclipper/kubeclipper/pkg/authentication/identityprovider/oidc"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/options"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/autodetection"
@@ -492,6 +494,12 @@ func (c *DeployConfig) GetKcServerConfigTemplateContent(ip string) (string, erro
 	if err != nil {
 		return "", fmt.Errorf("template parse failed: %s", err.Error())
 	}
+	oauthOptions, err := yaml.Marshal(c.AuthenticationOpts.OAuthOptions)
+	if err != nil {
+		return "", fmt.Errorf("marshal OAuth options: %w", err)
+	}
+	oauthOptionsYAML := strings.TrimSuffix(string(oauthOptions), "\n")
+	oauthOptionsYAML = "    " + strings.ReplaceAll(oauthOptionsYAML, "\n", "\n    ")
 	etcdEndpoints := []string{fmt.Sprintf("%s:%d", ip, c.EtcdConfig.ClientPort)}
 	var data = make(map[string]interface{})
 	data["ServerAddress"] = ip
@@ -504,6 +512,7 @@ func (c *DeployConfig) GetKcServerConfigTemplateContent(ip string) (string, erro
 	}
 	data["JwtSecret"] = c.AuthenticationOpts.JwtSecret
 	data["InitialPassword"] = c.AuthenticationOpts.InitialPassword
+	data["OAuthOptions"] = oauthOptionsYAML
 	data["RetentionPeriod"] = c.AuditOpts.RetentionPeriod
 	data["MaximumEntries"] = c.AuditOpts.MaximumEntries
 	data["AuditLevel"] = c.AuditOpts.AuditLevel

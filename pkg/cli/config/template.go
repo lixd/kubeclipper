@@ -198,6 +198,8 @@ authentication:
   multipleLogin: true
   jwtSecret: {{.JwtSecret}}
   initialPassword: {{.InitialPassword}}
+  oauthOptions:
+{{.OAuthOptions}}
 audit:
   retentionPeriod: {{.RetentionPeriod}}
   maximumEntries: {{.MaximumEntries}}

@@ -432,15 +432,8 @@ func (n *MetalLB) Uninstall(ctx context.Context, opts component.Options) ([]byte
 }
 
 func (n *MetalLB) checkMetalLBPodStatus(ctx context.Context, opts component.Options) error {
-	ec, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("kubectl get po -n %s | grep %s", namespace, "controller"))
-	if err != nil {
-		return err
-	}
-
-	if ec.StdOut() == "" {
-		return fmt.Errorf("there are no running metallb pods: %s", strings.Join(ec.Args[1:], ","))
-	}
-	return nil
+	_, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubectl", "wait", "--for=condition=Available", "deployment/controller", "-n", namespace, "--timeout=5s")
+	return err
 }
 
 func (n *MetalLB) renderTo(w io.Writer) error {

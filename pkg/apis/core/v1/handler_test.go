@@ -107,6 +107,58 @@ func TestTemplateMissingEndpointsReturnNotFound(t *testing.T) {
 	}
 }
 
+func TestPreCheckCloudProviderRejectsInvalidKubeconfig(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	operator := mock.NewMockOperator(ctrl)
+	operator.EXPECT().GetCluster(gomock.Any(), "external-fixture").Return(nil,
+		apimachineryErrors.NewNotFound(v1.Resource("clusters"), "external-fixture"))
+	operator.EXPECT().ListCloudProviders(gomock.Any(), gomock.Any()).Return(&v1.CloudProviderList{}, nil)
+
+	container := restful.NewContainer()
+	ws := new(restful.WebService)
+	ws.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	ws.Route(ws.POST("/cloudproviders/precheck").To(newHandler(nil, operator, nil, nil, nil, nil, nil).PreCheckCloudProvider))
+	container.Add(ws)
+
+	body := `{"metadata":{"name":"fixture"},"type":"kubeadm","config":{"clusterName":"external-fixture","kubeConfig":"!"}}`
+	request := httptest.NewRequest(http.MethodPost, "/cloudproviders/precheck", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	response := httptest.NewRecorder()
+	container.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "kubeconfig decode failed") {
+		t.Fatalf("response body = %q, want kubeconfig decode error", response.Body.String())
+	}
+}
+
+func TestPreCheckCloudProviderRejectsUnsupportedType(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	operator := mock.NewMockOperator(ctrl)
+	container := restful.NewContainer()
+	ws := new(restful.WebService)
+	ws.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	ws.Route(ws.POST("/cloudproviders/precheck").To(newHandler(nil, operator, nil, nil, nil, nil, nil).PreCheckCloudProvider))
+	container.Add(ws)
+
+	body := `{"metadata":{"name":"fixture"},"type":"unsupported"}`
+	request := httptest.NewRequest(http.MethodPost, "/cloudproviders/precheck", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	response := httptest.NewRecorder()
+	container.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body: %s", response.Code, http.StatusBadRequest, response.Body.String())
+	}
+	if !strings.Contains(response.Body.String(), "not support") {
+		t.Fatalf("response body = %q, want unsupported provider error", response.Body.String())
+	}
+}
+
 func TestCheckRecord(t *testing.T) {
 	tests := []struct {
 		name        string
