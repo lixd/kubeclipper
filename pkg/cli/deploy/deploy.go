@@ -46,6 +46,7 @@ import (
 	clientv3 "go.etcd.io/etcd/client/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
+	k8sversion "k8s.io/component-base/version"
 
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/user"
 
@@ -730,6 +731,7 @@ func (d *DeployOptions) sendPackage() error {
 	return InstallBootstrapAssetsFromRegistry(context.Background(), BootstrapInstallOptions{
 		Registry:       d.deployConfig.PackageRegistry,
 		Arch:           RuntimeArch(),
+		SourceRevision: k8sversion.Get().GitCommit,
 		SSH:            d.deployConfig.SSHConfig,
 		Hosts:          d.allNodes,
 		NeedAgent:      true,

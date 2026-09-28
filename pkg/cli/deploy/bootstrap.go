@@ -68,6 +68,7 @@ var joinBootstrapAssets = []bootstrapAsset{
 type BootstrapInstallOptions struct {
 	Registry       string
 	Arch           string
+	SourceRevision string
 	SSH            *sshutils.SSH
 	Hosts          []string
 	NeedAgent      bool
@@ -90,6 +91,9 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if opts.Arch == "" {
 		opts.Arch = RuntimeArch()
 	}
+	if strings.TrimSpace(opts.SourceRevision) == "" {
+		return fmt.Errorf("bootstrap source revision is required")
+	}
 	if len(opts.Hosts) == 0 {
 		return fmt.Errorf("bootstrap install hosts are required")
 	}
@@ -99,9 +103,9 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if err != nil {
 		return fmt.Errorf("refresh bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
-	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch)
+	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch, opts.SourceRevision)
 	if len(missing) > 0 {
-		return fmt.Errorf("package registry %s is missing bootstrap assets for arch %s: %s", opts.Registry, opts.Arch, strings.Join(missing, ", "))
+		return fmt.Errorf("package registry %s is missing bootstrap assets for arch %s (KubeClipper source revision %s): %s", opts.Registry, opts.Arch, opts.SourceRevision, strings.Join(missing, ", "))
 	}
 	result, err := deliveryfetcher.NewOCIArtifactFetcherWithConfig(false, opts.RegistryConfig).Fetch(ctx, &deliveryapis.ResolvedArtifactPlan{
 		OS:         deliveryapis.DefaultPackageOS,
@@ -131,7 +135,7 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	return nil
 }
 
-func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch string) ([]deliveryapis.ResolvedComponent, []string) {
+func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch, sourceRevision string) ([]deliveryapis.ResolvedComponent, []string) {
 	assetsByPackage := make(map[string][]bootstrapAsset)
 	packageNames := make([]string, 0, len(assets))
 	for _, asset := range assets {
@@ -146,7 +150,7 @@ func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, a
 	missing := make([]string, 0)
 	for _, packageName := range packageNames {
 		packageAssets := assetsByPackage[packageName]
-		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch)
+		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch, sourceRevision)
 		if !ok {
 			for _, asset := range packageAssets {
 				missing = append(missing, fmt.Sprintf("%s/%s:%s", bootstrapKind, packageName, asset.Name))
@@ -173,13 +177,18 @@ func selectBootstrapPackage(
 	packageName string,
 	assets []bootstrapAsset,
 	arch string,
+	sourceRevision string,
 ) (deliveryapis.PackageEntry, bool) {
-	if inventory == nil {
+	sourceRevision = strings.TrimSpace(sourceRevision)
+	if inventory == nil || sourceRevision == "" {
 		return deliveryapis.PackageEntry{}, false
 	}
 	var candidates []deliveryapis.PackageEntry
 	for _, pkg := range inventory.Spec.Packages {
 		if pkg.Kind != bootstrapKind || pkg.Name != packageName || pkg.Arch != arch {
+			continue
+		}
+		if packageName == bootstrapPackageKubeClipper && strings.TrimSpace(pkg.SourceRevision) != sourceRevision {
 			continue
 		}
 		if !hasBootstrapAssetContents(pkg.Contents, assets) {
