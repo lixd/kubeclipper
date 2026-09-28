@@ -57,3 +57,10 @@
 - 2026-09-28 收尾复查：三台 KubeClipper 服务、kubelet、containerd、FRR、Dex 与临时 Registry unit 均 inactive；6443/5004/5556 无监听，KUBE/CALI 规则、`172.25.*`/proto 80 路由、CNI 文件和网络命名空间均无残留。sh-dev-3 的共享 Registry 5003 `/v2/` 返回 200；三机 `/tmp` 不再含 `kc-r34-*`。历史 Audit Request 记录未清除，详见状态报告。
 - 清单计数核对：核心表格共有 194 个 Case（含 4-08b/c/d、4-12a/b），R34 状态为 182 ✅、8 ⚠️、4 ❌；本次 `4-03` 由无真实部署制品证据推进为部分通过，但 VIP 返回路径未闭环，计数不变。
 - fork 代码、测试和报告均未提交或推送；测试节点上的 R34 平台已清理，源仓库未修改。完整状态见 [`status-2026-09-28-r34.md`](status-2026-09-28-r34.md)。
+
+## R35 执行记录（2026-09-28，接手 agent）
+
+- 复核并提交 R34 遗留的 13 文件工作区改动（fork 构建通过、metallb/auditing/options/deploy/apis 测试通过、凭据扫描干净），commit `fa372984`；同步推送 origin（补齐 13 个落后提交）与 fork。
+- 计划第 4 步完成：四个产品缺口（2.2-04/2.6-11/4-04/4-09）的最小语义与实现边界汇总见 [`product-gap-semantics.md`](product-gap-semantics.md)——4-09 建议优先做（小-中工作量，快照式 templateRef+删除保护），2.6-11 次优，2.2-04/4-04 建议暂缓；是否实施待用户决策。
+- 源仓库 `/Users/lixueduan/17x/kc-test/kubeclipper` 的 `pkg/scheme/types.go`、`types_test.go` 未提交改动确认存在并保持原样（未触碰）。
+- 待用户决策事项：①是否授权真实 stable 发布轮（收口 6-04/6-08/1.1-01）；②是否实施上表建议的功能项；③历史审计事件中的旧 DeployConfig 秘密（SSH 私钥+初始口令）保留在旧 etcd 数据中（R34 按用户指示未清理、SSH 授权未轮换）——如需消除需清理该数据目录并轮换密钥。
