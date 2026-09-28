@@ -61,6 +61,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/clustermanage"
 	"github.com/kubeclipper/kubeclipper/pkg/clusteroperation"
 	"github.com/kubeclipper/kubeclipper/pkg/component"
+	componentutils "github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	componentvalidation "github.com/kubeclipper/kubeclipper/pkg/component/validation"
 	"github.com/kubeclipper/kubeclipper/pkg/controller"
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/client"
@@ -705,6 +706,83 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
 }
 
+// UpgradeClusterExtension re-installs the k8s-extension package on a running
+// cluster without a full node operation: the standalone entry for 2.6-11. The
+// steps are built from the cluster's own packagePlan snapshot, so the
+// operation cannot drift to a different artifact than the cluster was created
+// with, and other clusters' plans are untouched (R29).
+func (h *handler) UpgradeClusterExtension(request *restful.Request, response *restful.Response) {
+	name := request.PathParameter(query.ParameterName)
+	ctx := request.Request.Context()
+	clu, err := h.clusterOperator.GetClusterEx(ctx, name, "0")
+	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if clu.Status.Phase != v1.ClusterRunning {
+		restplus.HandleBadRequest(response, request, fmt.Errorf(
+			"cluster %q is %s; the extension can only be upgraded on a running cluster", name, clu.Status.Phase))
+		return
+	}
+
+	extraMeta, err := h.getClusterMetadata(ctx, clu, false)
+	if err != nil {
+		if apimachineryErrors.IsNotFound(err) || errors.Is(err, ErrNodesRegionDifferent) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	plan, err := deliveryapis.DecodeResolvedArtifactPlan(clu.Status.PackagePlan)
+	if err != nil {
+		restplus.HandleBadRequest(response, request, fmt.Errorf("cluster package plan is not initialized: %v", err))
+		return
+	}
+
+	ctx = component.WithExtraMetadata(ctx, *extraMeta)
+	ctx = component.WithResolvedArtifactPlan(ctx, plan)
+	ext := k8s.Extension{}
+	steps, err := ext.InitStepper(clu).InstallStepsWithContext(ctx, componentutils.UnwrapNodeList(extraMeta.GetAllNodes()))
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if len(steps) == 0 {
+		restplus.HandleBadRequest(response, request, errors.New("the current operation steps is empty and cannot be performed"))
+		return
+	}
+
+	op := &v1.Operation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: uuid.New().String(),
+			Labels: map[string]string{
+				common.LabelClusterName:      name,
+				common.LabelTopologyRegion:   extraMeta.Masters[0].Region,
+				common.LabelTimeoutSeconds:   v1.DefaultOperationTimeoutSecs,
+				common.LabelOperationAction:  v1.OperationUpgradeExtension,
+				common.LabelOperationSponsor: buildOperationSponsor(h.genericConfig),
+			},
+		},
+		Steps: steps,
+	}
+
+	clu.Status.Phase = v1.ClusterUpdating
+	if _, err := h.clusterOperator.UpdateCluster(context.TODO(), clu); err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if err := h.createOperationV2(context.TODO(), clu, op); err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	_ = response.WriteHeaderAndEntity(http.StatusOK, op)
+}
+
 func (h *handler) GetKubeConfig(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter(query.ParameterName)
 	proxyMode := strings.ToLower(request.QueryParameter("proxy")) == "true"
@@ -1195,6 +1273,19 @@ func (h *handler) DescribeRegion(request *restful.Request, response *restful.Res
 }
 
 func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
+	// A cluster created from a template records the source in
+	// kubeclipper.io/templateRef; the template must exist at create time so
+	// the reference is meaningful for template deletion protection (R29).
+	// Checked first: it validates the request's own reference, independent of
+	// the payload body the later checks look at.
+	if ref := c.Annotations[common.AnnotationTemplateRef]; ref != "" {
+		if _, err := h.clusterOperator.GetTemplate(ctx, ref); err != nil {
+			if apimachineryErrors.IsNotFound(err) {
+				return fmt.Errorf("cluster template %q not found", ref)
+			}
+			return err
+		}
+	}
 	if c.Networking.IPFamily == v1.IPFamilyDualStack {
 		if len(c.Networking.Pods.CIDRBlocks) < 2 {
 			return fmt.Errorf("the cluster is enabled in dual-stack mode, requiring both ipv4 and ipv6")
@@ -2927,7 +3018,26 @@ func (h *handler) UpdateTemplate(request *restful.Request, response *restful.Res
 
 func (h *handler) DeleteTemplate(request *restful.Request, response *restful.Response) {
 	templateName := request.PathParameter(query.ParameterName)
-	err := h.clusterOperator.DeleteTemplate(request.Request.Context(), templateName)
+	// Clusters record their source template in kubeclipper.io/templateRef;
+	// deleting a referenced template would orphan that provenance (R29).
+	clusters, err := h.clusterOperator.ListClusters(request.Request.Context(), query.New())
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	referencing := make([]string, 0, 1)
+	for i := range clusters.Items {
+		if clusters.Items[i].Annotations[common.AnnotationTemplateRef] == templateName {
+			referencing = append(referencing, clusters.Items[i].Name)
+		}
+	}
+	if len(referencing) > 0 {
+		restplus.HandleBadRequest(response, request, fmt.Errorf(
+			"cluster template %q is referenced by clusters %s; delete or recreate them without the template first",
+			templateName, strings.Join(referencing, ", ")))
+		return
+	}
+	err = h.clusterOperator.DeleteTemplate(request.Request.Context(), templateName)
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			restplus.HandleNotFound(response, request, err)

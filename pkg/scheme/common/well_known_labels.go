@@ -62,6 +62,9 @@ const (
 	AnnotationAggregationRoles = "kubeclipper.io/aggregation-roles"
 	RegoOverrideAnnotation     = "kubeclipper.io/rego-override"
 	RoleAnnotation             = "iam.kubeclipper.io/role"
+	// AnnotationTemplateRef records the cluster template a cluster was created
+	// from; the template cannot be deleted while a reference exists (R29).
+	AnnotationTemplateRef      = "kubeclipper.io/templateRef"
 	AnnotationInternal         = "kubeclipper.io/internal"
 	AnnotationHidden           = "kubeclipper.io/hidden"
 

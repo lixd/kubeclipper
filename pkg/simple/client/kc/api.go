@@ -554,6 +554,14 @@ func (cli *Client) UpgradeCluster(ctx context.Context, cluName string, upgradeCl
 	return err
 }
 
+// UpgradeClusterExtension re-installs the k8s-extension package on a running
+// cluster via the standalone extension entry (2.6-11).
+func (cli *Client) UpgradeClusterExtension(ctx context.Context, cluName string) error {
+	resp, err := cli.post(ctx, fmt.Sprintf("%s/%s/%s", clustersPath, cluName, "extension"), nil, nil, nil)
+	defer ensureReaderClosed(resp)
+	return err
+}
+
 func (cli *Client) ListConfigMaps(ctx context.Context, query Queries) (*ConfigMapList, error) {
 	serverResp, err := cli.get(ctx, configmapPath, query.ToRawQuery(), nil)
 	defer ensureReaderClosed(serverResp)

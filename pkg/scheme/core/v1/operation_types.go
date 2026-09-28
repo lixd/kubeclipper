@@ -55,6 +55,9 @@ const (
 	OperationDeleteBackup                 = "DeleteBackup"
 	OperationRecoverCluster               = "RecoveryCluster"
 	OperationInstallComponents            = "InstallComponents"
+	// OperationUpgradeExtension re-installs the k8s-extension package on a
+	// running cluster without a full node operation (R29, standalone entry).
+	OperationUpgradeExtension             = "UpgradeExtension"
 	OperationUninstallComponents          = "UninstallComponents"
 	OperationUpdateCertification          = "UpdateCertifications"
 	OperationUpdateAPIServerCertification = "UpdateAPIServerCertifications"

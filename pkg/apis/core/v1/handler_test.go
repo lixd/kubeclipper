@@ -77,6 +77,8 @@ func TestTemplateMissingEndpointsReturnNotFound(t *testing.T) {
 			method: http.MethodDelete,
 			path:   "/templates/missing",
 			setup: func(operator *mock.MockOperator) {
+				// the reference guard lists clusters before deleting (R29)
+				operator.EXPECT().ListClusters(gomock.Any(), gomock.Any()).Return(&v1.ClusterList{}, nil)
 				operator.EXPECT().DeleteTemplate(gomock.Any(), "missing").Return(notFound)
 			},
 			route: func(ws *restful.WebService, h *handler) {
@@ -470,5 +472,73 @@ func TestCreateClusterCheckOnlineAllowsEmptyImageRegistry(t *testing.T) {
 	c := checkClusterFixture([]string{"172.20.0.0/16"}, []string{"10.96.0.0/12"}, "node-1")
 	if err := h.createClusterCheck(context.Background(), c); err != nil {
 		t.Fatalf("expected online cluster without imageRegistry to pass, got %v", err)
+	}
+}
+
+// A cluster that records its source template in kubeclipper.io/templateRef
+// blocks the template's deletion; the create path rejects a templateRef that
+// does not exist. Both guards close 4-09 (R29).
+func TestDeleteTemplateProtectedByClusterReference(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	operator := mock.NewMockOperator(ctrl)
+	referencing := &v1.Cluster{}
+	referencing.Name = "from-template"
+	referencing.Annotations = map[string]string{common.AnnotationTemplateRef: "tpl-1"}
+	operator.EXPECT().ListClusters(gomock.Any(), gomock.Any()).Return(&v1.ClusterList{Items: []v1.Cluster{*referencing}}, nil)
+	// DeleteTemplate must not be reached; the mock fails the test otherwise.
+
+	h := newHandler(nil, operator, nil, nil, nil, nil, nil)
+	request := httptest.NewRequest(http.MethodDelete, "/templates/tpl-1", nil)
+	request.Header.Set("Accept", "application/json")
+	recorder := httptest.NewRecorder()
+	resp := restful.NewResponse(recorder)
+	resp.SetRequestAccepts("application/json") // go-restful writes 406 otherwise
+	req := restful.NewRequest(request)
+	req.PathParameters()["name"] = "tpl-1"
+	h.DeleteTemplate(req, resp)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("deleting a referenced template = HTTP %d, want 400 (body %s)", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), "from-template") {
+		t.Fatalf("error does not name the referencing cluster: %s", recorder.Body.String())
+	}
+}
+
+func TestDeleteTemplateAllowedWithoutReference(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	operator := mock.NewMockOperator(ctrl)
+	operator.EXPECT().ListClusters(gomock.Any(), gomock.Any()).Return(&v1.ClusterList{}, nil)
+	operator.EXPECT().DeleteTemplate(gomock.Any(), "tpl-2").Return(nil)
+
+	h := newHandler(nil, operator, nil, nil, nil, nil, nil)
+	request := httptest.NewRequest(http.MethodDelete, "/templates/tpl-2", nil)
+	request.Header.Set("Accept", "application/json")
+	recorder := httptest.NewRecorder()
+	req := restful.NewRequest(request)
+	req.PathParameters()["name"] = "tpl-2"
+	h.DeleteTemplate(req, restful.NewResponse(recorder))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("deleting an unreferenced template = HTTP %d, want 200", recorder.Code)
+	}
+}
+
+func TestCreateClusterCheckRejectsUnknownTemplateRef(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+	operator := mock.NewMockOperator(ctrl)
+	operator.EXPECT().GetTemplate(gomock.Any(), "tpl-404").Return(nil,
+		apimachineryErrors.NewNotFound(v1.Resource("templates"), "tpl-404"))
+
+	h := newHandler(nil, operator, nil, nil, nil, nil, nil)
+	c := &v1.Cluster{}
+	c.Name = "cluster-from-template"
+	c.Annotations = map[string]string{common.AnnotationTemplateRef: "tpl-404"}
+	err := h.createClusterCheck(context.Background(), c)
+	if err == nil || !strings.Contains(err.Error(), "tpl-404") {
+		t.Fatalf("createClusterCheck() error = %v, want the missing template named", err)
 	}
 }

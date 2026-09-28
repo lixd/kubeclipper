@@ -271,6 +271,15 @@ func SetupWebService(h *handler) *restful.WebService {
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Cluster{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
 
+	webservice.Route(webservice.POST("/clusters/{cluster}/extension").
+		To(h.UpgradeClusterExtension).
+		Metadata(restfulspec.KeyOpenAPITags, []string{CoreClusterTag}).
+		Doc("Re-install the k8s-extension package on a running cluster (standalone entry, 2.6-11)").
+		Param(webservice.PathParameter("cluster", "cluster name")).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Operation{}).
+		Returns(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.HTTPError{}).
+		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
+
 	webservice.Route(webservice.POST("/nodes").
 		To(h.CreateNode).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreNodeTag}).
