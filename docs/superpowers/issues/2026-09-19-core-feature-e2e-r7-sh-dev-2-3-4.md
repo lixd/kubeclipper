@@ -1336,3 +1336,19 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **⑤ PlatformSetting 和环境清理**：非敏感 Registry 模板写入/读回后恢复原设置；`GET /terminal.key` 返回公钥，不返回私钥。权限、key rotation 和敏感字段路径未测完，4-15 从 ❌ 提升到 ⚠️。2026-09-27 09:28 UTC 复查 sh-dev-2：平台 Healthy、3/3 agents、无 Cluster；templates/domains/cloudproviders API 均 200、0 items；Registry 仍只有原有 `kc-image-registry` 与 `kc-package-registry`。R30 mTLS 临时证书文件由远端探针脚本退出时删除；没有创建或留下测试 Cluster/Registry/API 对象。
 
 **⑥ 状态变化与边界**：194 项当前为 174 ✅、10 ⚠️、10 ❌。本轮仅将 4-09、4-10、4-15 从未执行改为部分验收；6-13 源码修复尚未部署，仍为 ⚠️；无集群的 4-07 仍为 ❌。1.1-01/3-01 需空白 Linux 主机完成默认在线直装及纯离线首次 deploy；arm64、IPv6、BGP、CloudProvider、Terminal/Pod exec、OAuth 仍缺各自环境。2.2-04 与 4-04 是当前产品缺口，没有擅自扩展其 API/数据模型。本轮所有变更只在 `lixd/kubeclipper` 与 `lixd/console` fork 工作树；未向上游源仓库推送。
+
+### 12.26 R29–R30 轮（2026-09-29，rc.31→rc.32 `02ade8cb`）：4-09 templateRef + 2.6-11 extension 独立入口 实现与真机验收
+
+**背景**：R34 交接后接手：①复核并提交 R34 遗留的 13 文件工作区改动（`fa372984`，OIDC 部署路径/BGP schema/审计脱敏，origin 补齐 13 个落后提交）；②完成 R34 计划第 4 步：四个产品缺口的最小语义与实现边界（[`product-gap-semantics.md`](../../testing/product-gap-semantics.md)，`9016d283`）。
+
+**① 4-09 集群模板 templateRef（rc.32 `02ade8cb`）**：按快照式语义实现——①建群时校验来源模板存在（`createClusterCheck` 顶部，注解 `kubeclipper.io/templateRef`，未知引用 400 `cluster template "x" not found`，独立于 payload 校验顺序）；②`DELETE /templates/{name}` 引用保护：ListClusters 反查注解，存在引用 → 400 并列出集群名（`cluster template "r29-tpl" is referenced by clusters r29-1m; …`）；③快照语义：模板更新不回溯集群。单测：引用保护正/反、未知 templateRef 400、既有 template-404 路由测试补 ListClusters 期望。**真机三态**：模板 201 → 未知引用建群（dryRun）400 → 建群后打注解 200 → 删被引用模板 400 → 删集群 → 删模板 **200**。
+
+**② 2.6-11 extension 独立入口（rc.32）**：`POST /clusters/{name}/extension` + `kcctl cluster extension --cluster-name <n>`——仅组装 extension 步骤（`k8s.Extension.InitStepper(clu).InstallStepsWithContext`），工件取自集群 packagePlan 快照（`DecodeResolvedArtifactPlan` + `WithResolvedArtifactPlan`），Running 校验，action 标签 `UpgradeExtension`。真机：UpgradeExtension op **Succeeded**（~40s，k8s-extension 包重装），集群回 Running。**隔离边界**：extension 版本跟随 k8s 版本（语义文档），其它集群 plan 不受影响。
+
+**③ 4-03 时序补验（借 r29-1m）**：MetalLB（metallb/v1，BGP + addressPool 172.16.131.250/32）安装的健康检查新逻辑现场运行——任务日志可见 `kubectl wait --for=condition=Available deployment/controller --timeout=5s` 每 ~10s 重试（RetryFunc），步超时到达后任务 **TimedOut**（R25 step-timeout 强制同时验证）；首两轮失败根因为环境（addon 镜像 `caas4/*` 无 registry 前缀走 docker.io 超时；`imageRepoMirror` 指向 5003 后又因节点缺 http hosts.toml 走 https 失败——**新发现：集群建群的 CRI 配置步骤未为 image registry 下发 hosts.toml**，手工补 http hosts.toml 后 pods Running）。环境修正后第三轮安装 **Succeeded**（~2.4min）→ 时序验证完成。LoadBalancer VIP 外部往返仍受云端网络限制（allowed address pair），4-03 维持 ⚠️。
+
+**④ 部署侧新发现（记录）**：R29 重部署时 deploy-config 写了 `ipDetect: interface=ens3`，但生成的 agent 配置为 `first-found` → 两 agent 注册在 docker-bridge 网段（10.8.39.1/172.21.0.1），SSH/drain 不可达；`-y` 使多网卡 precheck 警告被静默跳过（部署日志无 ipDetect 行）。本机 decode 测试证明 DeployConfig 读取正确（探针测试转正 `TestDeployConfigReadsIPDetect`），问题出在**现场文件编辑时序与 `-y` 静默跳过的组合**——已通过直接修 agent 配置+重启恢复正确 IP；建议后续把 ipDetect precheck 失败在 `-y` 下改为硬错误（未实施）。
+
+**⑤ 发布与终态**：rc.31（248de3b0）→ rc.32（02ade8cb）；平台 rc.32 Healthy、2/2 agents（dev-2 本轮部署配置未含 agent 角色，dev-3/4 为 agent）、doctor 待复核；r29-1m 已删、模板已删、dev-3 已清理（含本轮补的 hosts.toml）、临时脚本/manifest 清空；共享 Registry 增 rc.31/rc.32 两个 tag。
+
+文档同步：checklist 4-09（❌→✅）、2.6-11（⚠️→✅）、4-03（补时序证据）、4-08（恢复 R28 口令策略注记）、gaps 行 16 补记、计划文档 R35 执行记录、本节 §12.26。
