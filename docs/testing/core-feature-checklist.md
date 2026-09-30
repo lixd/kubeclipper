@@ -181,7 +181,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.6-08 | Delivery Policy 默认策略初始化 | ✅ | R3 默认策略已实际用于制品解析 |
 | 2.6-09 | Delivery Policy 自定义版本白名单 | ✅ | R6 通过；R7 复测（`v1.36.*`→`v1.34.*` 后创建 v1.36.4 在 Operation 前拒绝，策略精确恢复） |
 | 2.6-10 | Delivery Policy 缺失 slot/repository | ✅ | R6：移除 `cni` slot、将 `calico` 改为不存在的 `missing-calico` 后，均在创建前拒绝且无 Cluster/Operation。**R16（rc.8，2026-09-23）余量补齐**：①缺失 blob——9443 测试 registry（distribution 3.1.1）skopeo 拷入 containerd:1.7.29 后删除 layer blob 数据文件：server 索引器读包清单（需取 blob）失败→tag 记 `skip invalid OCI package image` 从清单剔除→POST 显式容器运行时返回 `ArtifactNotPublished: artifact cri/containerd:1.7.29 is not published` 400，零对象（distribution 对 blob 路径 digest 不符不做在线校验、200 的观察项不改变创建前拦截结论）；②多候选冲突——policy `k8s-v1.35` 复制出第二个允许同版本 containerd 的 slot（cri-alt）：dryRun 与真实 POST 均 400 `DuplicateResolvedComponent: component cri/containerd selected by slots "cri" and "cri-alt"`（同 slot 重名直接 400 `duplicate component slot "cri"`；单 slot 双 option 名字不同不触发——按 name 匹配 option）。policy/deloy-config 双还原，验证 dryRun 200 |
-| 2.6-11 | bootstrap/standalone extension 与集群 packagePlan 隔离 | ✅ | R29（rc.32，§12.26）独立入口落地：`POST /clusters/{name}/extension` 与 `kcctl cluster extension --cluster-name`——仅组装 extension 步骤，工件取自集群自身 packagePlan 快照（WithResolvedArtifactPlan），Running 校验；真机：UpgradeExtension op **Succeeded**（~40s，含扩展包重装），集群 Running、其它集群 plan 不受影响。隔离边界（extension 版本跟随 k8s 版本）按语义文档执行 |
+| 2.6-11 | bootstrap/standalone extension 与集群 packagePlan 隔离 | ✅ | R29（rc.32，§12.26）独立入口落地：`POST /clusters/{name}/extension` 与 `kcctl cluster extension --cluster-name`——仅组装 extension 步骤，工件取自集群自身 packagePlan 快照（WithResolvedArtifactPlan），Running 校验；真机：UpgradeExtension op **Succeeded**（~40s，含扩展包重装），集群 Running、其它集群 plan 不受影响。隔离边界（extension 版本跟随 k8s 版本）按语义文档执行 |。R29 补验：CLI 路径 `kcctl cluster extension --cluster-name` 全链路（二进制含注册后）提交即 Succeeded
 
 ## 3. `kcctl` 命令覆盖（每条至少跑通一次核心路径）
 
@@ -289,7 +289,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
 | 4-03 | addons：metallb BGP | ⚠️ | R34：ASN schema int64/最大值 dry-run、FRR 邻居 Established、VIP /32 发布与撤回、外部 NodePort 均实测；**R29 时序补验（rc.32）**：健康检查新逻辑现场运行（`kubectl wait --for=condition=Available` 每 ~10s 重试，R25 step 超时强制生效），环境修正后完整安装 **Succeeded**（~2.4min）。**仍未通过**：LoadBalancer VIP 外部往返——speaker 发出的 VIP 源 SYN-ACK 未达外部 FRR 主机，疑似需 OpenStack 网络侧 allowed address pair（用户未改云端策略） |
-| 4-09 | 集群模板 templates | ✅ | R29（rc.32 `02ade8cb`，§12.26）快照式 templateRef 闭环：CRUD（R34 已验）+ **来源注解** `kubeclipper.io/templateRef`（建群时校验模板存在，未知引用 400）+ **删除保护**（被引用模板 400 并列出引用集群，无引用 200，真机三态全过）+ 快照语义（模板更新不回溯集群，与 packagePlan 物化一致）。实现：建群校验/删除保护在 handler，注解常量 `kubeclipper.io/templateRef` |
+| 4-09 | 集群模板 templates | ✅ | R29（rc.32 `02ade8cb`，§12.26）快照式 templateRef 闭环：CRUD（R34 已验）+ **来源注解** `kubeclipper.io/templateRef`（建群时校验模板存在，未知引用 400）+ **删除保护**（被引用模板 400 并列出引用集群，无引用 200，真机三态全过）+ 快照语义（模板更新不回溯集群，与 packagePlan 物化一致）。实现：建群校验/删除保护在 handler，注解常量 `kubeclipper.io/templateRef` |。R29 补验四态：未知引用建群（dryRun）400、建群后注解 200、删被引用模板 400（列出引用集群）、删集群后删模板 200
 | 4-10 | DNS domains / records | ✅ | **R31 rc.28 live**：A/AAAA 合法创建与 A 更新=200；非法 A 语法、A/AAAA 错地址族、TXT 类型及对应非法更新=400；domain 删除=200、后续 GET=404。临时域名和记录已清理 |
 | 4-11 | cloudproviders / 外部集群纳管 | ❌ | **R34 部分单测**：`PreCheckCloudProvider` 对非法 base64 kubeconfig 和不支持的 provider type 均返回 400；mock 仅覆盖预检边界，不代表真实外部集群纳管。完整项仍需有效 kubeconfig/CloudProvider，验证同步、异常和移除 |
 | 4-12a | Web 节点/集群终端 | ✅ | **R32 rc.29**：集群与节点终端无 mTLS 证书均 403；集群命令回显和断连重连通过；节点终端 resize 从 `30 100` 更新到 `42 132`，重连成功，临时 SSH 用户已删 |

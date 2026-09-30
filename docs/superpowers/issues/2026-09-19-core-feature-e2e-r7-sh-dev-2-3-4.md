@@ -1352,3 +1352,21 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
 **⑤ 发布与终态**：rc.31（248de3b0）→ rc.32（02ade8cb）；平台 rc.32 Healthy、2/2 agents（dev-2 本轮部署配置未含 agent 角色，dev-3/4 为 agent）、doctor 待复核；r29-1m 已删、模板已删、dev-3 已清理（含本轮补的 hosts.toml）、临时脚本/manifest 清空；共享 Registry 增 rc.31/rc.32 两个 tag。
 
 文档同步：checklist 4-09（❌→✅）、2.6-11（⚠️→✅）、4-03（补时序证据）、4-08（恢复 R28 口令策略注记）、gaps 行 16 补记、计划文档 R35 执行记录、本节 §12.26。
+
+### 12.27 R30 补遗（2026-09-29）：平台重建 + extension CLI 证据 + 两个新发现（记录项）
+
+- **平台重建**：接手时三节点已按授权清理（无 KubeClipper 服务），本轮以 fork HEAD（248de3b0）发布
+  rc.31 并全新部署（deploy-config 含 ipDetect=interface=ens3）；因 ipDetect 未传导（见 §12.26 ④）
+  agent 首次注册在 docker-bridge 网段，直接修正 agent 配置 ipDetect/nodeIPDetect 后重启即恢复正确
+  管理口（172.16.131.146/.230）。
+- **extension CLI 证据**：rc.32 后 `kcctl cluster extension --cluster-name r29-1m` 全链路
+  （发现 dev-2 kcctl 因平台重建被包内二进制覆盖回旧版导致一次 unknown flag，重新以 248de3b0 构建
+  二进制后提交成功，UpgradeExtension op Succeeded；rc.32 包内 kcctl 因 248de3b0 未含 CLI 注册行
+  又缺该命令——注册行随后随 02ade8cb 入库）。
+- **新发现 A（gaps 行 18）**：集群建群的 CRI 配置步骤未为 image registry 下发 hosts.toml——
+  addon 镜像按 https 拉取 http registry 失败；手工补 http hosts.toml 后拉取正常（待排查渲染链路）。
+- **新发现 B（gaps 行 19）**：`PUT /clusters/{name}` 带 metadata 不带 spec 的全量替换把运行中
+  集群的 spec 清空（masters/workers/imageRegistry 全 None），后续依赖 spec 的 API 以
+  `Name parameter required.`（apiserver store 对空 name 的 BadRequest）500——本例由验收时的
+  注解 PUT 触发，测试集群已删除。**待决策**：UpdateCluster 合并保留原 spec 或拒绝缺 spec 的 PUT。
+- 文档同步：checklist 4-09/2.6-11 补 R29 证据、gaps 行 18/19、product-gap-semantics 不变。
