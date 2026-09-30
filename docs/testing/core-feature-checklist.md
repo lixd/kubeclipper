@@ -33,7 +33,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 1.1-01 | 在线部署：默认 ghcr 直装 | ⚠️ | **R32**：经本机 7890 代理真实执行 deploy 预检，到达 GHCR token endpoint 后返回 `DENIED`，未部署节点；此前读包权限测试为 `NAME_UNKNOWN` |
+| 1.1-01 | 在线部署：默认 ghcr 直装 | ✅ | **R35**（2026-09-30，rc.33/488552b9 三机）：qualification workflow 发布包至 `ghcr.io/lixd/kubeclipper/qualification-<sha>/kubeclipper/packages/...`（匿名可拉）；`kcctl deploy` 经代理直连 GHCR 拉包成功——catalog scope 被 GHCR 拒绝（DENIED）后自动回退固定路径索引（`refreshBootstrapInventory`→`IndexRepositories`），etcd/server/agent/console 四类包全部从 ghcr 拉取并分发三节点；平台 Healthy（doctor 17 passed/0 failed），kcctl `v2.0.3-22+488552b9`，server/agent GitCommit `488552b9`。两个部署阻塞均定位为环境性根因：①gRPC 默认读 `HTTPS_PROXY`，etcd 写探针经代理握手被掐（EOF）→ 需 `NO_PROXY` 排除节点 IP，代码侧已加 `dialDirect` 强制直连+单测；②默认 `kcServerHealthCheckTimeout=30s` 对慢节点 etcd 首启偏紧（现场用 180s） |
 | 1.1-02 | 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） |
 | 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ✅ | R13-C5（2026-09-22，rc.8 三机）：5003 export（skopeo --preserve-digests，5 制品 368MB）→ scp 离线拷贝 → 空白 9443 registry import ×2 → iptables 断公网（外网 DNS/连接全 REJECT，REJECT 计数实证）→ componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖），calico/coredns 全 Running |
 | 1.1-04 | 私有仓库 http | ✅ | R3 全程 :5003 |

@@ -1370,3 +1370,26 @@ v1.37.0）、r23-roll、r23-ca、r23-off 已删；平台 etcd 数据目录 /var/
   `Name parameter required.`（apiserver store 对空 name 的 BadRequest）500——本例由验收时的
   注解 PUT 触发，测试集群已删除。**待决策**：UpdateCluster 合并保留原 spec 或拒绝缺 spec 的 PUT。
 - 文档同步：checklist 4-09/2.6-11 补 R29 证据、gaps 行 18/19、product-gap-semantics 不变。
+
+### 12.28 R35（2026-09-30，rc.33 `488552b9`）：ghcr 直装 1.1-01 闭环 + etcd 探针代理根因
+
+- **ghcr 直装部署达成**：qualification workflow run `36668856813` 发布 rc.33 包集至
+  `ghcr.io/lixd/kubeclipper/qualification-<sha>/kubeclipper/packages/...`（匿名可拉）。
+  `kcctl deploy`（packageRegistry 指向该 namespace，经 dev-2:17890→Mac:7890 隧道）真实拉包：
+  catalog DENIED → 固定路径回退生效（`488552b9` 的 `refreshBootstrapInventory`），四类包全部分发
+  三节点。平台 Healthy（doctor 17/0/0），kcctl `v2.0.3-22+488552b9`，server/agents GitCommit
+  `488552b9`，console 200。1.1-01 → ✅（194 项：185 ✅、5 ⚠️、4 ❌）。
+- **etcd 写探针持续失败根因（三轮部署定位）**：部署导出的 `HTTPS_PROXY` 同样被 gRPC 读取——
+  探针到节点 `172.16.131.208:12379` 的 CONNECT 经代理失败，表现为
+  `authentication handshake failed: EOF`；证书/CA 指纹/数据目录逐项排除后用无代理 Go 复刻程序
+  （21ms put 成功）锁定。现场以 `NO_PROXY=<三节点 IP>` 修正后一次通过。
+  **代码修复**：`newEtcdHealthClients` 加 `dialDirect`（`grpc.WithContextDialer` 强制直连）+
+  `TestDialDirectIgnoresProxyEnvironment`；`go test ./pkg/cli/deploy` 全绿。部署不再依赖调用方
+  正确设置 NO_PROXY。
+- **观察**：`kcServerHealthCheckTimeout`（默认 30s）同时约束 etcd 就绪与 kc-server healthz 等待，
+  本轮现场设 180s；etcd 写探针（R25 加固）行为正确，无误报。
+- **排障路径记录**：预检 `existingServiceError`（"kc-etcd.service already exists"）+ clean 指引
+  两次正确拦截残留部署；`/usr/lib/systemd/system/kc-etcd.service` 需注意与
+  `/etc/systemd/system/` 双位置。
+- **现场边界**：三节点平台保留运行供后续回归；共享 Registry 5003 未写入；/root/kcprobe 临时
+  复刻目录已删；deploy-config 中 180s 留存。

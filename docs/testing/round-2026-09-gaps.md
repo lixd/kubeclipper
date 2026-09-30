@@ -732,3 +732,13 @@ Operation ID、故障注入和清理证据见
 - **审计日志**：本轮部署时的旧 server 曾将 ConfigMap `DeployConfig` 中的 SSH 私钥和初始口令记录到审计日志。fork 已加入整项脱敏和回归测试；旧运行时未包含修复，历史记录未清除，未撤销或轮换用户 SSH 授权。细节见 [`R34 状态报告`](status-2026-09-28-r34.md)。
 - **清理复核**：按用户授权在 sh-dev-2/3/4 执行 `kubeadm reset -f` 与 `kcctl clean -A -f` 并清理该集群专属 CRI/CNI/IPVS 网络残留。复查时 KubeClipper 服务、kubelet、containerd 均 inactive；6443/5004/5556/179 无监听，KUBE/CALI 规则、Pod 路由、CNI 文件/结果和网络命名空间为 0。sh-dev-3 共享 Registry 5003 `/v2/` 仍为 200；本轮临时 Registry 数据、FRR、配置和 Agent 文件已删除。
 - **当前覆盖数**：194 项中 **182 ✅、8 ⚠️、4 ❌**；5 个带字母后缀编号（4-08b/c/d、4-12a/b）也计入总数。当前状态与未闭环前置见 [`status-2026-09-28-r34.md`](status-2026-09-28-r34.md)。
+
+## R35 ghcr 直装闭环（2026-09-30）
+
+- **1.1-01 关闭**：qualification workflow run `36668856813` 发布 rc.33/`488552b9` 包集至 `ghcr.io/lixd/kubeclipper/qualification-488552b9d7804db7e6bea9fde8426b463eeffba5/kubeclipper/packages/...`（匿名 tags/list 验证通过）。`kcctl deploy`（`packageRegistry` 指向该 namespace）经 7890 反向代理真实拉包：catalog scope 仍被 GHCR 拒绝（DENIED），新增的固定路径回退（`refreshBootstrapInventory`→`IndexRepositories`，commit `488552b9`）生效，etcd/server/agent/console 四类包全部从 ghcr 拉取并分发三节点。平台 Healthy（doctor 17 passed/0 failed/0 warning），kcctl `v2.0.3-22+488552b9`，server 与三 agent GitCommit 均为 `488552b9`，console 经 caddy 返回 200。1.1-01 转 ✅。
+- **部署根因一（产品缺陷，已修）**：GHCR 拒绝 `_catalog` scope，deploy 的 inventory 刷新必须回退固定路径索引；`488552b9` 实现并配双路径单测（catalog 拒绝回退/可用不回退）。
+- **部署根因二（环境性，现场定位）**：部署命令导出 `HTTPS_PROXY`（供 ghcr 拉包走隧道）后，gRPC 默认也从环境读代理——etcd 写探针到 `172.16.131.208:12379` 被送进代理，CONNECT 内网地址失败，表现为 `authentication handshake failed: EOF` 的持续超时。手动 etcdctl/无代理 Go 复刻程序均 21-29ms 通过，证书、CA 指纹、数据目录逐一排除后锁定代理。现场以 `NO_PROXY=<三节点 IP>` 修正；fork 已加 `dialDirect`（`grpc.WithContextDialer` 强制直连）+ 代理环境单测，不再依赖调用方正确设置 NO_PROXY。
+- **观察（保持记录）**：默认 `kcServerHealthCheckTimeout=30s` 同时约束 etcd 就绪等待与 kc-server healthz 等待；本轮现场设 180s。etcd 写探针本身（R25 加固）正确捕捉了未就绪状态，无假阳性。
+- **部署排障副产品**：deploy 预检对"kc-etcd.service 已存在"给出明确失败与 `clean old environment` 指引（`existingServiceError`），排障路径可预期。
+- **平台现状**：三节点平台保留运行（后续 2.6-11/4-09 类真机回归可复用）；`kcServerHealthCheckTimeout: 180s` 留在 dev-2 部署配置中。共享 Registry 5003 未写入；本端测试脚本与 /root/kcprobe 临时目录已删。
+- **当前覆盖数**：194 项中 **185 ✅、5 ⚠️、4 ❌**；未闭环项为 2.6-11、4-07、4-03、6-06/6-10/6-11（合并计 5 个 ⚠️）与 2.2-04、4-04、4-11、2.1-32（4 个 ❌）。
