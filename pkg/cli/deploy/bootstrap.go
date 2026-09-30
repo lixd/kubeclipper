@@ -21,6 +21,7 @@ package deploy
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -99,7 +100,7 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	}
 	logger.Infof("refresh bootstrap assets from OCI registry %s", opts.Registry)
 	indexer := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(opts.RegistryConfig)
-	inventory, err := indexer.Refresh(ctx, opts.Registry)
+	inventory, err := refreshBootstrapInventory(ctx, indexer, opts.Registry, assets)
 	if err != nil {
 		return fmt.Errorf("refresh bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
@@ -133,6 +134,38 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 		}
 	}
 	return nil
+}
+
+// refreshBootstrapInventory builds the package inventory for the bootstrap
+// assets. The default pass enumerates the registry-wide catalog; registries
+// like GHCR deny that scope to anonymous and most tokens, which used to break
+// every deploy. When the catalog pass fails, retry by indexing the fixed
+// repositories the bootstrap packages live in — the packages themselves are
+// pullable by path (R30).
+func refreshBootstrapInventory(ctx context.Context, indexer bootstrapInventoryIndexer, registry string, assets []bootstrapAsset) (*deliveryapis.PackageInventory, error) {
+	inventory, err := indexer.Refresh(ctx, registry)
+	if err == nil {
+		return inventory, nil
+	}
+	logger.Warnf("registry catalog refresh failed (%v); retrying with the fixed bootstrap repositories", err)
+	repositories := make([]string, 0, len(assets))
+	seen := make(map[string]struct{}, len(assets))
+	for _, asset := range assets {
+		repository := path.Join(deliveryapis.PackageRepositoryPrefix, "bootstrap", asset.PackageName)
+		if _, dup := seen[repository]; dup {
+			continue
+		}
+		seen[repository] = struct{}{}
+		repositories = append(repositories, repository)
+	}
+	return indexer.IndexRepositories(ctx, registry, repositories)
+}
+
+// bootstrapInventoryIndexer is the slice of the package inventory indexer the
+// bootstrap install needs; kept narrow so tests can fake it.
+type bootstrapInventoryIndexer interface {
+	Refresh(ctx context.Context, registry string) (*deliveryapis.PackageInventory, error)
+	IndexRepositories(ctx context.Context, registry string, repositories []string) (*deliveryapis.PackageInventory, error)
 }
 
 func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch, sourceRevision string) ([]deliveryapis.ResolvedComponent, []string) {
