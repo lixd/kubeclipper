@@ -37,6 +37,7 @@ import (
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 	yamlv2 "gopkg.in/yaml.v2"
+	"net"
 	"net/http"
 	"net/http/httptest"
 )
@@ -595,4 +596,22 @@ func TestResolveSeedRegistryScheme(t *testing.T) {
 			t.Fatalf("resolved (%s, %v), want the configured (https, true)", scheme, skipVerify)
 		}
 	})
+}
+
+func TestDialDirectIgnoresProxyEnvironment(t *testing.T) {
+	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:1")
+	t.Setenv("HTTP_PROXY", "http://127.0.0.1:1")
+	t.Setenv("https_proxy", "http://127.0.0.1:1")
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Skipf("listen on loopback: %v", err)
+	}
+	defer ln.Close()
+
+	conn, err := dialDirect(context.Background(), ln.Addr().String())
+	if err != nil {
+		t.Fatalf("dialDirect bypassed proxy but failed: %v", err)
+	}
+	conn.Close()
 }

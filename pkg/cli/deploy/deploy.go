@@ -44,6 +44,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
+	"google.golang.org/grpc"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
 	k8sversion "k8s.io/component-base/version"
@@ -1007,12 +1008,22 @@ func (*DeployOptions) etcdHealthTLSConfig() (*tls.Config, error) {
 	}, nil
 }
 
+// dialDirect skips HTTP(S)_PROXY: grpc-go routes connections through the
+// environment proxy by default, and the proxy cannot reach cluster-internal
+// node addresses, which made the etcd write probe fail with a TLS handshake
+// EOF even though the node was healthy.
+func dialDirect(ctx context.Context, addr string) (net.Conn, error) {
+	var dialer net.Dialer
+	return dialer.DialContext(ctx, "tcp", addr)
+}
+
 func newEtcdHealthClients(endpoints []string, tlsConfig *tls.Config) ([]etcdHealthClient, error) {
 	clients := make([]etcdHealthClient, 0, len(endpoints))
 	for _, endpoint := range endpoints {
 		client, err := clientv3.New(clientv3.Config{
 			Endpoints:   []string{endpoint},
 			DialTimeout: serviceHealthCheckTimeout,
+			DialOptions: []grpc.DialOption{grpc.WithContextDialer(dialDirect)},
 			TLS:         tlsConfig,
 		})
 		if err != nil {
