@@ -16,7 +16,7 @@
  *
  */
 
-package deploy
+package bootstrap
 
 import (
 	"context"

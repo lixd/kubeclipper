@@ -68,6 +68,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/cli/sudo"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/config"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/bootstrap"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/logger"
@@ -729,9 +730,9 @@ func (d *DeployOptions) RunDeploy() error {
 }
 
 func (d *DeployOptions) sendPackage() error {
-	return InstallBootstrapAssetsFromRegistry(context.Background(), BootstrapInstallOptions{
+	return bootstrap.InstallBootstrapAssetsFromRegistry(context.Background(), bootstrap.BootstrapInstallOptions{
 		Registry:       d.deployConfig.PackageRegistry,
-		Arch:           RuntimeArch(),
+		Arch:           bootstrap.RuntimeArch(),
 		SourceRevision: k8sversion.Get().GitCommit,
 		SSH:            d.deployConfig.SSHConfig,
 		Hosts:          d.allNodes,

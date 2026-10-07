@@ -43,6 +43,7 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/config"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/sudo"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/bootstrap"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
@@ -410,9 +411,9 @@ func (c *JoinOptions) preCheckKcAgent(ip string) bool {
 }
 
 func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata, sourceRevision string) error {
-	if err := deploy.InstallBootstrapAssetsFromRegistry(context.Background(), deploy.BootstrapInstallOptions{
+	if err := bootstrap.InstallBootstrapAssetsFromRegistry(context.Background(), bootstrap.BootstrapInstallOptions{
 		Registry:       c.deployConfig.PackageRegistry,
-		Arch:           deploy.RuntimeArch(),
+		Arch:           bootstrap.RuntimeArch(),
 		SourceRevision: sourceRevision,
 		SSH:            c.sshConfig,
 		Hosts:          []string{node},

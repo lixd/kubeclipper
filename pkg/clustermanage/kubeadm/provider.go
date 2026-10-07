@@ -20,6 +20,7 @@ package kubeadm
 
 import (
 	"context"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -37,17 +39,23 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
+	k8sversion "k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	agentconfig "github.com/kubeclipper/kubeclipper/pkg/agent/config"
+	"github.com/kubeclipper/kubeclipper/pkg/cli/config"
+	cliutils "github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/clustermanage"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/bootstrap"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
+	certutils "github.com/kubeclipper/kubeclipper/pkg/utils/certs"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 	tmplutil "github.com/kubeclipper/kubeclipper/pkg/utils/template"
 )
@@ -327,7 +335,12 @@ func (r *Kubeadm) syncNode(ctx context.Context, clu *v1.Cluster) error {
 	}
 
 	for _, no := range addNodes {
-		return errors.Errorf("node(%s) is not registered; run kcctl join before adding it to a cluster", no.ID)
+		// deploy the kc-agent on the joining external node over SSH so it
+		// registers with the platform; the node IP becomes the agent ID
+		// (replaced by the reported node ID after the agent checks in)
+		if err := r.deployKCAgent(ctx, no, clu.Labels[common.LabelTopologyRegion]); err != nil {
+			return errors.WithMessagef(err, "node(%s) deploy kc-agent in kc", no.ID)
+		}
 	}
 	for _, no := range delNodes {
 		if _, isOriginNode := no.Annotations[common.AnnotationOriginNode]; isOriginNode {
@@ -362,6 +375,151 @@ func (r *Kubeadm) markToFree(ctx context.Context, node *v1.Node) error {
 	delete(node.Annotations, common.AnnotationOriginNode)
 	_, err := r.Operator.NodeWriter.UpdateNode(ctx, node)
 	return err
+}
+
+// deployKCAgent installs the kc-agent on the joining external cluster node via
+// SSH so the node registers with the platform and the import can proceed
+// (restores the pre-migration behavior, adapted to the v2 delivery: the agent
+// binary comes from the package registry and the agent authenticates with a
+// CA-signed agent certificate instead of NATS client certs).
+func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region string) error {
+	ip := node.ID
+	node.ID = uuid.New().String()
+	log := logger.FromContext(ctx)
+	log.Debugf("beginning deploy kc agent to node agent:%s ip:%s", node.ID, ip)
+
+	deployConfig, err := r.getDeployConfig()
+	if err != nil {
+		return errors.WithMessage(err, "getDeployConfig")
+	}
+
+	originalID, originalRegion, active := r.agentStatus(ip)
+	if originalID != "" {
+		// keep the existing agent identity instead of minting a new one
+		node.ID = originalID
+	}
+	no, nodeErr := r.Operator.NodeLister.Get(originalID)
+	if nodeErr != nil && !apimachineryErrors.IsNotFound(nodeErr) {
+		return nodeErr
+	}
+	if active && no != nil && no.Labels[common.LabelTopologyRegion] == originalRegion {
+		// agent already running and registered in the same region; only the
+		// deploy-config agent list may need updating
+		if !deployConfig.Agents.Exists(ip) {
+			meta := options.Metadata{Region: region}
+			if err = r.updateDeployConfigAgents(ip, &meta, "add"); err != nil {
+				logger.Errorf("add agent ip to deploy config failed: %v", err)
+				return err
+			}
+		}
+		return nil
+	}
+
+	// 1. install the agent binary from the package registry, pinned to this
+	// server's source revision so the binary matches the running server
+	registryConfig, err := deliveryregistry.Resolve(deployConfig.PackageRegistry)
+	if err != nil {
+		return errors.WithMessage(err, "resolve package registry config")
+	}
+	if err := bootstrap.InstallBootstrapAssetsFromRegistry(ctx, bootstrap.BootstrapInstallOptions{
+		Registry:       deployConfig.PackageRegistry,
+		Arch:           bootstrap.RuntimeArch(),
+		SourceRevision: k8sversion.Get().GitCommit,
+		SSH:            r.ssh(),
+		Hosts:          []string{ip},
+		NeedAgent:      false,
+		RegistryConfig: registryConfig,
+		RemoteTempDir:  deployConfig.TempDir,
+	}); err != nil {
+		return errors.WithMessage(err, "install bootstrap agent from registry")
+	}
+
+	// 2. sign the agent certificate with the platform CA on this server node
+	// and send ca.crt/agent.crt/agent.key to the node
+	if err := r.sendAgentCerts(ip, node.ID); err != nil {
+		return err
+	}
+
+	// 3. write the agent config + systemd unit and start the agent
+	agentConfig, err := deployConfig.GetKcAgentConfigTemplateContent(options.Metadata{Region: region, AgentID: node.ID})
+	if err != nil {
+		return errors.WithMessage(err, "GetKcAgentConfigTemplateContent")
+	}
+	cmdList := []string{
+		sshutils.WrapEcho(config.KcAgentService, "/usr/lib/systemd/system/kc-agent.service"),
+		"mkdir -pv /etc/kubeclipper-agent",
+		sshutils.WrapEcho(agentConfig, "/etc/kubeclipper-agent/kubeclipper-agent.yaml"),
+		"systemctl daemon-reload && systemctl enable kc-agent && systemctl restart kc-agent",
+	}
+	for _, cmd := range cmdList {
+		ret, err := sshutils.SSHCmdWithSudo(r.ssh(), ip, cmd)
+		if err != nil {
+			return errors.WithMessagef(err, "run %s cmd", cmd)
+		}
+		if err = ret.Error(); err != nil {
+			return errors.WithMessage(err, ret.String())
+		}
+	}
+
+	// 4. record the agent in the deploy-config agent list
+	if !deployConfig.Agents.Exists(ip) {
+		meta := options.Metadata{Region: region}
+		if err = r.updateDeployConfigAgents(ip, &meta, "add"); err != nil {
+			logger.Errorf("add agent ip to deploy config failed: %v", err)
+			return err
+		}
+	}
+
+	log.Debugf("deploy kc agent to node agent:%s ip:%s successfully", node.ID, ip)
+	return nil
+}
+
+// sendAgentCerts signs an agent client certificate for the node with the
+// platform CA (read from this server node's PKI directory) and copies the
+// chain to the node's agent config directory.
+func (r *Kubeadm) sendAgentCerts(ip, agentID string) error {
+	caPath := filepath.Join(options.HomeDIR, options.DefaultPath, options.DefaultCaPath)
+	caConfig := certutils.Config{Path: caPath, BaseName: options.Ca, CommonName: options.Ca}
+	caCert, caKey, err := certutils.LoadCaCertAndKeyFromDisk(caConfig)
+	if err != nil {
+		return fmt.Errorf("load KubeClipper CA: %w", err)
+	}
+	altNames := certutils.AltNames{DNSNames: map[string]string{agentID: agentID}, IPs: map[string]net.IP{}}
+	if parsed := net.ParseIP(ip); parsed != nil {
+		altNames.IPs[parsed.String()] = parsed
+	}
+	certConfig := certutils.Config{
+		Path: filepath.Join(options.HomeDIR, options.DefaultPath, "pki", "agents", agentID), BaseName: "agent",
+		CAName: options.Ca, CommonName: "system:kc-agent:" + agentID, Organization: []string{"system:kc-agents"},
+		Year: 100, AltNames: altNames, Usages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+	}
+	cert, key, err := certutils.NewCaCertAndKeyFromRoot(certConfig, caCert, caKey)
+	if err != nil {
+		return err
+	}
+	if err := certutils.WriteCertAndKey(certConfig.Path, certConfig.BaseName, cert, key); err != nil {
+		return err
+	}
+	destination := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath)
+	sources := []string{
+		filepath.Join(caPath, options.Ca+".crt"),
+		filepath.Join(certConfig.Path, "agent.crt"),
+		filepath.Join(certConfig.Path, "agent.key"),
+	}
+	for _, source := range sources {
+		if err := cliutils.SendPackageV2WithTempDir(r.ssh(), source, []string{ip}, destination, nil, nil, r.deployTempDir()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Kubeadm) deployTempDir() string {
+	deployConfig, err := r.getDeployConfig()
+	if err != nil || strings.TrimSpace(deployConfig.TempDir) == "" {
+		return config.DefaultPkgPath
+	}
+	return deployConfig.TempDir
 }
 
 // drainAgent remote kc-agent for node,and delete node from kc-server
