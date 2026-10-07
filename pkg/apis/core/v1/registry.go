@@ -206,6 +206,17 @@ func SetupWebService(h *handler) *restful.WebService {
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Cluster{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
 
+	webservice.Route(webservice.PUT("/clusters/{name}/nodes/convert").
+		To(h.ConvertNodes).
+		Metadata(restfulspec.KeyOpenAPITags, []string{CoreClusterTag}).
+		Doc("Convert cluster nodes between master and worker roles.").
+		Reads(clusteroperation.PatchConvertNodes{}).
+		Param(webservice.PathParameter(query.ParameterName, "cluster name").
+			Required(true).
+			DataType("string")).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Cluster{}).
+		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
+
 	webservice.Route(webservice.GET("/clusters/{name}/backups").
 		To(h.ListBackupsWithCluster).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreClusterTag}).

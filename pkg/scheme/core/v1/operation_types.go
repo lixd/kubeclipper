@@ -51,6 +51,9 @@ const (
 	OperationUpgradeCluster               = "UpgradeCluster"
 	OperationAddNodes                     = "AddNodes"
 	OperationRemoveNodes                  = "RemoveNodes"
+	// OperationConvertNodes flips existing cluster nodes between the master
+	// and worker roles without adding or removing them from the cluster (2.2-04).
+	OperationConvertNodes                 = "ConvertNodes"
 	OperationBackupCluster                = "BackupCluster"
 	OperationDeleteBackup                 = "DeleteBackup"
 	OperationRecoverCluster               = "RecoveryCluster"

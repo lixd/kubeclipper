@@ -64,6 +64,8 @@ func BuildOperationAdapter(
 	switch pendingOp.OperationType {
 	case v1.OperationAddNodes, v1.OperationRemoveNodes:
 		instance = NewNodeOperation(options)
+	case v1.OperationConvertNodes:
+		instance = NewConvertNodeOperation(options)
 	case v1.OperationInstallComponents, v1.OperationUninstallComponents:
 	case v1.OperationCreateCluster:
 	case v1.OperationDeleteCluster:
@@ -87,6 +89,8 @@ func SupportConcurrent(opType string) bool {
 	case v1.OperationAddNodes, v1.OperationRemoveNodes:
 		return true
 	default:
+		// ConvertNodes mutates etcd membership and the apiserver set,
+		// never run concurrently with itself
 		return false
 	}
 }

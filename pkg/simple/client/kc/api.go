@@ -330,6 +330,22 @@ func (cli *Client) AddOrRemoveNode(ctx context.Context, patchNode *clusteroperat
 	return &clusters, err
 }
 
+// ConvertClusterNodes flips existing cluster nodes between the master and
+// worker roles via the standalone conversion entry (2.2-04).
+func (cli *Client) ConvertClusterNodes(ctx context.Context, clusterName string, pcn *clusteroperation.PatchConvertNodes) (*ClustersList, error) {
+	serverResp, err := cli.put(ctx, fmt.Sprintf("%s/%s/%s", clustersPath, clusterName, "nodes/convert"), nil, pcn, nil)
+	defer ensureReaderClosed(serverResp)
+	if err != nil {
+		return nil, err
+	}
+	v := v1.Cluster{}
+	err = json.NewDecoder(serverResp.body).Decode(&v)
+	clusters := ClustersList{
+		Items: []v1.Cluster{v},
+	}
+	return &clusters, err
+}
+
 func (cli *Client) CreateRole(ctx context.Context, role *iamv1.GlobalRole) (*RoleList, error) {
 	serverResp, err := cli.post(ctx, rolesPath, nil, role, nil)
 	defer ensureReaderClosed(serverResp)

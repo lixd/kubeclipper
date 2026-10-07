@@ -349,6 +349,100 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
 }
 
+// ConvertNodes flips existing cluster nodes between the master and worker
+// roles (2.2-04). The converted nodes stay in the cluster; a promotion joins
+// them into the control plane, a demotion resets and rejoins them as workers.
+func (h *handler) ConvertNodes(request *restful.Request, response *restful.Response) {
+	pcn := &clusteroperation.PatchConvertNodes{}
+	if err := request.ReadEntity(pcn); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	if err := pcn.Validate(); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	// cluster name in path
+	clu := request.PathParameter("name")
+	timeoutSecs := v1.DefaultOperationTimeoutSecs
+	if v := request.QueryParameter("timeout"); v != "" {
+		timeoutSecs = v
+	}
+
+	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
+	ctx := request.Request.Context()
+	c, err := h.clusterOperator.GetClusterEx(ctx, clu, "0")
+	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+
+	// the conversion mutates etcd membership and the apiserver set, so it must
+	// not overlap any in-flight node topology operation (add/remove/convert)
+	operationList, err := h.operationV2Store.ListOperations(ctx, c.UID, "")
+	if err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	for i := range operationList.Items {
+		switch operationList.Items[i].Spec.Action {
+		case v1.OperationAddNodes, v1.OperationRemoveNodes, v1.OperationConvertNodes:
+			if !operationList.Items[i].Status.Phase.IsTerminal() {
+				restplus.HandleBadRequest(response, request, fmt.Errorf(
+					"operation %s is still in flight, node role conversion must wait until it settles",
+					operationList.Items[i].Name))
+				return
+			}
+		}
+	}
+
+	if err = pcn.MakeCompare(c); err != nil {
+		if errors.Is(err, clusteroperation.ErrInvalidNodesOperation) || errors.Is(err, clusteroperation.ErrInvalidNodesRole) ||
+			errors.Is(err, clusteroperation.ErrInvalidNodesTopology) || errors.Is(err, clusteroperation.ErrZeroNode) {
+			restplus.HandleBadRequest(response, request, err)
+			return
+		}
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+
+	// validate the resolved node objects: disabled agents cannot execute steps,
+	// and the resolved info rides in ExtraData for the operation builder
+	converted, err := h.getNodeInfo(ctx, pcn.Nodes, false)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	for _, n := range converted {
+		if n.Disable {
+			restplus.HandleBadRequest(response, request, fmt.Errorf("this node(%s) is disabled", n.IPv4))
+			return
+		}
+	}
+	pcn.ConvertNodes = converted
+
+	if !dryRun {
+		pendingOperation, err := buildPendingOperation(v1.OperationConvertNodes, buildOperationSponsor(h.genericConfig), timeoutSecs, c.ResourceVersion, pcn)
+		if err != nil {
+			restplus.HandleInternalError(response, request, err)
+			return
+		}
+
+		c.Status.Phase = v1.ClusterUpdating
+		c.PendingOperations = append(c.PendingOperations, pendingOperation)
+		if c, err = h.clusterOperator.UpdateCluster(ctx, c); err != nil {
+			restplus.HandleInternalError(response, request, err)
+			return
+		}
+	}
+
+	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
+}
+
 // defaultWatchTimeout mirrors the apiserver convention of randomizing the
 // watch timeout between MinTimeoutSeconds and 2×MinTimeoutSeconds so that
 // concurrent watchers do not reconnect in lockstep. The float result must be

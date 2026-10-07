@@ -56,5 +56,6 @@ func NewCmdCluster(streams options.IOStreams) *cobra.Command {
 	}
 	cmd.AddCommand(NewCmdClusterUpgrade(streams))
 	cmd.AddCommand(NewCmdClusterExtension(streams))
+	cmd.AddCommand(NewCmdClusterConvert(streams))
 	return cmd
 }

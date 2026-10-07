@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/util/homedir"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/fileutil"
@@ -97,6 +98,19 @@ func doCommandRemoveStep(name string, nodes []v1.StepNode, dirs ...string) v1.St
 			},
 		},
 	}
+}
+
+// DoCommandRemoveStep exposes the rm -rf step builder to other operation
+// builders (e.g. the ConvertNodes flow) outside this package.
+func DoCommandRemoveStep(name string, nodes []v1.StepNode, dirs ...string) v1.Step {
+	return doCommandRemoveStep(name, nodes, dirs...)
+}
+
+// UnwrapAvailableMasters drops the nodes being patched from the available
+// master list so join/drain/etcd step targets always run on an existing
+// control-plane member. Exported for the ConvertNodes operation builder.
+func UnwrapAvailableMasters(avaMasters component.NodeList, patchNodes []v1.StepNode) []v1.StepNode {
+	return unwrapAvailableMasters(avaMasters, patchNodes)
 }
 
 func deleteContainer(namespace string) error {

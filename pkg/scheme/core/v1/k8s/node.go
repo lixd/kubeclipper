@@ -314,24 +314,7 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 		stepper.uninstallSteps = append(stepper.uninstallSteps,
 			doCommandRemoveStep("removeKubernetesConfig", patchNodes, K8SDefaultConfigDir))
 		// clear worker /etc/hosts vip domain
-		// sed -i '/apiserver.cluster.local/d' /etc/hosts
-		apiServerDomain := APIServerDomainPrefix + strutil.StringDefaultIfEmpty("cluster.local",
-			stepper.Cluster.Networking.DNSDomain)
-		stepper.uninstallSteps = append(stepper.uninstallSteps, v1.Step{
-			ID:         strutil.GetUUID(),
-			Name:       "clearVIPDomain",
-			Timeout:    metav1.Duration{Duration: 5 * time.Second},
-			ErrIgnore:  true,
-			RetryTimes: 1,
-			Nodes:      patchNodes,
-			Action:     v1.ActionUninstall,
-			Commands: []v1.Command{
-				{
-					Type:         v1.CommandShell,
-					ShellCommand: []string{"bash", "-c", fmt.Sprintf("sed -i '/%s/d' /etc/hosts", apiServerDomain)},
-				},
-			},
-		})
+		stepper.uninstallSteps = append(stepper.uninstallSteps, ClearVIPDomainSteps(*stepper.Cluster, patchNodes)...)
 
 		// refresh the API server virtual service on the remaining workers with
 		// the reduced master list after the control-plane node left
@@ -356,6 +339,31 @@ func (stepper *GenNode) GetSteps(action v1.StepAction) []v1.Step {
 		return stepper.uninstallSteps
 	}
 	return nil
+}
+
+// ClearVIPDomainSteps removes the apiserver domain entry the node carries in
+// /etc/hosts; the rejoin chain rewrites it. Exported for the ConvertNodes
+// demote flow which tears the control plane down before rejoining as worker.
+func ClearVIPDomainSteps(cluster v1.Cluster, nodes []v1.StepNode) []v1.Step {
+	apiServerDomain := APIServerDomainPrefix + strutil.StringDefaultIfEmpty("cluster.local",
+		cluster.Networking.DNSDomain)
+	return []v1.Step{
+		{
+			ID:         strutil.GetUUID(),
+			Name:       "clearVIPDomain",
+			Timeout:    metav1.Duration{Duration: 5 * time.Second},
+			ErrIgnore:  true,
+			RetryTimes: 1,
+			Nodes:      nodes,
+			Action:     v1.ActionUninstall,
+			Commands: []v1.Command{
+				{
+					Type:         v1.CommandShell,
+					ShellCommand: []string{"bash", "-c", fmt.Sprintf("sed -i '/%s/d' /etc/hosts", apiServerDomain)},
+				},
+			},
+		},
+	}
 }
 
 func (stepper *JoinCmd) InitStepper(criType string) *JoinCmd {
