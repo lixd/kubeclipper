@@ -11,11 +11,11 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 - **编号即身份**：本文已随 OCI 合并基线完成一次性重整；自本基线起，`x.y-NN` 一经分配
   不再变更或复用。功能下线时把状态标为 `🗑 废弃` 并保留编号，新增 Case 在小节末尾追加。
-- **状态含义**：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · 🗑 废弃。
-  状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
+- **状态含义**：✅ 已实测通过 · ⚠️ 部分验证 · ❌ 未验证 · ➖ 范围外（需求未承诺，
+  不计入发布通过率）· 🗑 废弃。状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
 - **轮次记号**：备注中 R1～R34 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告或 `docs/testing/status-*.md` 中，本文档只留结论与指针。
-- 最新覆盖快照：R35 [`status-2026-09-30-r35.md`](status-2026-09-30-r35.md)（含 2026-10-01 续记）；当前未闭环项和历史变化见
+- 最新覆盖快照：R36 [`status-2026-10-10-r36.md`](status-2026-10-10-r36.md)（含 R37 范围裁定）；当前未闭环项和历史变化见
   [`round-2026-09-gaps.md`](round-2026-09-gaps.md)。
 - 三机实测报告：R4 [`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)，
   R5 [`2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-r5-sh-dev-2-3-4.md)，
@@ -288,7 +288,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 4-03 | addons：metallb BGP | ⚠️ | R34：ASN schema int64/最大值 dry-run、FRR 邻居 Established、VIP /32 发布与撤回、外部 NodePort 均实测；**R29 时序补验（rc.32）**：健康检查新逻辑现场运行（`kubectl wait --for=condition=Available` 每 ~10s 重试，R25 step 超时强制生效），环境修正后完整安装 **Succeeded**（~2.4min）。**仍未通过**：LoadBalancer VIP 外部往返——speaker 发出的 VIP 源 SYN-ACK 未达外部 FRR 主机，疑似需 OpenStack 网络侧 allowed address pair（用户未改云端策略） |
+| 4-03 | addons：metallb BGP | ✅ | R34：ASN schema int64/最大值 dry-run、FRR 邻居 Established、VIP /32 发布与撤回、外部 NodePort 均实测；**R29 时序补验（rc.32）**：健康检查新逻辑现场运行（`kubectl wait --for=condition=Available` 每 ~10s 重试，R25 step 超时强制生效），环境修正后完整安装 **Succeeded**（~2.4min）。**范围裁定（2026-10-10，用户确认）**：通过口径为 addon 安装成功（本行已实测 Succeeded），非要求 VIP 外部数据面往返；后续 LoadBalancer VIP 外部往返未通属主机侧 OpenStack `allowed address pair` 策略限制（speaker 发出的 VIP 源 SYN-ACK 未达外部 FRR 主机），非 KubeClipper 缺陷，记入环境限制不再阻塞本项 |
 | 4-09 | 集群模板 templates | ✅ | R29（rc.32 `02ade8cb`，§12.26）快照式 templateRef 闭环：CRUD（R34 已验）+ **来源注解** `kubeclipper.io/templateRef`（建群时校验模板存在，未知引用 400）+ **删除保护**（被引用模板 400 并列出引用集群，无引用 200，真机三态全过）+ 快照语义（模板更新不回溯集群，与 packagePlan 物化一致）。实现：建群校验/删除保护在 handler，注解常量 `kubeclipper.io/templateRef` |。R29 补验四态：未知引用建群（dryRun）400、建群后注解 200、删被引用模板 400（列出引用集群）、删集群后删模板 200
 | 4-10 | DNS domains / records | ✅ | **R31 rc.28 live**：A/AAAA 合法创建与 A 更新=200；非法 A 语法、A/AAAA 错地址族、TXT 类型及对应非法更新=400；domain 删除=200、后续 GET=404。临时域名和记录已清理 |
 | 4-11 | cloudproviders / 外部集群纳管 | ✅ | **R34 部分单测**：`PreCheckCloudProvider` 对非法 base64 kubeconfig 和不支持的 provider type 均返回 400；mock 仅覆盖预检边界，不代表真实外部集群纳管。**R35（2026-10-01）真集群验证（kind）**：dev-3 用 kind v0.25.0 起真实 k8s v1.31.2 单节点集群，创建 CloudProvider `kind-import-probe`（type=kubeadm）：precheck 200 → 创建 201（finalizer 注入）→ **Reconcile Sync 失败**：Ready=False/SyncFailed "node(172.23.0.2) is not registered; run kcctl join before adding it to a cluster"，集群未落库；DELETE 200 → Cleanup → 404。**产品发现④（P1 回归）**：operation v2 迁移 commit `3db917c9` 删除 `deployKCAgent` SSH 自动部署链路并替换为一行报错——首次导入时集群在 KC 侧无任何节点（NodeDiff 按 cluster 标签过滤），addNodes 恒非空 → **kubeadm 外部集群首次纳管 Sync 恒失败**。**R36（2026-10-10）真机闭环（rc.32 `02ade8cb`）**：①恢复 `deployKCAgent`（commit `0d0b7d45`），agent 二进制取自 OCI 包 `bootstrap/kubeclipper`（`NeedAgent:false` 只装 `kubeclipper-agent`），证书用平台 CA 签发 `agent.crt/key`（`sendAgentCerts`，替代 v1 NATS 客户端证书）；**关键前提**：server 二进制的 `gitCommit` 必须与包 `sourceRevision` 一致（`selectBootstrapPackage` 强校验），本次以 registry 包真实 revision 注入 ldflags 重建。②在纯 kubeadm v1.35.8 外部集群（镜像全部来自 5003）上验证：precheck 200 → 创建 201 → **Sync 成功 Ready=True/SyncSucceed**，cluster `ext-demo` 落库 `phase=Running`，外部节点 `lixd-dev`(172.16.131.171) 注册 **Ready=True**，agent 心跳/lease 正常，`kc-server` SA+CRB 在外部集群创建成功。③修复恢复 `deployKCAgent` 后才暴露的**三个上游遗留缺陷**（commit `c1986ae2`，详见 gaps R36 段）：`kubectlTerminal` 对 nil Deployment 解引用 panic（`eba4dce5` 引入）、`CloudProviderReconciler` 未注入 `Operator.ClusterReader` 导致 `GetCluster` nil panic、`agentStatus` 用裸 `yaml.Unmarshal` 无法解析 `nodeStatusUpdateFrequency: 1m` 使每次 reconcile 重复 mint 节点身份。④**移除闭环**：DELETE 200 → CloudProvider/Cluster/node 记录全部清除，外部集群上 `kc-agent` 卸载、`/etc/kubeclipper-agent` 删除、SA/CRB 清理，幂等性验证 45s 内节点数不再增长。⑤**负向**：非法 kubeconfig → precheck 400；API 不可达 → precheck 400（i/o timeout）；坏 SSH key → precheck 200 但 Sync `Ready=False/SyncFailed`（`privatekey invalid`）。**观察点**：precheck 不校验 SSH 凭据有效性，仅校验 kubeconfig/API 可达，SSH 缺陷延迟到 Sync 才暴露 |
@@ -302,5 +302,5 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-13 | Kubernetes feature-gates 透传 | ✅ | R1 验过 20 项。**R24（rc.21，§12.21）发现并修复产品缺陷**：kubeadm v1.37 拒绝 ClusterConfiguration 的 featureGates map（实测其自身 kubelet 认识的 alpha/beta gate 亦被判 "not a valid feature name"），任何 `--feature-gates` 建群都在 kubeadm init 失败回滚。修复：渲染为 apiServer/controllerManager/scheduler `extraArgs` + KubeletConfiguration.featureGates。真机复验：r24-1m（v1.37.0，`APIServingWithRoutine=true`）**Running**，三组件 static pod `--feature-gates=` 与 kubelet config 均实测命中 |
 | 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ✅ | **R32 rc.29**：CreateCluster `14343b80-caea-46f1-9e83-0ff886d659a4` 与 SyncKubeConfig `sync-kubeconfig-5c45eb6e-e51b-44b5-9c8e-ca129ed13668` 成功；无 CNI 时节点 NotReady；安装内部 `tigera-operator-v3.31.5.tgz` 后三节点 Ready，Calico/CoreDNS Running；临时集群删除 |
 | 2.1-17 | kubeadm preflight ignore 定制 | ✅ | R24（rc.21，§12.21）：`--kubeadm-init-ignore-preflight-errors=Swap` → Cluster 注解 `kubeclipper.io/ignore-preflight-errors: Swap` 落库（2.1-27 同场建群实证） |
-| 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ❌ | **R34**：三台 `ens3` 只有 link-local IPv6；临时在三台配置 ULA 后跨节点 ping 均收到 Destination unreachable，测试地址已移除。现有 underlay 无可用跨节点 IPv6 路径，无法验证双栈 Pod/Service 分配和通信。 |
+| 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ➖ | **范围外（2026-10-10，用户确认）**：发布不承诺 IPv6/双栈支持——修复计划 §3.3-1 原文即"保留单双栈数据模型，**不扩大双栈支持承诺**"，故本项不作为发布门禁。技术现状（R34）：三台 `ens3` 只有 link-local IPv6；临时配置 ULA 后跨节点 ping 收到 Destination unreachable，测试地址已移除，现有 underlay 无可用跨节点 IPv6 路径。保留编号与记录：若后续承诺双栈，需先提供可路由 IPv6 环境再按本行条件验收 |
 | 4-04 | Addon 同组件多实例 | ❌ | R28（rc.25，§12.25）定性为**产品缺口**（与 2.2-04 同类）：API 按组件去重——同一集群第二次安装 nfs-csi 即使 scName 不同也 400 `nfs-csi-v1 component has been installed in the current cluster`，无实例名/多实例入口；属第 7 章扩展能力，发布若承诺需先实现 |
