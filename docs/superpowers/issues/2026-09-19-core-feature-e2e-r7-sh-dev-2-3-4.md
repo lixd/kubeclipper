@@ -1125,9 +1125,18 @@ manifest/tag 演进回写（2.3-06）；新脚本验证含 `--timeout=120s` → 
 tag 重指对 retry 无影响的机制由 plan 物化+哈希不变排除（2.3-07 证据级闭环；真 registry 重指场景
 仍受共享 5003 只增 tag 约束，未实跑）。发布器 tag 冲突防护（拒绝重指）R22 已实证。
 
-**③ 2.3-09 滚动顺序**：r23-roll 2 节点（master+worker）升级 1.35.8→1.37.0 **62s** 完成——master
+**③ 2.3-09 滚动顺序**：r23-roll 2 节点（master+worker）升级 1.36.4→1.37.0 **62s** 完成——master
 先行、drain 期间业务负载收敛（无中断超过窗口）、ErrIgnore 容忍 drain 阶段性失败、升级后双节点
 Ready v1.37.0。1M 拓扑 drain PDB 边界同轮修复（①）。
+
+> **勘误（R38，2026-10-10）**：原文记为"1.35.8→1.37.0"，与本轮可复现的 CRI 耦合缺陷
+> （见 checklist 4-07 行新发现⑥：v1.35.8 集群的 containerd 1.7.29 不被 v1.36.4/v1.37.0 策略
+> 允许，升级在 dryRun 被 400 拒绝）冲突。复核 dev-2 journal 保留的 R23 审计记录后确认：
+> `r23-roll` 的 create 请求为 **k8s v1.36.4 + containerRuntime containerd 2.2.4**（audit
+> 2026-09-25T11:41:11Z），其后 upgrade 请求为 `{"offline":true,"version":"v1.37.0"}`（HTTP 200，
+> 2026-09-25T11:49:39Z）。该窗口内所有集群（r21-*、r22-1m、r23-1m/roll/ca/off）均为
+> v1.36.4/2.2.4 或 v1.37.0/2.2.4，无任何 v1.35.8 集群升级记录。故 R23 记录本身成立，仅源版本号
+> 笔误；升级的 CRI 版本绑定取自集群当前 runtime（1.36.4 与 1.37.0 同用 2.2.4），与缺陷不冲突。
 
 **④ 2.1-16 自带 CA**：r23-ca（临时生成根 CA 文件）建群 → apiserver/server 证书链由自带 CA 签发
 （openssl verify chain OK，serial 与平台外层不同）→ 集群 Running；CA 临时文件用后即删。

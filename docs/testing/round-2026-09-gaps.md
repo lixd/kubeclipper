@@ -290,9 +290,13 @@ handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 t
   checklist 2.1-32 行。
 - `2.2-04`：~~Master/Worker 角色转换~~ **已闭环（R35 续，2026-10-01）**，见 checklist 2.2-04 行。
 - `4-04`：Addon 同组件多实例及实例隔离；当前按组件去重，需先定实例身份及安装/卸载语义。
-- `4-07`：Console 登录、建群、成功/失败 Operation 展示与 UI 删除已验（R35 续）；仍缺：UI 升级、
-  UI 备份（缺物料），且**产品发现③**（console 查旧 operation API group → 操作日志 tab 恒空）需
-  console 侧同步更新。
+- `4-07`：Console 登录、建群、成功/失败 Operation 展示与 UI 删除已验（R35 续）；**产品发现③已闭环
+  （R38，2026-10-10）**：修复早已存在于 console 侧（commit `d614f99`，`bootstrap/console:v1.6.0-r31.1`
+  亦已在 5003），仅部署态陈旧——`kcctl upgrade console` 后 UI"操作日志"tab 已渲染 v2 operation 与
+  全步骤日志。**UI 升级物料已齐备**（k8s v1.37.0/v1.36.4 在 5003 与策略中；UI 升级路径实测
+  v1.36.4→v1.37.0 Succeeded），原"离线无更高目标"判断作废。仍缺 UI 备份（缺 BackupPoint）。
+  新发现⑥（产品缺口，记录跟进）：升级的 CRI 取自集群当前 runtime，v1.35.8 集群（containerd 1.7.29）
+  升级到 v1.36.4/v1.37.0（策略只允许 2.2.4）在 dryRun 被 400 拒绝，UI/CLI 均无 CRI 入参。
 - ~~`4-09`：集群模板~~ **已闭环（R29，rc.32 `02ade8cb`）**：快照式 templateRef 闭环。
 - ~~`4-11`：CloudProvider/外部集群纳管~~ **已闭环（R36，2026-10-10）**：真机导入/移除/负向全链路。
 - `4-12a`、`4-12b`：R32 已完成 Web Terminal 与 Pod exec 的鉴权、命令、resize、断连/重连真机矩阵，不再列为遗留。
