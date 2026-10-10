@@ -74,6 +74,7 @@ import (
 type CloudProviderReconciler struct {
 	ClusterLister listerv1.ClusterLister
 	ClusterWriter cluster.ClusterWriter
+	ClusterReader cluster.ClusterReader
 
 	CloudProviderLister listerv1.CloudProviderLister
 	CloudProviderWriter cluster.CloudProviderWriter
@@ -89,6 +90,7 @@ func (r *CloudProviderReconciler) toOperator() clustermanage.Operator {
 	return clustermanage.Operator{
 		ClusterLister:       r.ClusterLister,
 		ClusterWriter:       r.ClusterWriter,
+		ClusterReader:       r.ClusterReader,
 		CloudProviderLister: r.CloudProviderLister,
 		CloudProviderWriter: r.CloudProviderWriter,
 		NodeLister:          r.NodeLister,

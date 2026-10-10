@@ -568,6 +568,7 @@ func (s *APIServer) SetupController(
 	if err = (&cloudprovidercontroller.CloudProviderReconciler{
 		ClusterLister:       informerFactory.Core().V1().Clusters().Lister(),
 		ClusterWriter:       clusterOperator,
+		ClusterReader:       clusterOperator,
 		CloudProviderLister: informerFactory.Core().V1().CloudProviders().Lister(),
 		CloudProviderWriter: clusterOperator,
 		NodeLister:          informerFactory.Core().V1().Nodes().Lister(),

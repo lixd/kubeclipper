@@ -675,8 +675,7 @@ func (r *Kubeadm) agentStatus(ip string) (id, region string, active bool) {
 		return "", "", true
 	}
 
-	agentConf := &agentconfig.Config{}
-	err = yaml.Unmarshal([]byte(ret.Stdout), agentConf)
+	agentConf, err := agentconfig.LoadFromBytes([]byte(ret.Stdout))
 	if err != nil {
 		logger.Warnf("node(%s) agent agentConf unmarshal failed: %s", ip, err.Error())
 		return "", "", true
@@ -822,7 +821,9 @@ func (r *Kubeadm) kubectlTerminal(ctx context.Context, node KubeNode, action v1.
 		if err != nil && !apimachineryErrors.IsNotFound(err) {
 			return err
 		}
-		if dep.Status.AvailableReplicas >= 1 {
+		// a missing deployment is expected on the first import; only an existing
+		// one that is already serving can short-circuit the install
+		if dep != nil && dep.Status.AvailableReplicas >= 1 {
 			return nil
 		}
 

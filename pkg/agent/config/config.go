@@ -19,6 +19,7 @@
 package config
 
 import (
+	"bytes"
 	"os"
 	"reflect"
 	"strings"
@@ -135,6 +136,23 @@ func TryLoadFromDisk() (*Config, error) {
 		return nil, configErr
 	}
 	return config, nil
+}
+
+// LoadFromBytes parses an agent configuration payload with the same
+// viper/mapstructure decoding path the agent itself uses on startup, so values
+// like "1m" durations are interpreted identically. The server reads a node's
+// rendered agent config back during imports and must not diverge from it.
+func LoadFromBytes(content []byte) (*Config, error) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+	if err := v.ReadConfig(bytes.NewReader(content)); err != nil {
+		return nil, err
+	}
+	conf := New()
+	if err := v.Unmarshal(conf); err != nil {
+		return nil, err
+	}
+	return conf, nil
 }
 
 func SetConfig(key string, value interface{}) {
