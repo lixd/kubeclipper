@@ -289,14 +289,23 @@ handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 t
   IPv6/双栈（修复计划 §3.3-1"不扩大双栈支持承诺"），不作为发布门禁；技术现状与复验条件见
   checklist 2.1-32 行。
 - `2.2-04`：~~Master/Worker 角色转换~~ **已闭环（R35 续，2026-10-01）**，见 checklist 2.2-04 行。
-- `4-04`：Addon 同组件多实例及实例隔离；当前按组件去重，需先定实例身份及安装/卸载语义。
-- `4-07`：Console 登录、建群、成功/失败 Operation 展示与 UI 删除已验（R35 续）；**产品发现③已闭环
-  （R38，2026-10-10）**：修复早已存在于 console 侧（commit `d614f99`，`bootstrap/console:v1.6.0-r31.1`
-  亦已在 5003），仅部署态陈旧——`kcctl upgrade console` 后 UI"操作日志"tab 已渲染 v2 operation 与
-  全步骤日志。**UI 升级物料已齐备**（k8s v1.37.0/v1.36.4 在 5003 与策略中；UI 升级路径实测
-  v1.36.4→v1.37.0 Succeeded），原"离线无更高目标"判断作废。仍缺 UI 备份（缺 BackupPoint）。
+- ~~`4-04`：Addon 同组件多实例及实例隔离~~ **已关闭（R39，2026-10-10，用户裁定）**：Addon 的
+  定义即为"**同组件只能安装一次**"，按组件去重是设计语义（幂等保护，与 5-13 同源），不是缺口；
+  原 R28"产品缺口"定性作废，checklist 4-04 转 ➖（范围外/非缺口），不计入未通过项。
+  未来若产品确需多实例，实现参考见 [`product-gap-semantics.md`](product-gap-semantics.md) §3。
+- ~~`4-07`：Console UI 端到端~~ **已闭环（R39，2026-10-10）→ ✅**：R32/R35 已验登录、建群、
+  成功/失败 Operation 展示与 UI 删除；**产品发现③ R38 闭环**（修复早已存在于 console 侧
+  commit `d614f99`，包 `bootstrap/console:v1.6.0-r31.1` 亦在 5003，仅部署态陈旧；
+  `kcctl upgrade console` 后 UI"操作日志"tab 渲染 v2 operation 与全步骤日志）；**UI 升级 R38 闭环**
+  （v1.36.4→v1.37.0 Succeeded，原"离线无更高目标"判断作废）；**UI 备份 R39 闭环**——UI 创建 FS
+  BackupPoint `r39-fs`→集群编辑绑定→"备份集群"→状态"创建中"→"可用"（10.9MB 文件落 dev-3）→
+  行内"恢复"→`RecoveryCluster` Succeeded→集群回 Running→操作日志 tab 双 op 成功→UI 删除备份；
+  取证见 [`acceptance/img/r39-ui-backup/`](acceptance/img/r39-ui-backup/README.md)。
   新发现⑥（产品缺口，记录跟进）：升级的 CRI 取自集群当前 runtime，v1.35.8 集群（containerd 1.7.29）
   升级到 v1.36.4/v1.37.0（策略只允许 2.2.4）在 dryRun 被 400 拒绝，UI/CLI 均无 CRI 入参。
+  R39 附带观察（RBAC，记录跟进）：内置聚合角色授权期不展开 `aggregation-roles` 注解
+  （`pkg/authorization/rbac/rbac.go getRoleReferenceRules` 只读 `globalRole.Rules`），非 admin 用户
+  访问备份空间 API 得 403。
 - ~~`4-09`：集群模板~~ **已闭环（R29，rc.32 `02ade8cb`）**：快照式 templateRef 闭环。
 - ~~`4-11`：CloudProvider/外部集群纳管~~ **已闭环（R36，2026-10-10）**：真机导入/移除/负向全链路。
 - `4-12a`、`4-12b`：R32 已完成 Web Terminal 与 Pod exec 的鉴权、命令、resize、断连/重连真机矩阵，不再列为遗留。

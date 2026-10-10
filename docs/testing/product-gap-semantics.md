@@ -62,6 +62,10 @@ handler 校验集群存在/plan 含 extension 槽位、单测（步骤只含 ext
 
 ## 3. `4-04` Addon 同组件多实例
 
+> **R39 状态（2026-10-10，用户裁定）：本项不是缺口，已移出范围。** Addon 的定义即为
+> "同组件只能安装一次"——按组件去重是设计语义（幂等保护，与 `5-13` 一致），非缺失能力。
+> 本节以下内容仅作为"若未来产品确需多实例"的实现参考保留，不构成待办。
+
 **代码事实**：`pkg/apis/core/v1/schema.go:55` 按组件 `(name, version)` 去重
 （"component has been installed"）；组件注册表以 name-version 为键
 （`component.Register`）；Addon 身份 = `{name, version, config}`，无实例名；
