@@ -406,7 +406,7 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 		// agent already running and registered in the same region; only the
 		// deploy-config agent list may need updating
 		if !deployConfig.Agents.Exists(ip) {
-			meta := options.Metadata{Region: region}
+			meta := options.Metadata{Region: region, AgentID: node.ID}
 			if err = r.updateDeployConfigAgents(ip, &meta, "add"); err != nil {
 				logger.Errorf("add agent ip to deploy config failed: %v", err)
 				return err
@@ -552,7 +552,10 @@ func (r *Kubeadm) drainAgent(nodeIP, agentID string, ssh *sshutils.SSH) error {
 		return errors.WithMessage(err, "getDeployConfig")
 	}
 
-	if deployConfig.Agents.ExistsByID(nodeIP) {
+	// Gate on the IP key: deploy-config entries written before the AgentID
+	// was recorded (or entries whose ID is unknown here) must still be
+	// removable, otherwise the orphan entry leaks into upgrade plans.
+	if deployConfig.Agents.Exists(nodeIP) {
 		err = r.updateDeployConfigAgents(nodeIP, nil, "del")
 		if err != nil {
 			logger.Errorf("add agent ip to deploy config failed: %v", err)
@@ -700,7 +703,7 @@ func (r *Kubeadm) updateDeployConfigAgents(ip string, meta *options.Metadata, ac
 	case "add":
 		deployConfig.Agents.Add(ip, *meta)
 	case "del":
-		deployConfig.Agents.Delete(ip)
+		deployConfig.Agents.DeleteByIP(ip)
 	}
 
 	dcData, err := yaml.Marshal(deployConfig)

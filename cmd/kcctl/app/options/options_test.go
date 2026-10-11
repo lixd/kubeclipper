@@ -170,3 +170,33 @@ authentication:
 		t.Fatalf("initialPassword = %q, want the configured value", auth.InitialPassword)
 	}
 }
+
+func TestAgentsAddExistsDeleteByIP(t *testing.T) {
+	agents := Agents{}
+	agents.Add("10.0.0.1", Metadata{AgentID: "agent-1", Region: "default"})
+	// Legacy entries written before the AgentID was recorded carry no ID.
+	agents.Add("10.0.0.2", Metadata{Region: "default"})
+
+	if !agents.Exists("10.0.0.1") || !agents.Exists("10.0.0.2") {
+		t.Fatalf("Exists() = false for added entries")
+	}
+	if !agents.ExistsByID("agent-1") {
+		t.Fatalf("ExistsByID(agent-1) = false")
+	}
+	if agents.ExistsByID("10.0.0.2") {
+		t.Fatalf("ExistsByID(ip) = true for a legacy entry without AgentID")
+	}
+
+	agents.DeleteByIP("10.0.0.2")
+	if agents.Exists("10.0.0.2") {
+		t.Fatalf("DeleteByIP() did not remove the entry keyed by IP")
+	}
+	if !agents.Exists("10.0.0.1") {
+		t.Fatalf("DeleteByIP() removed an unrelated entry")
+	}
+
+	agents.Delete("agent-1")
+	if agents.Exists("10.0.0.1") {
+		t.Fatalf("Delete(agentID) did not remove the entry resolved by ID")
+	}
+}

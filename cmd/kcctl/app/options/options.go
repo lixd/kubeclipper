@@ -231,6 +231,13 @@ func (a Agents) Delete(id string) {
 	delete(a, ip)
 }
 
+// DeleteByIP removes the entry keyed by the agent host IP. Delete resolves an
+// agent ID to its IP instead; deploy-config maintenance paths key entries by
+// IP and may hold legacy entries without an AgentID.
+func (a Agents) DeleteByIP(ip string) {
+	delete(a, ip)
+}
+
 func (a Agents) idToIP(id string) string {
 	var ip string
 	for k, v := range a {
