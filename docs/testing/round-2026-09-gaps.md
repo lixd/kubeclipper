@@ -513,10 +513,23 @@ Operation ID、故障注入和清理证据见
 - **最终覆盖数**：194 项 = **190 ✅、2 ⚠️、0 ❌、2 ➖**（6-11 由 ⚠️ 转 ✅）。
   RBAC 观察移出跟进清单；跟进观测仅剩 `6-06`/`6-10` 两项 arm64 环境门槛
   （用户确认不攻坚）；无任何待决策项。
-- **新发现⑦（产品缺陷，记录跟进）**：外部集群（4-11）kc-agent 部署把外部主机写入
-  deploy-config agents 列表（`pkg/clustermanage/kubeadm/provider.go:407-410`，条目无
-  agentID），删除侧清理以 `Agents.ExistsByID` 为门（:554-556）→ **孤儿条目清不掉**；
+- **新发现⑦（产品缺陷）→ 已修复闭环（R41，`5ce8f2dc`，rc.34）**：外部集群（4-11）kc-agent 部署把外部主机写入
+  deploy-config agents 列表（`pkg/clustermanage/kubeadm/provider.go`，条目无
+  agentID），删除侧清理以 `Agents.ExistsByID` 为门且 `Delete` 按 ID 反查——孤儿条目清不掉；
   `kcctl upgrade agent` 计划来自该列表（`upgrade.go hostsForRole`）→ 会把已移除的外部
-  主机当 agent 目标并在该机中断（R40 实测 .171，中断点 step 2 stop、零副作用）。运维侧
-  已经 ConfigMap API 清除并重跑通过；**代码修复待定**（add 写 agentID / del 按 IP 匹配 /
-  升级计划过滤平台节点）。三机组件已全部对齐 `v2.0.3-rc.33/136882c4`。
+  主机当 agent 目标并在该机中断（R40 实测 .171，中断点 step 2 stop、零副作用）。修复：
+  add 写入 `AgentID: node.ID`、删除门改 `Exists(ip)`、新增 `DeleteByIP` 按 IP 键删除。
+  rc.34 真机端到端两轮闭环：常规导入/删除 + **手工注入的无 ID 旧条目在删除后同样被清掉**
+  （修复前永不命中的场景），升级计划始终仅含平台两节点。见
+  [`status-2026-10-11-r41.md`](status-2026-10-11-r41.md)。三机组件已全部对齐
+  `v2.0.3-rc.34/5ce8f2dc`。
+
+## R41：新发现⑦修复闭环（2026-10-11）
+
+- **修复**：`pkg/clustermanage/kubeadm/provider.go`（add 带 AgentID、删除门按 IP）+
+  `cmd/kcctl/app/options`（新增 `DeleteByIP`，`Delete(id)` 语义保留给 drain）+ 单测。
+- **验证**：rc.34 三机升级（server/agent×2/kcctl）+ 外部集群导入/删除两轮端到端
+  （常规轮 + 旧格式孤儿自愈轮），全部通过；升级计划干净。
+- **覆盖数不变**：194 项 = 190 ✅、2 ⚠️、0 ❌、2 ➖（修复无 Case 编号变化）。
+  **产品缺陷与观察项全部清零**：发现①-⑥ 闭环或裁定关闭、⑦ 本轮闭环；剩余非 ✅ 仅为
+  arm64 一对环境门槛（不攻坚）与两项范围外。
