@@ -37,7 +37,9 @@ import (
 
 	"github.com/golang/mock/gomock"
 	rbacv1 "k8s.io/api/rbac/v1"
+	apimachineryerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	iammock "github.com/kubeclipper/kubeclipper/pkg/models/iam/mock"
 )
@@ -65,6 +67,10 @@ var (
 	// region api
 	reqListRegions, _ = http.NewRequest("GET", "/api/core.kubeclipper.io/v1/regions", nil)
 	reqGetRegion, _   = http.NewRequest("GET", "/api/core.kubeclipper.io/v1/regions/rg1", nil)
+
+	// backup point api
+	reqListBackupPoints, _  = http.NewRequest("GET", "/api/core.kubeclipper.io/v1/backuppoints", nil)
+	reqCreateBackupPoint, _ = http.NewRequest("POST", "/api/core.kubeclipper.io/v1/backuppoints", nil)
 
 	// iam role api
 	reqListRoles, _   = http.NewRequest("GET", "/api/iam.kubeclipper.io/v1/roles", nil)
@@ -259,7 +265,7 @@ func setupIAMMock(op *iammock.MockOperator) {
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Annotations: map[string]string{
-					"kubeclipper.io/aggregation-roles": "[\"role-template-manage-clusters\",\"role-template-view-clusters\"]",
+					"kubeclipper.io/aggregation-roles": "[\"role-template-manage-clusters\",\"role-template-view-clusters\",\"role-template-view-backuppoints\"]",
 				},
 				Name: "cluster-manager",
 			},
@@ -283,6 +289,134 @@ func setupIAMMock(op *iammock.MockOperator) {
 					APIGroups: []string{"operations.kubeclipper.io"},
 					Resources: []string{"operations", "operations/cancel", "operations/retry"},
 					Verbs:     []string{"create", "update", "patch"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	// Role templates referenced by aggregation-roles annotations. Storage holds
+	// built-in roles un-expanded, so the authorizer resolves these at request time.
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-view-clusters"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-view-clusters",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"core.kubeclipper.io"},
+					Resources: []string{"clusters"},
+					Verbs:     []string{"get", "list", "watch"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-manage-clusters"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-manage-clusters",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"core.kubeclipper.io"},
+					Resources: []string{"clusters"},
+					Verbs:     []string{"*"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-view-roles"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-view-roles",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"iam.kubeclipper.io"},
+					Resources: []string{"roles"},
+					Verbs:     []string{"get", "list", "watch"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-manage-roles"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-manage-roles",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"iam.kubeclipper.io"},
+					Resources: []string{"roles"},
+					Verbs:     []string{"*"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-view-users"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-view-users",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"iam.kubeclipper.io"},
+					Resources: []string{"users"},
+					Verbs:     []string{"get", "list", "watch"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-manage-users"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-manage-users",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"iam.kubeclipper.io"},
+					Resources: []string{"users"},
+					Verbs:     []string{"*"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	op.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-view-backuppoints"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "role-template-view-backuppoints",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"core.kubeclipper.io"},
+					Resources: []string{"backuppoints"},
+					Verbs:     []string{"get", "list", "watch"},
 				},
 			},
 		},
@@ -1164,6 +1298,27 @@ func TestAuthorizer_Authorize(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			// The binding role only carries base rules in storage; access to
+			// backuppoints must come from the aggregated role template.
+			name: "ClusterManager ListBackupPoints",
+			args: args{
+				user: userClusterManager,
+				req:  reqListBackupPoints,
+			},
+			want:    authorizer.DecisionAllow,
+			wantErr: false,
+		},
+		{
+			// Only the view template is aggregated: write access stays denied.
+			name: "ClusterManager CreateBackupPoint",
+			args: args{
+				user: userClusterManager,
+				req:  reqCreateBackupPoint,
+			},
+			want:    authorizer.DecisionNoOpinion,
+			wantErr: false,
+		},
+		{
 			name: "ClusterManager ListRegions",
 			args: args{
 				user: userClusterManager,
@@ -1544,6 +1699,103 @@ func TestAuthorizer_Authorize(t *testing.T) {
 			}
 			if got1 != "" {
 				t.Logf("Authorize() reason = %v", got1)
+			}
+		})
+	}
+}
+
+// Tests that authorization degrades to the role's own rules when a template
+// referenced by the aggregation annotation is missing from storage, instead of
+// failing every request bound to the role.
+func TestAuthorizer_Authorize_MissingAggregationTemplate(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	iamMockOp := iammock.NewMockOperator(ctrl)
+
+	iamMockOp.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("cluster-manager"), gomock.Any()).Return(
+		&v12.GlobalRole{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       v1.ResourceKindGlobalRole,
+				APIVersion: "core.kubeclipper.io/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					"kubeclipper.io/aggregation-roles": "[\"role-template-view-backuppoints\"]",
+				},
+				Name: "cluster-manager",
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{"core.kubeclipper.io"},
+					Resources: []string{"clusters", "nodes", "regions"},
+					Verbs:     []string{"get", "list", "watch"},
+				},
+			},
+		},
+		nil).AnyTimes()
+	iamMockOp.EXPECT().GetRoleEx(gomock.Any(), gomock.Eq("role-template-view-backuppoints"), gomock.Any()).Return(
+		nil, apimachineryerrors.NewNotFound(schema.GroupResource{Group: "iam.kubeclipper.io", Resource: "globalroles"}, "role-template-view-backuppoints")).AnyTimes()
+	iamMockOp.EXPECT().ListRoleBindings(gomock.Any(), gomock.Any()).Return(
+		&v12.GlobalRoleBindingList{
+			Items: []v12.GlobalRoleBinding{
+				{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "GlobalRoleBinding",
+						APIVersion: "core.kubeclipper.io/v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "cluster-manager",
+					},
+					RoleRef: rbacv1.RoleRef{
+						APIGroup: "core.kubeclipper.io",
+						Kind:     "GlobalRole",
+						Name:     "cluster-manager",
+					},
+					Subjects: []rbacv1.Subject{
+						{
+							APIGroup: "rbac.authorization.k8s.io",
+							Kind:     "User",
+							Name:     "clustermanager",
+						},
+					},
+				},
+			},
+		},
+		nil).AnyTimes()
+
+	reqInfoFactory := &request.InfoFactory{APIPrefixes: sets.New("api")}
+	auth := &Authorizer{am: iamMockOp}
+
+	tests := []struct {
+		name string
+		req  *http.Request
+		want authorizer.Decision
+	}{
+		{
+			name: "BaseRulesStillApply",
+			req:  reqListClusters,
+			want: authorizer.DecisionAllow,
+		},
+		{
+			name: "MissingTemplateGrantsNothing",
+			req:  reqListBackupPoints,
+			want: authorizer.DecisionNoOpinion,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info, err := reqInfoFactory.NewRequestInfo(tt.req)
+			if err != nil {
+				t.Fatalf("NewRequestInfo() error = %v", err)
+			}
+			got, _, err := auth.Authorize(context.TODO(), getAuthorizerAttributes(userClusterManager, info))
+			if err != nil {
+				t.Fatalf("Authorize() error = %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("Authorize() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

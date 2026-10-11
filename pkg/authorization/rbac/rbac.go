@@ -97,6 +97,7 @@ func (a *Authorizer) Authorize(ctx context.Context, attributes authorizer.Attrib
 }
 
 func (a *Authorizer) visitRulesFor(ctx context.Context, requestAttributes authorizer.Attributes, visitor func(source fmt.Stringer, regoPolicy string, rule *rbacv1.PolicyRule, err error) bool) {
+	roleCache := map[string]*iamv1.GlobalRole{}
 	if globalRoleBindings, err := a.am.ListRoleBindings(ctx, &query.Query{
 		Pagination:      query.NoPagination(),
 		ResourceVersion: "0",
@@ -113,7 +114,7 @@ func (a *Authorizer) visitRulesFor(ctx context.Context, requestAttributes author
 			if !applies {
 				continue
 			}
-			regoPolicy, rules, err := a.getRoleReferenceRules(ctx, globalRoleBinding.RoleRef)
+			regoPolicy, rules, err := a.getRoleReferenceRules(ctx, globalRoleBinding.RoleRef, roleCache)
 			if err != nil {
 				visitor(nil, "", nil, err)
 				continue
@@ -133,21 +134,56 @@ func (a *Authorizer) visitRulesFor(ctx context.Context, requestAttributes author
 }
 
 // TODO: add am interface rather than iam.Operator
-func (a *Authorizer) getRoleReferenceRules(ctx context.Context, roleRef rbacv1.RoleRef) (regoPolicy string, rules []rbacv1.PolicyRule, err error) {
+func (a *Authorizer) getRoleReferenceRules(ctx context.Context, roleRef rbacv1.RoleRef, roleCache map[string]*iamv1.GlobalRole) (regoPolicy string, rules []rbacv1.PolicyRule, err error) {
 	empty := make([]rbacv1.PolicyRule, 0)
 	switch roleRef.Kind {
 	case common.ResourceKindGlobalRole:
-		globalRole, err := a.am.GetRoleEx(ctx, roleRef.Name, "0")
+		globalRole, err := a.cachedRole(ctx, roleRef.Name, roleCache)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return "", empty, nil
 			}
 			return "", nil, err
 		}
-		return globalRole.Annotations[common.RegoOverrideAnnotation], globalRole.Rules, nil
+		// A role's own rules and the rules of the role templates referenced by
+		// its aggregation annotation are additive in the allow-only RBAC model,
+		// so duplicated rules after the union are harmless. Built-in roles carry
+		// both their own rules and the annotation (config.go), so the base rules
+		// must be kept rather than replaced.
+		rules = globalRole.Rules
+		if v := globalRole.Annotations[common.AnnotationAggregationRoles]; v != "" {
+			aggregationRoles, err := iam.FetchAggregationRoles(ctx, a.am, globalRole)
+			if err != nil {
+				// Authorization must degrade gracefully: fall back to the role's
+				// own rules instead of failing every request bound to this role.
+				logger.Warn("expand aggregation roles failed, fallback to role rules",
+					zap.String("role", globalRole.Name), zap.Error(err))
+			} else {
+				merged := make([]rbacv1.PolicyRule, 0, len(globalRole.Rules))
+				merged = append(merged, globalRole.Rules...)
+				for _, aggregationRole := range aggregationRoles {
+					merged = append(merged, aggregationRole.Rules...)
+				}
+				rules = merged
+			}
+		}
+		return globalRole.Annotations[common.RegoOverrideAnnotation], rules, nil
 	default:
 		return "", nil, fmt.Errorf("unsupported role reference kind: %q", roleRef.Kind)
 	}
+}
+
+// cachedRole memoizes role lookups within a single authorization request.
+func (a *Authorizer) cachedRole(ctx context.Context, name string, roleCache map[string]*iamv1.GlobalRole) (*iamv1.GlobalRole, error) {
+	if role, ok := roleCache[name]; ok {
+		return role, nil
+	}
+	role, err := a.am.GetRoleEx(ctx, name, "0")
+	if err != nil {
+		return nil, err
+	}
+	roleCache[name] = role
+	return role, nil
 }
 
 type globalRoleBindingDescriber struct {

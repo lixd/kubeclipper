@@ -874,28 +874,7 @@ func (h *handler) changeUserState(req *restful.Request, resp *restful.Response, 
 }
 
 func (h *handler) fetchAggregationRoles(ctx context.Context, role *iamv1.GlobalRole) ([]*iamv1.GlobalRole, error) {
-	roles := make([]*iamv1.GlobalRole, 0)
-
-	if v := role.Annotations[common.AnnotationAggregationRoles]; v != "" {
-		var roleNames []string
-		if err := json.Unmarshal([]byte(v), &roleNames); err != nil {
-			return nil, err
-		}
-
-		for _, roleName := range roleNames {
-			r, err := h.iamOperator.GetRoleEx(ctx, roleName, "0")
-			if err != nil {
-				if apimachineryErrors.IsNotFound(err) {
-					logger.Warn("aggregation role invalid", zap.String("role", role.Name),
-						zap.String("aggregation_role", roleName))
-					continue
-				}
-				return nil, err
-			}
-			roles = append(roles, r)
-		}
-	}
-	return roles, nil
+	return iam.FetchAggregationRoles(ctx, h.iamOperator, role)
 }
 
 func (h *handler) verifyUserPassword(ctx context.Context, username, password string) (bool, error) {
