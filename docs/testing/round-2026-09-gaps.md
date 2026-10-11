@@ -303,9 +303,14 @@ handler 的默认 watch 超时计算漏乘 `time.Second`（1800~3600 纳秒的 t
   取证见 [`acceptance/img/r39-ui-backup/`](acceptance/img/r39-ui-backup/README.md)。
   新发现⑥（产品缺口，记录跟进）：升级的 CRI 取自集群当前 runtime，v1.35.8 集群（containerd 1.7.29）
   升级到 v1.36.4/v1.37.0（策略只允许 2.2.4）在 dryRun 被 400 拒绝，UI/CLI 均无 CRI 入参。
+  **R40 裁定关闭（2026-10-11，用户确认）**：不需要兼容每一个 k8s 版本，跨 CRI 大版本升级
+  不做兼容承诺，撤销"待产品决策"，移出跟进。
   R39 附带观察（RBAC，记录跟进）：内置聚合角色授权期不展开 `aggregation-roles` 注解
   （`pkg/authorization/rbac/rbac.go getRoleReferenceRules` 只读 `globalRole.Rules`），非 admin 用户
-  访问备份空间 API 得 403。
+  访问备份空间 API 得 403。**R40（2026-10-11）已修复闭环**：授权期展开聚合模板（与角色自身
+  规则取并集、模板缺失优雅降级），rc.33 真机矩阵验证 cluster-manager 访问备份空间 403→200、
+  编辑/删除/registries 模板全部生效、未聚合资源仍 403、只读角色保持只读（见
+  [`status-2026-10-11-r40.md`](status-2026-10-11-r40.md)）。
 - ~~`4-09`：集群模板~~ **已闭环（R29，rc.32 `02ade8cb`）**：快照式 templateRef 闭环。
 - ~~`4-11`：CloudProvider/外部集群纳管~~ **已闭环（R36，2026-10-10）**：真机导入/移除/负向全链路。
 - `4-12a`、`4-12b`：R32 已完成 Web Terminal 与 Pod exec 的鉴权、命令、resize、断连/重连真机矩阵，不再列为遗留。
@@ -490,3 +495,16 @@ Operation ID、故障注入和清理证据见
   ⚠️ `6-06`、`6-10`（arm64 双缺失：无真机 + 5003 制品全 amd64-only）、`6-11`（Tier 1 OS
   清单未固定）；➖ `2.1-32`（双栈范围外）、`4-04`（范围外/非缺口）。跟进观测：发现⑥
   （CRI 耦合待产品决策）、RBAC 聚合角色授权期不展开（非 admin 403）。
+
+## R40：RBAC 聚合角色修复 + 两项范围裁定（2026-10-11）
+
+- **RBAC 附带观察修复闭环**：授权期展开聚合模板（`136882c4`，与 IAM handler 共享
+  `pkg/models/iam.FetchAggregationRoles`；并集语义、单层展开、模板缺失优雅降级、
+  per-request memo、无跨请求缓存）。上游 master 同样存在该缺陷且 `pkg/authorization/`
+  零分叉，修复可直接上游化。rc.33 真机矩阵：cluster-manager 备份空间 403→200（含
+  create/delete/registries 模板生效）、未聚合资源仍 403、platform-view 只读保持、
+  agent 角色无注解零开销。见 [`status-2026-10-11-r40.md`](status-2026-10-11-r40.md)。
+- **范围裁定（用户确认）**：①arm64（6-06/6-10）无环境不攻坚，维持环境门槛状态；
+  ②发现⑥"不需要兼容每一个版本"，跨 CRI 大版本升级不做兼容承诺，关闭跟进。
+- **覆盖数不变**：194 项 = 189 ✅、3 ⚠️、0 ❌、2 ➖（修复针对附带观察，无 Case 编号）。
+  RBAC 观察移出跟进清单；跟进观测仅剩 `6-06`/`6-10`/`6-11` 三项环境/清单门槛。
