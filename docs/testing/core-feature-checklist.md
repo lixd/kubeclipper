@@ -16,8 +16,9 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 - **轮次记号**：备注中 R1～R34 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告或 `docs/testing/status-*.md` 中，本文档只留结论与指针。
 - 最新覆盖快照：R40 [`status-2026-10-11-r40.md`](status-2026-10-11-r40.md)（R40：RBAC 聚合角色
-  授权期展开修复闭环、发现⑥ 按"不需要兼容每一个版本"裁定关闭、arm64 确认不攻坚；计数不变）；
-  R39 [`status-2026-10-10-r39.md`](status-2026-10-10-r39.md)（4-07 转 ✅、4-04 转 ➖、
+  授权期展开修复闭环；三项范围裁定——发现⑥ 按"不需要兼容每一个版本"关闭、arm64 确认
+  不攻坚、Tier 1 OS = Ubuntu 24.04（6-11 转 ✅）；最终 190 ✅ / 2 ⚠️ / 0 ❌ / 2 ➖）；R39
+  [`status-2026-10-10-r39.md`](status-2026-10-10-r39.md)（4-07 转 ✅、4-04 转 ➖、
   2026-10-11 整理轮追记：gaps 行 18/19 观测收口）；R36
   [`status-2026-10-10-r36.md`](status-2026-10-10-r36.md)（含 R37 范围裁定）；当前未闭环项和历史变化见
   [`round-2026-09-gaps.md`](round-2026-09-gaps.md)。
@@ -282,7 +283,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-08 | 完整 qualification 发布 | ✅ | R29 发布后用 Release manifest 在隔离 Registry `172.16.131.208:9443` 复验：25 个目标制品均 digest 匹配（0 copied/25 skipped），pause:3.10.2 也匹配；CreateCluster Operation `f520695c-8029-480d-9fb5-f1df33cb50be` Succeeded，SyncKubeConfig `sync-kubeconfig-05343d7e-51ed-4bb1-88bf-7af7e3e61f30` Succeeded，Kubernetes v1.37.0 的 14/14 系统 Pod Ready，12 个 workload image refs 均走隔离 Registry。启动期路由/就绪告警恢复；4 个控制面 Pod 各有 1 次启动重启，随后两次检查稳定。清理后仍有 5 条 NotReady CRI sandbox 元数据（无 container/task，不改 CRI DB；R7 §12.27） |
 | 6-09 | linux/amd64 主路径 | ✅ | 当前主要实测架构；覆盖平台部署、建群、升级和删除 |
 | 6-10 | linux/arm64 主路径 | ⚠️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据。**R38 复核：与 6-06 同因双缺失**——无 arm64 真机，且 5003 当前制品全部 amd64-only（见 6-06 行实测），无法在本环境补齐整轮证据；代码/CI 的 arm64 构建与多架构索引逻辑已具备 |
-| 6-11 | Tier 1 OS 矩阵 | ⚠️ | 需先固定正式支持 OS 清单，再逐项跑部署、建群和删除 |
+| 6-11 | Tier 1 OS 矩阵 | ✅ | **R40（2026-10-11，用户裁定）清单固定**：Tier 1 = **Ubuntu 24.04（amd64）**，不承诺其他 OS（环境亦无其他 OS 机器）。矩阵即该一款 OS 的完整生命周期——三台真机（dev-2/3/4）均为 Ubuntu 24.04.3 LTS，R1-R40 全部真机验证都发生在该 OS 上：平台本体重 deploy（R17）、40 轮数十个集群 deploy→建群→Running→升级→备份恢复→删除→doctor 全链路、负向矩阵，即矩阵已逐项跑完并全绿，故转 ✅。若未来清单扩充其他 OS，再按各款补跑部署→建群→删除并回填本行。 |
 | 6-12 | Docker CRI 废弃入口清理 | ✅ | **R19（2026-09-24，§12.15）已执行**：CLI 侧 `--cri docker` 落入显式拒绝（`Docker CRI is not supported, use containerd`，create_cluster.go）；服务端 `AllowedCRIType` 仅 containerd、`CRIDocker` 常量与 enum 已删、createClusterCheck 前置拒绝；`pkg/scheme/core/v1/cri/docker.go` 整文件删除；`scripts/migrate-legacy-packages-to-oci.sh` 同步移除。Docker CRI 不安排 E2E（已无入口） |
 | 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ✅ | **R31**：Console fork commit `50f1a4a8` 已部署到 dev-2/3/4，三个 `kc-console` 均 active、HTTP `/`=200，`version.json` 均为 `fix/console-retired-addon-r29` 且 `add_workload=true`；三个 dist 均无 `nfs-provisioner` 标识。平台侧 legacy server/tar downloader 与旧包清理证据见 R28/R30。本项只验证退役入口清除；完整 Console UI E2E 仍是 4-07 |
 
