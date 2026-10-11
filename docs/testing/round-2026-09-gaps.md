@@ -513,3 +513,10 @@ Operation ID、故障注入和清理证据见
 - **最终覆盖数**：194 项 = **190 ✅、2 ⚠️、0 ❌、2 ➖**（6-11 由 ⚠️ 转 ✅）。
   RBAC 观察移出跟进清单；跟进观测仅剩 `6-06`/`6-10` 两项 arm64 环境门槛
   （用户确认不攻坚）；无任何待决策项。
+- **新发现⑦（产品缺陷，记录跟进）**：外部集群（4-11）kc-agent 部署把外部主机写入
+  deploy-config agents 列表（`pkg/clustermanage/kubeadm/provider.go:407-410`，条目无
+  agentID），删除侧清理以 `Agents.ExistsByID` 为门（:554-556）→ **孤儿条目清不掉**；
+  `kcctl upgrade agent` 计划来自该列表（`upgrade.go hostsForRole`）→ 会把已移除的外部
+  主机当 agent 目标并在该机中断（R40 实测 .171，中断点 step 2 stop、零副作用）。运维侧
+  已经 ConfigMap API 清除并重跑通过；**代码修复待定**（add 写 agentID / del 按 IP 匹配 /
+  升级计划过滤平台节点）。三机组件已全部对齐 `v2.0.3-rc.33/136882c4`。
