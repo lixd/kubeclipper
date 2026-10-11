@@ -15,7 +15,8 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
   不计入发布通过率）· 🗑 废弃。状态必须来自**真实运行**，单测覆盖不算 ✅（可在备注注明 "unit-only"）。
 - **轮次记号**：备注中 R1～R34 指验证发生的轮次；每轮详细证据记录在
   `docs/superpowers/issues/` 的轮次报告或 `docs/testing/status-*.md` 中，本文档只留结论与指针。
-- 最新覆盖快照：R39 [`status-2026-10-10-r39.md`](status-2026-10-10-r39.md)（R39：4-07 转 ✅、4-04 转 ➖）；R36
+- 最新覆盖快照：R39 [`status-2026-10-10-r39.md`](status-2026-10-10-r39.md)（R39：4-07 转 ✅、
+  4-04 转 ➖；§六 2026-10-11 整理轮追记：gaps 行 18/19 观测收口，计数不变）；R36
   [`status-2026-10-10-r36.md`](status-2026-10-10-r36.md)（含 R37 范围裁定）；当前未闭环项和历史变化见
   [`round-2026-09-gaps.md`](round-2026-09-gaps.md)。
 - 三机实测报告：R4 [`2026-09-17-core-feature-e2e-sh-dev-2-3-4.md`](../superpowers/issues/2026-09-17-core-feature-e2e-sh-dev-2-3-4.md)，

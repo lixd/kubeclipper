@@ -27,8 +27,8 @@
 | 15 | （新增 R24）`--feature-gates` 建群 | kubeadm v1beta4 拒绝 ClusterConfiguration.featureGates | kubeadm v1.37 对 ClusterConfiguration 的 featureGates map 报 "X is not a valid feature name"——实测连该版本 kubelet `--help` 列出的 ALPHA/BETA gate（CSIVolumeHealth、APIServingWithRoutine 等）全部被拒 → 任何带 `--feature-gates` 的建群在 kubeadm init 失败回滚。**已修复（R24，`2778f818`，rc.21）**：门控改渲染为 apiServer/controllerManager/scheduler extraArgs（v1beta4 list 形）+ KubeletConfiguration.featureGates；真机 r24-1m（APIServingWithRoutine=true）Running，三组件 static pod 参数与 kubelet config 实测命中（R7 报告 §12.21） |
 | 16 | （新增 R24）平台自动创建的 registry 资源 | `kc-package-registry` scheme 默认 https 指向 HTTP registry | 部署自动生成的 `kc-package-registry`（host 172.16.131.146:5003、**scheme: https**、无 skipVerify）与共享 registry 实际协议（HTTP）不符：用它做建群 `--image-registry` 时 containerd 报 `server gave HTTP response to HTTPS client`，建群在 kubeadm init 镜像拉取阶段失败（R24 实测）。**已修复（R26，`4c9546a9`，rc.23）**：部署播种资源前探测 `/v2/`（按配置 scheme，失败回落 plain HTTP）写入真实 scheme，且"过期资源"判定纳入 scheme（重部署自动修复）；现网资源经 API 更正为 http。真机：`--image-registry kc-package-registry` 建群 **Running**（rc.23/rc.24 两次） |
 | 17 | （新增 R25）Step 级 timeout 未执行 | 声明 3m 的步骤实挂 >6min，cancel 被迫等待 | agent 的命令执行器只用 operation deadline 构造 ctx（`Step.Timeout` 从不生效），而组件重试循环 `utils.RetryFunc` 无界（直到 ctx 结束）：nfs-csi `checkCSIHealth`（声明 3m）实测挂 >6min，协作式 cancel 只能等在途步骤，op 一直到 90min 操作期限才动（两次真机复现：R24 §12.21、R25）。**已修复（R25，`e5d0d5f7`，rc.22）**：执行器按 `payload.Step.Timeout` 派生 ctx（超时→worker 映射 TaskTimedOut；ErrIgnore 步仍容忍任意终态）。真机复验：健康检查 ~3m/次超时、op ~4min 自动 `Failed: ... exhausted its retry limit`；upgrade 后原卡死 op 收敛 Canceled（R7 报告 §12.22） |
-| 18 | （新增 R29）集群建群的 CRI 步骤未下发 image registry hosts.toml | addon/工作负载镜像拉取走错协议 | r29-1m（kc-package-registry，http）建群成功但节点 `/etc/containerd/certs.d/<registry>/hosts.toml` 未生成 → addon 镜像按 https 拉 `server gave HTTP response to HTTPS client`；手工补 http hosts.toml 后拉取正常、健康检查通过。**待排查**：建群 CRI 配置渲染链路为何未覆盖该 registry（R29 观测，未修） |
-| 19 | （新增 R29）`PUT /clusters/{name}` 无 spec 全量替换 | metadata-only 的 PUT 清空运行中集群的 spec | PUT 为全量替换语义且 UpdateCluster 无防护：R29 验收时仅带 metadata 的 PUT 把运行中集群的 masters/workers/imageRegistry 全部置空（后续 extension 调用 500 的直接原因）。**待决策**：更新 handler 应合并保留原 spec、或拒绝缺 spec 的 PUT（未实施）；测试残留集群已删除 |
+| 18 | （新增 R29）集群建群的 CRI 步骤未下发 image registry hosts.toml | addon/工作负载镜像拉取走错协议 | r29-1m（kc-package-registry，http）建群成功但节点 `/etc/containerd/certs.d/<registry>/hosts.toml` 未生成 → addon 镜像按 https 拉 `server gave HTTP response to HTTPS client`；手工补 http hosts.toml 后拉取正常、健康检查通过。**收口（2026-10-11 整理轮，代码核实后降级为观测项）**：当前分支建群链路**已覆盖** imageRegistry→hosts.toml——`pkg/clusteroperation/cri_util.go:16` `GetCriStep` 经 `utils.GetClusterCRIRegistriesForMode`（`pkg/component/utils/utils.go:146`）把解析后的 imageRegistry 并入 CRI registries，该形状自 #975（2026-07-22）/#985（2026-08-16）即存在，且两提交均为部署版 `02ade8cb` 祖先；CNI/组件镜像经包内 `LoadImage` 预载、不经 registry 运行时拉取（`pkg/scheme/core/v1/cni/cni.go:87`）。后续真机（R26 rc.23/24 `--image-registry kc-package-registry` 建群 Running、R39 r39-bak kc-5003 建群 Running）均未复现。R29 观测与当前代码不符、未能定版于任何已知二进制（R30 已重建平台），最可能为"镜像引用 host ≠ 集群 imageRegistry"（该 host 无 hosts.toml 条目时 containerd 回退 https）；规避：对需要 hosts.toml 的镜像 host 用 `--cri-registry` 显式声明（2.1-22，R21 已闭环） |
+| 19 | （新增 R29）`PUT /clusters/{name}` 无 spec 全量替换 | metadata-only 的 PUT 清空运行中集群的 spec | PUT 为全量替换语义且 UpdateCluster 无防护：R29 验收时仅带 metadata 的 PUT 把运行中集群的 masters/workers/imageRegistry 全部置空（后续 extension 调用 500 的直接原因）。**收口（2026-10-11 整理轮，代码核实）**：已按"合并保留原 spec"方案实施——当前分支 `UpdateClusters`（`pkg/apis/core/v1/handler.go:689`）为合并语义：GET 原对象后仅取 body 的 labels/annotations/imageRegistry/CRI registries 赋值并做 CRI registry 校验再更新，masters/workers 等其余 spec 不可能经 PUT 清空；该形状自上游 #935/#975/#985（2026-07/08）即存在且为部署版祖先。R29 观测与当前代码形状不符、未能定版于任何已知二进制（R30 已重建平台），未复现；间接真机佐证：R39 同端点被 console 集群编辑弹窗真实使用（备份空间绑定 PUT→备份→恢复全链成功、集群 spec 完好）。残余行为说明：PUT body 显式携带空 `imageRegistry`/空 CRI registries 会清空对应字段（可编辑字段语义，非缺陷） |
 
 
 R4/R5/R6 已完成或部分完成的 HA、最小拓扑、Calico 自动探测、S3 备份、Cron、Policy 白名单和独立 join
@@ -469,3 +469,24 @@ Operation ID、故障注入和清理证据见
 - **当前覆盖数**：194 项中 **188 ✅、4 ⚠️、1 ❌、1 ➖**。剩余未通过：⚠️ `4-07`、`6-06`、
   `6-10`、`6-11`；❌ `4-04`（Addon 同组件多实例，产品缺口）。产品发现①③⑤仍记录未修
   （见 R35 段），②为环境性记录。
+
+## R38-R39 收口与观测项整理（2026-10-10/11）
+
+- **R38（2026-10-10）**：4-07 产品发现③闭环——console 修复（commit `d614f99`）与修复包
+  `bootstrap/console:v1.6.0-r31.1` 早已存在，属部署态陈旧，`kcctl upgrade console` 后 UI 级
+  验证通过；UI 集群升级物料确认齐备（v1.36.4→v1.37.0 真机 Succeeded）；记录新发现⑥（升级
+  CRI↔k8s 耦合，无 UI/CLI 入参）与 R23 记录勘误。见 [`status-2026-10-10-r38.md`](status-2026-10-10-r38.md)。
+- **R39（2026-10-10）**：4-07 UI 备份全链路真机闭环（UI 建 BackupPoint → 集群编辑绑定 →
+  备份"创建中"→"可用" → 恢复 `RecoveryCluster` Succeeded → UI 删除备份；删集群前备份保护
+  400）→ **4-07 转 ✅**；**4-04 按用户裁定转 ➖ 范围外/非缺口**（Addon 语义即"同组件只能
+  安装一次"，组件级去重是幂等保护）。附带记录：内置聚合角色授权期不展开
+  `kubeclipper.io/aggregation-roles` 注解（`pkg/authorization/rbac/rbac.go:136`）→ 非 admin
+  访问备份空间 API 403。见 [`status-2026-10-10-r39.md`](status-2026-10-10-r39.md)。
+- **整理轮（2026-10-11，纯文档）**：P0 行 18/19 两条 R29 观测经代码核实收口（见行内注）：
+  建群链路已覆盖 imageRegistry→hosts.toml（`cri_util.go:16`，#975/#985 起）、`UpdateClusters`
+  为合并语义（`pkg/apis/core/v1/handler.go:689`），两观测均与当前代码不符且未复现，降级为
+  观测项。两者均无独立 Case 编号，**台账计数不变**。
+- **最终覆盖数**：194 项中 **189 ✅、3 ⚠️、0 ❌、2 ➖**。剩余未通过均为环境/物料/清单门槛：
+  ⚠️ `6-06`、`6-10`（arm64 双缺失：无真机 + 5003 制品全 amd64-only）、`6-11`（Tier 1 OS
+  清单未固定）；➖ `2.1-32`（双栈范围外）、`4-04`（范围外/非缺口）。跟进观测：发现⑥
+  （CRI 耦合待产品决策）、RBAC 聚合角色授权期不展开（非 admin 403）。
