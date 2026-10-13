@@ -478,40 +478,47 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 // platform CA (read from this server node's PKI directory) and copies the
 // chain to the node's agent config directory.
 func (r *Kubeadm) sendAgentCerts(ip, agentID string) error {
-	caPath := filepath.Join(options.HomeDIR, options.DefaultPath, options.DefaultCaPath)
-	caConfig := certutils.Config{Path: caPath, BaseName: options.Ca, CommonName: options.Ca}
-	caCert, caKey, err := certutils.LoadCaCertAndKeyFromDisk(caConfig)
+	caPath := filepath.Join(options.DefaultKcServerConfigPath, options.DefaultCaPath)
+	sources, err := signAgentCerts(caPath, ip, agentID)
 	if err != nil {
-		return fmt.Errorf("load KubeClipper CA: %w", err)
-	}
-	altNames := certutils.AltNames{DNSNames: map[string]string{agentID: agentID}, IPs: map[string]net.IP{}}
-	if parsed := net.ParseIP(ip); parsed != nil {
-		altNames.IPs[parsed.String()] = parsed
-	}
-	certConfig := certutils.Config{
-		Path: filepath.Join(options.HomeDIR, options.DefaultPath, "pki", "agents", agentID), BaseName: "agent",
-		CAName: options.Ca, CommonName: "system:kc-agent:" + agentID, Organization: []string{"system:kc-agents"},
-		Year: 100, AltNames: altNames, Usages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-	}
-	cert, key, err := certutils.NewCaCertAndKeyFromRoot(certConfig, caCert, caKey)
-	if err != nil {
-		return err
-	}
-	if err := certutils.WriteCertAndKey(certConfig.Path, certConfig.BaseName, cert, key); err != nil {
 		return err
 	}
 	destination := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath)
-	sources := []string{
-		filepath.Join(caPath, options.Ca+".crt"),
-		filepath.Join(certConfig.Path, "agent.crt"),
-		filepath.Join(certConfig.Path, "agent.key"),
-	}
 	for _, source := range sources {
 		if err := cliutils.SendPackageV2WithTempDir(r.ssh(), source, []string{ip}, destination, nil, nil, r.deployTempDir()); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func signAgentCerts(caPath, ip, agentID string) ([]string, error) {
+	caConfig := certutils.Config{Path: caPath, BaseName: options.Ca, CommonName: options.Ca}
+	caCert, caKey, err := certutils.LoadCaCertAndKeyFromDisk(caConfig)
+	if err != nil {
+		return nil, fmt.Errorf("load KubeClipper CA: %w", err)
+	}
+	altNames := certutils.AltNames{DNSNames: map[string]string{agentID: agentID}, IPs: map[string]net.IP{}}
+	if parsed := net.ParseIP(ip); parsed != nil {
+		altNames.IPs[parsed.String()] = parsed
+	}
+	certConfig := certutils.Config{
+		Path: filepath.Join(caPath, "agents", agentID), BaseName: "agent",
+		CAName: options.Ca, CommonName: "system:kc-agent:" + agentID, Organization: []string{"system:kc-agents"},
+		Year: 100, AltNames: altNames, Usages: []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+	}
+	cert, key, err := certutils.NewCaCertAndKeyFromRoot(certConfig, caCert, caKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := certutils.WriteCertAndKey(certConfig.Path, certConfig.BaseName, cert, key); err != nil {
+		return nil, err
+	}
+	return []string{
+		filepath.Join(caPath, options.Ca+".crt"),
+		filepath.Join(certConfig.Path, "agent.crt"),
+		filepath.Join(certConfig.Path, "agent.key"),
+	}, nil
 }
 
 func (r *Kubeadm) deployTempDir() string {
