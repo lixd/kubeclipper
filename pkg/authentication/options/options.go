@@ -20,7 +20,6 @@ package options
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/dlclark/regexp2"
@@ -130,7 +129,7 @@ func (a *AuthenticationOptions) Validate() []error {
 	if err != nil {
 		errs = append(errs, err)
 	} else if !ok {
-		errs = append(errs, fmt.Errorf("password [%s] format error", a.InitialPassword))
+		errs = append(errs, errors.New("password format error"))
 	}
 
 	return errs

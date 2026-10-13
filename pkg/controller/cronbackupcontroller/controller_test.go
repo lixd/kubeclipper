@@ -147,6 +147,17 @@ func TestRotatable(t *testing.T) {
 	}
 }
 
+func TestBackupMasterNodeCarriesReachabilityAddress(t *testing.T) {
+	node := &v1.Node{}
+	node.Name = "master-a"
+	node.Status.Ipv4DefaultIP = "192.0.2.10"
+
+	got := backupMasterNode(node)
+	if got.ID != node.Name || got.IPv4 != node.Status.Ipv4DefaultIP {
+		t.Fatalf("backup master = %#v, want ID %q and IPv4 %q", got, node.Name, node.Status.Ipv4DefaultIP)
+	}
+}
+
 // The cleanup must target the store the backup was written to: the backup's
 // own point reference wins over the cluster's current default, and legacy
 // records without a reference fall back to the cluster default.

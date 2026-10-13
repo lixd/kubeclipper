@@ -823,3 +823,44 @@ func TestPendingOperationKeepsWaitingOnActiveLockHolder(t *testing.T) {
 		t.Fatalf("waiter phase = %s, want Pending", got)
 	}
 }
+
+func TestPendingTaskPayloadConflictFailsClosed(t *testing.T) {
+	for _, raw := range []string{`{"command":"altered"}`, `{"command":"original","dryRun":true}`} {
+		store := newFakeStore()
+		step := oneStep("verify", 0, "node-1", "node-2")
+		step.Payload = runtime.RawExtension{Raw: []byte(`{"command":"original"}`)}
+		op := runningOperation("payload-conflict", step)
+		store.addOperation(op)
+		store.addOwnedLock(op)
+		for i, node := range step.Targets {
+			task := testTask(op, &step, node, operations.TaskPending)
+			if i == 0 {
+				task.Spec.Payload = runtime.RawExtension{Raw: []byte(raw)}
+			}
+			store.addTask(task)
+		}
+		r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow }}
+		reconcileOK(t, r, op.Name)
+		reconcileOK(t, r, op.Name)
+		got := store.operation(op.Name)
+		if got.Status.Reason != operations.OperationReasonInvalidExecutionFacts {
+			t.Fatalf("status=%#v", got.Status)
+		}
+		for _, task := range store.taskSlice() {
+			if task.Status.Phase != operations.TaskCancelled {
+				t.Fatalf("task phase=%s", task.Status.Phase)
+			}
+		}
+	}
+}
+
+func TestPendingTaskPayloadJSONFormattingIsNotConflict(t *testing.T) {
+	step := oneStep("verify", 0, "node-1")
+	step.Payload = runtime.RawExtension{Raw: []byte(`{"a":1,"b":2}`)}
+	op := runningOperation("payload-format", step)
+	task := testTask(op, &step, step.Targets[0], operations.TaskPending)
+	task.Spec.Payload = runtime.RawExtension{Raw: []byte("{\n  \"b\": 2, \"a\": 1\n}")}
+	if _, _, err := validateAndCurrentStep(op, []operations.OperationTask{*task}); err != nil {
+		t.Fatal(err)
+	}
+}

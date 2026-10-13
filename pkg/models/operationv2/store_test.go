@@ -90,15 +90,22 @@ func TestOperationOrderingAndContinueToken(t *testing.T) {
 func TestListOperationsWithOptionsPaginatesNewestFirst(t *testing.T) {
 	first := time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC)
 	second := first.Add(time.Minute)
-	storage := &recordingStorage{listObj: &operations.OperationList{
+	list := &operations.OperationList{
 		ListMeta: metav1.ListMeta{ResourceVersion: "42"},
 		Items: []operations.Operation{
 			{ObjectMeta: metav1.ObjectMeta{Name: "old", UID: types.UID("uid-old"), CreationTimestamp: metav1.NewTime(first)}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "newer-a", UID: types.UID("uid-newer-a"), CreationTimestamp: metav1.NewTime(second)}},
 			{ObjectMeta: metav1.ObjectMeta{Name: "newer-b", UID: types.UID("uid-newer-b"), CreationTimestamp: metav1.NewTime(second)}},
 		},
-	}}
-	store, err := NewStore(StoreOptions{Operations: storage, Tasks: &recordingStorage{}, Locks: &recordingStorage{}})
+	}
+	cachedStorage := &recordingStorage{listObj: list}
+	strongStorage := &recordingStorage{listObj: list}
+	store, err := NewStore(StoreOptions{
+		Operations:       cachedStorage,
+		OperationsStrong: strongStorage,
+		Tasks:            &recordingStorage{},
+		Locks:            &recordingStorage{},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,6 +127,9 @@ func TestListOperationsWithOptionsPaginatesNewestFirst(t *testing.T) {
 	}
 	if len(secondPage.Items) != 1 || secondPage.Items[0].Name != "old" || secondPage.Continue != "" {
 		t.Fatalf("second page = %#v", secondPage)
+	}
+	if cachedStorage.listCalls != 0 || strongStorage.listCalls != 2 {
+		t.Fatalf("paginated list storage calls = cached:%d strong:%d, want cached:0 strong:2", cachedStorage.listCalls, strongStorage.listCalls)
 	}
 }
 

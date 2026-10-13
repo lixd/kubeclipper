@@ -140,19 +140,20 @@ func (stepper *Upgrade) InitStepper(metadata *component.ExtraMetadata, c *v1.Clu
 	cpEndpoint := fmt.Sprintf("%s:6443", apiServerDomain)
 
 	stepper.Kubeadm = &KubeadmConfig{
-		ClusterConfigAPIVersion: "",
-		ContainerRuntime:        c.ContainerRuntime.Type,
-		Etcd:                    c.Etcd,
-		Networking:              c.Networking,
-		KubeProxy:               c.KubeProxy,
-		Kubelet:                 c.Kubelet,
-		ClusterName:             metadata.ClusterName,
-		KubernetesVersion:       c.KubernetesVersion,
-		ControlPlaneEndpoint:    cpEndpoint,
-		CertSANs:                c.GetAllCertSANs(),
-		ImageRegistry:           c.ResolvedImageRegistry,
-		FeatureGates:            c.FeatureGates,
-		IgnorePreflightErrors:   parseIgnorePreflightErrors(c.Annotations[common.AnnotationOnlyIgnorePreflightErrors]),
+		ClusterConfigAPIVersion:     "",
+		IncludeUpgradeConfiguration: true,
+		ContainerRuntime:            c.ContainerRuntime.Type,
+		Etcd:                        c.Etcd,
+		Networking:                  c.Networking,
+		KubeProxy:                   c.KubeProxy,
+		Kubelet:                     c.Kubelet,
+		ClusterName:                 metadata.ClusterName,
+		KubernetesVersion:           c.KubernetesVersion,
+		ControlPlaneEndpoint:        cpEndpoint,
+		CertSANs:                    c.GetAllCertSANs(),
+		ImageRegistry:               c.ResolvedImageRegistry,
+		FeatureGates:                c.FeatureGates,
+		IgnorePreflightErrors:       parseIgnorePreflightErrors(c.Annotations[common.AnnotationOnlyIgnorePreflightErrors]),
 	}
 	stepper.Offline = metadata.Offline
 	stepper.Version = metadata.KubeVersion
@@ -179,6 +180,24 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 	if len(stepper.installSteps) != 0 {
 		return nil
 	}
+	waitForControlPlaneReady := `
+ready_samples=0
+ready_deadline=$((SECONDS + 240))
+while (( SECONDS < ready_deadline && ready_samples < 7 )); do
+  if kubectl get --raw=/readyz --request-timeout=3s >/dev/null 2>&1 &&
+     kubectl wait --for=condition=Ready "node/$node" --timeout=3s >/dev/null 2>&1 &&
+     kubectl wait --for=condition=Ready "pod/kube-apiserver-$node" -n kube-system --timeout=3s >/dev/null 2>&1; then
+    ready_samples=$((ready_samples + 1))
+  else
+    ready_samples=0
+  fi
+  if (( ready_samples < 7 )); then sleep 5; fi
+done
+if (( ready_samples < 7 )); then
+  echo "control plane API did not remain ready for 30 seconds after kubelet restart" >&2
+  exit 1
+fi
+`
 
 	masters := extraMetadata.Masters
 	workers := extraMetadata.Workers
@@ -216,7 +235,7 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 			Name:      "DownloadUpgradePackage",
 			Nodes:     utils.UnwrapNodeList(extraMetadata.GetAllNodes()),
 			Action:    v1.ActionInstall,
-			Timeout:   metav1.Duration{Duration: 10 * time.Minute},
+			Timeout:   metav1.Duration{Duration: 15 * time.Minute},
 			ErrIgnore: false,
 			BeforeRunCommands: []v1.Command{
 				{
@@ -267,19 +286,22 @@ func (stepper *Upgrade) InitSteps(ctx context.Context) error {
 			Name:      fmt.Sprintf("UpgradeControlPlane-%s", extraMetadata.GetMasterHostname(masters[0].ID)),
 			Nodes:     []v1.StepNode{utils.UnwrapNodeList(masters)[0]},
 			Action:    v1.ActionInstall,
-			Timeout:   metav1.Duration{Duration: 10 * time.Minute},
+			Timeout:   metav1.Duration{Duration: 15 * time.Minute},
 			ErrIgnore: false,
 			Commands: []v1.Command{
 				{
 					Type: v1.CommandShell,
 					ShellCommand: []string{"/bin/bash", "-c", fmt.Sprintf(`
-kubeadm upgrade apply %s -f --ignore-preflight-errors all --config /tmp/.k8s/kubeadm.yaml
+set -euo pipefail
+node=%q
+trap 'rc=$?; kubectl uncordon "$node" || true; exit "$rc"' EXIT
+kubeadm upgrade apply %s -y --ignore-preflight-errors all --config /tmp/.k8s/kubeadm.yaml
 sleep 10
-kubectl drain %s --ignore-daemonsets --timeout=120s || true
+kubectl drain "$node" --ignore-daemonsets --delete-emptydir-data --force --timeout=120s
 systemctl stop kubelet
 systemctl daemon-reload && systemctl restart kubelet
-kubectl uncordon %s || true`,
-						stepper.Version, extraMetadata.GetMasterHostname(masters[0].ID), extraMetadata.GetMasterHostname(masters[0].ID))},
+%s
+`, extraMetadata.GetMasterHostname(masters[0].ID), stepper.Version, waitForControlPlaneReady)},
 				},
 			},
 			RetryTimes: 0,
@@ -292,19 +314,22 @@ kubectl uncordon %s || true`,
 			Name:      fmt.Sprintf("UpgradeControlPlane-%s", extraMetadata.GetMasterHostname(masters[i].ID)),
 			Nodes:     []v1.StepNode{utils.UnwrapNodeList(masters)[i]},
 			Action:    v1.ActionInstall,
-			Timeout:   metav1.Duration{Duration: 10 * time.Minute},
+			Timeout:   metav1.Duration{Duration: 15 * time.Minute},
 			ErrIgnore: false,
 			Commands: []v1.Command{
 				{
 					Type: v1.CommandShell,
 					ShellCommand: []string{"/bin/bash", "-c", fmt.Sprintf(`
+set -euo pipefail
+node=%q
+trap 'rc=$?; kubectl uncordon "$node" || true; exit "$rc"' EXIT
 kubeadm upgrade node
 sleep 10
-kubectl drain %s --ignore-daemonsets --timeout=120s || true
+kubectl drain "$node" --ignore-daemonsets --delete-emptydir-data --force --timeout=120s
 systemctl stop kubelet
 systemctl daemon-reload && systemctl restart kubelet
-kubectl uncordon %s || true`,
-						extraMetadata.GetMasterHostname(masters[i].ID), extraMetadata.GetMasterHostname(masters[i].ID))},
+%s
+					`, extraMetadata.GetMasterHostname(masters[i].ID), waitForControlPlaneReady)},
 				},
 			},
 			RetryTimes: 0,
@@ -318,15 +343,15 @@ kubectl uncordon %s || true`,
 				Name:      fmt.Sprintf("DrainNode-%s", extraMetadata.GetWorkerHostname(workers[i].ID)),
 				Nodes:     []v1.StepNode{utils.UnwrapNodeList(masters)[0]},
 				Action:    v1.ActionInstall,
-				Timeout:   metav1.Duration{Duration: 1 * time.Minute},
-				ErrIgnore: true,
+				Timeout:   metav1.Duration{Duration: 6 * time.Minute},
+				ErrIgnore: false,
 				Commands: []v1.Command{
 					{
 						Type: v1.CommandShell,
 						// The node always runs DaemonSet pods (CNI, kube-proxy):
 						// a plain drain can never succeed there.
 						ShellCommand: []string{"kubectl", "drain", extraMetadata.GetWorkerHostname(workers[i].ID),
-							"--ignore-daemonsets", "--delete-emptydir-data", "--force"},
+							"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"},
 					},
 				},
 				RetryTimes: 0,
@@ -341,10 +366,11 @@ kubectl uncordon %s || true`,
 				Commands: []v1.Command{
 					{
 						Type: v1.CommandShell,
-						ShellCommand: []string{"/bin/bash", "-c", `
+						ShellCommand: []string{"/bin/bash", "-euo", "pipefail", "-c", `
 kubeadm upgrade node
 systemctl stop kubelet
-systemctl daemon-reload && systemctl restart kubelet`},
+systemctl daemon-reload
+systemctl restart kubelet`},
 					},
 				},
 				RetryTimes: 0,
@@ -354,12 +380,14 @@ systemctl daemon-reload && systemctl restart kubelet`},
 				Name:      fmt.Sprintf("UncordonNode-%s", extraMetadata.GetWorkerHostname(workers[i].ID)),
 				Nodes:     []v1.StepNode{utils.UnwrapNodeList(masters)[0]},
 				Action:    v1.ActionInstall,
-				Timeout:   metav1.Duration{Duration: 1 * time.Minute},
-				ErrIgnore: true,
+				Timeout:   metav1.Duration{Duration: 6 * time.Minute},
+				ErrIgnore: false,
 				Commands: []v1.Command{
 					{
-						Type:         v1.CommandShell,
-						ShellCommand: []string{"kubectl", "uncordon", extraMetadata.GetWorkerHostname(workers[i].ID)},
+						Type: v1.CommandShell,
+						ShellCommand: []string{"/bin/bash", "-euo", "pipefail", "-c", fmt.Sprintf(
+							"kubectl wait --for=condition=Ready node/%q --timeout=5m\nkubectl uncordon %q",
+							extraMetadata.GetWorkerHostname(workers[i].ID), extraMetadata.GetWorkerHostname(workers[i].ID))},
 					},
 				},
 				RetryTimes: 0,

@@ -272,3 +272,24 @@ func TestCalicoInitStepPartialCalicoBlock(t *testing.T) {
 		t.Errorf("InitStep must not mutate the caller's calico block, got: %+v", cni.Calico)
 	}
 }
+
+func TestCalicoRoutingModesRequireBGP(t *testing.T) {
+	for _, version := range []string{"v3.26.1", "v3.29.6", "v3.31.5"} {
+		for _, mode := range []string{CalicoNetworkBGP, CalicoNetworkIPIPAll, CalicoNetworkIPIPSubnet, CalicoNetworkVXLANAll, CalicoNetworkVXLANSubnet} {
+			t.Run(version+"/"+mode, func(t *testing.T) {
+				runnable := CalicoRunnable{BaseCni: BaseCni{PodIPv4CIDR: "172.25.0.0/16", CNI: v1.CNI{Type: "calico", Version: version, Calico: &v1.Calico{Mode: mode, MTU: 1440}}}}
+				var rendered bytes.Buffer
+				if err := runnable.renderCalicoTo(&rendered); err != nil {
+					t.Fatal(err)
+				}
+				want := "bgp: Disabled"
+				if mode == CalicoNetworkBGP || mode == CalicoNetworkIPIPAll || mode == CalicoNetworkIPIPSubnet {
+					want = "bgp: Enabled"
+				}
+				if !strings.Contains(rendered.String(), want) {
+					t.Fatalf("%s requires %s", mode, want)
+				}
+			})
+		}
+	}
+}

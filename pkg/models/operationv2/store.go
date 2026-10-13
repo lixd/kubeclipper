@@ -268,7 +268,14 @@ func (s *store) ListOperationsWithOptions(ctx context.Context, options *metav1.L
 	if err != nil {
 		return nil, err
 	}
-	obj, err := s.operations.List(withNamespace(ctx), internal)
+	listStorage := s.operations
+	if (pageLimit > 0 || continueToken != nil) && s.operationsStrong != nil {
+		// A continuation token may be served by another API server replica.
+		// Use uncached storage when available so every page can read the same
+		// etcd snapshot; a replica-local watch cache may not yet have reached the token's RV.
+		listStorage = s.operationsStrong
+	}
+	obj, err := listStorage.List(withNamespace(ctx), internal)
 	if err != nil {
 		return nil, err
 	}

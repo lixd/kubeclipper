@@ -135,23 +135,24 @@ type KubeadmConfig struct {
 	ClusterConfigAPIVersion string `json:"clusterConfigAPIVersion"`
 	// If both Docker and containerd are detected, Docker takes precedence,so we must specify cri.
 	// https://v1-20.docs.kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-runtime
-	ContainerRuntime     string          `json:"containerRuntime"`
-	Etcd                 v1.Etcd         `json:"etcd"`
-	Networking           v1.Networking   `json:"networking"`
-	KubeProxy            v1.KubeProxy    `json:"kubeProxy"`
-	Kubelet              v1.Kubelet      `json:"kubelet"`
-	ClusterName          string          `json:"clusterName"`
-	KubernetesVersion    string          `json:"kubernetesVersion"`
-	ControlPlaneEndpoint string          `json:"controlPlaneEndpoint"`
-	CertSANs             []string        `json:"certSANs"`
-	ImageRegistry        string          `json:"imageRegistry"`
-	Offline              bool            `json:"offline"`
-	IsControlPlane       bool            `json:"isControlPlane,omitempty"`
-	CACertHashes         string          `json:"caCertHashes,omitempty"`
-	BootstrapToken       string          `json:"bootstrapToken,omitempty"`
-	CertificateKey       string          `json:"certificateKey,omitempty"`
-	AdvertiseAddress     string          `json:"advertiseAddress,omitempty"`
-	FeatureGates         map[string]bool `json:"featureGates,omitempty"`
+	ContainerRuntime            string          `json:"containerRuntime"`
+	Etcd                        v1.Etcd         `json:"etcd"`
+	Networking                  v1.Networking   `json:"networking"`
+	KubeProxy                   v1.KubeProxy    `json:"kubeProxy"`
+	Kubelet                     v1.Kubelet      `json:"kubelet"`
+	ClusterName                 string          `json:"clusterName"`
+	KubernetesVersion           string          `json:"kubernetesVersion"`
+	ControlPlaneEndpoint        string          `json:"controlPlaneEndpoint"`
+	CertSANs                    []string        `json:"certSANs"`
+	ImageRegistry               string          `json:"imageRegistry"`
+	Offline                     bool            `json:"offline"`
+	IsControlPlane              bool            `json:"isControlPlane,omitempty"`
+	CACertHashes                string          `json:"caCertHashes,omitempty"`
+	BootstrapToken              string          `json:"bootstrapToken,omitempty"`
+	CertificateKey              string          `json:"certificateKey,omitempty"`
+	AdvertiseAddress            string          `json:"advertiseAddress,omitempty"`
+	FeatureGates                map[string]bool `json:"featureGates,omitempty"`
+	IncludeUpgradeConfiguration bool            `json:"includeUpgradeConfiguration,omitempty"`
 	// FeatureGatesArg is the sorted "k=v,k=v" form handed to the kubeadm-
 	// managed components. kubeadm v1beta4 no longer accepts a top-level
 	// ClusterConfiguration featureGates map — it rejects every name with

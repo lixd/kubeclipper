@@ -17929,7 +17929,7 @@ const calicoV3261 = `installation:
     type: Calico
     ipam:
       type: Calico
-  {{if eq .CNI.Calico.Mode "BGP"}}
+  {{if or (eq .CNI.Calico.Mode "BGP") (eq .CNI.Calico.Mode "Overlay-IPIP-All") (eq .CNI.Calico.Mode "Overlay-IPIP-Cross-Subnet")}}
   bgp: Enabled
   {{else}}
   bgp: Disabled
@@ -18007,7 +18007,7 @@ const calicoV3296 = `installation:
     ipam:
       type: Calico
   calicoNetwork:
-    {{if eq .CNI.Calico.Mode "BGP"}}
+    {{if or (eq .CNI.Calico.Mode "BGP") (eq .CNI.Calico.Mode "Overlay-IPIP-All") (eq .CNI.Calico.Mode "Overlay-IPIP-Cross-Subnet")}}
     bgp: Enabled
     {{else}}
     bgp: Disabled
@@ -18124,7 +18124,7 @@ const calicoV3315 = `installation:
     ipam:
       type: Calico
   calicoNetwork:
-    {{if eq .CNI.Calico.Mode "BGP"}}
+    {{if or (eq .CNI.Calico.Mode "BGP") (eq .CNI.Calico.Mode "Overlay-IPIP-All") (eq .CNI.Calico.Mode "Overlay-IPIP-Cross-Subnet")}}
     bgp: Enabled
     {{else}}
     bgp: Disabled

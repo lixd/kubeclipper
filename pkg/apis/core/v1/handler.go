@@ -2106,6 +2106,10 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
+	if err := validation.ValidateKubernetesUpgradeVersion(clu.Name, clu.KubernetesVersion, body.Version); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
 
 	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
 	// TODO: validate cluster struct

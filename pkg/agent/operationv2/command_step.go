@@ -72,6 +72,9 @@ func (e CommandStepExecutor) Reconcile(ctx context.Context, task *operations.Ope
 				return operations.TaskResult{}, fmt.Errorf("shell command must not be empty")
 			}
 			if _, err := cmdutil.RunCmdWithContext(ctx, payload.DryRun, command.ShellCommand[0], command.ShellCommand[1:]...); err != nil {
+				if ctx.Err() != nil {
+					return operations.TaskResult{}, fmt.Errorf("run shell command: %w", ctx.Err())
+				}
 				return operations.TaskResult{}, fmt.Errorf("run shell command: %w", err)
 			}
 		case corev1.CommandTemplateRender:

@@ -100,6 +100,16 @@ func indexAndValidateTasks(
 		if task.Spec.Executor != op.Spec.Steps[stepIndex].Executor {
 			return nil, fmt.Errorf("task %q executor differs from its immutable plan", task.Name)
 		}
+		payload, err := materializePayload(&op.Spec.Steps[stepIndex], op.Spec.Steps, tasks)
+		if err != nil {
+			return nil, err
+		}
+		var expected, actual interface{}
+		if (len(payload.Raw) != 0 && json.Unmarshal(payload.Raw, &expected) != nil) ||
+			(len(task.Spec.Payload.Raw) != 0 && json.Unmarshal(task.Spec.Payload.Raw, &actual) != nil) ||
+			!apiequality.Semantic.DeepEqual(expected, actual) {
+			return nil, fmt.Errorf("task %q payload differs from its immutable plan", task.Name)
+		}
 		byStep[task.Spec.StepID] = append(byStep[task.Spec.StepID], task)
 	}
 	return byStep, nil

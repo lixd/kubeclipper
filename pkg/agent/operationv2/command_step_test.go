@@ -112,3 +112,19 @@ func TestCommandStepExecutorKeepsTaskContextWhenStepHasNoTimeout(t *testing.T) {
 		t.Fatalf("Reconcile() returned after %s, want it bounded by the task context (~200ms)", elapsed)
 	}
 }
+
+func TestCommandStepShellPreservesDeadlineError(t *testing.T) {
+	payload, err := json.Marshal(CommandStepPayload{Step: corev1.Step{
+		ID: "shell-timeout", Action: corev1.ActionInstall,
+		Timeout:  metav1.Duration{Duration: 150 * time.Millisecond},
+		Commands: []corev1.Command{{Type: corev1.CommandShell, ShellCommand: []string{"sleep", "30"}}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	task := &operations.OperationTask{Spec: operations.OperationTaskSpec{Payload: runtime.RawExtension{Raw: payload}}}
+	_, err = (CommandStepExecutor{}).Reconcile(context.Background(), task, io.Discard)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("shell timeout error = %v, want context.DeadlineExceeded", err)
+	}
+}

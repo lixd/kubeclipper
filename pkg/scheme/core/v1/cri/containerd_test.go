@@ -803,3 +803,13 @@ func TestMergeRegistryAuthIntoConfig_DryRun(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, originalContent, string(data))
 }
+
+func TestRegistryAuthConfigRestrictsFilePermissions(t *testing.T) {
+	configPath := filepath.Join(t.TempDir(), "config.toml")
+	require.NoError(t, os.WriteFile(configPath, []byte("version = 3\n"), 0644))
+	runnable := &ContainerdRunnable{Base: Base{RegistryWithAuth: []v1.RegistrySpec{{Host: "registry.example.com", RegistryAuth: &v1.RegistryAuth{Username: "test", Password: "secret"}}}}}
+	require.NoError(t, runnable.mergeRegistryAuthIntoConfig(context.Background(), configPath, false))
+	info, err := os.Stat(configPath)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0600), info.Mode().Perm(), "registry credentials must be readable only by the owner")
+}

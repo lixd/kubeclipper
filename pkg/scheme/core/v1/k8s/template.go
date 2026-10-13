@@ -165,6 +165,12 @@ nodeRegistration:
     root-dir: {{.Kubelet.RootDir}}
     node-ip: {{.Kubelet.NodeIP}}
 {{- end }}
+{{- if .IncludeUpgradeConfiguration}}
+---
+apiVersion: kubeadm.k8s.io/{{.ClusterConfigAPIVersion}}
+kind: UpgradeConfiguration
+apply: {}
+{{- end}}
 `
 
 const KubeadmJoinTemplate = `apiVersion: kubeadm.k8s.io/{{.ClusterConfigAPIVersion}}

@@ -23,6 +23,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/url"
+	"os"
 
 	"github.com/gorilla/websocket"
 	"github.com/onsi/ginkgo"
@@ -84,9 +87,17 @@ var _ = SIGDescribe("[Serial]", func() {
 
 		ginkgo.By("Get msg")
 		pubkey, _ := base64.StdEncoding.DecodeString(pub.PublicKey)
-		u, err := certs.RsaEncrypt([]byte("root"), pubkey)
+		username := os.Getenv("KUBECLIPPER_E2E_SSH_USERNAME")
+		if username == "" {
+			username = "root"
+		}
+		password := os.Getenv("KUBECLIPPER_E2E_SSH_PASSWORD")
+		if password == "" {
+			password = "Thinkbig1"
+		}
+		u, err := certs.RsaEncrypt([]byte(username), pubkey)
 		framework.ExpectNoError(err)
-		p, err := certs.RsaEncrypt([]byte("Thinkbig1"), pubkey)
+		p, err := certs.RsaEncrypt([]byte(password), pubkey)
 		framework.ExpectNoError(err)
 		credential := &v1.SSHCredential{
 			Username: u,
@@ -98,14 +109,27 @@ var _ = SIGDescribe("[Serial]", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By("connect node")
-		url := fmt.Sprintf("ws://%s%s/%s/%sname=%s&token=%s&msg=%s", f.Client.Host(), kc.ListNodesPath, nodeID, "terminal?", nodeID, f.Client.Token(), msg)
-		ws, _, err := websocket.DefaultDialer.Dial(url, nil)
+		query := url.Values{}
+		query.Set("token", f.Client.Token())
+		query.Set("msg", msg)
+		scheme := "ws"
+		dialer := *websocket.DefaultDialer
+		if f.Client.Scheme() == "https" {
+			scheme = "wss"
+			dialer.TLSClientConfig = f.Client.HTTPClient().Transport.(*http.Transport).TLSClientConfig.Clone()
+			dialer.TLSClientConfig.NextProtos = []string{"http/1.1"}
+		}
+		endpoint := fmt.Sprintf("%s://%s%s/%s/terminal?%s", scheme, f.Client.Host(), kc.ListNodesPath, nodeID, query.Encode())
+		ws, _, err := dialer.Dial(endpoint, nil)
 		framework.ExpectNoError(err)
 
 		ginkgo.By("check the node is connected")
 		for {
 			_, data, err := ws.ReadMessage()
-			if string(data) == "" || err != nil {
+			if err != nil {
+				framework.Failf("Fail to connect node: %v", err)
+			}
+			if string(data) == "" {
 				framework.Failf("Fail to connect node")
 			} else {
 				break

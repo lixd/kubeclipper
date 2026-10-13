@@ -502,12 +502,10 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 		return err
 	}
 
-	if backup.PreferredNode != "" {
-		_, err := r.NodeLister.Get(backup.PreferredNode)
-		if err != nil {
-			log.Error("Failed to get node by name", zap.Error(err))
-			return err
-		}
+	preferredMaster, err := r.NodeLister.Get(backup.PreferredNode)
+	if err != nil {
+		log.Error("Failed to get node by name", zap.Error(err))
+		return err
 	}
 
 	// create operation
@@ -529,7 +527,7 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 	meta := component.ExtraMetadata{
 		ClusterName: c.Name,
 	}
-	meta.Masters = append(meta.Masters, component.Node{ID: backup.PreferredNode})
+	meta.Masters = append(meta.Masters, backupMasterNode(preferredMaster))
 	ctx := component.WithExtraMetadata(context.TODO(), meta)
 
 	switch bp.StorageType {
@@ -572,6 +570,10 @@ func (r *CronBackupReconciler) deleteBackup(log logger.Logging, clusterName stri
 		return err
 	}
 	return nil
+}
+
+func backupMasterNode(node *v1.Node) component.Node {
+	return component.Node{ID: node.Name, IPv4: node.Status.Ipv4DefaultIP}
 }
 
 func ParseSchedule(schedule string, now time.Time) string {

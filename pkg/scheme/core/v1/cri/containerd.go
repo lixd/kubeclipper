@@ -284,12 +284,24 @@ func (runnable *ContainerdRunnable) setupContainerdConfig(ctx context.Context, d
 		return err
 	}
 	// First-time install: full template rendering to generate complete config.toml
-	if err := fileutil.WriteFileWithContext(ctx, cf, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644, runnable.renderTo, dryRun); err != nil {
+	if err := fileutil.WriteFileWithContext(ctx, cf, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, runnable.configFileMode(), runnable.renderTo, dryRun); err != nil {
 		return err
+	}
+	if !dryRun && len(runnable.RegistryWithAuth) > 0 {
+		if err := os.Chmod(cf, 0600); err != nil {
+			return err
+		}
 	}
 
 	// render certs.d
 	return runnable.renderRegistryConfig(dryRun)
+}
+
+func (runnable *ContainerdRunnable) configFileMode() os.FileMode {
+	if len(runnable.RegistryWithAuth) > 0 {
+		return 0600
+	}
+	return 0644
 }
 
 // mergeRegistryAuthIntoConfig selectively updates only the registry.configs.auth section
@@ -313,7 +325,7 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 		if os.IsNotExist(err) {
 			// File doesn't exist: fallback to full template rendering
 			logger.Infof("containerd config not found, generating full config")
-			return fileutil.WriteFileWithContext(ctx, configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644, runnable.renderTo, dryRun)
+			return fileutil.WriteFileWithContext(ctx, configPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, runnable.configFileMode(), runnable.renderTo, dryRun)
 		}
 		return fmt.Errorf("failed to load containerd config: %w", err)
 	}
@@ -401,6 +413,11 @@ func (runnable *ContainerdRunnable) mergeRegistryAuthIntoConfig(ctx context.Cont
 	info, err := os.Stat(configPath)
 	if err != nil {
 		return fmt.Errorf("failed to stat containerd config: %w", err)
+	}
+	if len(runnable.RegistryWithAuth) > 0 {
+		if err := os.Chmod(configPath, 0600); err != nil {
+			return fmt.Errorf("protect containerd registry credentials: %w", err)
+		}
 	}
 
 	if err = os.WriteFile(configPath, []byte(data), info.Mode()); err != nil {

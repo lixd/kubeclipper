@@ -426,3 +426,19 @@ func TestUpdateCRIRegistriesSkipsDeletingCluster(t *testing.T) {
 		t.Fatalf("updateCRIRegistries on a deleting cluster: %v", err)
 	}
 }
+
+func TestRegistriesEqualComparesCredentialsByValue(t *testing.T) {
+	a := []v1.RegistrySpec{{Scheme: "https", Host: "registry.example.com", RegistryAuth: &v1.RegistryAuth{Username: "test", Password: "first"}}}
+	b := []v1.RegistrySpec{{Scheme: "https", Host: "registry.example.com", RegistryAuth: &v1.RegistryAuth{Username: "test", Password: "first"}}}
+	if !registriesEqual(a, b) {
+		t.Fatal("identical credentials with separate allocations must not trigger reconfiguration")
+	}
+	b[0].RegistryAuth.Password = "changed"
+	if registriesEqual(a, b) {
+		t.Fatal("changed credentials must trigger reconfiguration")
+	}
+	b[0].RegistryAuth = nil
+	if registriesEqual(a, b) {
+		t.Fatal("removing credentials must trigger reconfiguration")
+	}
+}

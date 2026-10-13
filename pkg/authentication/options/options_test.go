@@ -1,6 +1,7 @@
 package options
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
@@ -25,5 +26,10 @@ func TestValidateReportsInvalidInitialPassword(t *testing.T) {
 	errs := a.Validate()
 	if len(errs) == 0 {
 		t.Fatal("expected a format error for a weak initial password")
+	}
+	for _, err := range errs {
+		if strings.Contains(err.Error(), a.InitialPassword) {
+			t.Fatalf("validation error leaked the rejected password: %q", err)
+		}
 	}
 }

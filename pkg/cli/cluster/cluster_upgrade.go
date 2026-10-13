@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -35,6 +34,7 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
+	corevalidation "github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 )
 
@@ -150,14 +150,7 @@ func (c *ClusterUpgradeOpts) Validates() error {
 	if err != nil {
 		return err
 	}
-	if c.Version == clu.KubernetesVersion {
-		return fmt.Errorf("cluster %s is already at version [%s], a different version is required to upgrade", clu.Name, clu.KubernetesVersion)
-	}
-	if c.Version <= clu.KubernetesVersion {
-		return fmt.Errorf("cannot downgrade: cluster %s is at version [%s], downgrade to [%s] is not supported", clu.Name, clu.KubernetesVersion, c.Version)
-	}
-
-	return c.checkVersionSpan(&clu)
+	return corevalidation.ValidateKubernetesUpgradeVersion(clu.Name, clu.KubernetesVersion, c.Version)
 }
 
 func (c *ClusterUpgradeOpts) checkImageRegistry() error {
@@ -227,25 +220,6 @@ func (c *ClusterUpgradeOpts) checkVersionExist() error {
 	}
 	if !versions.Has(c.Version) {
 		return fmt.Errorf("version [%s] you specify is not avalible", c.Version)
-	}
-	return nil
-}
-
-func (c *ClusterUpgradeOpts) checkVersionSpan(clu *corev1.Cluster) error {
-	currentVersion := strings.Split(clu.KubernetesVersion[1:], ".")
-	targetVersion := strings.Split(c.Version[1:], ".")
-	for index := 0; index < len(targetVersion)-1; index++ {
-		a, err := strconv.Atoi(targetVersion[index])
-		if err != nil {
-			return err
-		}
-		b, err := strconv.Atoi(currentVersion[index])
-		if err != nil {
-			return err
-		}
-		if a-b > 1 {
-			return fmt.Errorf("version [%s] you specify is too high", c.Version)
-		}
 	}
 	return nil
 }

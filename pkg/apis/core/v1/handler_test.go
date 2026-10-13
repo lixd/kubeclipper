@@ -542,3 +542,41 @@ func TestCreateClusterCheckRejectsUnknownTemplateRef(t *testing.T) {
 		t.Fatalf("createClusterCheck() error = %v, want the missing template named", err)
 	}
 }
+
+func TestUpgradeClusterRejectsSameVersionAndDowngradeThroughAPI(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		want   string
+	}{
+		{name: "same version", target: "v1.36.4", want: "already at version"},
+		{name: "downgrade", target: "v1.35.8", want: "cannot downgrade"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			defer ctrl.Finish()
+			operator := mock.NewMockOperator(ctrl)
+			clu := &v1.Cluster{}
+			clu.Name = "cluster"
+			clu.KubernetesVersion = "v1.36.4"
+			operator.EXPECT().GetClusterEx(gomock.Any(), "cluster", "0").Return(clu, nil)
+
+			container := restful.NewContainer()
+			ws := new(restful.WebService)
+			ws.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+			ws.Route(ws.POST("/clusters/{name}/upgrade").To(newHandler(nil, operator, nil, nil, nil, nil, nil).UpgradeCluster))
+			container.Add(ws)
+
+			body := `{"version":"` + tt.target + `"}`
+			request := httptest.NewRequest(http.MethodPost, "/clusters/cluster/upgrade?dryRun=true", strings.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			request.Header.Set("Accept", "application/json")
+			response := httptest.NewRecorder()
+			container.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), tt.want) {
+				t.Fatalf("upgrade API response = HTTP %d %s, want 400 containing %q", response.Code, response.Body.String(), tt.want)
+			}
+		})
+	}
+}
