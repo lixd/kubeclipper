@@ -179,6 +179,18 @@ func TestExtractRegistryBinaryRejectsUnexpectedPath(t *testing.T) {
 	}
 }
 
+func TestExtractRegistryBinaryFromPublishedPackage(t *testing.T) {
+	img := testRegistryImage(t, "/opt/kubeclipper/resource/registry", "registry-binary")
+	dst := filepath.Join(t.TempDir(), "registry")
+	if err := extractRegistryBinary(img, dst); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(dst)
+	if err != nil || string(data) != "registry-binary" {
+		t.Fatalf("extracted binary = %q, error = %v", data, err)
+	}
+}
+
 func testRegistryImage(t *testing.T, binaryPath, content string) containerv1.Image {
 	t.Helper()
 	layerTar := filepath.Join(t.TempDir(), "layer.tar")

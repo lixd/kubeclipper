@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
-	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 	"github.com/kubeclipper/kubeclipper/test/framework"
 
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -106,15 +105,9 @@ func initRegistries() []*corev1.Registry {
 
 func afterEachDeleteRegistries(ctx context.Context, f *framework.Framework) {
 	f.AddAfterEach("delete registries", func(f *framework.Framework, failed bool) {
-		registries, err := f.Client.ListRegistries(ctx, kc.Queries{})
-		framework.ExpectNoError(err)
-
-		ginkgo.By(" delete registries ")
-
-		if len(registries.Items) > 0 {
-			for _, reg := range registries.Items {
-				_ = f.Client.DeleteRegistry(ctx, reg.Name)
-			}
+		ginkgo.By("delete test registries")
+		for _, reg := range initRegistries() {
+			_ = f.Client.DeleteRegistry(ctx, reg.Name)
 		}
 	})
 }

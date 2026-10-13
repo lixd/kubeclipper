@@ -24,6 +24,39 @@ func TestFromConfigWithoutValidationRejectsIncompleteConfig(t *testing.T) {
 	}
 }
 
+func TestFromConfigDoesNotRequestUnrelatedPermissions(t *testing.T) {
+	requests := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.URL.Path != "/api/core.kubeclipper.io/v1/clusters" || r.Header.Get("Authorization") != "Bearer scoped-token" {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"items":[]}`))
+	}))
+	defer server.Close()
+	c := config.Config{
+		CurrentContext: "scoped",
+		Contexts:       map[string]*config.Context{"scoped": {Server: "server", AuthInfo: "user"}},
+		Servers:        map[string]*config.Server{"server": {Server: server.URL}},
+		AuthInfos:      map[string]*config.AuthInfo{"user": {Token: "scoped-token"}},
+	}
+	client, err := FromConfig(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if requests != 0 {
+		t.Fatalf("client initialization made %d requests", requests)
+	}
+	if _, err := client.ListClusters(context.Background(), Queries{}); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 1 {
+		t.Fatalf("cluster request count = %d, want 1", requests)
+	}
+}
+
 func TestPlatformStatusRejectsInvalidResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != platformStatusPath {

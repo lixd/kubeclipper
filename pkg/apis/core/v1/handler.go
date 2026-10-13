@@ -1394,6 +1394,15 @@ func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
 	if len(c.Masters) == 0 {
 		return fmt.Errorf("cluster must have one master node")
 	}
+	requestedNodes := sets.NewString()
+	for _, nodes := range []v1.WorkerNodeList{c.Masters, c.Workers} {
+		for _, node := range nodes {
+			if requestedNodes.Has(node.ID) {
+				return fmt.Errorf("duplicate node %q in master/worker lists", node.ID)
+			}
+			requestedNodes.Insert(node.ID)
+		}
+	}
 
 	// The Docker CRI entry was removed (dockershim has no supported Kubernetes
 	// release and the OCI delivery matrix only ships containerd); reject it here

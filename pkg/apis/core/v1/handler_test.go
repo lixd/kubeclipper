@@ -370,6 +370,26 @@ func checkNodeFixture(name, ip string) v1.Node {
 	return n
 }
 
+func TestCreateClusterCheckRejectsRepeatedNodeRoles(t *testing.T) {
+	for _, role := range []string{"master", "worker", "both"} {
+		t.Run(role, func(t *testing.T) {
+			h, _ := newCheckHandler(t, nil)
+			c := checkClusterFixture([]string{"172.27.0.0/16"}, []string{"10.98.0.0/16"}, "node-a")
+			switch role {
+			case "master":
+				c.Masters = append(c.Masters, v1.WorkerNode{ID: "node-a"})
+			case "worker":
+				c.Workers = v1.WorkerNodeList{{ID: "node-b"}, {ID: "node-b"}}
+			case "both":
+				c.Workers = v1.WorkerNodeList{{ID: "node-a"}}
+			}
+			if err := h.createClusterCheck(context.Background(), c); err == nil || !strings.Contains(err.Error(), "duplicate node") {
+				t.Fatalf("expected duplicate node rejection, got %v", err)
+			}
+		})
+	}
+}
+
 func TestCreateClusterCheckOverlapRejectedBeforeStore(t *testing.T) {
 	h, _ := newCheckHandler(t, nil)
 	// no store expectations: any GetClusterEx/ListNodes call fails the test

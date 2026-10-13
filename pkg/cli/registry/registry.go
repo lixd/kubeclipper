@@ -967,6 +967,7 @@ func allowedRegistryBinaryPaths() []string {
 		"/usr/bin/registry",
 		"/bin/registry",
 		"/root/registry",
+		"/opt/kubeclipper/resource/registry",
 	}
 }
 

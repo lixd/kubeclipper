@@ -28,11 +28,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/config"
-	"github.com/kubeclipper/kubeclipper/pkg/query"
 )
 
 const (
@@ -51,20 +49,8 @@ type Client struct {
 }
 
 func FromConfig(c config.Config) (*Client, error) {
-	cli, err := FromConfigWithoutValidation(c)
-	if err != nil {
-		return nil, err
-	}
-
-	// call api to check whether the token is valid
-	q := query.New()
-	if _, err = cli.ListConfigMaps(context.TODO(), Queries(*q)); err != nil {
-		if strings.Contains(err.Error(), "Unauthorized") {
-			return nil, errors.New("unauthorized,please use kcctl login cmd to login first")
-		}
-		return nil, err
-	}
-	return cli, nil
+	// Authentication and authorization are checked by the requested API.
+	return FromConfigWithoutValidation(c)
 }
 
 // FromConfigWithoutValidation creates a client without making a preliminary API request.

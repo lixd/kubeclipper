@@ -191,6 +191,8 @@ var _ = SIGDescribe("[Serial]", func() {
 
 		afterEachDeleteRegistries(ctx, f)
 
+		before, err := f.Client.ListRegistries(ctx, kc.Queries{})
+		framework.ExpectNoError(err)
 		registries := initRegistries()
 
 		for _, reg := range registries {
@@ -203,7 +205,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		ginkgo.By("Check whether registries is created successfully")
 		created, err := f.Client.ListRegistries(ctx, kc.Queries{})
 		framework.ExpectNoError(err)
-		framework.ExpectEqual(len(created.Items), len(registries), fmt.Sprintf("%d registries have not been created", len(registries)))
+		framework.ExpectEqual(len(created.Items), len(before.Items)+len(registries), fmt.Sprintf("%d registries have not been created", len(registries)))
 
 		for _, reg := range registries {
 			ginkgo.By(fmt.Sprintf("Delete %s registry", reg.Name))
@@ -215,7 +217,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		ginkgo.By("Check whether registries is deleted successfully")
 		deleted, err := f.Client.ListRegistries(ctx, kc.Queries{})
 		framework.ExpectNoError(err)
-		framework.ExpectEqual(len(deleted.Items), 0, fmt.Sprintf("%d registries have not been deleted", len(registries)))
+		framework.ExpectEqual(len(deleted.Items), len(before.Items), fmt.Sprintf("%d registries have not been deleted", len(registries)))
 	})
 
 	ginkgo.It("[Slow] [AIO] [Registry] [Containerd] should add registry after cluster running", func() {
