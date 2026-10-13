@@ -165,6 +165,7 @@ func NewCmdJoin(streams options.IOStreams) *cobra.Command {
 			utils.CheckErr(o.Complete())
 			utils.CheckErr(o.ValidateArgs(cmd))
 			if !o.preCheck() {
+				utils.CheckErr(fmt.Errorf("join precheck failed"))
 				return
 			}
 			utils.CheckErr(o.RunJoinFunc())

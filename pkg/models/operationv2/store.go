@@ -263,6 +263,7 @@ func (s *store) ListOperationsWithOptions(ctx context.Context, options *metav1.L
 			return nil, apierrors.NewBadRequest("resourceVersion does not match continue token")
 		}
 		storageOptions.ResourceVersion = continueToken.ResourceVersion
+		storageOptions.ResourceVersionMatch = metav1.ResourceVersionMatchExact
 	}
 	internal, err := internalListOptions(&storageOptions)
 	if err != nil {

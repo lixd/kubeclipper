@@ -40,10 +40,11 @@ import (
 // documents that the store must only call the interfaces it declares.
 type recordingStorage struct {
 	rest.StandardStorage
-	listCalls int
-	getCalls  int
-	listObj   runtime.Object
-	getObj    runtime.Object
+	listCalls       int
+	lastListOptions *metainternalversion.ListOptions
+	getCalls        int
+	listObj         runtime.Object
+	getObj          runtime.Object
 }
 
 func TestOperationOrderingAndContinueToken(t *testing.T) {
@@ -125,6 +126,9 @@ func TestListOperationsWithOptionsPaginatesNewestFirst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if strongStorage.lastListOptions.ResourceVersion != "42" || strongStorage.lastListOptions.ResourceVersionMatch != metav1.ResourceVersionMatchExact {
+		t.Fatalf("continuation must read the exact first-page snapshot, got RV=%q match=%q", strongStorage.lastListOptions.ResourceVersion, strongStorage.lastListOptions.ResourceVersionMatch)
+	}
 	if len(secondPage.Items) != 1 || secondPage.Items[0].Name != "old" || secondPage.Continue != "" {
 		t.Fatalf("second page = %#v", secondPage)
 	}
@@ -133,8 +137,9 @@ func TestListOperationsWithOptionsPaginatesNewestFirst(t *testing.T) {
 	}
 }
 
-func (r *recordingStorage) List(_ context.Context, _ *metainternalversion.ListOptions) (runtime.Object, error) {
+func (r *recordingStorage) List(_ context.Context, options *metainternalversion.ListOptions) (runtime.Object, error) {
 	r.listCalls++
+	r.lastListOptions = options
 	if r.listObj == nil {
 		panic("recordingStorage requires listObj")
 	}
