@@ -1,0 +1,28 @@
+{
+  "temporaryVMStopped": true,
+  "newPackagesRemoved": [
+    "acl",
+    "dropbear-bin",
+    "ipxe-qemu",
+    "libbrlapi0.8",
+    "libcacard0",
+    "libdaxctl1",
+    "libfdt1",
+    "libndctl6",
+    "libpixman-1-0",
+    "libpmem1",
+    "librdmacm1t64",
+    "libslirp0",
+    "libtomcrypt1",
+    "libtommath1",
+    "liburing2",
+    "libusbredirparser1t64",
+    "qemu-system-common",
+    "qemu-system-data",
+    "qemu-system-x86",
+    "seabios"
+  ],
+  "originalBusyboxAutoMarkRestored": true,
+  "agentActive": "active",
+  "chronySynchronized": true
+}

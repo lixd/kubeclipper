@@ -1,0 +1,113 @@
+{
+  "case": "4-08c",
+  "sourceRevision": "bf0decc5fb7ccb285571108f2fb2873f48185b1c",
+  "serverSHA256": "67f2ec779b6f0059034e31b9e9bbf419ed2326bbfc1188f0debfcd34a5715b62",
+  "tls": "CA and hostname verified",
+  "etcdPrefix": "/registry/r44-mfa",
+  "checks": [
+    {
+      "check": "password login with MFA disabled",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "incorrect password rejected",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "create isolated MFA test user",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "password accepted and MFA challenge required",
+      "actual": 428,
+      "expected": 428,
+      "pass": true
+    },
+    {
+      "check": "request verification code",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "immediate resend rate limited",
+      "actual": 429,
+      "expected": 429,
+      "pass": true
+    },
+    {
+      "check": "incorrect verification code rejected",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "correct verification code issues access token",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "issued access token authenticates real API",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "used challenge/code cannot be replayed",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "fresh challenge for consumed-code check",
+      "actual": 428,
+      "expected": 428,
+      "pass": true
+    },
+    {
+      "check": "consumed code rejected with fresh valid challenge",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "new MFA challenge",
+      "actual": 428,
+      "expected": 428,
+      "pass": true
+    },
+    {
+      "check": "resend succeeds after rate-limit window",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "expired code rejected after 65 seconds",
+      "actual": 401,
+      "expected": 401,
+      "pass": true,
+      "waitSeconds": 65
+    },
+    {
+      "check": "new code request after expiry",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "fresh code logs in after expired-code rejection",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    }
+  ],
+  "codeEquivalentToReleaseRevision": "b4a5886e8e897528fd394a6fc7ef358162d444c3"
+}

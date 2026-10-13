@@ -1,0 +1,10 @@
+{
+  "baselineServices": {
+    "kc-agent": "active",
+    "chrony": "active"
+  },
+  "chronySynchronized": true,
+  "testMountsRemaining": 0,
+  "sharedRegistryHTTP": 200,
+  "temporaryChronydStopped": true
+}

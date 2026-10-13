@@ -1,6 +1,6 @@
 # R42 未闭环 Case 前置条件
 
-本表按 Case ID 对应 `core-feature-checklist.md` 和 `r42-case-ledger.md`。目标是让下一轮拿到依赖后可以直接开跑。上面的分类表保留可复用测试方法，最新未通过列表见文末“当前还未完全通过的13项”。状态为“部分”的 Case 只列尚未覆盖的分支；不要把已通过的子场景重复算成失败。除特别说明外，故障注入只在隔离集群、临时 Registry 或可恢复 VM 上进行，禁止修改共享 Registry `172.16.131.146:5003` 的 tag、凭据或 TLS 配置。
+本表按 Case ID 对应 `core-feature-checklist.md` 和 `r42-case-ledger.md`。目标是让下一轮拿到依赖后可以直接开跑。上面的分类表保留可复用测试方法，最新未通过列表见文末“当前还未完全通过的4项”。状态为“部分”的 Case 只列尚未覆盖的分支；不要把已通过的子场景重复算成失败。除特别说明外，故障注入只在隔离集群、临时 Registry 或可恢复 VM 上进行，禁止修改共享 Registry `172.16.131.146:5003` 的 tag、凭据或 TLS 配置。
 
 每轮开跑前保存当前 PlatformSetting、Registry 配置及节点状态；收尾删除临时集群、账号、证书、备份和 Registry 数据，恢复代理/防火墙/系统服务配置，并确认 3 台 Agent Healthy、无遗留 Kubernetes 服务。
 
@@ -32,7 +32,7 @@
 | 2.1-20 | 为 `first-found` 准备只有目标数据网卡或网卡顺序可控的节点；`interface` 使用实际承载节点流量的接口；`can-reach` 指定可路由目标。每种方式各建隔离多节点集群并做跨节点 Pod ping/TCP。 | Calico 实际选中预期 IPv4，Node IP 与可达路由匹配，Pod 流量成功；多网卡节点若 `first-found` 选错接口须记录为不适用，不得仅凭 Node Ready 判通过。 |
 | 2.1-21 | 提供两个不同端点：Package Registry 与带镜像的 CRI Registry；最好使用隔离、可记录请求的仓库。 | 建群期间包从 Package Registry、镜像从 CRI Registry 拉取；请求日志证明没有混用；清理两端临时数据。 |
 | 2.1-22 | 准备私有 CRI Registry、临时账号、CA 和镜像；以隔离节点下发配置。 | `hosts.toml`/containerd 配置权限正确，CA/认证生效，镜像实际拉取成功；删除凭据及信任文件。 |
-| 2.1-29 | 端口冲突与停止 chrony 后 NTP 服务缺失拒绝已通过。代码复核：CLI 时间预检只检查服务 active，不检测真实时钟偏差；NodePreflight只检查执行文件/路径。磁盘不足与时钟偏差尚无现场验收，应先核对预检实现与 case 约定，不能只归因于缺测试 VM。 | 预检应在创建集群前报告对应磁盘/时间问题且不留下 Cluster/Operation；还原快照、磁盘和时间服务。 |
+| 2.1-29 | R45已通过。用私有mount namespace挂载64MB tmpfs到测试服务视图的/usr/local或自定义etcd目录；用私有UTS namespace注入非法hostname；使用chronyd -x的独立实例和Unix socket验证未同步/大修正量，不改宿主时钟。实际时钟偏差用一次性KVM，guest分别+60/-60秒。 | 正式预检及真实Agent执行器明确失败、健康与恢复场景通过；停临时VM/chronyd、删除测试挂载、恢复原chrony并确认同步；共享磁盘与时钟不注入故障。详见[R45报告](status-2026-10-13-r45.md)。 |
 | 2.2-11 | 准备隔离 Agent 证书及至少两个测试 Node 身份；通过 API 测伪造注册、跨节点状态更新、旧 resourceVersion/UID 和合法自身更新。 | 越权请求 403/409、合法请求成功且不改其他 Node；删除临时身份/证书并恢复 Agent。 |
 | 2.3-03 | 准备隔离升级集群及可控的中途失败点（step 执行故障，不是创建前校验失败）；记录失败前后 Cluster status、Node、kubeadm-config。 | 使用正式 reset/retry 路径恢复到明确状态，节点可用且无半升级；清理失败 Operation 和集群。 |
 | 2.3-05 | 选择可排空的测试 Agent，记录旧 Agent 证书序列号/身份；执行 drain、证书重新签发和 join。 | 新证书序列号/身份发生预期变化，旧 Node 身份更新新 Node 被403拒绝，新 Agent Ready；不声明 X509吊销；恢复节点并删临时证书。 |
@@ -60,7 +60,7 @@
 | 3-18 | 同 1.1-02：当前候选 ReleaseManifest、完整依赖制品、可写的隔离目标 Registry。 | `registry sync` 清单全部到位且 digest 一致；删除目标仓库数据。 |
 | 3-19 | 启动只用于本轮的 OCI Registry，配置空 namespace 和临时账号；使用独立测试 repository 依次 list/deploy/clean/push/delete。 | 每个命令对目标仓库生效，清理后无测试对象；确认共享 Registry 仓库/标签未变化。 |
 | 4-07 | 使用管理员账号登录当前 Console；准备可控的失败 Operation（仅影响隔离集群），并记录 API 状态与任务日志。 | UI 能正确展示成功/失败状态、错误原因和任务步骤；删临时 Operation/集群并退出账号。 |
-| 4-08c | 密码登录/改密/禁用已通过。代码复核：当前仅注册 fake_sms，没有真实短信/TOTP provider；真实验证码验收需要先实现或接入真实 provider，再配置凭据及测试收码端。仅补号码不能解决；fake成功不能证明真实短信登录。 | 正确验证码登录成功、错误/过期验证码拒绝；恢复 MFA 配置并删除临时用户/消息。 |
+| 4-08c | MFA默认关闭；先测密码登录，再为隔离服务配置mfaOptions.enabled=true、fake_sms provider和ttl=60s。建立带测试phone字段的临时用户，从隔离服务journal取码；不需要真实短信服务/手机号收码/代理。 | 正确码登录并访问真实API；错码、复用、过期拒绝；窗口内重发429、实际等待65秒后重发成功。删除测试用户/临时token并恢复配置；隔离存储可删除精确测试前缀。R44已通过，见[R44报告](status-2026-10-13-r44.md)。 |
 | 4-08d | 准备测试账号及可配置短 TTL 的隔离认证设置；登录签发 token，查询、注销，再等待 TTL 过期查询。 | 有效 token 可用，撤销和到期 token 均拒绝，过期记录按契约清理；恢复 TTL 和账号状态。 |
 | 4-11 | 先用 KC 创建集群，再通过另一套隔离 KC 平台按 kubeadm CloudProvider 纳管。将节点 IP 配置为 API 证书 SAN（已有时无需重签），生成以 `https://<节点IP>:6443` 为 server 的独立 kubeconfig；保留 CA 校验，不依赖 `apiserver.cluster.local` DNS。同时准备节点 SSH 权限；无需云厂商账号。 | 纳管、列表、状态同步和解除纳管符合契约；删云端凭据/外部测试资源。 |
 | 4-15 | 导出并保存当前 PlatformSetting；准备隔离镜像仓库模板和 Web 终端测试密钥，避免覆盖共享 Registry。 | 设置读取/更新/恢复准确，终端密钥不明文泄漏；恢复设置快照并轮换临时密钥。 |
@@ -122,19 +122,17 @@
 5. **证书重新签发**：正式 drain→join 核对 NodeID/CN/serial 与新 Agent Ready；旧身份更新新 Node 应403。这里不等于旧 X509 证书被 CA 吊销，若产品要求 CRL/OCSP，需要另行实现与验收。
 6. **真实 OIDC 可自建**：使用官方 Dex 实例、专用客户端/静态测试用户，配置 callback、issuer、scopes、映射；验证错误密码、code replay、平台 token 访问。此次隔离 IdP HTTP，仅用于认证流程；生产 TLS/企业 IdP 另需对应环境。
 7. **故障证据**：Task 事实篡改只操作测试 Operation 的精确 etcd key；payload 与固化计划应 JSON 语义一致，冲突应 InvalidExecutionFacts、取消 Pending 且无副作用。UI 故障用真实退出码/日志验证，预期 Failed Operation 不计为 case 失败。
-8. **时间预检**：可短暂停止隔离节点 chrony 验证 NTP 服务缺失，finally 恢复；磁盘不足与真实时间偏差需一次性 VM，不填共享根盘、不改共享时钟。
+8. **时间预检**：可短暂停止隔离节点 chrony 验证 NTP 服务缺失，finally 恢复；磁盘不足用私有mount namespace内的小文件系统，真实时间偏差用一次性KVM；不填共享根盘、不改共享时钟。R45已完成，详见报告。
 
-### 当前还未完全通过的6项（R43后）
+### 当前还未完全通过的4项（R45后）
 
-当前汇总：通过185、部分4、失败0、阻塞2、范围外3。已关闭条目的新增证据见 [R43 报告](status-2026-10-13-r43.md)。
+当前汇总：通过187、部分2、失败0、阻塞2、范围外3。已关闭条目的新增证据见 [R43 报告](status-2026-10-13-r43.md)、[R44报告](status-2026-10-13-r44.md)和[R45报告](status-2026-10-13-r45.md)。
 
 | Case | 当前状态 | 还缺什么 / 是否可继续跑 |
 |---|---|---|
 | `1.3-09` | 阻塞 | 实际 fork v2.0.3 Release 可下载，CLI --version 下载器固定 upstream kubeclipper/kubeclipper，该 upstream v2.0.3 Release 不存在。需 upstream 正式发布或明确支持可配置 Release 源，不能将本地 --manifest 算在线升级。 |
 | `2.1-19` | 部分 | Calico IPIP BGP 配置缺陷已修复；前轮发送端捕获 protocol4、接收端为0，跨节点 Pod 不通。需 underlay 放行 IP protocol4/TCP179，并提供跨子网可路由拓扑后补数据面。 |
-| `2.1-29` | 部分 | 端口冲突与停止 chrony 后 NTP 服务缺失拒绝已通过。代码复核：CLI 时间预检只检查服务 active，不检测真实时钟偏差；NodePreflight只检查执行文件/路径。磁盘不足与时钟偏差尚无现场验收，应先核对预检实现与 case 约定，不能只归因于缺测试 VM。 |
 | `3-16` | 部分 | 离线 upgrade all --manifest 已完整通过1.3-07；在线 --version 仍受1.3-09 upstream Release 下载源限制。 |
-| `4-08c` | 部分 | 密码登录/改密/禁用已通过。代码复核：当前仅注册 fake_sms，没有真实短信/TOTP provider；真实验证码验收需要先实现或接入真实 provider，再配置凭据及测试收码端。仅补号码不能解决；fake成功不能证明真实短信登录。 |
 | `6-10` | 阻塞 | 已拿到真实 arm64 制品；仍无 linux/arm64 原生节点。需真机/原生 VM 后部署、建群及网络验证。 |
 
 ## 1.1-01 当前允许的 fork GHCR 测试入口

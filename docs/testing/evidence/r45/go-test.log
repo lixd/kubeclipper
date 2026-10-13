@@ -1,0 +1,5 @@
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/preflight	0.372s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/deploy	11.042s
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s	3.023s
+ok  	github.com/kubeclipper/kubeclipper/pkg/clusteroperation	1.013s
+ok  	github.com/kubeclipper/kubeclipper/pkg/agent/operationv2	1.023s

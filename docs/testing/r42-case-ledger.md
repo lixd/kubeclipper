@@ -12,7 +12,7 @@
 
 ## Case 台账
 
-注：rc.34 初测、后续补丁复测和本次续测是不同快照；逐行状态只按对应现场证据更新，不回算初测计数。截至 2026-10-13，本台账 194 行当前汇总为：通过 185、部分 4、失败 0、阻塞 2、范围外 3（含 R43 补测与用户确认的范围调整）。各未闭环 Case 的下次执行前置条件、验收点和清理要求见 [R42 Case 前置条件矩阵](./r42-case-prerequisites.md)，按 Case ID 查找。
+注：rc.34 初测、后续补丁复测和本次续测是不同快照；逐行状态只按对应现场证据更新，不回算初测计数。截至 2026-10-13，本台账 194 行当前汇总为：通过 187、部分 2、失败 0、阻塞 2、范围外 3（含 R45 补测与用户确认的范围调整）。各未闭环 Case 的下次执行前置条件、验收点和清理要求见 [R42 Case 前置条件矩阵](./r42-case-prerequisites.md)，按 Case ID 查找。
 
 | Case | 功能 | R41 历史状态 | R42 本轮状态 | R42 证据 / 阻塞原因 |
 |---|---|---:|---|---|
@@ -73,7 +73,7 @@
 | 2.1-26 | 节点已被其他集群占用或 Master/Worker 重复 | ✅ | 通过 | R42：对已占用节点提交第二集群 dry-run，HTTP 400 reason=some nodes in used or disabled；无新对象。 |
 | 2.1-27 | Master/Worker 跨 Region | ✅ | 通过 | R42：将 dev4 Agent 临时加入 `r42-b`，提交 default master + r42-b worker 的建群请求，API 返回 HTTP 400 `nodes belongs to different region` 且未创建 Cluster/Operation；随后 dev4 已恢复 default。 |
 | 2.1-28 | Pod/Service CIDR 非法、重叠或与主机网络冲突 | ✅ | 通过 | R42：重叠 CIDR 的建群请求在创建前被拒；另测非法 CIDR/版本组合未写入集群对象。 |
-| 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ✅ | 部分 | R42 续测后代码复核：端口冲突与停止 chrony 后 NTP 服务缺失拒绝已通过。代码复核：CLI 时间预检只检查服务 active，不检测真实时钟偏差；NodePreflight只检查执行文件/路径。磁盘不足与时钟偏差尚无现场验收，应先核对预检实现与 case 约定，不能只归因于缺测试 VM。 |
+| 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | ✅ | 通过 | R45（2026-10-13，86a23bec）：修复NTP只查active而未验证同步，补部署/建群磁盘预检与建群首步只读检查。真实64MB文件系统（含自定义etcd目录）拒绝；未同步chronyd、真实约60s修正量、服务缺失均拒绝；非法UTS主机名拒绝；正式TIME-LAG对KVM guest真实+60/-60秒偏差拒绝、恢复后通过。真实Agent CommandStep执行器传播失败；实际kubeadm预检拒绝6443占用。原平台doctor19/0/0、共享Registry正常，测试VM/服务/挂载清理。更正：原代码已有独立TIME-LAG检查，此前漏看。见[R45报告](status-2026-10-13-r45.md)。 |
 | 2.1-30 | 创建中断后的 retry 或安全删除 | ✅ | 通过 | R42：在线建群镜像拉取失败后取消 Operation，集群转为 InstallFailed；正常 kcctl delete cluster 成功清理。 |
 | 2.1-31 | 创建成功后的固定健康验收 | ✅ | 通过 | R42：1M+2W 三节点 Ready、19 个系统 Pod Running，apiserver /readyz check passed。 |
 | 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ➖ | 范围外 | R42：所有节点仅有 IPv4 可路由地址及 IPv6 link-local；缺少可路由 IPv6 underlay，按测试矩阵前置条件标为范围外。 |
@@ -164,7 +164,7 @@
 | 4-07 | **console UI 端到端（含任务失败展示）** | ✅ | 通过 | R42 续测（2026-10-13）：管理员真实登录 Console；真实 Shell 故障 Operation 显示失败、失败步骤与 R42_REQUIRED_INPUT_MISSING 日志，含重试入口；截图/DOM 已保存。该预期负向场景通过。 证据见 r42-next-2026-10-13.json/.log。 |
 | 4-08 | 用户 / 角色 CRUD、enable/disable、改密、登录记录 | ✅ | 通过 | R42：用户登录、禁用/启用、改密和登录记录查询已验证；本轮补用 `kcctl` 创建并删除临时 user/role，列表确认无残留。 |
 | 4-08b | RBAC 鉴权拦截（非管理员越权应 403） | ✅ | 通过 | R42：platform-view 用户 POST Registry 得到 HTTP 403；管理员证书请求可执行对应管理操作。 |
-| 4-08c | 密码登录与验证码登录 | ✅ | 部分 | R42 续测后代码复核：密码登录/改密/禁用已通过。代码复核：当前仅注册 fake_sms，没有真实短信/TOTP provider；真实验证码验收需要先实现或接入真实 provider，再配置凭据及测试收码端。仅补号码不能解决；fake成功不能证明真实短信登录。 |
+| 4-08c | 密码登录与验证码登录 | ✅ | 通过 | R44（2026-10-13）：当前代码真机隔离服务+真实etcd验证普通密码200/错误401、MFA challenge428、fake_sms申请200/立即重发429、错码401/正确码200、token访问API200、challenge复用与已消费码换新challenge均401；实际等待65秒后重发成功，验证码过期401、新码登录成功。fake_sms仅输出日志，不代表真实短信送达；真实短信不是本case前置条件。临时服务、账号和测试存储前缀已清理。见[R44报告](status-2026-10-13-r44.md)。 |
 | 4-08d | 长期 token 创建、查询、撤销与过期 | ✅ | 通过 | R42 2026-10-13 再补测：补测真实 20 秒登录 token：有效期内请求 200，23 秒后同 token 请求 401，access_token 对象删除。测试 refresh token 经 logout 撤销，账户与临时 TTL 配置清理恢复。 |
 | 4-09 | 集群模板 templates | ✅ | 通过 | R42：模板创建 HTTP 201、查询 200；被集群引用时删除 400，解除引用后删除 200。 |
 | 4-10 | DNS domains / records | ✅ | 通过 | R42：domain/record create/get/update/delete 均成功；无效 AAAA 请求返回 400，删除后 GET 404。 |

@@ -1,0 +1,13 @@
+{
+  "isolatedServiceStopped": true,
+  "temporaryUnitRemoved": true,
+  "deletedKeys": 72,
+  "remainingTestPrefixKeys": 0,
+  "baselineServices": {
+    "kc-server": "active",
+    "kc-etcd": "active",
+    "kc-agent": "active"
+  },
+  "sharedRegistryHTTP": 200,
+  "originalServerConfigSHA256": "be7326c76e31a59f9326738a8c8215f54e979f05e7c439cfa46fcbc94042c666"
+}

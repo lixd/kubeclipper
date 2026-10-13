@@ -1,0 +1,16 @@
+{
+  "case": "2.1-29",
+  "check": "actual kubeadm preflight rejects occupied 6443",
+  "exit": 1,
+  "pass": true,
+  "diagnostics": [
+    "W1013 10:20:38.339991 1640977 initconfiguration.go:127] Usage of CRI endpoints without URL scheme is deprecated and can cause kubelet errors in the future. Automatically prepending scheme \"unix\" to the \"criSocket\" with value \"/run/containerd/containerd.sock\". Please update your configuration!",
+    "[preflight] Running pre-flight checks",
+    "[preflight] Some fatal errors occurred:",
+    "\t[ERROR Port-6443]: Port 6443 is in use",
+    "\t[ERROR CRI]: could not connect to the container runtime: failed to create new CRI runtime service: validate service connection: validate CRI v1 runtime API for endpoint \"unix:///run/containerd/containerd.sock\": rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial unix /run/containerd/containerd.sock: connect: no such file or directory\"",
+    "\t[ERROR ContainerRuntimeVersion]: could not connect to the container runtime: failed to create new CRI runtime service: validate service connection: validate CRI v1 runtime API for endpoint \"unix:///run/containerd/containerd.sock\": rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing: dial unix /run/containerd/containerd.sock: connect: no such file or directory\"",
+    "[preflight] If you know what you are doing, you can make a check non-fatal with `--ignore-preflight-errors=...`",
+    "error: error execution phase preflight: preflight checks failed"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "case": "2.1-29",
+  "isolation": "KVM guest CLOCK_REALTIME, not host clock",
+  "checks": [
+    {
+      "check": "healthy real KVM guest clock accepted",
+      "exit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveTimeLagPrecheck\n[2026-10-13T10:17:27Z][INFO] ============>TIME-LAG PRECHECK ...\n[2026-10-13T10:17:27Z][INFO] BaseLine Time: 2026-10-13T10:17:27Z\n[2026-10-13T10:17:27Z][INFO] [127.0.0.1:22745] 0.292796503 seconds\n[2026-10-13T10:17:27Z][INFO] all nodes time lag less then 5 seconds\n[2026-10-13T10:17:27Z][INFO] ============>TIME-LAG PRECHECK OK!\n    deploy_test.go:652: production TIME-LAG precheck: <nil>\n--- PASS: TestLiveTimeLagPrecheck (0.09s)\nPASS\n"
+    },
+    {
+      "check": "set guest clock offset 60",
+      "exit": 0,
+      "pass": true,
+      "output": "Tue Oct 13 10:18:27 UTC 2026\nWarning: Permanently added '[127.0.0.1]:22745' (ED25519) to the list of known hosts.\n"
+    },
+    {
+      "check": "real guest clock offset 60 rejected",
+      "exit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveTimeLagPrecheck\n[2026-10-13T10:17:28Z][INFO] ============>TIME-LAG PRECHECK ...\n[2026-10-13T10:17:28Z][INFO] BaseLine Time: 2026-10-13T10:17:28Z\n[2026-10-13T10:17:28Z][INFO] [127.0.0.1:22745] 58.888359389 seconds\n[2026-10-13T10:17:28Z][WARNING] time lag exceeds 5s threshold:\n[2026-10-13T10:17:28Z][WARNING]   - [127.0.0.1:22745] time lag 58.9s exceeds 5s\n[2026-10-13T10:17:28Z][ERROR] ===========>TIME-LAG PRECHECK FAILED!\n    deploy_test.go:652: production TIME-LAG precheck: TIME-LAG precheck failed: [127.0.0.1:22745] time lag 58.9s exceeds 5s\n--- PASS: TestLiveTimeLagPrecheck (0.10s)\nPASS\n"
+    },
+    {
+      "check": "set guest clock offset -60",
+      "exit": 0,
+      "pass": true,
+      "output": "Tue Oct 13 10:16:28 UTC 2026\nWarning: Permanently added '[127.0.0.1]:22745' (ED25519) to the list of known hosts.\n"
+    },
+    {
+      "check": "real guest clock offset -60 rejected",
+      "exit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveTimeLagPrecheck\n[2026-10-13T10:17:28Z][INFO] ============>TIME-LAG PRECHECK ...\n[2026-10-13T10:17:28Z][INFO] BaseLine Time: 2026-10-13T10:17:28Z\n[2026-10-13T10:17:28Z][INFO] [127.0.0.1:22745] -60.555316231 seconds\n[2026-10-13T10:17:28Z][WARNING] time lag exceeds 5s threshold:\n[2026-10-13T10:17:28Z][WARNING]   - [127.0.0.1:22745] time lag -60.6s exceeds 5s\n[2026-10-13T10:17:28Z][ERROR] ===========>TIME-LAG PRECHECK FAILED!\n    deploy_test.go:652: production TIME-LAG precheck: TIME-LAG precheck failed: [127.0.0.1:22745] time lag -60.6s exceeds 5s\n--- PASS: TestLiveTimeLagPrecheck (0.05s)\nPASS\n"
+    },
+    {
+      "check": "restore guest clock",
+      "exit": 0,
+      "pass": true,
+      "output": "Tue Oct 13 10:17:28 UTC 2026\nWarning: Permanently added '[127.0.0.1]:22745' (ED25519) to the list of known hosts.\n"
+    },
+    {
+      "check": "restored guest clock accepted",
+      "exit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveTimeLagPrecheck\n[2026-10-13T10:17:28Z][INFO] ============>TIME-LAG PRECHECK ...\n[2026-10-13T10:17:28Z][INFO] BaseLine Time: 2026-10-13T10:17:28Z\n[2026-10-13T10:17:29Z][INFO] [127.0.0.1:22745] -0.909320161 seconds\n[2026-10-13T10:17:29Z][INFO] all nodes time lag less then 5 seconds\n[2026-10-13T10:17:29Z][INFO] ============>TIME-LAG PRECHECK OK!\n    deploy_test.go:652: production TIME-LAG precheck: <nil>\n--- PASS: TestLiveTimeLagPrecheck (0.11s)\nPASS\n"
+    },
+    {
+      "check": "host clock remains synchronized",
+      "exit": 0,
+      "pass": true,
+      "output": "try: 1, refid: D21C8204, correction: 0.000947682, skew: 0.024\n"
+    }
+  ]
+}

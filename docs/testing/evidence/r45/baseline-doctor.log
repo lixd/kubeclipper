@@ -1,0 +1,11 @@
+KubeClipper Doctor
+
+Overall: Healthy
+Checked: 2026-10-13T10:23:43Z (1.2s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[OK]  kc-etcd       1/1 members healthy
+[OK]  kc-agent      3/3 agents healthy
+
+Summary: 19 passed, 0 warnings, 0 failed, 0 skipped

@@ -1,0 +1,22 @@
+{
+  "checks": [
+    {
+      "check": "NTP service missing deploy.test",
+      "exit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveNTPPrecheck\n    deploy_test.go:633: production NTP precheck: no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\n--- PASS: TestLiveNTPPrecheck (0.07s)\nPASS\n"
+    },
+    {
+      "check": "NTP service missing k8s.test",
+      "exit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:45: real generated readiness command: err=exit status 10 output=no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\n    readiness_test.go:55: real CommandStep/v1 executor result: run shell command: exit status 10\n--- PASS: TestNodeReadinessStep (0.25s)\nPASS\n2026-10-13T10:21:35Z\t\u001b[31mERROR\u001b[0m\trun command failed(exit status 10): no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\n%!(EXTRA zapcore.Field={cmd 15 0 /bin/bash -c set -e\n\nfor target in '/usr/local' '/tmp' '/var/tmp/r45/etcd custom' '/var/tmp/r45/kubelet' '/var/tmp/r45/runtime'; do\n  case \"$target\" in /*) ;; *) echo \"disk precheck requires an absolute path: $target\" >&2; exit 12 ;; esac\n  path=\"$target\"\n  while [ ! -e \"$path\" ]; do path=$(dirname -- \"$path\"); done\n  available=$(LC_ALL=C df -Pm -- \"$path\" | awk 'NR==2 {print $4}')\n  case \"$available\" in ''|*[!0-9]*) echo \"cannot read free disk space for $target\" >&2; exit 12 ;; esac\n  if [ \"$available\" -lt 256 ]; then\n    echo \"insufficient disk space for $target: ${available}MB available, at least 256MB required\" >&2\n    exit 12\n  fi\ndone\n(\n\nfor service in chrony chronyd ntp ntpd systemd-timesyncd; do\n  if systemctl is-active --quiet \"$service\"; then\n    if case \"$service\" in\n      chrony|chronyd) timeout 3 chronyc waitsync 1 5 0 0.1 ;;\n      *) test \"$(timeout 3 timedatectl show -p NTPSynchronized --value)\" = yes ;;\n    esac; then\n      exit 0\n    else\n      echo \"time synchronization service $service is running but synchronization is not confirmed (maximum correction 5s for chrony)\" >&2\n      exit 11\n    fi\n  fi\ndone\necho \"no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\" >&2\nexit 10\n)\n\nname=$(hostname | tr '[:upper:]' '[:lower:]')\nif [ \"${#name}\" -gt 253 ] || ! printf '%s\\n' \"$name\" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then\n  echo \"invalid Kubernetes node hostname: $name\" >&2\n  exit 13\nfi\n <nil>})\ngithub.com/kubeclipper/kubeclipper/pkg/logger.Errorf\n\t/Users/lixueduan/17x/tmp/kc-oci-inventory-fix/pkg/logger/logger.go:201\ngithub.com/kubeclipper/kubeclipper/pkg/utils/cmdutil.RunCmdWithContext\n\t/Users/lixueduan/17x/tmp/kc-oci-inventory-fix/pkg/utils/cmdutil/cmdutil.go:72\ngithub.com/kubeclipper/kubeclipper/pkg/agent/operationv2.CommandStepExecutor.Reconcile\n\t/Users/lixueduan/17x/tmp/kc-oci-inventory-fix/pkg/agent/operationv2/command_step.go:74\ngithub.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s.TestNodeReadinessStep\n\t/Users/lixueduan/17x/tmp/kc-oci-inventory-fix/pkg/scheme/core/v1/k8s/readiness_test.go:51\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:2036\n"
+    },
+    {
+      "check": "original chrony restored and synchronized",
+      "exit": 0,
+      "pass": true,
+      "output": "try: 1, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 2, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 3, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 4, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 5, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 6, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 7, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 8, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 9, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 10, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 11, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 12, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 13, refid: 00000000, correction: 0.000000000, skew: 0.000\ntry: 14, refid: 6FE6BDAE, correction: 0.004284748, skew: 0.310\n"
+    }
+  ]
+}
