@@ -1,0 +1,816 @@
+
+### sh-dev-2/deploy-tls.log
+[2026-10-13T04:09:33Z][INFO] package registry: 172.16.131.146:5204 (flag)
+[2026-10-13T04:09:33Z][INFO] ============>PACKAGE-REGISTRY PRECHECK ...
+[2026-10-13T04:09:33Z][INFO] ============>PACKAGE-REGISTRY PRECHECK OK!
+[2026-10-13T04:09:33Z][INFO] ============>kc-etcd PRECHECK ...
+[2026-10-13T04:09:34Z][INFO] ============>kc-etcd PRECHECK OK!
+[2026-10-13T04:09:34Z][INFO] ============>kc-server PRECHECK ...
+[2026-10-13T04:09:34Z][INFO] ============>kc-server PRECHECK OK!
+[2026-10-13T04:09:34Z][INFO] ============>kc-agent PRECHECK ...
+[2026-10-13T04:09:34Z][INFO] ============>kc-agent PRECHECK OK!
+[2026-10-13T04:09:34Z][INFO] ============>TIME-LAG PRECHECK ...
+[2026-10-13T04:09:34Z][INFO] BaseLine Time: 2026-10-13T04:09:34Z
+[2026-10-13T04:09:34Z][INFO] [172.16.131.230] -0.629892099 seconds
+[2026-10-13T04:09:34Z][INFO] all nodes time lag less then 5 seconds
+[2026-10-13T04:09:34Z][INFO] ============>TIME-LAG PRECHECK OK!
+[2026-10-13T04:09:34Z][INFO] ============>PORT-TOOL PRECHECK ...
+[2026-10-13T04:09:35Z][INFO] ============>PORT-TOOL PRECHECK OK!
+[2026-10-13T04:09:35Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK ...
+[2026-10-13T04:09:35Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK OK!
+[2026-10-13T04:09:35Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK ...
+[2026-10-13T04:09:35Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK OK!
+[2026-10-13T04:09:35Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK ...
+[2026-10-13T04:09:36Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK OK!
+[2026-10-13T04:09:36Z][INFO] ============>PORT-8080(kc-server) PRECHECK ...
+[2026-10-13T04:09:36Z][INFO] ============>PORT-8080(kc-server) PRECHECK OK!
+[2026-10-13T04:09:36Z][INFO] ============>PORT-80(kc-console) PRECHECK ...
+[2026-10-13T04:09:37Z][INFO] ============>PORT-80(kc-console) PRECHECK OK!
+[2026-10-13T04:09:37Z][INFO] ============>PORT(kc-agent-log) PRECHECK ...
+[2026-10-13T04:09:37Z][INFO] ============>PORT(kc-agent-log) PRECHECK OK!
+[2026-10-13T04:09:37Z][INFO] ============>NTP PRECHECK ...
+[2026-10-13T04:09:37Z][INFO] ============>NTP PRECHECK OK!
+[2026-10-13T04:09:37Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T04:09:37Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T04:09:37Z][INFO] ============>ipDetect PRECHECK ...
+[2026-10-13T04:09:37Z][INFO] ============>ipDetect PRECHECK OK!
+[2026-10-13T04:09:39Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:09:41Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T04:09:42Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:09:44Z][INFO] [172.16.131.230]transfer total size is: 1.22KB ;speed is 1KB
+[2026-10-13T04:09:45Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:09:46Z][INFO] [172.16.131.230]transfer total size is: 1.23KB ;speed is 1KB
+[2026-10-13T04:09:48Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:09:49Z][INFO] [172.16.131.230]transfer total size is: 1.21KB ;speed is 1KB
+[2026-10-13T04:09:50Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:09:52Z][INFO] [172.16.131.230]transfer total size is: 1.22KB ;speed is 1KB
+[2026-10-13T04:09:53Z][INFO] [172.16.131.230]transfer total size is: 1.26KB ;speed is 1KB
+[2026-10-13T04:09:55Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:09:56Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T04:09:58Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T04:09:59Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:10:00Z][INFO] [172.16.131.230]transfer total size is: 1.25KB ;speed is 1KB
+[2026-10-13T04:10:01Z][INFO] ------ Send packages ------
+[2026-10-13T04:10:01Z][INFO] refresh bootstrap assets from OCI registry 172.16.131.146:5204
+[2026-10-13T04:10:24Z][INFO] [172.16.131.230]SendPackage:  /tmp/kubeclipper-server file is exist and ValidateMd5 success
+[2026-10-13T04:10:27Z][INFO] [172.16.131.230]SendPackage:  /tmp/kubeclipper-agent file is exist and ValidateMd5 success
+[2026-10-13T04:10:28Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcd file is exist and ValidateMd5 success
+[2026-10-13T04:10:30Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcdctl file is exist and ValidateMd5 success
+[2026-10-13T04:10:31Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcdutl file is exist and ValidateMd5 success
+[2026-10-13T04:10:33Z][INFO] [172.16.131.230]SendPackage:  /tmp/caddy file is exist and ValidateMd5 success
+[2026-10-13T04:10:35Z][INFO] [172.16.131.230]transfer total size is: 8.35MB ;speed is 8MB
+[2026-10-13T04:10:37Z][INFO] [172.16.131.230]SendPackage:  /tmp/registry file is exist and ValidateMd5 success
+[2026-10-13T04:10:38Z][INFO] [172.16.131.230]transfer total size is: 1.23KB ;speed is 1KB
+[2026-10-13T04:10:39Z][INFO] [172.16.131.230]transfer total size is: 1.23KB ;speed is 1KB
+[2026-10-13T04:10:39Z][INFO] ------ Install kc-etcd ------
+[2026-10-13T04:10:43Z][INFO] ------ Install kc-server ------
+[2026-10-13T04:10:45Z][INFO] function 'waitServiceRunning' running error: Get "https://172.16.131.230:8080/healthz": dial tcp 172.16.131.230:8080: connect: connection refused. about to enter retry
+[2026-10-13T04:10:48Z][INFO] ------ Install kc-agent ------
+[2026-10-13T04:10:50Z][INFO] ------ Install kc-console ------
+[2026-10-13T04:10:52Z][INFO] ------ Delete intermediate files ------
+[2026-10-13T04:10:52Z][INFO] ------ Dump configs ------
+[2026-10-13T04:10:53Z][INFO] ------ Upload configs ------
+[2026-10-13T04:10:53Z][INFO] default image registry "kc-package-registry" (https 172.16.131.146:5204) initialized
+172.16.131.230: run before hook...  
+[1A[J172.16.131.230: run before hook...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  100 % | 5.56 KiB / 5.56 KiB   …
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: done!   
+[1;40;36m
+ _   __      _          _____ _ _
+| | / /     | |        /  __ \ (_)
+| |/ / _   _| |__   ___| /  \/ |_ _ __  _ __   ___ _ __
+|    \| | | | '_ \ / _ \ |   | | | '_ \| '_ \ / _ \ '__|
+| |\  \ |_| | |_) |  __/ \__/\ | | |_) | |_) |  __/ |
+\_| \_/\__,_|_.__/ \___|\____/_|_| .__/| .__/ \___|_|
+                                 | |   | |
+                                 |_|   |_|
+        repository: github.com/kubeclipper[0m
+W1013 04:10:41.737855 1684680 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+
+### sh-dev-2/join-tls.log
+[2026-10-13T04:13:36Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T04:13:36Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T04:13:36Z][INFO] ============>ipDetect PRECHECK ...
+[2026-10-13T04:13:36Z][INFO] ============>ipDetect PRECHECK OK!
+[2026-10-13T04:13:36Z][INFO] refresh bootstrap assets from OCI registry 172.16.131.146:5204
+[2026-10-13T04:13:40Z][INFO] [172.16.131.146]SendPackage:  /tmp/kubeclipper-agent file is exist and ValidateMd5 success
+[2026-10-13T04:13:40Z][INFO] [172.16.131.146]transfer total size is: 1.23KB ;speed is 1KB
+[2026-10-13T04:13:42Z][INFO] [172.16.131.146]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T04:13:43Z][INFO] [172.16.131.146]transfer total size is: 1.26KB ;speed is 1KB
+[2026-10-13T04:13:45Z][INFO] [172.16.131.146]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T04:13:49Z][INFO] agent node join completed. show command: 'kcctl get node'
+
+### sh-dev-2/upgrade-server.log
+[2026-10-13T04:16:47Z][INFO] upgrade plan: target v2.0.3-rc.34 (revision 5ce8f2dc88c1) from manifest /var/tmp/r42-next/manifest.json, registry 172.16.131.146:5204
+[2026-10-13T04:16:47Z][INFO]   node 172.16.131.230 role=server arch=amd64 current=136882c4deda
+[2026-10-13T04:16:53Z][INFO] [172.16.131.230]transfer total size is: 100.00MB ;speed is 100MB
+[2026-10-13T04:16:53Z][INFO] [172.16.131.230]transfer total size is: 107.68MB ;speed is 7MB
+[2026-10-13T04:16:58Z][INFO] upgraded server 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T04:16:58Z][INFO] platform API reports v2.0.3-rc.34 (revision 5ce8f2dc88c1)
+
+### sh-dev-2/upgrade-agent.log
+[2026-10-13T04:17:38Z][INFO] platform API already reports revision 5ce8f2dc88c17143dad15ae6b0560b9e35bd2159; nodes are verified individually
+[2026-10-13T04:17:39Z][INFO] upgrade plan: target v2.0.3-rc.34 (revision 5ce8f2dc88c1) from manifest /var/tmp/r42-next/manifest.json, registry 172.16.131.146:5204
+[2026-10-13T04:17:39Z][INFO]   node 172.16.131.146 role=agent arch=amd64 current=136882c4deda
+[2026-10-13T04:17:39Z][INFO]   node 172.16.131.230 role=agent arch=amd64 current=136882c4deda
+[2026-10-13T04:17:44Z][INFO] [172.16.131.146]transfer total size is: 83.06MB ;speed is 83MB
+[2026-10-13T04:17:46Z][INFO] upgraded agent 172.16.131.146 to v2.0.3-rc.34
+[2026-10-13T04:17:49Z][INFO] [172.16.131.230]transfer total size is: 83.06MB ;speed is 83MB
+[2026-10-13T04:17:51Z][INFO] upgraded agent 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T04:17:51Z][INFO] platform API reports v2.0.3-rc.34 (revision 5ce8f2dc88c1)
+
+### sh-dev-2/upgrade-kcctl.log
+[2026-10-13T04:18:19Z][INFO] platform API already reports revision 5ce8f2dc88c17143dad15ae6b0560b9e35bd2159; nodes are verified individually
+[2026-10-13T04:18:20Z][INFO] upgrade plan: target v2.0.3-rc.34 (revision 5ce8f2dc88c1) from manifest /var/tmp/r42-next/manifest.json, registry 172.16.131.146:5204
+[2026-10-13T04:18:20Z][INFO]   node 172.16.131.230 role=kcctl arch=amd64 current=136882c4deda
+[2026-10-13T04:18:24Z][INFO] [172.16.131.230]transfer total size is: 81.17MB ;speed is 81MB
+[2026-10-13T04:18:26Z][INFO] upgraded kcctl 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T04:18:26Z][INFO] kcctl upgrade complete; platform API revision not verified (component does not replace kubeclipper-server)
+
+### sh-dev-2/upgrade-console.log
+[2026-10-13T04:18:27Z][INFO] console upgrade target: bootstrap/console:v1.6.0-r31.1 from 172.16.131.146:5204
+[2026-10-13T04:18:27Z][INFO] upgrade plan: target v1.6.0-r31.1 (revision 5ce8f2dc88c1) from manifest /var/tmp/r42-next/manifest.json, registry 172.16.131.146:5204
+[2026-10-13T04:18:27Z][INFO]   node 172.16.131.230 role=console arch=amd64 current=unknown
+[2026-10-13T04:18:28Z][WARNING] package bootstrap/console:v1.6.0-r31.1(amd64) was published at platform revision 50f1a4a8d3b0c6bccc2b9b2a97aef2829d8c5549, release manifest pins 5ce8f2dc88c17143dad15ae6b0560b9e35bd2159; the console dist is not built from the platform source tree, the manifest digest binding is the integrity guarantee
+[2026-10-13T04:18:31Z][INFO] [172.16.131.230]transfer total size is: 42.32MB ;speed is 42MB
+[2026-10-13T04:18:32Z][INFO] [172.16.131.230]transfer total size is: 8.35MB ;speed is 8MB
+[2026-10-13T04:18:38Z][INFO] upgraded console 172.16.131.230 to v1.6.0-r31.1
+[2026-10-13T04:18:38Z][INFO] console upgrade complete; platform API revision not verified (component does not replace kubeclipper-server)
+
+### sh-dev-2/upgrade-all-offline.log
+[2026-10-13T05:18:49Z][INFO] upgrade plan: target v2.0.3-rc.34 (revision 5ce8f2dc88c1) from manifest /var/tmp/r42-next/offline-manifest.json, registry 172.16.131.146:5203
+[2026-10-13T05:18:49Z][INFO]   node 172.16.131.230 role=server arch=amd64 current=136882c4deda
+[2026-10-13T05:18:49Z][INFO]   node 172.16.131.146 role=agent arch=amd64 current=136882c4deda
+[2026-10-13T05:18:49Z][INFO]   node 172.16.131.230 role=agent arch=amd64 current=136882c4deda
+[2026-10-13T05:18:49Z][INFO]   node 172.16.131.230 role=console arch=amd64 current=unknown
+[2026-10-13T05:18:49Z][INFO]   node 172.16.131.230 role=kcctl arch=amd64 current=136882c4deda
+[2026-10-13T05:19:03Z][WARNING] package bootstrap/console:v1.6.0-r31.1(amd64) was published at platform revision 50f1a4a8d3b0c6bccc2b9b2a97aef2829d8c5549, release manifest pins 5ce8f2dc88c17143dad15ae6b0560b9e35bd2159; the console dist is not built from the platform source tree, the manifest digest binding is the integrity guarantee
+[2026-10-13T05:19:11Z][INFO] [172.16.131.230]transfer total size is: 100.00MB ;speed is 100MB
+[2026-10-13T05:19:11Z][INFO] [172.16.131.230]transfer total size is: 107.68MB ;speed is 7MB
+[2026-10-13T05:19:16Z][INFO] upgraded server 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T05:19:19Z][INFO] [172.16.131.146]transfer total size is: 83.06MB ;speed is 83MB
+[2026-10-13T05:19:21Z][INFO] upgraded agent 172.16.131.146 to v2.0.3-rc.34
+[2026-10-13T05:19:25Z][INFO] [172.16.131.230]transfer total size is: 83.06MB ;speed is 83MB
+[2026-10-13T05:19:27Z][INFO] upgraded agent 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T05:19:29Z][INFO] [172.16.131.230]transfer total size is: 42.32MB ;speed is 42MB
+[2026-10-13T05:19:31Z][INFO] [172.16.131.230]transfer total size is: 8.35MB ;speed is 8MB
+[2026-10-13T05:19:37Z][INFO] upgraded console 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T05:19:40Z][INFO] [172.16.131.230]transfer total size is: 81.17MB ;speed is 81MB
+[2026-10-13T05:19:42Z][INFO] upgraded kcctl 172.16.131.230 to v2.0.3-rc.34
+[2026-10-13T05:19:42Z][INFO] platform API reports v2.0.3-rc.34 (revision 5ce8f2dc88c1)
+
+### sh-dev-2/doctor-after-all.log
+KubeClipper Doctor
+
+Overall: Healthy
+Checked: 2026-10-13T05:20:18Z (1.3s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[OK]  kc-etcd       1/1 members healthy
+[OK]  kc-agent      2/2 agents healthy
+
+Summary: 17 passed, 0 warnings, 0 failed, 0 skipped
+
+### sh-dev-2/deploy-offline.log
+[2026-10-13T05:20:30Z][INFO] package registry: 172.16.131.146:5203 (flag)
+[2026-10-13T05:20:30Z][INFO] ============>PACKAGE-REGISTRY PRECHECK ...
+[2026-10-13T05:20:30Z][INFO] ============>PACKAGE-REGISTRY PRECHECK OK!
+[2026-10-13T05:20:30Z][INFO] ============>kc-etcd PRECHECK ...
+[2026-10-13T05:20:31Z][INFO] ============>kc-etcd PRECHECK OK!
+[2026-10-13T05:20:31Z][INFO] ============>kc-server PRECHECK ...
+[2026-10-13T05:20:31Z][INFO] ============>kc-server PRECHECK OK!
+[2026-10-13T05:20:31Z][INFO] ============>kc-agent PRECHECK ...
+[2026-10-13T05:20:31Z][INFO] ============>kc-agent PRECHECK OK!
+[2026-10-13T05:20:31Z][INFO] ============>TIME-LAG PRECHECK ...
+[2026-10-13T05:20:31Z][INFO] BaseLine Time: 2026-10-13T05:20:31Z
+[2026-10-13T05:20:31Z][INFO] [172.16.131.230] -0.664989271 seconds
+[2026-10-13T05:20:31Z][INFO] all nodes time lag less then 5 seconds
+[2026-10-13T05:20:31Z][INFO] ============>TIME-LAG PRECHECK OK!
+[2026-10-13T05:20:31Z][INFO] ============>PORT-TOOL PRECHECK ...
+[2026-10-13T05:20:32Z][INFO] ============>PORT-TOOL PRECHECK OK!
+[2026-10-13T05:20:32Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK ...
+[2026-10-13T05:20:32Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK OK!
+[2026-10-13T05:20:32Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK ...
+[2026-10-13T05:20:32Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK OK!
+[2026-10-13T05:20:32Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK ...
+[2026-10-13T05:20:33Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK OK!
+[2026-10-13T05:20:33Z][INFO] ============>PORT-8080(kc-server) PRECHECK ...
+[2026-10-13T05:20:33Z][INFO] ============>PORT-8080(kc-server) PRECHECK OK!
+[2026-10-13T05:20:33Z][INFO] ============>PORT-80(kc-console) PRECHECK ...
+[2026-10-13T05:20:34Z][INFO] ============>PORT-80(kc-console) PRECHECK OK!
+[2026-10-13T05:20:34Z][INFO] ============>PORT(kc-agent-log) PRECHECK ...
+[2026-10-13T05:20:34Z][INFO] ============>PORT(kc-agent-log) PRECHECK OK!
+[2026-10-13T05:20:34Z][INFO] ============>NTP PRECHECK ...
+[2026-10-13T05:20:34Z][INFO] ============>NTP PRECHECK OK!
+[2026-10-13T05:20:34Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T05:20:34Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T05:20:34Z][INFO] ============>ipDetect PRECHECK ...
+[2026-10-13T05:20:34Z][INFO] ============>ipDetect PRECHECK OK!
+[2026-10-13T05:20:36Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:38Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T05:20:39Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:40Z][INFO] [172.16.131.230]transfer total size is: 1.23KB ;speed is 1KB
+[2026-10-13T05:20:42Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:43Z][INFO] [172.16.131.230]transfer total size is: 1.21KB ;speed is 1KB
+[2026-10-13T05:20:45Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:46Z][INFO] [172.16.131.230]transfer total size is: 1.22KB ;speed is 1KB
+[2026-10-13T05:20:48Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:49Z][INFO] [172.16.131.230]transfer total size is: 1.22KB ;speed is 1KB
+[2026-10-13T05:20:50Z][INFO] [172.16.131.230]transfer total size is: 1.26KB ;speed is 1KB
+[2026-10-13T05:20:52Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:53Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T05:20:55Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T05:20:56Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T05:20:57Z][INFO] [172.16.131.230]transfer total size is: 1.25KB ;speed is 1KB
+[2026-10-13T05:20:58Z][INFO] ------ Send packages ------
+[2026-10-13T05:20:58Z][INFO] refresh bootstrap assets from OCI registry 172.16.131.146:5203
+[2026-10-13T05:21:09Z][INFO] [172.16.131.230]SendPackage:  /tmp/kubeclipper-server file is exist and ValidateMd5 success
+[2026-10-13T05:21:11Z][INFO] [172.16.131.230]SendPackage:  /tmp/kubeclipper-agent file is exist and ValidateMd5 success
+[2026-10-13T05:21:13Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcd file is exist and ValidateMd5 success
+[2026-10-13T05:21:14Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcdctl file is exist and ValidateMd5 success
+[2026-10-13T05:21:15Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcdutl file is exist and ValidateMd5 success
+[2026-10-13T05:21:17Z][INFO] [172.16.131.230]SendPackage:  /tmp/caddy file is exist and ValidateMd5 success
+[2026-10-13T05:21:18Z][INFO] [172.16.131.230]SendPackage:  /tmp/kc-console file is exist and ValidateMd5 success
+[2026-10-13T05:21:20Z][INFO] [172.16.131.230]SendPackage:  /tmp/registry file is exist and ValidateMd5 success
+[2026-10-13T05:21:21Z][INFO] [172.16.131.230]transfer total size is: 0.05KB ;speed is 0KB
+[2026-10-13T05:21:22Z][INFO] [172.16.131.230]transfer total size is: 0.05KB ;speed is 0KB
+[2026-10-13T05:21:22Z][INFO] ------ Install kc-etcd ------
+[2026-10-13T05:21:25Z][INFO] ------ Install kc-server ------
+[2026-10-13T05:21:27Z][INFO] function 'waitServiceRunning' running error: Get "https://172.16.131.230:8080/healthz": dial tcp 172.16.131.230:8080: connect: connection refused. about to enter retry
+[2026-10-13T05:21:30Z][INFO] ------ Install kc-agent ------
+[2026-10-13T05:21:33Z][INFO] ------ Install kc-console ------
+[2026-10-13T05:21:35Z][INFO] ------ Delete intermediate files ------
+[2026-10-13T05:21:35Z][INFO] ------ Dump configs ------
+[2026-10-13T05:21:35Z][INFO] ------ Upload configs ------
+[2026-10-13T05:21:35Z][INFO] default image registry "kc-package-registry" (http 172.16.131.146:5203) initialized
+172.16.131.230: run before hook...  
+[1A[J172.16.131.230: run before hook...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  100 % | 5.57 KiB / 5.57 KiB   …
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: done!   
+[1;40;36m
+ _   __      _          _____ _ _
+| | / /     | |        /  __ \ (_)
+| |/ / _   _| |__   ___| /  \/ |_ _ __  _ __   ___ _ __
+|    \| | | | '_ \ / _ \ |   | | | '_ \| '_ \ / _ \ '__|
+| |\  \ |_| | |_) |  __/ \__/\ | | |_) | |_) |  __/ |
+\_| \_/\__,_|_.__/ \___|\____/_|_| .__/| .__/ \___|_|
+                                 | |   | |
+                                 |_|   |_|
+        repository: github.com/kubeclipper[0m
+W1013 05:21:24.505404 1706908 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+
+### sh-dev-2/doctor-offline.log
+KubeClipper Doctor
+
+Overall: Healthy
+Checked: 2026-10-13T05:21:37Z (1.1s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[OK]  kc-etcd       1/1 members healthy
+[OK]  kc-agent      1/1 agents healthy
+
+Summary: 15 passed, 0 warnings, 0 failed, 0 skipped
+
+### sh-dev-2/offline-deploy-probes.log
+public-curl-exit=7
+
+public-curl-exit=7
+
+### sh-dev-2/retry-real.log
+Operation f647248c-3cc6-4266-bc10-52632ec21c0d retry requested
+
+### sh-dev-2/upgrade-real-versions.log
+NAME         STATUS   ROLES           AGE     VERSION
+lixd-dev-4   Ready    control-plane   7m26s   v1.37.0
+172.16.131.146:5003/kube-apiserver:v1.37.0
+### sh-dev-2/ntp-precheck.log
+[2026-10-13T05:38:13Z][INFO] package registry: 172.16.131.146:5203 (flag)
+[2026-10-13T05:38:14Z][INFO] ============>PACKAGE-REGISTRY PRECHECK ...
+[2026-10-13T05:38:14Z][INFO] ============>PACKAGE-REGISTRY PRECHECK OK!
+[2026-10-13T05:38:14Z][INFO] ============>kc-etcd PRECHECK ...
+[2026-10-13T05:38:14Z][INFO] ============>kc-etcd PRECHECK OK!
+[2026-10-13T05:38:14Z][INFO] ============>kc-server PRECHECK ...
+[2026-10-13T05:38:14Z][INFO] ============>kc-server PRECHECK OK!
+[2026-10-13T05:38:14Z][INFO] ============>kc-agent PRECHECK ...
+[2026-10-13T05:38:14Z][INFO] ============>kc-agent PRECHECK OK!
+[2026-10-13T05:38:14Z][INFO] ============>TIME-LAG PRECHECK ...
+[2026-10-13T05:38:14Z][INFO] BaseLine Time: 2026-10-13T05:38:14Z
+[2026-10-13T05:38:15Z][INFO] [172.16.131.146] 0.121417345 seconds
+[2026-10-13T05:38:15Z][INFO] all nodes time lag less then 5 seconds
+[2026-10-13T05:38:15Z][INFO] ============>TIME-LAG PRECHECK OK!
+[2026-10-13T05:38:15Z][INFO] ============>PORT-TOOL PRECHECK ...
+[2026-10-13T05:38:15Z][INFO] ============>PORT-TOOL PRECHECK OK!
+[2026-10-13T05:38:15Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK ...
+[2026-10-13T05:38:15Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK OK!
+[2026-10-13T05:38:15Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK ...
+[2026-10-13T05:38:16Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK OK!
+[2026-10-13T05:38:16Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK ...
+[2026-10-13T05:38:16Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK OK!
+[2026-10-13T05:38:16Z][INFO] ============>PORT-8080(kc-server) PRECHECK ...
+[2026-10-13T05:38:17Z][INFO] ============>PORT-8080(kc-server) PRECHECK OK!
+[2026-10-13T05:38:17Z][INFO] ============>PORT-80(kc-console) PRECHECK ...
+[2026-10-13T05:38:17Z][INFO] ============>PORT-80(kc-console) PRECHECK OK!
+[2026-10-13T05:38:17Z][INFO] ============>PORT(kc-agent-log) PRECHECK ...
+[2026-10-13T05:38:17Z][INFO] ============>PORT(kc-agent-log) PRECHECK OK!
+[2026-10-13T05:38:17Z][INFO] ============>NTP PRECHECK ...
+[2026-10-13T05:38:18Z][WARNING] no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd):
+[2026-10-13T05:38:18Z][WARNING]   - [server+agent@172.16.131.146]
+[2026-10-13T05:38:18Z][ERROR] ===========>NTP PRECHECK FAILED!
+deploy precheck failed:
+  check: NTP
+  node: [server+agent@172.16.131.146]
+  reason: no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)
+
+### sh-dev-2/doctor-cold-start.log
+KubeClipper Doctor
+
+Overall: Healthy
+Checked: 2026-10-13T06:12:27Z (1.2s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[OK]  kc-etcd       1/1 members healthy
+[OK]  kc-agent      1/1 agents healthy
+
+Summary: 15 passed, 0 warnings, 0 failed, 0 skipped
+
+### sh-dev-2/delete-final.log
+cluster r42-next-final deleted
+
+### sh-dev-3/new-cert.identity.txt
+serial=01DA5409D87EB423
+subject=O = system:kc-agents, CN = system:kc-agent:1b965613-1e01-45a2-a254-692afb93631d
+
+### sh-dev-3/old-cert.identity.txt
+serial=75212C4D96631F68
+subject=O = system:kc-agents, CN = system:kc-agent:5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9
+
+### sh-dev-3/verify-real-release.log
+ok: helm-chart ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/charts/tigera-operator:v3.29.6@sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+ok: helm-chart ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/charts/tigera-operator:v3.31.5@sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/console:v1.6.0@sha256:b78362514a8cf2cdd20c4c1022987244555b866a870b9257624b23691371ef0c
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/etcd:3.5.21@sha256:c88f50d0dd8403b5eca140ecdb7b1b7880558b9b4cbfbad745fb75bd91bd39b2
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3@sha256:b0385a79c6fb718cfde6c87b4f912c5a6a3a8425160de2a8e640795c458ad87b
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/registry:3.1.1@sha256:02d5956891db077bb9350fae464886e00f67a854bfce2c883bc641206b06f87e
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/cri/containerd:1.7.29@sha256:b7d8d2827113dbf11f74311b5ff63f6ec25e4328732b9462f442d96057b1fad7
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/cri/containerd:2.2.4@sha256:d4b1bad460ef2145e2c0029e3b4a8d32c3ff695a485963e657b13390a2ddf9e5
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s/k8s:v1.35.8@sha256:da26e84a79d451808a547c019f9890bd15da792b81ef16c730212f00ca095981
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s/k8s:v1.36.4@sha256:3688d9aaf0c2698dad653810e5f30022d709a3463a633680f395d39c011abf48
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s/k8s:v1.37.0@sha256:7bcb9a67a188a582561c8306da5f679f6c3bfcd63ce4eb8536f735d232ca3a52
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s-extension/k8s-extension:v1@sha256:ade87f10e9c1a6df9bfbb1b4a63bbad81dfd88d65d1eae47bef636ca6c0e2ccd
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/frr:v7.5.1@sha256:61a95fe14406594a65043f5905aa684cb46c5950ecb6b407b4dd5346ec177970
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/metallb-controller:v0.13.7@sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/metallb-speaker:v0.13.7@sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/csi-attacher:v3.2.1@sha256:8cd2c0171cd135d20705759429feaa3ee80b6def312fef28a31d958ccb1e96e9
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/csi-node-driver-registrar:v2.5.1@sha256:0e2b44916eb0a240cbe34206721e2079a5251eae5526469652c949aa5a941c1c
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/csi-provisioner:v3.2.0@sha256:c1ad4f78e65cbac02f64f9731b57638eb01c51bed20d03f818669a217745abe5
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/livenessprobe:v2.7.0@sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/nfsplugin:v4.1.0@sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/apiserver:v3.29.6@sha256:419457e6ae62b29ba49b497a9e28aaa9979eec0569a5ca690e7f7b9094deb719
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/cni:v3.29.6@sha256:0eebbab959b584e6a9d9b9864287f0455c454252ac0fd740aeb924fcfd6423fc
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/csi:v3.29.6@sha256:a57375a2220cdcec83d9b22195123a73b96c2ed06909dcfa5a3ed1f9c559a98c
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/kube-controllers:v3.29.6@sha256:3214c8710c411502adefc63018735d556ea5ee4eef5d132096acb5a37781a61c
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node-driver-registrar:v3.29.6@sha256:728e0350dbc78e7ee9c7c7bf22d2e2cec0a5e61da933b122bed001ced4014a99
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node:v3.29.6@sha256:d736f125f0cbf26e564ed35a80afc8c69708b51d2b86a71030a53628d53d336b
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/pod2daemon-flexvol:v3.29.6@sha256:8226b68b920339df7ffaccdc6bf8bd14925abc4dafa15284e884b18f167e01fe
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/typha:v3.29.6@sha256:d960ed68494367492443004c666e66a7b92dbec874e8178e65ce6de5b835f8e5
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/tigera/operator:v1.36.14@sha256:690765ef54cd54e43dcb67fcc3a5e242cff97cb5dce212b3f28d426da1c98870
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/apiserver:v3.31.5@sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/cni:v3.31.5@sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/csi:v3.31.5@sha256:82f5c3d54f8bd3b37bae33ad77ba19898b6e3d8e5d1e223e64226b33209e48e9
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/kube-controllers:v3.31.5@sha256:4a1c3d86e8501edb1429226b4b8939b57d2b297ef990703c5dbea30a0b3bd84d
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node-driver-registrar:v3.31.5@sha256:5fb53bbe228c6ac773befe6ee0d34f0b61ae96356d36aa4e3e9a8c47b1239fa0
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node:v3.31.5@sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/pod2daemon-flexvol:v3.31.5@sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/typha:v3.31.5@sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/tigera/operator:v1.40.8@sha256:bb3104920794aca0b4b89334a6b5f5a3f45191b94ae296ea7e4164175787292f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/coredns:v1.13.1@sha256:246e7333fde10251c693b68f13d21d6d64c7dbad866bbfa11bd49315e3f725a7
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/etcd:3.6.6-0@sha256:5279f56db4f32772bb41e47ca44c553f5c87a08fdf339d74c23a4cdc3c388d6a
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-apiserver:v1.35.8@sha256:1ca06c62c256f8336f6bc5ad9be1bc9e6298dcf4a91de5ecd55a3831d0dc2276
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-controller-manager:v1.35.8@sha256:5705680203ce0bc4f9ea7593d16ee96685bb3b62fe6e3b170c184b088f98bbc7
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-proxy:v1.35.8@sha256:fa9db975627d896cbfa140b6bf64e4966566d09ffe0b8b512b8c4d9a6395d793
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-scheduler:v1.35.8@sha256:fed5f9a7b9e2a799ec24ca9f6438df6991a05e0e4f6274b34ca5375023137970
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/pause:3.10.1@sha256:e5b941ef8f71de54dc3a13398226c269ba217d06650a21bd3afcf9d890cf1f41
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/coredns:v1.14.2@sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/etcd:3.6.8-0@sha256:aa2b41e3f99c9a337b82f687875a63c5119e6d39bc43fc76b6c40a96f55cf391
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-apiserver:v1.36.4@sha256:feb6509b541379d76b37cf6e7a5c1e3767458f7468288525f75574672fee1b18
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-controller-manager:v1.36.4@sha256:ff4b86d6ed3cb2a8ef22c2fea31054bdc16099e583c343aabf3d54d212480c8e
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-proxy:v1.36.4@sha256:70f5e02ebce27a7a3b1bc9b164f64e1982acf46f4ed68348c9a7b94a43d6d014
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-scheduler:v1.36.4@sha256:883d4d505bf015f73cea8bfead8b9d9d1ec3a9f19bcad6c004f929d666102c2a
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/pause:3.10.2@sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/coredns:v1.14.6@sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/etcd:3.7.0-0@sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-apiserver:v1.37.0@sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-controller-manager:v1.37.0@sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-proxy:v1.37.0@sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-scheduler:v1.37.0@sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/fanux/lvscare:v1.1.1@sha256:4c62fc42b6737fa8f14f36eca1a6f224e0de3d2a02ea4cb0528ef16520674613
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/kubectl:latest@sha256:85db688a80a1493d40ba9d13f64bf2c615121112fbe9f44dd43368fa4f837c59
+verified 61 artifact(s); failures: 0
+
+### sh-dev-3/verify-real-release-arm64.log
+ok: helm-chart ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/charts/tigera-operator:v3.29.6@sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+ok: helm-chart ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/charts/tigera-operator:v3.31.5@sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/console:v1.6.0@sha256:b78362514a8cf2cdd20c4c1022987244555b866a870b9257624b23691371ef0c
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/etcd:3.5.21@sha256:c88f50d0dd8403b5eca140ecdb7b1b7880558b9b4cbfbad745fb75bd91bd39b2
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3@sha256:b0385a79c6fb718cfde6c87b4f912c5a6a3a8425160de2a8e640795c458ad87b
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/bootstrap/registry:3.1.1@sha256:02d5956891db077bb9350fae464886e00f67a854bfce2c883bc641206b06f87e
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/cri/containerd:1.7.29@sha256:b7d8d2827113dbf11f74311b5ff63f6ec25e4328732b9462f442d96057b1fad7
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/cri/containerd:2.2.4@sha256:d4b1bad460ef2145e2c0029e3b4a8d32c3ff695a485963e657b13390a2ddf9e5
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s/k8s:v1.35.8@sha256:da26e84a79d451808a547c019f9890bd15da792b81ef16c730212f00ca095981
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s/k8s:v1.36.4@sha256:3688d9aaf0c2698dad653810e5f30022d709a3463a633680f395d39c011abf48
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s/k8s:v1.37.0@sha256:7bcb9a67a188a582561c8306da5f679f6c3bfcd63ce4eb8536f735d232ca3a52
+ok: package-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/packages/k8s-extension/k8s-extension:v1@sha256:ade87f10e9c1a6df9bfbb1b4a63bbad81dfd88d65d1eae47bef636ca6c0e2ccd
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/frr:v7.5.1@sha256:e389e73aa13b0ce99811856a8c0f377ad5f74954fa43455b0ce7f19ac8968eb9
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/metallb-controller:v0.13.7@sha256:03e389e6cd1e93955c1e3eaf5f53f1e052185ca28a33bba74bb9a471f82edc30
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/metallb-speaker:v0.13.7@sha256:0c796827d497c7f4321f9105708ba7d021d84db7b48f95fa8513f5e3eb6f941b
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/csi-attacher:v3.2.1@sha256:b88a8fdec28fc72a0f1b2628f91da014ba5028fd92c0ce7b9d7be4ed5b7acfda
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/csi-node-driver-registrar:v2.5.1@sha256:a8544fd23f870e64d5fa0c3d1f3653659f0695fab57f252ddb0af544106a4685
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/csi-provisioner:v3.2.0@sha256:8a3fd20e4fe0d27b81846638db17926a2de4eb51cbe2667fee63ebd0e9b6143e
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/livenessprobe:v2.7.0@sha256:29674179500af99c8b0d87a692d9971e8d723b1e84205ae44955c8738aaeba78
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/caas4/nfsplugin:v4.1.0@sha256:7f9959b6698c8373ac781c83fa68f4394e2019401b02a921d94f49667c4d2b6f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/apiserver:v3.29.6@sha256:15164a132009e851408147567168fe53de6fc8c136c3e483b4df79c9df5391cf
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/cni:v3.29.6@sha256:4317fb352296bba1540ad71921812da42ccb49bc63499580362e842d0bddb8dd
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/csi:v3.29.6@sha256:f8afdb738d600a1b930b2679b1838bef93ee770f42f464711e80ac2065e1dd08
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/kube-controllers:v3.29.6@sha256:69c3cf0b0acb374651f1eefb4f082954a243f26251703b17db57de0e051a676a
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node-driver-registrar:v3.29.6@sha256:2ce38cc30e66277e7924ea15210e1add589f7889b6ae2e545ff771829ec72977
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node:v3.29.6@sha256:380e1739758024eee897b1d5534c7ef27283380974daf1989c9737fbba497939
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/pod2daemon-flexvol:v3.29.6@sha256:cf97a55a233d4e2a4622dc38579e2dc7fe9dc24484bd34af7d37c74958cd0ac3
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/typha:v3.29.6@sha256:d4de76aaedd7428c0005b16536d9073eca072098dae00c61fcbbcefeb4e62712
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/tigera/operator:v1.36.14@sha256:52dd1fe801b05b107dd47ff08100c069b620df773fa6c40d5d381b87c582cb23
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/apiserver:v3.31.5@sha256:c742490c6acca08275437815e9a9ee4894a745aa7d4460b4b0bf90b3fcd6d18c
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/cni:v3.31.5@sha256:5f9f020d98457f227ef36634bbbd7590df8e92cfd420710f6866091cebbcb281
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/csi:v3.31.5@sha256:7b591634f41efcc8278417aac347f70e928760d7b8e088cbfd77d18d83085c37
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/kube-controllers:v3.31.5@sha256:c2b4187444325b404e5c1b7b6a0ffd310ad6f4b0e1ca33d07877956c2090930b
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node-driver-registrar:v3.31.5@sha256:70d0aeb20264a109c835f2c9107faac4fc177427da2f71ca9d7889f21db113a8
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/node:v3.31.5@sha256:7ad215b3a22661ed7c3f01cd128724e4f2150d77092d86a605c8688ad14163bd
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/pod2daemon-flexvol:v3.31.5@sha256:1774a60858a49317ce961692bd860abecb05aea8fc9c0566578a5b1e6a4e94b8
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/calico/typha:v3.31.5@sha256:df8b376c2cf715a9d1981c8ee95322ce3ee2ddda5ec4ea68d3d158e82af24c09
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/tigera/operator:v1.40.8@sha256:c9afce9472a44510b5d8bb457fa55716a08905df479a2fac8a4b1f3ff40b654f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/coredns:v1.13.1@sha256:cbd225373d1800b8d9aa2cac02d5be4172ad301cf7a1ffb509ddf8ca1fe06d74
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/etcd:3.6.6-0@sha256:aa0d8bc8f6a6c3655b8efe0a10c5bf052f5574ebe13f904c5b0c9002ce4b2561
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-apiserver:v1.35.8@sha256:fbadc48678eb964877fa31978f6bc1acf8f3b63ebcef12413b7b1f3d5ce2ceae
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-controller-manager:v1.35.8@sha256:c75aa14860f595ad52c53269df32e15e460d7c1667dd1a3210f8a2506d32ba7f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-proxy:v1.35.8@sha256:4e8884d1bb05f022771a5f44402830622f0d69724800dbe25764c7f6020ca40f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-scheduler:v1.35.8@sha256:ba18e322aa1552876fde1b94fa1dd99b801d76134ec79a19b54327dab0869936
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/pause:3.10.1@sha256:e9c466420bcaeede00f46ecfa0ca8cd854c549f2f13330e2723173d88f2de70f
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/coredns:v1.14.2@sha256:3c5a66ca0d50fbd3ddb862857ce2a01a9d74dd409aea4b1fde83a9c68c598754
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/etcd:3.6.8-0@sha256:82bf8bc50b9a953f8b477adb63f12637229d8044e85b21501a3c6a4be59afbb8
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-apiserver:v1.36.4@sha256:854e76868e933ef924a7b4ec75f9e79f76950461ef5d0f69f901323d9c60d29d
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-controller-manager:v1.36.4@sha256:4a0c4cf4f0df0dcbd11e9a5f3b2ebb482938063f47dbd55537dad4ced1237f89
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-proxy:v1.36.4@sha256:00013c715a6bae0dbfed7ab68b9b55b11e99bbdbc56ed7a1772ae05b8b775876
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-scheduler:v1.36.4@sha256:8934df437b2ec88fb807d40a31759893442a4020c0c6698e9e4b6833d9bfd24a
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/pause:3.10.2@sha256:a433214620b407678934ebd69690a9ed6066247231eacfba181fab20dbc3dbf1
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/coredns:v1.14.6@sha256:d5cc132a34e034ecfd2d4c73c5bf341e5d8af9a0ba46bd7619d9448beb27e7a2
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/etcd:3.7.0-0@sha256:141de174189a9097c2c75c51cb64b4a4d3d2fcb43e5115b854243611ebd0212c
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-apiserver:v1.37.0@sha256:75f6e9a3a617c74c3974865d0803770d05925cfde413fb473817c791bb5713ac
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-controller-manager:v1.37.0@sha256:601d0b50a3793f2e583adaa770697786360e648acb234274c511b59e60f681d6
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-proxy:v1.37.0@sha256:12095938d8aae34229c2d41c7b9fa584a6c56cf27072d1d96856ecd5e3b2acdf
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kube-scheduler:v1.37.0@sha256:174e5f607a6fb2c9446391143dd133b9d9cddbd3962dea826505d02c5a9d5783
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/nicolaka/netshoot:v0.13@sha256:1445e6a86241f3b1267503388b52f68a17a582c97aae8e80d9aa287939757c97
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/fanux/lvscare:v1.1.1@sha256:1af08788097065e0a83f8039964674f90da3874ff81baa4b80b49989d5f297e1
+ok: runtime-image ghcr.io/lixd/kubeclipper/qualification-474ba45d8fba0e26965642eac5cdd7a5b09686f4/kubeclipper/kubectl:latest@sha256:9f6ecaa1354dc7578e792429c5c3078f5c069a24132de8121af383a152bbf9ec
+verified 61 artifact(s); failures: 0
+
+### sh-dev-3/sync-real-release.log
+copy: 172.16.131.146:5203/r42-release/caas4/csi-attacher:v3.2.1@sha256:8cd2c0171cd135d20705759429feaa3ee80b6def312fef28a31d958ccb1e96e9
+copy: 172.16.131.146:5203/r42-release/caas4/csi-node-driver-registrar:v2.5.1@sha256:0e2b44916eb0a240cbe34206721e2079a5251eae5526469652c949aa5a941c1c
+copy: 172.16.131.146:5203/r42-release/caas4/csi-provisioner:v3.2.0@sha256:c1ad4f78e65cbac02f64f9731b57638eb01c51bed20d03f818669a217745abe5
+copy: 172.16.131.146:5203/r42-release/caas4/frr:v7.5.1@sha256:61a95fe14406594a65043f5905aa684cb46c5950ecb6b407b4dd5346ec177970
+copy: 172.16.131.146:5203/r42-release/caas4/livenessprobe:v2.7.0@sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae
+copy: 172.16.131.146:5203/r42-release/caas4/metallb-controller:v0.13.7@sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb
+copy: 172.16.131.146:5203/r42-release/caas4/metallb-speaker:v0.13.7@sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2
+copy: 172.16.131.146:5203/r42-release/caas4/nfsplugin:v4.1.0@sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81
+copy: 172.16.131.146:5203/r42-release/calico/apiserver:v3.29.6@sha256:419457e6ae62b29ba49b497a9e28aaa9979eec0569a5ca690e7f7b9094deb719
+copy: 172.16.131.146:5203/r42-release/calico/apiserver:v3.31.5@sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7
+copy: 172.16.131.146:5203/r42-release/calico/cni:v3.29.6@sha256:0eebbab959b584e6a9d9b9864287f0455c454252ac0fd740aeb924fcfd6423fc
+copy: 172.16.131.146:5203/r42-release/calico/cni:v3.31.5@sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272
+copy: 172.16.131.146:5203/r42-release/calico/csi:v3.29.6@sha256:a57375a2220cdcec83d9b22195123a73b96c2ed06909dcfa5a3ed1f9c559a98c
+copy: 172.16.131.146:5203/r42-release/calico/csi:v3.31.5@sha256:82f5c3d54f8bd3b37bae33ad77ba19898b6e3d8e5d1e223e64226b33209e48e9
+copy: 172.16.131.146:5203/r42-release/calico/kube-controllers:v3.29.6@sha256:3214c8710c411502adefc63018735d556ea5ee4eef5d132096acb5a37781a61c
+copy: 172.16.131.146:5203/r42-release/calico/kube-controllers:v3.31.5@sha256:4a1c3d86e8501edb1429226b4b8939b57d2b297ef990703c5dbea30a0b3bd84d
+copy: 172.16.131.146:5203/r42-release/calico/node-driver-registrar:v3.29.6@sha256:728e0350dbc78e7ee9c7c7bf22d2e2cec0a5e61da933b122bed001ced4014a99
+copy: 172.16.131.146:5203/r42-release/calico/node-driver-registrar:v3.31.5@sha256:5fb53bbe228c6ac773befe6ee0d34f0b61ae96356d36aa4e3e9a8c47b1239fa0
+copy: 172.16.131.146:5203/r42-release/calico/node:v3.29.6@sha256:d736f125f0cbf26e564ed35a80afc8c69708b51d2b86a71030a53628d53d336b
+copy: 172.16.131.146:5203/r42-release/calico/node:v3.31.5@sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8
+copy: 172.16.131.146:5203/r42-release/calico/pod2daemon-flexvol:v3.29.6@sha256:8226b68b920339df7ffaccdc6bf8bd14925abc4dafa15284e884b18f167e01fe
+copy: 172.16.131.146:5203/r42-release/calico/pod2daemon-flexvol:v3.31.5@sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756
+copy: 172.16.131.146:5203/r42-release/calico/typha:v3.29.6@sha256:d960ed68494367492443004c666e66a7b92dbec874e8178e65ce6de5b835f8e5
+copy: 172.16.131.146:5203/r42-release/calico/typha:v3.31.5@sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99
+copy: 172.16.131.146:5203/r42-release/coredns:v1.13.1@sha256:246e7333fde10251c693b68f13d21d6d64c7dbad866bbfa11bd49315e3f725a7
+copy: 172.16.131.146:5203/r42-release/coredns:v1.14.2@sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc
+copy: 172.16.131.146:5203/r42-release/coredns:v1.14.6@sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff
+copy: 172.16.131.146:5203/r42-release/etcd:3.6.6-0@sha256:5279f56db4f32772bb41e47ca44c553f5c87a08fdf339d74c23a4cdc3c388d6a
+copy: 172.16.131.146:5203/r42-release/etcd:3.6.8-0@sha256:aa2b41e3f99c9a337b82f687875a63c5119e6d39bc43fc76b6c40a96f55cf391
+copy: 172.16.131.146:5203/r42-release/etcd:3.7.0-0@sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98
+copy: 172.16.131.146:5203/r42-release/fanux/lvscare:v1.1.1@sha256:4c62fc42b6737fa8f14f36eca1a6f224e0de3d2a02ea4cb0528ef16520674613
+copy: 172.16.131.146:5203/r42-release/kube-apiserver:v1.35.8@sha256:1ca06c62c256f8336f6bc5ad9be1bc9e6298dcf4a91de5ecd55a3831d0dc2276
+copy: 172.16.131.146:5203/r42-release/kube-apiserver:v1.36.4@sha256:feb6509b541379d76b37cf6e7a5c1e3767458f7468288525f75574672fee1b18
+copy: 172.16.131.146:5203/r42-release/kube-apiserver:v1.37.0@sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da
+copy: 172.16.131.146:5203/r42-release/kube-controller-manager:v1.35.8@sha256:5705680203ce0bc4f9ea7593d16ee96685bb3b62fe6e3b170c184b088f98bbc7
+copy: 172.16.131.146:5203/r42-release/kube-controller-manager:v1.36.4@sha256:ff4b86d6ed3cb2a8ef22c2fea31054bdc16099e583c343aabf3d54d212480c8e
+copy: 172.16.131.146:5203/r42-release/kube-controller-manager:v1.37.0@sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9
+copy: 172.16.131.146:5203/r42-release/kube-proxy:v1.35.8@sha256:fa9db975627d896cbfa140b6bf64e4966566d09ffe0b8b512b8c4d9a6395d793
+copy: 172.16.131.146:5203/r42-release/kube-proxy:v1.36.4@sha256:70f5e02ebce27a7a3b1bc9b164f64e1982acf46f4ed68348c9a7b94a43d6d014
+copy: 172.16.131.146:5203/r42-release/kube-proxy:v1.37.0@sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f
+copy: 172.16.131.146:5203/r42-release/kube-scheduler:v1.35.8@sha256:fed5f9a7b9e2a799ec24ca9f6438df6991a05e0e4f6274b34ca5375023137970
+copy: 172.16.131.146:5203/r42-release/kube-scheduler:v1.36.4@sha256:883d4d505bf015f73cea8bfead8b9d9d1ec3a9f19bcad6c004f929d666102c2a
+copy: 172.16.131.146:5203/r42-release/kube-scheduler:v1.37.0@sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041
+copy: 172.16.131.146:5203/r42-release/kubeclipper/charts/tigera-operator:v3.29.6@sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+copy: 172.16.131.146:5203/r42-release/kubeclipper/charts/tigera-operator:v3.31.5@sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+copy: 172.16.131.146:5203/r42-release/kubeclipper/kubectl:latest@sha256:85db688a80a1493d40ba9d13f64bf2c615121112fbe9f44dd43368fa4f837c59
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/bootstrap/console:v1.6.0@sha256:308ed56e1871a29a6d1136674c8c0b1ac4fff4557eca2d482fc2e1faeddfbbfd
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/bootstrap/etcd:3.5.21@sha256:6229af62e83de3792cb4a6b2a1e7efca3bced24cd902254186ea95a88b2aa24a
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3@sha256:3aa08e2e67c277ac292c302dbadf395d537a00f6e9a7f4e254beee3a758450d7
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/bootstrap/registry:3.1.1@sha256:16851f7ac20baa917f6b4b4eb5accf412e6f5a8c0a81b9c0ddd93821cf27fa42
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/cri/containerd:1.7.29@sha256:3e5b67be12ee91748741ffa0c6ef70b0261011fca0ae99ece69aef934c3de533
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/cri/containerd:2.2.4@sha256:d2e7537fd60f7bf54ede2d399cebfb0633b2186f8c820f4b645be1af12d5f481
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/k8s-extension/k8s-extension:v1@sha256:d0b23660042612d74f1dd4ab403dfc97034f2a4f82e0c81b4d73dcfac1f4ab8a
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/k8s/k8s:v1.35.8@sha256:9c7eae3fc23fd08f3fcb71db1364cbbcd3ec9f57390d8b1eb0fd34f81cad7223
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/k8s/k8s:v1.36.4@sha256:168b1a4c0f29ddf487146552c3558ed4a54193c29f275e3a41e77fa599c64988
+copy: 172.16.131.146:5203/r42-release/kubeclipper/packages/k8s/k8s:v1.37.0@sha256:752a4dc69a0bb872ffc73b4d47d8945dccfdde44579456d7fa30914bf0e6e7dc
+copy: 172.16.131.146:5203/r42-release/nicolaka/netshoot:v0.13@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+copy: 172.16.131.146:5203/r42-release/pause:3.10.1@sha256:e5b941ef8f71de54dc3a13398226c269ba217d06650a21bd3afcf9d890cf1f41
+copy: 172.16.131.146:5203/r42-release/pause:3.10.2@sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17
+copy: 172.16.131.146:5203/r42-release/tigera/operator:v1.36.14@sha256:690765ef54cd54e43dcb67fcc3a5e242cff97cb5dce212b3f28d426da1c98870
+copy: 172.16.131.146:5203/r42-release/tigera/operator:v1.40.8@sha256:bb3104920794aca0b4b89334a6b5f5a3f45191b94ae296ea7e4164175787292f
+sync complete: 61 copied, 0 skipped (already present with matching digest)
+
+### sh-dev-3/export.log
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/kubeclipper@sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a
+Getting image source signatures
+Copying blob sha256:96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba
+Copying config sha256:e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/console@sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94
+Getting image source signatures
+Copying blob sha256:a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94
+Copying config sha256:4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/etcd@sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd
+Getting image source signatures
+Copying blob sha256:6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a
+Copying config sha256:45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/registry@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+exporting self-bootstrap registry archive: 172.16.131.146:5003/kubeclipper/packages/bootstrap/registry@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+wrote /var/tmp/r42-next/bootstrap-bundle.tar.gz with 4 artifact(s) for linux/amd64
+wrote /var/tmp/r42-next/bootstrap-bundle.tar.gz.sha256
+
+### sh-dev-3/import.log
+verifying bundle checksums
+bootstrap/registry-image.tar: OK
+bundle-artifacts.tsv: OK
+layouts/0001/blobs/sha256/4ff45a2ea29f77480f9840c8d08995889521bcdfa74bfaf0e8b67424acf0a9da: OK
+layouts/0001/blobs/sha256/96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba: OK
+layouts/0001/blobs/sha256/e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685: OK
+layouts/0001/index.json: OK
+layouts/0001/oci-layout: OK
+layouts/0002/blobs/sha256/4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473: OK
+layouts/0002/blobs/sha256/a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94: OK
+layouts/0002/blobs/sha256/adce2b3d7d5861511f2da16a16da892706c0f9f2bab61ef9f7be5e205dee26b3: OK
+layouts/0002/index.json: OK
+layouts/0002/oci-layout: OK
+layouts/0003/blobs/sha256/45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a: OK
+layouts/0003/blobs/sha256/6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a: OK
+layouts/0003/blobs/sha256/8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd: OK
+layouts/0003/index.json: OK
+layouts/0003/oci-layout: OK
+layouts/0004/blobs/sha256/5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0: OK
+layouts/0004/blobs/sha256/98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed: OK
+layouts/0004/blobs/sha256/f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3: OK
+layouts/0004/index.json: OK
+layouts/0004/oci-layout: OK
+release-manifest.yaml: OK
+importing package-image: 172.16.131.146:5203/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34
+Getting image source signatures
+Copying blob sha256:96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba
+Copying config sha256:e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5203/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1
+Getting image source signatures
+Copying blob sha256:a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94
+Copying config sha256:4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5203/kubeclipper/packages/bootstrap/etcd:3.5.21
+Getting image source signatures
+Copying blob sha256:6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a
+Copying config sha256:45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5203/kubeclipper/packages/bootstrap/registry:3.1.1
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+imported 4 artifact(s) into 172.16.131.146:5203
+release manifest: /var/tmp/r42-next/imported-manifest.yaml
+
+### controlled etcd cold-start
+Oct 13 06:12:02 lixd-dev-4 kubeclipper-server[3430007]: {"level":"info","ts":"2026-10-13T06:12:02Z","logger":"klog","msg":"[core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\". Reconnecting...\n"}
+Oct 13 06:12:03 lixd-dev-4 kubeclipper-server[3430007]: {"level":"info","ts":"2026-10-13T06:12:03Z","logger":"klog","msg":"[core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\". Reconnecting...\n"}
+Oct 13 06:12:05 lixd-dev-4 kubeclipper-server[3430007]: {"level":"info","ts":"2026-10-13T06:12:05Z","logger":"klog","msg":"[core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\". Reconnecting...\n"}
+Oct 13 06:12:08 lixd-dev-4 kubeclipper-server[3430007]: {"level":"info","ts":"2026-10-13T06:12:08Z","msg":"Server start","addr":"172.16.131.230:8080","version":"v2.0.3-r42-next"}
+
+### sh-dev-2/deploy-ghcr.log
+[2026-10-13T06:14:47Z][INFO] package registry: 172.16.131.146:5203/r42-release (flag)
+[2026-10-13T06:14:48Z][INFO] ============>PACKAGE-REGISTRY PRECHECK ...
+[2026-10-13T06:14:49Z][INFO] ============>PACKAGE-REGISTRY PRECHECK OK!
+[2026-10-13T06:14:49Z][INFO] ============>kc-etcd PRECHECK ...
+[2026-10-13T06:14:49Z][INFO] ============>kc-etcd PRECHECK OK!
+[2026-10-13T06:14:49Z][INFO] ============>kc-server PRECHECK ...
+[2026-10-13T06:14:49Z][INFO] ============>kc-server PRECHECK OK!
+[2026-10-13T06:14:49Z][INFO] ============>kc-agent PRECHECK ...
+[2026-10-13T06:14:49Z][INFO] ============>kc-agent PRECHECK OK!
+[2026-10-13T06:14:49Z][INFO] ============>TIME-LAG PRECHECK ...
+[2026-10-13T06:14:49Z][INFO] BaseLine Time: 2026-10-13T06:14:49Z
+[2026-10-13T06:14:50Z][INFO] [172.16.131.230] 0.119206599 seconds
+[2026-10-13T06:14:50Z][INFO] all nodes time lag less then 5 seconds
+[2026-10-13T06:14:50Z][INFO] ============>TIME-LAG PRECHECK OK!
+[2026-10-13T06:14:50Z][INFO] ============>PORT-TOOL PRECHECK ...
+[2026-10-13T06:14:50Z][INFO] ============>PORT-TOOL PRECHECK OK!
+[2026-10-13T06:14:50Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK ...
+[2026-10-13T06:14:50Z][INFO] ============>PORT-12379(kc-etcd-client) PRECHECK OK!
+[2026-10-13T06:14:50Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK ...
+[2026-10-13T06:14:51Z][INFO] ============>PORT-12380(kc-etcd-peer) PRECHECK OK!
+[2026-10-13T06:14:51Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK ...
+[2026-10-13T06:14:51Z][INFO] ============>PORT-12381(kc-etcd-metrics) PRECHECK OK!
+[2026-10-13T06:14:51Z][INFO] ============>PORT-8080(kc-server) PRECHECK ...
+[2026-10-13T06:14:51Z][INFO] ============>PORT-8080(kc-server) PRECHECK OK!
+[2026-10-13T06:14:51Z][INFO] ============>PORT-80(kc-console) PRECHECK ...
+[2026-10-13T06:14:52Z][INFO] ============>PORT-80(kc-console) PRECHECK OK!
+[2026-10-13T06:14:52Z][INFO] ============>PORT(kc-agent-log) PRECHECK ...
+[2026-10-13T06:14:52Z][INFO] ============>PORT(kc-agent-log) PRECHECK OK!
+[2026-10-13T06:14:52Z][INFO] ============>NTP PRECHECK ...
+[2026-10-13T06:14:52Z][INFO] ============>NTP PRECHECK OK!
+[2026-10-13T06:14:52Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T06:14:52Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T06:14:52Z][INFO] ============>ipDetect PRECHECK ...
+[2026-10-13T06:14:52Z][INFO] ============>ipDetect PRECHECK OK!
+[2026-10-13T06:14:56Z][INFO] [172.16.131.230]transfer total size is: 1.63KB ;speed is 1KB
+[2026-10-13T06:14:57Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T06:14:59Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T06:15:00Z][INFO] [172.16.131.230]transfer total size is: 1.21KB ;speed is 1KB
+[2026-10-13T06:15:02Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T06:15:03Z][INFO] [172.16.131.230]transfer total size is: 1.22KB ;speed is 1KB
+[2026-10-13T06:15:05Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T06:15:06Z][INFO] [172.16.131.230]transfer total size is: 1.22KB ;speed is 1KB
+[2026-10-13T06:15:08Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T06:15:09Z][INFO] [172.16.131.230]transfer total size is: 1.23KB ;speed is 1KB
+[2026-10-13T06:15:10Z][INFO] [172.16.131.230]transfer total size is: 1.26KB ;speed is 1KB
+[2026-10-13T06:15:12Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T06:15:13Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T06:15:15Z][INFO] [172.16.131.230]transfer total size is: 1.09KB ;speed is 1KB
+[2026-10-13T06:15:16Z][INFO] [172.16.131.230]transfer total size is: 1.64KB ;speed is 1KB
+[2026-10-13T06:15:17Z][INFO] [172.16.131.230]transfer total size is: 1.25KB ;speed is 1KB
+[2026-10-13T06:15:17Z][INFO] ------ Send packages ------
+[2026-10-13T06:15:17Z][INFO] refresh bootstrap assets from OCI registry 172.16.131.146:5203/r42-release
+[2026-10-13T06:16:04Z][INFO] [172.16.131.230]transfer total size is: 100.00MB ;speed is 100MB
+[2026-10-13T06:16:04Z][INFO] [172.16.131.230]transfer total size is: 108.56MB ;speed is 8MB
+[2026-10-13T06:16:14Z][INFO] [172.16.131.230]transfer total size is: 83.01MB ;speed is 83MB
+[2026-10-13T06:16:16Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcd file is exist and ValidateMd5 success
+[2026-10-13T06:16:17Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcdctl file is exist and ValidateMd5 success
+[2026-10-13T06:16:18Z][INFO] [172.16.131.230]SendPackage:  /tmp/etcdutl file is exist and ValidateMd5 success
+[2026-10-13T06:16:20Z][INFO] [172.16.131.230]SendPackage:  /tmp/caddy file is exist and ValidateMd5 success
+[2026-10-13T06:16:23Z][INFO] [172.16.131.230]transfer total size is: 22.11MB ;speed is 22MB
+[2026-10-13T06:16:25Z][INFO] [172.16.131.230]SendPackage:  /tmp/registry file is exist and ValidateMd5 success
+[2026-10-13T06:16:26Z][INFO] [172.16.131.230]transfer total size is: 0.06KB ;speed is 0KB
+[2026-10-13T06:16:27Z][INFO] [172.16.131.230]transfer total size is: 0.06KB ;speed is 0KB
+[2026-10-13T06:16:27Z][INFO] ------ Install kc-etcd ------
+W1013 06:16:29.405349 1723162 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+W1013 06:16:30.406635 1723162 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+W1013 06:16:31.723058 1723162 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+W1013 06:16:34.400498 1723162 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+{"level":"warn","ts":"2026-10-13T06:16:34.405Z","logger":"etcd-client","caller":"v3@v3.5.5/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"etcd-endpoints://0xc0008f1500/172.16.131.230:12379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: last connection error: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\""}
+[2026-10-13T06:16:34Z][INFO] function 'waitEtcdReady' running error: endpoint 172.16.131.230:12379 is unhealthy (write probe): context deadline exceeded. about to enter retry
+W1013 06:16:37.683188 1723162 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+{"level":"warn","ts":"2026-10-13T06:16:39.406Z","logger":"etcd-client","caller":"v3@v3.5.5/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"etcd-endpoints://0xc0008f1500/172.16.131.230:12379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: last connection error: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\""}
+[2026-10-13T06:16:39Z][INFO] function 'waitEtcdReady' running error: endpoint 172.16.131.230:12379 is unhealthy (write probe): context deadline exceeded. about to enter retry
+{"level":"warn","ts":"2026-10-13T06:16:44.406Z","logger":"etcd-client","caller":"v3@v3.5.5/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"etcd-endpoints://0xc0008f1500/172.16.131.230:12379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: last connection error: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\""}
+[2026-10-13T06:16:44Z][INFO] function 'waitEtcdReady' running error: endpoint 172.16.131.230:12379 is unhealthy (write probe): context deadline exceeded. about to enter retry
+W1013 06:16:45.084376 1723162 clientconn.go:1326] [core] grpc: addrConn.createTransport failed to connect to {172.16.131.230:12379 172.16.131.230 <nil> 0 <nil>}. Err: connection error: desc = "transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused". Reconnecting...
+{"level":"warn","ts":"2026-10-13T06:16:49.407Z","logger":"etcd-client","caller":"v3@v3.5.5/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"etcd-endpoints://0xc0008f1500/172.16.131.230:12379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: last connection error: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\""}
+[2026-10-13T06:16:49Z][INFO] function 'waitEtcdReady' running error: endpoint 172.16.131.230:12379 is unhealthy (write probe): context deadline exceeded. about to enter retry
+{"level":"warn","ts":"2026-10-13T06:16:54.410Z","logger":"etcd-client","caller":"v3@v3.5.5/retry_interceptor.go:62","msg":"retrying of unary invoker failed","target":"etcd-endpoints://0xc0008f1500/172.16.131.230:12379","attempt":0,"error":"rpc error: code = DeadlineExceeded desc = latest balancer error: last connection error: connection error: desc = \"transport: Error while dialing dial tcp 172.16.131.230:12379: connect: connection refused\""}
+[2026-10-13T06:16:54Z][INFO] function 'waitEtcdReady' running error: endpoint 172.16.131.230:12379 is unhealthy (write probe): context deadline exceeded. about to enter retry
+[2026-10-13T06:16:57Z][INFO] ------ Install kc-server ------
+[2026-10-13T06:17:00Z][INFO] function 'waitServiceRunning' running error: Get "https://172.16.131.230:8080/healthz": dial tcp 172.16.131.230:8080: connect: connection refused. about to enter retry
+[2026-10-13T06:17:03Z][INFO] function 'waitServiceRunning' running error: Get "https://172.16.131.230:8080/healthz": dial tcp 172.16.131.230:8080: connect: connection refused. about to enter retry
+[2026-10-13T06:17:06Z][INFO] ------ Install kc-agent ------
+[2026-10-13T06:17:08Z][INFO] ------ Install kc-console ------
+[2026-10-13T06:17:10Z][INFO] ------ Delete intermediate files ------
+[2026-10-13T06:17:11Z][INFO] ------ Dump configs ------
+[2026-10-13T06:17:11Z][INFO] ------ Upload configs ------
+[2026-10-13T06:17:12Z][INFO] default image registry "kc-package-registry" (http 172.16.131.146:5203/r42-release) initialized
+172.16.131.230: run before hook...  
+[1A[J172.16.131.230: run before hook...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file exist...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b   0.00 b…
+[1A[J172.16.131.230: downloading  100 % | 5.56 KiB / 5.56 KiB   …
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: check file md5...  
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: run after hook...   
+[1A[J172.16.131.230: done!   
+[1;40;36m
+ _   __      _          _____ _ _
+| | / /     | |        /  __ \ (_)
+| |/ / _   _| |__   ___| /  \/ |_ _ __  _ __   ___ _ __
+|    \| | | | '_ \ / _ \ |   | | | '_ \| '_ \ / _ \ '__|
+| |\  \ |_| | |_) |  __/ \__/\ | | |_) | |_) |  __/ |
+\_| \_/\__,_|_.__/ \___|\____/_|_| .__/| .__/ \___|_|
+                                 | |   | |
+                                 |_|   |_|
+        repository: github.com/kubeclipper[0m
+
+### sh-dev-2/doctor-ghcr.log
+KubeClipper Doctor
+
+Overall: Healthy
+Checked: 2026-10-13T06:17:29Z (1.3s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[OK]  kc-etcd       1/1 members healthy
+[OK]  kc-agent      1/1 agents healthy
+
+Summary: 15 passed, 0 warnings, 0 failed, 0 skipped
+
+### sh-dev-3/default-ghcr-probe.log
+time="2026-10-13T06:16:40Z" level=fatal msg="Error parsing image name \"docker://ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3\": reading manifest v2.0.3 in ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/kubeclipper: manifest unknown"
+
+### final restoration/doctor-final.log
+KubeClipper Doctor
+
+Overall: Healthy
+Checked: 2026-10-13T06:25:55Z (1.9s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[OK]  kc-etcd       1/1 members healthy
+[OK]  kc-agent      3/3 agents healthy
+
+Summary: 19 passed, 0 warnings, 0 failed, 0 skipped
+
+### final restoration/clean-final.log
+[2026-10-13T06:17:55Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T06:17:55Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T06:18:04Z][INFO] clean successful
+[1;40;36m
+ _   __      _          _____ _ _
+| | / /     | |        /  __ \ (_)
+| |/ / _   _| |__   ___| /  \/ |_ _ __  _ __   ___ _ __
+|    \| | | | '_ \ / _ \ |   | | | '_ \| '_ \ / _ \ '__|
+| |\  \ |_| | |_) |  __/ \__/\ | | |_) | |_) |  __/ |
+\_| \_/\__,_|_.__/ \___|\____/_|_| .__/| .__/ \___|_|
+                                 | |   | |
+                                 |_|   |_|
+        repository: github.com/kubeclipper[0m

@@ -1,0 +1,96 @@
+{
+  "case": "2.1-03 scope: 3 masters, no worker VIP",
+  "cluster": {
+    "name": "r43-three-master",
+    "phase": "Running",
+    "masters": 3,
+    "workers": 0
+  },
+  "operations": [
+    {
+      "name": "sync-kubeconfig-836b7472-2761-4359-9049-010597c2ae50",
+      "status": {
+        "phase": "Succeeded",
+        "deadline": "2026-10-13T07:03:54Z",
+        "startedAt": "2026-10-13T07:01:54Z",
+        "finishedAt": "2026-10-13T07:01:54Z"
+      }
+    },
+    {
+      "name": "0b0da0f6-5e9e-4840-9176-189846083a96",
+      "status": {
+        "phase": "Succeeded",
+        "deadline": "2026-10-13T08:27:46Z",
+        "startedAt": "2026-10-13T06:57:46Z",
+        "finishedAt": "2026-10-13T07:01:54Z"
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "name": "lixd-dev-2",
+      "version": "v1.37.0",
+      "ready": "True"
+    },
+    {
+      "name": "lixd-dev-3",
+      "version": "v1.37.0",
+      "ready": "True"
+    },
+    {
+      "name": "lixd-dev-4",
+      "version": "v1.37.0",
+      "ready": "True"
+    }
+  ],
+  "etcdMembers": [
+    {
+      "name": "lixd-dev-2",
+      "peerURLs": [
+        "https://172.16.131.208:2380"
+      ]
+    },
+    {
+      "name": "lixd-dev-3",
+      "peerURLs": [
+        "https://172.16.131.146:2380"
+      ]
+    },
+    {
+      "name": "lixd-dev-4",
+      "peerURLs": [
+        "https://172.16.131.230:2380"
+      ]
+    }
+  ],
+  "twoMemberHealth": [
+    {
+      "endpoint": "https://172.16.131.208:2379",
+      "health": true,
+      "took": "16.74311ms"
+    },
+    {
+      "endpoint": "https://172.16.131.146:2379",
+      "health": true,
+      "took": "26.795346ms"
+    }
+  ],
+  "restoredThreeMemberHealth": [
+    {
+      "endpoint": "https://172.16.131.230:2379",
+      "health": true,
+      "took": "20.402162ms"
+    },
+    {
+      "endpoint": "https://172.16.131.208:2379",
+      "health": true,
+      "took": "18.933851ms"
+    },
+    {
+      "endpoint": "https://172.16.131.146:2379",
+      "health": true,
+      "took": "20.507314ms"
+    }
+  ],
+  "majorityWrite": "create/read/delete configmap succeeded"
+}

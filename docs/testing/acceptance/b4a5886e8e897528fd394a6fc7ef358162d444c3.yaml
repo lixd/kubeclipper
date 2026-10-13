@@ -1,0 +1,14 @@
+candidate_sha: b4a5886e8e897528fd394a6fc7ef358162d444c3
+result: passed
+release_manifest_sha256: d567fe021cbd3bb1a69daf1142db62480484d6ca5a14b4985a3259aebd4eb2e3
+round: R43
+notes: 'Fork qualification run 38364805938 succeeded. Clean CI binaries on this revision
+  deployed directly from fork GHCR with system CA verification, imported and detached
+  a real external three-master cluster using IP kubeconfig, and created Kubernetes
+  v1.37.0 from qualified package artifacts in an isolated registry. CreateCluster
+  47051181-74c0-4884-9a98-b211f416b145 and SyncKubeConfig succeeded; 14 system pods
+  were Running with zero restarts. MetalLB and NFS CSI installed and uninstalled,
+  NFS PVC write/read passed, 27 live/init container digests matched the current manifest.
+  Normal cluster deletion and baseline restoration completed, doctor 19/0/0. Native
+  arm64 runtime was not tested. Detailed evidence: docs/testing/status-2026-10-13-r43.md.
+  Publish as fork qualification prerelease; existing stable v2.0.3 tag is retained.'

@@ -1,0 +1,226 @@
+{
+  "candidate": "b4a5886e8e897528fd394a6fc7ef358162d444c3",
+  "pods": 19,
+  "containersVerified": 27,
+  "addonReadyPods": 4,
+  "nfsPVCBound": true,
+  "nfsActualWriteRead": true,
+  "imageRows": [
+    {
+      "namespace": "calico-system",
+      "pod": "calico-apiserver-5799b95647-j4nqr",
+      "container": "calico-apiserver",
+      "image": "172.16.131.146:5207/calico/apiserver:v3.31.5",
+      "digest": "sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-apiserver-5799b95647-prr97",
+      "container": "calico-apiserver",
+      "image": "172.16.131.146:5207/calico/apiserver:v3.31.5",
+      "digest": "sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-kube-controllers-58784f6888-hshm7",
+      "container": "calico-kube-controllers",
+      "image": "172.16.131.146:5207/calico/kube-controllers:v3.31.5",
+      "digest": "sha256:4a1c3d86e8501edb1429226b4b8939b57d2b297ef990703c5dbea30a0b3bd84d",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-node-b6txr",
+      "container": "calico-node",
+      "image": "172.16.131.146:5207/calico/node:v3.31.5",
+      "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-node-b6txr",
+      "container": "flexvol-driver",
+      "image": "172.16.131.146:5207/calico/pod2daemon-flexvol:v3.31.5",
+      "digest": "sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-node-b6txr",
+      "container": "ebpf-bootstrap",
+      "image": "172.16.131.146:5207/calico/node:v3.31.5",
+      "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-node-b6txr",
+      "container": "install-cni",
+      "image": "172.16.131.146:5207/calico/cni:v3.31.5",
+      "digest": "sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "calico-system",
+      "pod": "calico-typha-7f6fb59b9f-f2jzb",
+      "container": "calico-typha",
+      "image": "172.16.131.146:5207/calico/typha:v3.31.5",
+      "digest": "sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "coredns-7458588c59-8x799",
+      "container": "coredns",
+      "image": "172.16.131.146:5207/coredns:v1.14.6",
+      "digest": "sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "coredns-7458588c59-xvv6g",
+      "container": "coredns",
+      "image": "172.16.131.146:5207/coredns:v1.14.6",
+      "digest": "sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-controller-7d67bb4978-htp6q",
+      "container": "csi-provisioner",
+      "image": "172.16.131.146:5207/caas4/csi-provisioner:v3.2.0",
+      "digest": "sha256:c1ad4f78e65cbac02f64f9731b57638eb01c51bed20d03f818669a217745abe5",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-controller-7d67bb4978-htp6q",
+      "container": "liveness-probe",
+      "image": "172.16.131.146:5207/caas4/livenessprobe:v2.7.0",
+      "digest": "sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-controller-7d67bb4978-htp6q",
+      "container": "csi-attacher",
+      "image": "172.16.131.146:5207/caas4/csi-attacher:v3.2.1",
+      "digest": "sha256:8cd2c0171cd135d20705759429feaa3ee80b6def312fef28a31d958ccb1e96e9",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-controller-7d67bb4978-htp6q",
+      "container": "nfs",
+      "image": "172.16.131.146:5207/caas4/nfsplugin:v4.1.0",
+      "digest": "sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-node-crk5r",
+      "container": "liveness-probe",
+      "image": "172.16.131.146:5207/caas4/livenessprobe:v2.7.0",
+      "digest": "sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-node-crk5r",
+      "container": "node-driver-registrar",
+      "image": "172.16.131.146:5207/caas4/csi-node-driver-registrar:v2.5.1",
+      "digest": "sha256:0e2b44916eb0a240cbe34206721e2079a5251eae5526469652c949aa5a941c1c",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "csi-nfs-node-crk5r",
+      "container": "nfs",
+      "image": "172.16.131.146:5207/caas4/nfsplugin:v4.1.0",
+      "digest": "sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "etcd-lixd-dev-4",
+      "container": "etcd",
+      "image": "172.16.131.146:5207/etcd:3.7.0-0",
+      "digest": "sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "kc-kubectl-7465c4c4b8-k57s9",
+      "container": "kc-kubectl",
+      "image": "172.16.131.146:5207/kubeclipper/kubectl",
+      "digest": "sha256:85db688a80a1493d40ba9d13f64bf2c615121112fbe9f44dd43368fa4f837c59",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "kube-apiserver-lixd-dev-4",
+      "container": "kube-apiserver",
+      "image": "172.16.131.146:5207/kube-apiserver:v1.37.0",
+      "digest": "sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "kube-controller-manager-lixd-dev-4",
+      "container": "kube-controller-manager",
+      "image": "172.16.131.146:5207/kube-controller-manager:v1.37.0",
+      "digest": "sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "kube-proxy-sxbp9",
+      "container": "kube-proxy",
+      "image": "172.16.131.146:5207/kube-proxy:v1.37.0",
+      "digest": "sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "kube-system",
+      "pod": "kube-scheduler-lixd-dev-4",
+      "container": "kube-scheduler",
+      "image": "172.16.131.146:5207/kube-scheduler:v1.37.0",
+      "digest": "sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "metallb-system",
+      "pod": "controller-666c57897c-bt4qd",
+      "container": "controller",
+      "image": "172.16.131.146:5207/caas4/metallb-controller:v0.13.7",
+      "digest": "sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "metallb-system",
+      "pod": "speaker-6g9b5",
+      "container": "speaker",
+      "image": "172.16.131.146:5207/caas4/metallb-speaker:v0.13.7",
+      "digest": "sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "r43-validation",
+      "pod": "nfs-write",
+      "container": "proof",
+      "image": "172.16.131.146:5207/nicolaka/netshoot:v0.13",
+      "digest": "sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8",
+      "qualifiedDigestMatches": true
+    },
+    {
+      "namespace": "tigera-operator",
+      "pod": "tigera-operator-59cd7f575b-8cp2g",
+      "container": "tigera-operator",
+      "image": "172.16.131.146:5207/tigera/operator:v1.40.8",
+      "digest": "sha256:bb3104920794aca0b4b89334a6b5f5a3f45191b94ae296ea7e4164175787292f",
+      "qualifiedDigestMatches": true
+    }
+  ]
+}

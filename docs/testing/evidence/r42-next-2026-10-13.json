@@ -1,0 +1,2918 @@
+{
+  "round": "R42 next remaining cases, 2026-10-13",
+  "workspaceRevision": "3e339e409ab373b6d38f2f96288bda2f61485643",
+  "testBuild": "v2.0.3-r42-next dirty fixes, not published",
+  "publishedReleaseRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+  "records": {
+    "sh-dev-2/tls-evidence.json": {
+      "cluster": {
+        "kind": "Cluster",
+        "apiVersion": "core.kubeclipper.io/v1",
+        "metadata": {
+          "name": "r42-next-tls",
+          "uid": "21f38447-4abd-4ea0-ab88-6301e0e85519",
+          "resourceVersion": "443",
+          "creationTimestamp": "2026-10-13T04:14:08Z",
+          "labels": {
+            "topology.kubeclipper.io/region": "default"
+          },
+          "annotations": {
+            "kubeclipper.io/offline": "true"
+          },
+          "finalizers": [
+            "finalizer.cluster.kubeclipper.io"
+          ]
+        },
+        "imageRegistry": "r42-runtime",
+        "masters": [
+          {
+            "id": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+            "taints": [
+              {
+                "key": "node-role.kubernetes.io/control-plane",
+                "effect": "NoSchedule"
+              }
+            ],
+            "containerRuntime": {
+              "type": ""
+            }
+          }
+        ],
+        "workers": [
+          {
+            "id": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+            "containerRuntime": {
+              "type": ""
+            }
+          }
+        ],
+        "kubernetesVersion": "v1.36.4",
+        "kubeProxy": {},
+        "etcd": {
+          "dataDir": "/var/lib/etcd"
+        },
+        "kubelet": {
+          "rootDir": "/var/lib/kubelet",
+          "nodeIP": "",
+          "ipAsName": false,
+          "resolvConf": ""
+        },
+        "networking": {
+          "ipFamily": "IPv4",
+          "services": {
+            "cidrBlocks": [
+              "10.96.0.0/12"
+            ]
+          },
+          "pods": {
+            "cidrBlocks": [
+              "172.29.0.0/16"
+            ]
+          },
+          "dnsDomain": "cluster.local",
+          "proxyMode": "ipvs",
+          "workerNodeVip": "169.254.169.100"
+        },
+        "containerRuntime": {
+          "type": "containerd",
+          "version": "2.2.4",
+          "registries": [
+            {
+              "registryRef": "r42-runtime"
+            }
+          ]
+        },
+        "cni": {
+          "type": "calico",
+          "version": "v3.31.5",
+          "criType": "containerd",
+          "offline": true,
+          "namespace": "calico-system",
+          "calico": {
+            "IPv4AutoDetection": "interface=ens3",
+            "IPv6AutoDetection": "first-found",
+            "mode": "Overlay-Vxlan-All",
+            "IPManger": true,
+            "mtu": 1440
+          }
+        },
+        "addons": null,
+        "status": {
+          "phase": "Running",
+          "versions": {
+            "controlPlane": "",
+            "apiserver": "",
+            "controllerManager": "",
+            "scheduler": ""
+          },
+          "registries": [
+            {
+              "scheme": "http",
+              "host": "172.16.131.146:5003"
+            }
+          ],
+          "packagePlan": {
+            "kubernetesVersion": "v1.36.4",
+            "os": "linux",
+            "arch": "amd64",
+            "components": [
+              {
+                "slot": "k8s",
+                "kind": "k8s",
+                "name": "k8s",
+                "version": "v1.36.4",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5204/kubeclipper/packages/k8s/k8s:v1.36.4",
+                  "digest": "sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:85a093ed0ee8e3f7b493054beaca0d5f00b36eaefda507b4696891e9d5eeee38",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "cri",
+                "kind": "cri",
+                "name": "containerd",
+                "version": "2.2.4",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5204/kubeclipper/packages/cri/containerd:2.2.4",
+                  "digest": "sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:011e1ad7ffaf918c6757d58a97d35f8eba6d7ab62aee01f091617561b4b686c2",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "cni",
+                "kind": "cni",
+                "name": "calico",
+                "version": "v3.31.5",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5204/kubeclipper/charts/tigera-operator:v3.31.5",
+                  "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                },
+                "contents": [
+                  {
+                    "name": "charts",
+                    "file": "charts.tgz",
+                    "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                    "transport": {
+                      "type": "helm-oci",
+                      "ref": "172.16.131.146:5204/kubeclipper/charts/tigera-operator",
+                      "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "k8s-extension",
+                "kind": "k8s-extension",
+                "name": "k8s-extension",
+                "version": "v1",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5204/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                  "digest": "sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:16151c35ca1fe60cd5f847e01a47d0be6c836339ed2742338dcb1d84ad71e6a4",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "operations": {
+        "metadata": {
+          "resourceVersion": "460"
+        },
+        "items": [
+          {
+            "kind": "Operation",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "sync-kubeconfig-21f38447-4abd-4ea0-ab88-6301e0e85519",
+              "uid": "47fef041-d104-4791-adfc-03f45ff61615",
+              "resourceVersion": "441",
+              "creationTimestamp": "2026-10-13T04:16:18Z",
+              "labels": {
+                "kubeclipper.io/cluster": "r42-next-tls",
+                "kubeclipper.io/operation": "SyncKubeConfig",
+                "kubeclipper.io/timeout": "120"
+              }
+            },
+            "spec": {
+              "targetRef": {
+                "kind": "Cluster",
+                "name": "r42-next-tls",
+                "uid": "21f38447-4abd-4ea0-ab88-6301e0e85519"
+              },
+              "action": "SyncKubeConfig",
+              "desiredState": "Active",
+              "timeout": "2m0s",
+              "steps": [
+                {
+                  "id": "capture-cluster-access",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "retryLimit": 1
+                }
+              ]
+            },
+            "status": {
+              "phase": "Succeeded",
+              "deadline": "2026-10-13T04:18:18Z",
+              "startedAt": "2026-10-13T04:16:18Z",
+              "finishedAt": "2026-10-13T04:16:18Z"
+            }
+          },
+          {
+            "kind": "Operation",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+              "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1",
+              "resourceVersion": "430",
+              "creationTimestamp": "2026-10-13T04:14:08Z",
+              "labels": {
+                "kubeclipper.io/cluster": "r42-next-tls",
+                "kubeclipper.io/operation": "CreateCluster",
+                "kubeclipper.io/operation-sponsor": "https-172.16.131.230-8080",
+                "kubeclipper.io/timeout": "5400",
+                "topology.kubeclipper.io/region": "default"
+              }
+            },
+            "spec": {
+              "targetRef": {
+                "kind": "Cluster",
+                "name": "r42-next-tls",
+                "uid": "21f38447-4abd-4ea0-ab88-6301e0e85519"
+              },
+              "action": "CreateCluster",
+              "desiredState": "Active",
+              "timeout": "1h30m0s",
+              "steps": [
+                {
+                  "id": "1546c15b-f6db-40bf-849a-c8dfebaecf67",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    },
+                    {
+                      "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                      "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "ip": "172.16.131.230"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "retryLimit": 1
+                },
+                {
+                  "id": "01e7eeb8-c4e5-4805-b3ad-1a83fae289f3",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    },
+                    {
+                      "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                      "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "ip": "172.16.131.230"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "1546c15b-f6db-40bf-849a-c8dfebaecf67",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "0c83023b-3b97-47f5-a333-4fb73215b3aa",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    },
+                    {
+                      "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                      "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "ip": "172.16.131.230"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "01e7eeb8-c4e5-4805-b3ad-1a83fae289f3",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1,
+                  "errIgnore": true
+                },
+                {
+                  "id": "b1c1a027-52c1-4f7c-916a-70a62b3e90c3",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    },
+                    {
+                      "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                      "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "ip": "172.16.131.230"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "0c83023b-3b97-47f5-a333-4fb73215b3aa",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "285ec9c2-4510-419a-9046-a84498ad589d",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "b1c1a027-52c1-4f7c-916a-70a62b3e90c3",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "440f268d-eaae-4fcd-9ec6-cbc066c01a49",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "285ec9c2-4510-419a-9046-a84498ad589d",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "36cecc12-8e4a-45a0-8470-c7bb7b079a85",
+                  "targets": [
+                    {
+                      "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                      "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "ip": "172.16.131.230"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "440f268d-eaae-4fcd-9ec6-cbc066c01a49",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "cd66abf3-9403-43ba-b59e-e15a995537e3",
+                  "targets": [
+                    {
+                      "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                      "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "ip": "172.16.131.230"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "36cecc12-8e4a-45a0-8470-c7bb7b079a85",
+                      "fromNodeUID": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "59eeb74b-b1b4-48fc-8dbd-b2daea10c1b3",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "cd66abf3-9403-43ba-b59e-e15a995537e3",
+                      "fromNodeUID": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "1a9a6456-85f4-4ee5-b25b-431130df194e",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "59eeb74b-b1b4-48fc-8dbd-b2daea10c1b3",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "828131c8-c1ba-4f2b-8aa6-7d0e712273df",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "1a9a6456-85f4-4ee5-b25b-431130df194e",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "aed83924-01bb-4981-b297-827157ed6cd0",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "828131c8-c1ba-4f2b-8aa6-7d0e712273df",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1,
+                  "errIgnore": true
+                },
+                {
+                  "id": "bfc1074f-3e66-4ff7-822c-46389971dcf3",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "aed83924-01bb-4981-b297-827157ed6cd0",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ]
+                },
+                {
+                  "id": "b6636d9a-074f-4c44-ac57-c1a3ba13a865",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "bfc1074f-3e66-4ff7-822c-46389971dcf3",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1
+                },
+                {
+                  "id": "de0bf093-2488-4009-89b3-80ead1a5c010",
+                  "targets": [
+                    {
+                      "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                      "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "ip": "172.16.131.146"
+                    }
+                  ],
+                  "executor": "CommandStep/v1",
+                  "inputs": [
+                    {
+                      "field": "lastTaskReply",
+                      "fromStepID": "b6636d9a-074f-4c44-ac57-c1a3ba13a865",
+                      "fromNodeUID": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                      "outputKey": "response"
+                    }
+                  ],
+                  "retryLimit": 1,
+                  "errIgnore": true
+                }
+              ]
+            },
+            "status": {
+              "phase": "Succeeded",
+              "deadline": "2026-10-13T05:44:08Z",
+              "startedAt": "2026-10-13T04:14:08Z",
+              "finishedAt": "2026-10-13T04:16:17Z"
+            }
+          }
+        ]
+      },
+      "tasks": {
+        "metadata": {
+          "resourceVersion": "460"
+        },
+        "items": [
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-0325707c3cfbb9b9b19225194aef2411",
+              "uid": "8588435d-7b6c-4ea7-82d6-313aa146fe9f",
+              "resourceVersion": "347",
+              "creationTimestamp": "2026-10-13T04:15:12Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "cd66abf3-9403-43ba-b59e-e15a995537e3",
+              "nodeRef": {
+                "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                "ip": "172.16.131.230"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:15:12Z",
+              "finishedAt": "2026-10-13T04:15:19Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-0bced0dabc20592ab48318335917a2e9",
+              "uid": "4d5d5b3c-de5e-4a33-804a-e4d32988962f",
+              "resourceVersion": "415",
+              "creationTimestamp": "2026-10-13T04:15:24Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "bfc1074f-3e66-4ff7-822c-46389971dcf3",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:15:24Z",
+              "finishedAt": "2026-10-13T04:16:15Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-0c96025d46fda18c50d582b8dd81b8a2",
+              "uid": "6714e5f6-5e7f-403d-bf19-f11f5dddf141",
+              "resourceVersion": "427",
+              "creationTimestamp": "2026-10-13T04:16:16Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "de0bf093-2488-4009-89b3-80ead1a5c010",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:16:16Z",
+              "finishedAt": "2026-10-13T04:16:17Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-18c1b15745552423967cd6226e99f75c",
+              "uid": "f599471c-a028-4fde-b46e-d1975316b7e4",
+              "resourceVersion": "332",
+              "creationTimestamp": "2026-10-13T04:14:29Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "440f268d-eaae-4fcd-9ec6-cbc066c01a49",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": "kubeadm join apiserver.cluster.local:6443 --token 46b8vm.mun5kmabuk5hlnj6 --discovery-token-ca-cert-hash sha256:a05b99502dc5896c463a9d01212da4bf5c1b9773d0d8a26630fd0df416cc143d --control-plane --certificate-key 7aa42f16ac97cb277b8c7e2cbdfea10a3c736ac11a38caa6dcdb1b778876277d,kubeadm join apiserver.cluster.local:6443 --token 46b8vm.mun5kmabuk5hlnj6 --discovery-token-ca-cert-hash sha256:a05b99502dc5896c463a9d01212da4bf5c1b9773d0d8a26630fd0df416cc143d"
+                }
+              },
+              "startedAt": "2026-10-13T04:14:29Z",
+              "finishedAt": "2026-10-13T04:15:12Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-1a879f11e2d21671d3eebf69ac47fa22",
+              "uid": "5b4de50a-a9b0-4e53-af44-0618f7b775fa",
+              "resourceVersion": "422",
+              "creationTimestamp": "2026-10-13T04:16:15Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "b6636d9a-074f-4c44-ac57-c1a3ba13a865",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:16:15Z",
+              "finishedAt": "2026-10-13T04:16:16Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-5aa5d8092b5a0c07a3f083f288f314d7",
+              "uid": "9f1a1127-7b42-4d5e-aeee-ebf934db6294",
+              "resourceVersion": "256",
+              "creationTimestamp": "2026-10-13T04:14:13Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "01e7eeb8-c4e5-4805-b3ad-1a83fae289f3",
+              "nodeRef": {
+                "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                "ip": "172.16.131.230"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:13Z",
+              "finishedAt": "2026-10-13T04:14:14Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-67363e8d1d6da4820f622a77bcf12511",
+              "uid": "3f93e27f-4589-4779-9d57-51d4d74fc48f",
+              "resourceVersion": "272",
+              "creationTimestamp": "2026-10-13T04:14:14Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "0c83023b-3b97-47f5-a333-4fb73215b3aa",
+              "nodeRef": {
+                "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                "ip": "172.16.131.230"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:14Z",
+              "finishedAt": "2026-10-13T04:14:23Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-6f424f40b49f321e671eee7f6dca0c7a",
+              "uid": "79e963c9-c75b-4b9f-9670-f25183c20231",
+              "resourceVersion": "269",
+              "creationTimestamp": "2026-10-13T04:14:14Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "0c83023b-3b97-47f5-a333-4fb73215b3aa",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:14Z",
+              "finishedAt": "2026-10-13T04:14:21Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-9122caffbaa6a09808f33a2a67f5d1e6",
+              "uid": "7c8ecc13-09a7-4c7e-ad91-d4a5ca1415e4",
+              "resourceVersion": "286",
+              "creationTimestamp": "2026-10-13T04:14:23Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "b1c1a027-52c1-4f7c-916a-70a62b3e90c3",
+              "nodeRef": {
+                "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                "ip": "172.16.131.230"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:23Z",
+              "finishedAt": "2026-10-13T04:14:29Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-9274ca2971568ba697f70b006e0beaf2",
+              "uid": "f2a35a6c-6029-4ed3-9648-ded8e6d09e30",
+              "resourceVersion": "439",
+              "creationTimestamp": "2026-10-13T04:16:18Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "sync-kubeconfig-21f38447-4abd-4ea0-ab88-6301e0e85519",
+                "uid": "47fef041-d104-4791-adfc-03f45ff61615"
+              },
+              "stepID": "capture-cluster-access",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T04:18:18Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjE2ZTM4ZmM2Um1kSGdGN2RtUUNrOUprTzFFdHRPY0RDSEtTVUVWM3plM00ifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJrdWJlLXN5c3RlbSIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJrYy1zZXJ2ZXItc2VjcmV0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImtjLXNlcnZlciIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6ImFjM2IxMGY3LTc5MTItNDgzNS04NDEyLThmNmM4ZDg2MTM4MCIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDprdWJlLXN5c3RlbTprYy1zZXJ2ZXIifQ.mYIlznqbvbs3ti-ZasUvrXntL-7rRjtERvNE0WSfLTv1KvSrJYEfDhhwCdJ-4EBxUQHrlyZXb9hOmQ1MI4oDfpj6g5CLTkGa63usfA51mRD8UOtbtH7Su-yiwMOLInXoKkYijQK4BE9HGT2ypI7_juoMR53PTArGYtDeTIhz3crLg2cF7HzXMupyNZrnrCAsbuHUcm0fJKEfvW5OZTK6mT-irC1nKI-BZ-xhmQ5smaVOul44YaJ0Mxi1j-hLaBz9PZsiTDTxHWHtYV7Y5myVYaqhATOnOqqeNcQFvyICg-96E91UVvHx0J0RtQ53Xeo-lXUOh_ytXjZvyINi6jSzLw"
+                }
+              },
+              "startedAt": "2026-10-13T04:16:18Z",
+              "finishedAt": "2026-10-13T04:16:18Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-95c783093f73d860e827eaf4180bdc4a",
+              "uid": "7f3b73d5-0950-4d40-b20e-5d5ecc712f4b",
+              "resourceVersion": "337",
+              "creationTimestamp": "2026-10-13T04:15:12Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "36cecc12-8e4a-45a0-8470-c7bb7b079a85",
+              "nodeRef": {
+                "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                "ip": "172.16.131.230"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": "kubeadm join apiserver.cluster.local:6443 --token 46b8vm.mun5kmabuk5hlnj6 --discovery-token-ca-cert-hash sha256:a05b99502dc5896c463a9d01212da4bf5c1b9773d0d8a26630fd0df416cc143d --control-plane --certificate-key 7aa42f16ac97cb277b8c7e2cbdfea10a3c736ac11a38caa6dcdb1b778876277d,kubeadm join apiserver.cluster.local:6443 --token 46b8vm.mun5kmabuk5hlnj6 --discovery-token-ca-cert-hash sha256:a05b99502dc5896c463a9d01212da4bf5c1b9773d0d8a26630fd0df416cc143d"
+                }
+              },
+              "startedAt": "2026-10-13T04:15:12Z",
+              "finishedAt": "2026-10-13T04:15:12Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-9f47d1dc86431b96c12f3c977fda98cf",
+              "uid": "b2f305b6-256d-44a8-901e-803894d8e727",
+              "resourceVersion": "365",
+              "creationTimestamp": "2026-10-13T04:15:20Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "828131c8-c1ba-4f2b-8aa6-7d0e712273df",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:15:20Z",
+              "finishedAt": "2026-10-13T04:15:24Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-b812bd21944fba1dabed4f3998b5bb90",
+              "uid": "5950e85b-f55a-4347-aa84-7e56b1eeb6c4",
+              "resourceVersion": "357",
+              "creationTimestamp": "2026-10-13T04:15:19Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "1a9a6456-85f4-4ee5-b25b-431130df194e",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:15:20Z",
+              "finishedAt": "2026-10-13T04:15:20Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-c00aecac4704459298035c3557597041",
+              "uid": "5b8b3d32-2c43-413e-876e-4fc094d1d9f3",
+              "resourceVersion": "246",
+              "creationTimestamp": "2026-10-13T04:14:08Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "1546c15b-f6db-40bf-849a-c8dfebaecf67",
+              "nodeRef": {
+                "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                "ip": "172.16.131.230"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:08Z",
+              "finishedAt": "2026-10-13T04:14:13Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-c40260df6d87b216cc3cdabeb5c2137a",
+              "uid": "bf9bbeae-ffad-4d93-a0ac-6cb02db4a520",
+              "resourceVersion": "284",
+              "creationTimestamp": "2026-10-13T04:14:23Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "b1c1a027-52c1-4f7c-916a-70a62b3e90c3",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:23Z",
+              "finishedAt": "2026-10-13T04:14:29Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-c756a07392d700c4b2205fca48370433",
+              "uid": "dc7825e9-48e5-4d70-a6d5-dd6136759a11",
+              "resourceVersion": "254",
+              "creationTimestamp": "2026-10-13T04:14:13Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "01e7eeb8-c4e5-4805-b3ad-1a83fae289f3",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:13Z",
+              "finishedAt": "2026-10-13T04:14:14Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-e837b1989b44562de7a57e8a0c0970cf",
+              "uid": "677f6b02-fa89-4aba-becd-56eb568255b1",
+              "resourceVersion": "244",
+              "creationTimestamp": "2026-10-13T04:14:08Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "1546c15b-f6db-40bf-849a-c8dfebaecf67",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:08Z",
+              "finishedAt": "2026-10-13T04:14:13Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-eb003ecc432bac756d2f05fd81233884",
+              "uid": "b7f08072-c200-4f07-ad05-0a2c06d3a1ec",
+              "resourceVersion": "352",
+              "creationTimestamp": "2026-10-13T04:15:19Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "59eeb74b-b1b4-48fc-8dbd-b2daea10c1b3",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:15:19Z",
+              "finishedAt": "2026-10-13T04:15:19Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-ef1e9889c5eeb7ce341913a42d313e4c",
+              "uid": "02b45cc7-9025-462c-9175-ce0c2d2b276c",
+              "resourceVersion": "370",
+              "creationTimestamp": "2026-10-13T04:15:24Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "aed83924-01bb-4981-b297-827157ed6cd0",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:15:24Z",
+              "finishedAt": "2026-10-13T04:15:24Z"
+            }
+          },
+          {
+            "kind": "OperationTask",
+            "apiVersion": "operations.kubeclipper.io/v1alpha1",
+            "metadata": {
+              "name": "task-f69d3792dc265c36f67af0620ceb53be",
+              "uid": "2428739f-f6c2-44e2-9c2d-f1e960c29b95",
+              "resourceVersion": "291",
+              "creationTimestamp": "2026-10-13T04:14:29Z"
+            },
+            "spec": {
+              "operationRef": {
+                "kind": "Operation",
+                "name": "347fd763-92ce-4efc-9bb3-b27c739f4a96",
+                "uid": "6643233b-7548-40ec-b4a2-67a39c4026e1"
+              },
+              "stepID": "285ec9c2-4510-419a-9046-a84498ad589d",
+              "nodeRef": {
+                "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                "ip": "172.16.131.146"
+              },
+              "retryGeneration": 0,
+              "attempt": 0,
+              "executor": "CommandStep/v1",
+              "deadline": "2026-10-13T05:44:08Z"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "result": {
+                "outputs": {
+                  "response": ""
+                }
+              },
+              "startedAt": "2026-10-13T04:14:29Z",
+              "finishedAt": "2026-10-13T04:14:29Z"
+            }
+          }
+        ]
+      }
+    },
+    "sh-dev-2/facts-evidence.json": {
+      "operation": {
+        "kind": "Operation",
+        "apiVersion": "operations.kubeclipper.io/v1alpha1",
+        "metadata": {
+          "name": "r42-next-invalid-facts",
+          "uid": "fed244bf-7372-4e0f-ad34-3cfae7bce8d2",
+          "resourceVersion": "677",
+          "creationTimestamp": "2026-10-13T04:19:32Z"
+        },
+        "spec": {
+          "targetRef": {
+            "kind": "Cluster",
+            "name": "r42-next-tls",
+            "uid": "21f38447-4abd-4ea0-ab88-6301e0e85519"
+          },
+          "action": "R42Verification",
+          "desiredState": "Active",
+          "timeout": "5m0s",
+          "steps": [
+            {
+              "id": "uncertain",
+              "targets": [
+                {
+                  "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                  "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                  "ip": "172.16.131.146"
+                },
+                {
+                  "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                  "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                  "ip": "172.16.131.230"
+                }
+              ],
+              "executor": "CommandStep/v1"
+            }
+          ]
+        },
+        "status": {
+          "phase": "Failed",
+          "reason": "InvalidExecutionFacts",
+          "message": "task \"task-6fb2861d0e2be1f414b50275b4ea05e2\" executor differs from its immutable plan",
+          "deadline": "2026-10-13T04:24:32Z",
+          "startedAt": "2026-10-13T04:19:32Z",
+          "finishedAt": "2026-10-13T04:21:50Z"
+        }
+      },
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-6fb2861d0e2be1f414b50275b4ea05e2",
+            "uid": "9557b021-59a1-4fb2-b9e1-b58d5f8eae0a",
+            "resourceVersion": "675",
+            "creationTimestamp": "2026-10-13T04:19:32Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r42-next-invalid-facts",
+              "uid": "fed244bf-7372-4e0f-ad34-3cfae7bce8d2"
+            },
+            "stepID": "uncertain",
+            "nodeRef": {
+              "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+              "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "R42InvalidExecutor/v1",
+            "deadline": "2026-10-13T04:24:32Z"
+          },
+          "status": {
+            "phase": "Canceled",
+            "result": {
+              "reason": "SiblingFailed"
+            },
+            "finishedAt": "2026-10-13T04:21:50Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-7999f6eee1368495a4469424ce78c5e0",
+            "uid": "d4b6b44b-4332-4742-a44b-0ca184224c3f",
+            "resourceVersion": "676",
+            "creationTimestamp": "2026-10-13T04:19:32Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r42-next-invalid-facts",
+              "uid": "fed244bf-7372-4e0f-ad34-3cfae7bce8d2"
+            },
+            "stepID": "uncertain",
+            "nodeRef": {
+              "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+              "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T04:24:32Z"
+          },
+          "status": {
+            "phase": "Canceled",
+            "result": {
+              "reason": "SiblingFailed"
+            },
+            "finishedAt": "2026-10-13T04:21:50Z"
+          }
+        }
+      ]
+    },
+    "sh-dev-2/payload-facts-evidence.json": {
+      "operation": {
+        "kind": "Operation",
+        "apiVersion": "operations.kubeclipper.io/v1alpha1",
+        "metadata": {
+          "name": "r42-next-payload-facts",
+          "uid": "b27ff9d9-8c73-4acf-a177-ba8ad551ffd2",
+          "resourceVersion": "3398",
+          "creationTimestamp": "2026-10-13T05:12:53Z"
+        },
+        "spec": {
+          "targetRef": {
+            "kind": "Cluster",
+            "name": "r42-next-tls",
+            "uid": "21f38447-4abd-4ea0-ab88-6301e0e85519"
+          },
+          "action": "R42Verification",
+          "desiredState": "Active",
+          "timeout": "5m0s",
+          "steps": [
+            {
+              "id": "uncertain",
+              "targets": [
+                {
+                  "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+                  "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+                  "ip": "172.16.131.146"
+                },
+                {
+                  "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+                  "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+                  "ip": "172.16.131.230"
+                }
+              ],
+              "executor": "CommandStep/v1"
+            }
+          ]
+        },
+        "status": {
+          "phase": "Failed",
+          "reason": "InvalidExecutionFacts",
+          "message": "task \"task-6a88d603a568660ce743ba8b72f2acbe\" payload differs from its immutable plan",
+          "deadline": "2026-10-13T05:17:53Z",
+          "startedAt": "2026-10-13T05:12:53Z",
+          "finishedAt": "2026-10-13T05:13:36Z"
+        }
+      },
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-6a88d603a568660ce743ba8b72f2acbe",
+            "uid": "05a92107-8e5d-4b08-a6e7-026f9767fb73",
+            "resourceVersion": "3396",
+            "creationTimestamp": "2026-10-13T05:12:54Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r42-next-payload-facts",
+              "uid": "b27ff9d9-8c73-4acf-a177-ba8ad551ffd2"
+            },
+            "stepID": "uncertain",
+            "nodeRef": {
+              "name": "5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9",
+              "uid": "b946d32c-2c55-4bd3-bf6b-cd90d9470cfb",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T05:17:53Z"
+          },
+          "status": {
+            "phase": "Canceled",
+            "result": {
+              "reason": "SiblingFailed"
+            },
+            "finishedAt": "2026-10-13T05:13:36Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-6d742bf9930596164e4f3e4c9b0f8317",
+            "uid": "ae974513-3d31-4f91-a043-70ba86916725",
+            "resourceVersion": "3397",
+            "creationTimestamp": "2026-10-13T05:12:55Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r42-next-payload-facts",
+              "uid": "b27ff9d9-8c73-4acf-a177-ba8ad551ffd2"
+            },
+            "stepID": "uncertain",
+            "nodeRef": {
+              "name": "1e4168d1-e1a4-4a13-96f2-46296896785b",
+              "uid": "35162503-eff5-4a66-8775-ccfc1214b8d8",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T05:17:53Z"
+          },
+          "status": {
+            "phase": "Canceled",
+            "result": {
+              "reason": "SiblingFailed"
+            },
+            "finishedAt": "2026-10-13T05:13:36Z"
+          }
+        }
+      ]
+    },
+    "sh-dev-2/upgrade-failed-real.json": {
+      "operation": {
+        "metadata": {
+          "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+          "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e",
+          "resourceVersion": "932",
+          "creationTimestamp": "2026-10-13T05:32:59Z",
+          "labels": {
+            "kubeclipper.io/cluster": "r42-next-final",
+            "kubeclipper.io/operation": "UpgradeCluster",
+            "kubeclipper.io/operation-sponsor": "https-172.16.131.230-8080",
+            "kubeclipper.io/timeout": "5400",
+            "kubeclipper.io/upgrade-version": "v1.37.0",
+            "topology.kubeclipper.io/region": "default"
+          }
+        },
+        "status": {
+          "phase": "Failed",
+          "reason": "StepFailed",
+          "message": "step \"4a45158a-0868-45d7-9bd1-838374267421\" exhausted its retry limit",
+          "deadline": "2026-10-13T07:02:59Z",
+          "startedAt": "2026-10-13T05:32:59Z",
+          "finishedAt": "2026-10-13T05:33:07Z"
+        },
+        "spec": {
+          "targetRef": {
+            "kind": "Cluster",
+            "name": "r42-next-final",
+            "uid": "1cbf2290-d828-4643-8c23-680a32de29b5"
+          },
+          "action": "UpgradeCluster",
+          "desiredState": "Active",
+          "timeout": "1h30m0s"
+        }
+      },
+      "planSHA256": "1a84f006b4aff43903c6e060cd601bfddb78f777ed2085f0e0aa1c9900fb4e75",
+      "cluster": {
+        "kind": "Cluster",
+        "apiVersion": "core.kubeclipper.io/v1",
+        "metadata": {
+          "name": "r42-next-final",
+          "uid": "1cbf2290-d828-4643-8c23-680a32de29b5",
+          "resourceVersion": "934",
+          "creationTimestamp": "2026-10-13T05:30:36Z",
+          "labels": {
+            "topology.kubeclipper.io/region": "default"
+          },
+          "annotations": {
+            "kubeclipper.io/offline": "true"
+          },
+          "finalizers": [
+            "finalizer.cluster.kubeclipper.io"
+          ]
+        },
+        "imageRegistry": "r42-runtime",
+        "masters": [
+          {
+            "id": "0b884850-d2ec-43df-be19-dc35fd147883",
+            "containerRuntime": {
+              "type": ""
+            }
+          }
+        ],
+        "workers": [],
+        "kubernetesVersion": "v1.36.4",
+        "kubeProxy": {},
+        "etcd": {
+          "dataDir": "/var/lib/etcd"
+        },
+        "kubelet": {
+          "rootDir": "/var/lib/kubelet",
+          "nodeIP": "",
+          "ipAsName": false,
+          "resolvConf": ""
+        },
+        "networking": {
+          "ipFamily": "IPv4",
+          "services": {
+            "cidrBlocks": [
+              "10.96.0.0/12"
+            ]
+          },
+          "pods": {
+            "cidrBlocks": [
+              "172.29.0.0/16"
+            ]
+          },
+          "dnsDomain": "cluster.local",
+          "proxyMode": "ipvs",
+          "workerNodeVip": "169.254.169.100"
+        },
+        "containerRuntime": {
+          "type": "containerd",
+          "version": "2.2.4",
+          "registries": [
+            {
+              "registryRef": "r42-runtime"
+            }
+          ]
+        },
+        "cni": {
+          "type": "calico",
+          "version": "v3.31.5",
+          "criType": "containerd",
+          "offline": true,
+          "namespace": "calico-system",
+          "calico": {
+            "IPv4AutoDetection": "interface=ens3",
+            "IPv6AutoDetection": "first-found",
+            "mode": "Overlay-Vxlan-All",
+            "IPManger": true,
+            "mtu": 1440
+          }
+        },
+        "addons": null,
+        "status": {
+          "phase": "UpgradeFailed",
+          "versions": {
+            "controlPlane": "",
+            "apiserver": "",
+            "controllerManager": "",
+            "scheduler": ""
+          },
+          "registries": [
+            {
+              "scheme": "http",
+              "host": "172.16.131.146:5003"
+            }
+          ],
+          "packagePlan": {
+            "kubernetesVersion": "v1.37.0",
+            "os": "linux",
+            "arch": "amd64",
+            "components": [
+              {
+                "slot": "k8s",
+                "kind": "k8s",
+                "name": "k8s",
+                "version": "v1.37.0",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/packages/k8s/k8s:v1.37.0",
+                  "digest": "sha256:ebe86ff7191235e7f818a672a3f4c9d963cc14447f64deecc2906e90e6ba068a"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:87f53b70da9fe31b56dc61dcb3fbf8e00453f3b07f2bc8570676093a3d846745",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "cri",
+                "kind": "cri",
+                "name": "containerd",
+                "version": "2.2.4",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/packages/cri/containerd:2.2.4",
+                  "digest": "sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:011e1ad7ffaf918c6757d58a97d35f8eba6d7ab62aee01f091617561b4b686c2",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "cni",
+                "kind": "cni",
+                "name": "calico",
+                "version": "v3.31.5",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/charts/tigera-operator:v3.31.5",
+                  "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                },
+                "contents": [
+                  {
+                    "name": "charts",
+                    "file": "charts.tgz",
+                    "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                    "transport": {
+                      "type": "helm-oci",
+                      "ref": "172.16.131.146:5203/kubeclipper/charts/tigera-operator",
+                      "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "k8s-extension",
+                "kind": "k8s-extension",
+                "name": "k8s-extension",
+                "version": "v1",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                  "digest": "sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:16151c35ca1fe60cd5f847e01a47d0be6c836339ed2742338dcb1d84ad71e6a4",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-1902cf6bb509e81f7e8da19e51b15464",
+            "uid": "1103cdee-667f-46f1-b702-e06fe5b8c67e",
+            "resourceVersion": "920",
+            "creationTimestamp": "2026-10-13T05:32:59Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "87e9c4ba-6351-4336-a0ee-9b6844fc8a21",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:02:59Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T05:32:59Z",
+            "finishedAt": "2026-10-13T05:33:06Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-2c71cab97c0e152ace6a9ca0f04e7cfb",
+            "uid": "a791db3c-afb2-4dcf-8ef5-73212355c415",
+            "resourceVersion": "925",
+            "creationTimestamp": "2026-10-13T05:33:07Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "d8cd8030-7327-4389-ae58-afb59d396e22",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:02:59Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T05:33:07Z",
+            "finishedAt": "2026-10-13T05:33:07Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-e59bb63f7a49f7384c3b100fd7a75c7d",
+            "uid": "b40a4aa9-523e-49fe-be66-a0e3f463de56",
+            "resourceVersion": "930",
+            "creationTimestamp": "2026-10-13T05:33:07Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "4a45158a-0868-45d7-9bd1-838374267421",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:02:59Z"
+          },
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 1"
+            },
+            "startedAt": "2026-10-13T05:33:07Z",
+            "finishedAt": "2026-10-13T05:33:07Z"
+          }
+        }
+      ]
+    },
+    "sh-dev-2/upgrade-retry-real.json": {
+      "operation": {
+        "metadata": {
+          "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+          "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e",
+          "resourceVersion": "1225",
+          "creationTimestamp": "2026-10-13T05:32:59Z",
+          "labels": {
+            "kubeclipper.io/cluster": "r42-next-final",
+            "kubeclipper.io/operation": "UpgradeCluster",
+            "kubeclipper.io/operation-sponsor": "https-172.16.131.230-8080",
+            "kubeclipper.io/timeout": "5400",
+            "kubeclipper.io/upgrade-version": "v1.37.0",
+            "topology.kubeclipper.io/region": "default"
+          }
+        },
+        "status": {
+          "phase": "Succeeded",
+          "observedRetryGeneration": 1,
+          "deadline": "2026-10-13T07:03:11Z",
+          "startedAt": "2026-10-13T05:33:11Z",
+          "finishedAt": "2026-10-13T05:39:11Z"
+        },
+        "spec": {
+          "targetRef": {
+            "kind": "Cluster",
+            "name": "r42-next-final",
+            "uid": "1cbf2290-d828-4643-8c23-680a32de29b5"
+          },
+          "action": "UpgradeCluster",
+          "desiredState": "Active",
+          "retryGeneration": 1,
+          "timeout": "1h30m0s"
+        }
+      },
+      "planSHA256": "1a84f006b4aff43903c6e060cd601bfddb78f777ed2085f0e0aa1c9900fb4e75",
+      "cluster": {
+        "kind": "Cluster",
+        "apiVersion": "core.kubeclipper.io/v1",
+        "metadata": {
+          "name": "r42-next-final",
+          "uid": "1cbf2290-d828-4643-8c23-680a32de29b5",
+          "resourceVersion": "1227",
+          "creationTimestamp": "2026-10-13T05:30:36Z",
+          "labels": {
+            "topology.kubeclipper.io/region": "default"
+          },
+          "annotations": {
+            "kubeclipper.io/offline": "true"
+          },
+          "finalizers": [
+            "finalizer.cluster.kubeclipper.io"
+          ]
+        },
+        "imageRegistry": "r42-runtime",
+        "masters": [
+          {
+            "id": "0b884850-d2ec-43df-be19-dc35fd147883",
+            "containerRuntime": {
+              "type": ""
+            }
+          }
+        ],
+        "workers": [],
+        "kubernetesVersion": "v1.37.0",
+        "kubeProxy": {},
+        "etcd": {
+          "dataDir": "/var/lib/etcd"
+        },
+        "kubelet": {
+          "rootDir": "/var/lib/kubelet",
+          "nodeIP": "",
+          "ipAsName": false,
+          "resolvConf": ""
+        },
+        "networking": {
+          "ipFamily": "IPv4",
+          "services": {
+            "cidrBlocks": [
+              "10.96.0.0/12"
+            ]
+          },
+          "pods": {
+            "cidrBlocks": [
+              "172.29.0.0/16"
+            ]
+          },
+          "dnsDomain": "cluster.local",
+          "proxyMode": "ipvs",
+          "workerNodeVip": "169.254.169.100"
+        },
+        "containerRuntime": {
+          "type": "containerd",
+          "version": "2.2.4",
+          "registries": [
+            {
+              "registryRef": "r42-runtime"
+            }
+          ]
+        },
+        "cni": {
+          "type": "calico",
+          "version": "v3.31.5",
+          "criType": "containerd",
+          "offline": true,
+          "namespace": "calico-system",
+          "calico": {
+            "IPv4AutoDetection": "interface=ens3",
+            "IPv6AutoDetection": "first-found",
+            "mode": "Overlay-Vxlan-All",
+            "IPManger": true,
+            "mtu": 1440
+          }
+        },
+        "addons": null,
+        "status": {
+          "phase": "Running",
+          "versions": {
+            "controlPlane": "",
+            "apiserver": "",
+            "controllerManager": "",
+            "scheduler": ""
+          },
+          "componentConditions": [
+            {
+              "name": "kubernetes",
+              "category": "kubernetes",
+              "status": "Healthy"
+            }
+          ],
+          "registries": [
+            {
+              "scheme": "http",
+              "host": "172.16.131.146:5003"
+            }
+          ],
+          "packagePlan": {
+            "kubernetesVersion": "v1.37.0",
+            "os": "linux",
+            "arch": "amd64",
+            "components": [
+              {
+                "slot": "k8s",
+                "kind": "k8s",
+                "name": "k8s",
+                "version": "v1.37.0",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/packages/k8s/k8s:v1.37.0",
+                  "digest": "sha256:ebe86ff7191235e7f818a672a3f4c9d963cc14447f64deecc2906e90e6ba068a"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:87f53b70da9fe31b56dc61dcb3fbf8e00453f3b07f2bc8570676093a3d846745",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "cri",
+                "kind": "cri",
+                "name": "containerd",
+                "version": "2.2.4",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/packages/cri/containerd:2.2.4",
+                  "digest": "sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:011e1ad7ffaf918c6757d58a97d35f8eba6d7ab62aee01f091617561b4b686c2",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "cni",
+                "kind": "cni",
+                "name": "calico",
+                "version": "v3.31.5",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/charts/tigera-operator:v3.31.5",
+                  "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                },
+                "contents": [
+                  {
+                    "name": "charts",
+                    "file": "charts.tgz",
+                    "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                    "transport": {
+                      "type": "helm-oci",
+                      "ref": "172.16.131.146:5203/kubeclipper/charts/tigera-operator",
+                      "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                    }
+                  }
+                ]
+              },
+              {
+                "slot": "k8s-extension",
+                "kind": "k8s-extension",
+                "name": "k8s-extension",
+                "version": "v1",
+                "os": "linux",
+                "arch": "amd64",
+                "required": true,
+                "transport": {
+                  "type": "oci",
+                  "ref": "172.16.131.146:5203/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                  "digest": "sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117"
+                },
+                "contents": [
+                  {
+                    "name": "configs",
+                    "file": "configs.tar.gz",
+                    "digest": "sha256:16151c35ca1fe60cd5f847e01a47d0be6c836339ed2742338dcb1d84ad71e6a4",
+                    "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                    "transport": {
+                      "type": "",
+                      "ref": "",
+                      "digest": ""
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "controlPlaneHealth": [
+            {
+              "id": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "hostname": "lixd-dev-4",
+              "address": "172.16.131.230:6443",
+              "status": "Healthy"
+            }
+          ]
+        }
+      },
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-1902cf6bb509e81f7e8da19e51b15464",
+            "uid": "1103cdee-667f-46f1-b702-e06fe5b8c67e",
+            "resourceVersion": "920",
+            "creationTimestamp": "2026-10-13T05:32:59Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "87e9c4ba-6351-4336-a0ee-9b6844fc8a21",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:02:59Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T05:32:59Z",
+            "finishedAt": "2026-10-13T05:33:06Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-2c71cab97c0e152ace6a9ca0f04e7cfb",
+            "uid": "a791db3c-afb2-4dcf-8ef5-73212355c415",
+            "resourceVersion": "925",
+            "creationTimestamp": "2026-10-13T05:33:07Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "d8cd8030-7327-4389-ae58-afb59d396e22",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:02:59Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T05:33:07Z",
+            "finishedAt": "2026-10-13T05:33:07Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-2ea17ba2cc5446d227df7c2d5bdeab04",
+            "uid": "225cb386-9212-44a0-80b5-c0e4c928f324",
+            "resourceVersion": "1223",
+            "creationTimestamp": "2026-10-13T05:33:11Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "4a45158a-0868-45d7-9bd1-838374267421",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 1,
+            "attempt": 1,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:03:11Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T05:33:11Z",
+            "finishedAt": "2026-10-13T05:39:11Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-e59bb63f7a49f7384c3b100fd7a75c7d",
+            "uid": "b40a4aa9-523e-49fe-be66-a0e3f463de56",
+            "resourceVersion": "930",
+            "creationTimestamp": "2026-10-13T05:33:07Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "f647248c-3cc6-4266-bc10-52632ec21c0d",
+              "uid": "833fa431-464f-4e69-a627-b3f3252cdf5e"
+            },
+            "stepID": "4a45158a-0868-45d7-9bd1-838374267421",
+            "nodeRef": {
+              "name": "0b884850-d2ec-43df-be19-dc35fd147883",
+              "uid": "392f6654-720f-4656-9529-85a8decdf4b4",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "deadline": "2026-10-13T07:02:59Z"
+          },
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 1"
+            },
+            "startedAt": "2026-10-13T05:33:07Z",
+            "finishedAt": "2026-10-13T05:33:07Z"
+          }
+        }
+      ]
+    },
+    "sh-dev-2/tag-mutation.json": {
+      "originalDigest": "sha256:ebe86ff7191235e7f818a672a3f4c9d963cc14447f64deecc2906e90e6ba068a",
+      "mutatedDigest": "sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3",
+      "planSHA256": "1a84f006b4aff43903c6e060cd601bfddb78f777ed2085f0e0aa1c9900fb4e75"
+    },
+    "sh-dev-2/oidc-evidence.json": {
+      "provider": "Dex v2.46.0",
+      "issuer": "http://172.16.131.146:5206",
+      "callbackHTTP": 200,
+      "bearerSelfHTTP": 200,
+      "codeReplayHTTP": 401,
+      "claims": {
+        "username": "r42-oidc"
+      },
+      "createdUserName": "r42-oidc"
+    },
+    "sh-dev-2/offline-network-probes.json": {
+      "172.16.131.146": "public-curl-exit=7\n",
+      "172.16.131.230": "public-curl-exit=7\n",
+      "172.16.131.208": "public-curl-exit=7\n"
+    },
+    "sh-dev-3/release-provenance.json": [
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "console",
+          "version": "v1.6.0"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "bootstrap/console",
+          "org.opencontainers.image.version": "v1.6.0"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "etcd",
+          "version": "3.5.21"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "bootstrap/etcd",
+          "org.opencontainers.image.version": "3.5.21"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "kubeclipper",
+          "version": "v2.0.3"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "bootstrap/kubeclipper",
+          "org.opencontainers.image.version": "v2.0.3"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "registry",
+          "version": "3.1.1"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "bootstrap/registry",
+          "org.opencontainers.image.version": "3.1.1"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "cri",
+          "name": "containerd",
+          "version": "1.7.29"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "cri/containerd",
+          "org.opencontainers.image.version": "1.7.29"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "cri",
+          "name": "containerd",
+          "version": "2.2.4"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "cri/containerd",
+          "org.opencontainers.image.version": "2.2.4"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.35.8"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "k8s/k8s",
+          "org.opencontainers.image.version": "v1.35.8"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.36.4"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "k8s/k8s",
+          "org.opencontainers.image.version": "v1.36.4"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.37.0"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "k8s/k8s",
+          "org.opencontainers.image.version": "v1.37.0"
+        },
+        "os": "",
+        "architecture": ""
+      },
+      {
+        "component": {
+          "kind": "k8s-extension",
+          "name": "k8s-extension",
+          "version": "v1"
+        },
+        "platforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "declaredRevision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+        "labels": {
+          "org.opencontainers.image.revision": "474ba45d8fba0e26965642eac5cdd7a5b09686f4",
+          "org.opencontainers.image.source": "https://github.com/kubeclipper/kubeclipper",
+          "org.opencontainers.image.title": "k8s-extension/k8s-extension",
+          "org.opencontainers.image.version": "v1"
+        },
+        "os": "",
+        "architecture": ""
+      }
+    ],
+    "sh-dev-3/release-architectures.json": [
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "console",
+          "version": "v1.6.0"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "etcd",
+          "version": "3.5.21"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "kubeclipper",
+          "version": "v2.0.3"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "bootstrap",
+          "name": "registry",
+          "version": "3.1.1"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "cri",
+          "name": "containerd",
+          "version": "1.7.29"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "cri",
+          "name": "containerd",
+          "version": "2.2.4"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.35.8"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.36.4"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.37.0"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      },
+      {
+        "component": {
+          "kind": "k8s-extension",
+          "name": "k8s-extension",
+          "version": "v1"
+        },
+        "declaredPlatforms": [
+          "linux/amd64",
+          "linux/arm64"
+        ],
+        "manifestPlatforms": [
+          {
+            "architecture": "amd64",
+            "os": "linux"
+          },
+          {
+            "architecture": "arm64",
+            "os": "linux"
+          }
+        ]
+      }
+    ],
+    "sh-dev-3/old-cert-response.json": {
+      "code": 403,
+      "message": "Forbidden",
+      "reason": "agent \"5de5ca63-1eb8-46f6-bb5f-d89cc5bcbfa9\" cannot update Node \"1b965613-1e01-45a2-a254-692afb93631d\""
+    },
+    "sh-dev-2/etcd-delay.json": [
+      {
+        "etcdActiveAt": 1791872189.6243007
+      },
+      {
+        "probeNetworkRestoredAt": 1791872205.639457
+      }
+    ]
+  },
+  "targetedRegression": {
+    "command": "go test ./pkg/controller/operationv2 ./pkg/scheme/core/v1/k8s ./pkg/cli/deploy -count=1",
+    "result": "PASS",
+    "packages": 3
+  },
+  "cleanupAudit": {
+    "sh-dev-2": {
+      "units": {
+        "kc-server": "active",
+        "kc-etcd": "active",
+        "kc-agent": "active",
+        "kc-console": "active",
+        "kubelet": "inactive",
+        "containerd": "inactive",
+        "chrony": "active"
+      },
+      "remainingCNIlinks": [],
+      "testPortsAndEtcd": [
+        "LISTEN 0      4096                *:12379            *:*          "
+      ],
+      "adminConfPresent": false,
+      "agentSHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+      "networkCleanup": {
+        "removedRules": 30,
+        "removedChains": 69,
+        "removedLinks": 8,
+        "removedNamespaces": 8,
+        "removedIPSets": 0,
+        "remainingCNIlinks": [],
+        "remainingCNIns": []
+      }
+    },
+    "sh-dev-3": {
+      "units": {
+        "kc-server": "inactive",
+        "kc-etcd": "inactive",
+        "kc-agent": "active",
+        "kc-console": "inactive",
+        "kubelet": "inactive",
+        "containerd": "inactive",
+        "chrony": "active"
+      },
+      "remainingCNIlinks": [],
+      "testPortsAndEtcd": [],
+      "adminConfPresent": false,
+      "agentSHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+      "networkCleanup": {
+        "removedRules": 40,
+        "removedChains": 117,
+        "removedLinks": 163,
+        "removedNamespaces": 163,
+        "removedIPSets": 0,
+        "remainingCNIlinks": [],
+        "remainingCNIns": []
+      }
+    },
+    "sh-dev-4": {
+      "units": {
+        "kc-server": "inactive",
+        "kc-etcd": "inactive",
+        "kc-agent": "active",
+        "kc-console": "inactive",
+        "kubelet": "inactive",
+        "containerd": "inactive",
+        "chrony": "active"
+      },
+      "remainingCNIlinks": [],
+      "testPortsAndEtcd": [],
+      "adminConfPresent": false,
+      "agentSHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+      "networkCleanup": {
+        "removedRules": 30,
+        "removedChains": 93,
+        "removedLinks": 67,
+        "removedNamespaces": 66,
+        "removedIPSets": 0,
+        "remainingCNIlinks": [],
+        "remainingCNIns": []
+      }
+    },
+    "sharedRegistry": {
+      "httpStatus": 200,
+      "rc34DigestUnchanged": true,
+      "digest": "sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a"
+    }
+  }
+}

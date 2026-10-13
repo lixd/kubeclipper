@@ -1,0 +1,12 @@
+{
+  "baselineDoctor": "19 passed, 0 warnings, 0 failed",
+  "agents": 3,
+  "remainingClusters": 0,
+  "serverBaselineSHA256": "6871a352c3a7404e5ea33f3c3828296e3fa9346012a2b55c2822732e60bca4b4",
+  "agentBaselineSHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+  "nodeIDs": [
+    "dec3e77d-b8ca-42df-8432-1e388bfaa316",
+    "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+    "4c74fcf8-1cda-471e-9db3-c1749e09abfb"
+  ]
+}

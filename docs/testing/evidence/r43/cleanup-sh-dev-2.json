@@ -1,0 +1,10 @@
+{
+  "kubelet": "inactive",
+  "containerd": "inactive",
+  "k8sTasksRemoved": 0,
+  "k8sContainersRemoved": 0,
+  "CNIlinksRemoved": 1,
+  "CNInamespacesRemoved": 0,
+  "KubernetesFirewallChainsRemoved": 62,
+  "sharedFirewallRulesPreserved": true
+}

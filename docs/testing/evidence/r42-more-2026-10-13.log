@@ -1,0 +1,266 @@
+### sh-dev-3-sync1.log
+copy: 172.16.131.146:5103/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1@sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94
+copy: 172.16.131.146:5103/kubeclipper/packages/bootstrap/etcd:3.5.21@sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd
+copy: 172.16.131.146:5103/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34@sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a
+copy: 172.16.131.146:5103/kubeclipper/packages/bootstrap/registry:3.1.1@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+copy: 172.16.131.146:5103/kubeclipper/packages/cri/containerd:2.2.4@sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec
+copy: 172.16.131.146:5103/kubeclipper/packages/k8s-extension/k8s-extension:v1@sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117
+copy: 172.16.131.146:5103/kubeclipper/packages/k8s/k8s:v1.36.4@sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3
+sync complete: 7 copied, 0 skipped (already present with matching digest)
+
+### sh-dev-3-sync2.log
+skip: 172.16.131.146:5103/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1@sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94
+skip: 172.16.131.146:5103/kubeclipper/packages/bootstrap/etcd:3.5.21@sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd
+skip: 172.16.131.146:5103/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34@sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a
+skip: 172.16.131.146:5103/kubeclipper/packages/bootstrap/registry:3.1.1@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+skip: 172.16.131.146:5103/kubeclipper/packages/cri/containerd:2.2.4@sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec
+skip: 172.16.131.146:5103/kubeclipper/packages/k8s-extension/k8s-extension:v1@sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117
+skip: 172.16.131.146:5103/kubeclipper/packages/k8s/k8s:v1.36.4@sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3
+sync complete: 0 copied, 7 skipped (already present with matching digest)
+
+### sh-dev-3-tls-sync.log
+copy: 172.16.131.146:5104/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1@sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94
+copy: 172.16.131.146:5104/kubeclipper/packages/bootstrap/etcd:3.5.21@sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd
+copy: 172.16.131.146:5104/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34@sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a
+copy: 172.16.131.146:5104/kubeclipper/packages/bootstrap/registry:3.1.1@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+copy: 172.16.131.146:5104/kubeclipper/packages/cri/containerd:2.2.4@sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec
+copy: 172.16.131.146:5104/kubeclipper/packages/k8s-extension/k8s-extension:v1@sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117
+copy: 172.16.131.146:5104/kubeclipper/packages/k8s/k8s:v1.36.4@sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3
+sync complete: 7 copied, 0 skipped (already present with matching digest)
+
+### sh-dev-3-export.log
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/kubeclipper@sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a
+Getting image source signatures
+Copying blob sha256:96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba
+Copying config sha256:e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/console@sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94
+Getting image source signatures
+Copying blob sha256:a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94
+Copying config sha256:4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/registry@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+exporting self-bootstrap registry archive: 172.16.131.146:5003/kubeclipper/packages/bootstrap/registry@sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/bootstrap/etcd@sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd
+Getting image source signatures
+Copying blob sha256:6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a
+Copying config sha256:45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/k8s/k8s@sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3
+Getting image source signatures
+Copying blob sha256:b373fdda607f7e82f96b9001c17e26b5aad62a74ddeb6deb2709d020c5cc1057
+Copying config sha256:45e44afc92f0f9eca7ae8d87e92096b75ac6033f831d3a646a5868bfb41818ee
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/cri/containerd@sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec
+Getting image source signatures
+Copying blob sha256:36614397371075d8703a456ad467247581624f3c30f1a6ea79500cd4b86fae47
+Copying config sha256:9432d5dd36a8d91e076c0356c6fc09aef665c8486bd05891deb14316a0c8dd49
+Writing manifest to image destination
+exporting package-image: 172.16.131.146:5003/kubeclipper/packages/k8s-extension/k8s-extension@sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117
+Getting image source signatures
+Copying blob sha256:9dd5897e51766eca19e9adee590e6d7efc9d72c49f4de5391575bc723341bd1f
+Copying config sha256:2e78f2bb891e4a7b34fc3fe00c7bed4864e1c45b724032dda724054b1444d798
+Writing manifest to image destination
+wrote /var/tmp/r42-more/bundle.tar.gz with 7 artifact(s) for linux/amd64
+wrote /var/tmp/r42-more/bundle.tar.gz.sha256
+
+### sh-dev-3-import1.log
+verifying bundle checksums
+bootstrap/registry-image.tar: OK
+bundle-artifacts.tsv: OK
+layouts/0001/blobs/sha256/4ff45a2ea29f77480f9840c8d08995889521bcdfa74bfaf0e8b67424acf0a9da: OK
+layouts/0001/blobs/sha256/96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba: OK
+layouts/0001/blobs/sha256/e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685: OK
+layouts/0001/index.json: OK
+layouts/0001/oci-layout: OK
+layouts/0002/blobs/sha256/4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473: OK
+layouts/0002/blobs/sha256/a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94: OK
+layouts/0002/blobs/sha256/adce2b3d7d5861511f2da16a16da892706c0f9f2bab61ef9f7be5e205dee26b3: OK
+layouts/0002/index.json: OK
+layouts/0002/oci-layout: OK
+layouts/0003/blobs/sha256/5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0: OK
+layouts/0003/blobs/sha256/98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed: OK
+layouts/0003/blobs/sha256/f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3: OK
+layouts/0003/index.json: OK
+layouts/0003/oci-layout: OK
+layouts/0004/blobs/sha256/45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a: OK
+layouts/0004/blobs/sha256/6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a: OK
+layouts/0004/blobs/sha256/8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd: OK
+layouts/0004/index.json: OK
+layouts/0004/oci-layout: OK
+layouts/0005/blobs/sha256/1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3: OK
+layouts/0005/blobs/sha256/45e44afc92f0f9eca7ae8d87e92096b75ac6033f831d3a646a5868bfb41818ee: OK
+layouts/0005/blobs/sha256/b373fdda607f7e82f96b9001c17e26b5aad62a74ddeb6deb2709d020c5cc1057: OK
+layouts/0005/index.json: OK
+layouts/0005/oci-layout: OK
+layouts/0006/blobs/sha256/36614397371075d8703a456ad467247581624f3c30f1a6ea79500cd4b86fae47: OK
+layouts/0006/blobs/sha256/6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec: OK
+layouts/0006/blobs/sha256/9432d5dd36a8d91e076c0356c6fc09aef665c8486bd05891deb14316a0c8dd49: OK
+layouts/0006/index.json: OK
+layouts/0006/oci-layout: OK
+layouts/0007/blobs/sha256/2e78f2bb891e4a7b34fc3fe00c7bed4864e1c45b724032dda724054b1444d798: OK
+layouts/0007/blobs/sha256/9dd5897e51766eca19e9adee590e6d7efc9d72c49f4de5391575bc723341bd1f: OK
+layouts/0007/blobs/sha256/c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117: OK
+layouts/0007/index.json: OK
+layouts/0007/oci-layout: OK
+release-manifest.yaml: OK
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34
+Getting image source signatures
+Copying blob sha256:96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba
+Copying config sha256:e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1
+Getting image source signatures
+Copying blob sha256:a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94
+Copying config sha256:4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/registry:3.1.1
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/etcd:3.5.21
+Getting image source signatures
+Copying blob sha256:6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a
+Copying config sha256:45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/k8s/k8s:v1.36.4
+Getting image source signatures
+Copying blob sha256:b373fdda607f7e82f96b9001c17e26b5aad62a74ddeb6deb2709d020c5cc1057
+Copying config sha256:45e44afc92f0f9eca7ae8d87e92096b75ac6033f831d3a646a5868bfb41818ee
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/cri/containerd:2.2.4
+Getting image source signatures
+Copying blob sha256:36614397371075d8703a456ad467247581624f3c30f1a6ea79500cd4b86fae47
+Copying config sha256:9432d5dd36a8d91e076c0356c6fc09aef665c8486bd05891deb14316a0c8dd49
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/k8s-extension/k8s-extension:v1
+Getting image source signatures
+Copying blob sha256:9dd5897e51766eca19e9adee590e6d7efc9d72c49f4de5391575bc723341bd1f
+Copying config sha256:2e78f2bb891e4a7b34fc3fe00c7bed4864e1c45b724032dda724054b1444d798
+Writing manifest to image destination
+imported 7 artifact(s) into 172.16.131.146:5103/imported
+release manifest: /var/tmp/r42-more/bundle-release-manifest.yaml
+
+### sh-dev-3-import2.log
+verifying bundle checksums
+bootstrap/registry-image.tar: OK
+bundle-artifacts.tsv: OK
+layouts/0001/blobs/sha256/4ff45a2ea29f77480f9840c8d08995889521bcdfa74bfaf0e8b67424acf0a9da: OK
+layouts/0001/blobs/sha256/96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba: OK
+layouts/0001/blobs/sha256/e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685: OK
+layouts/0001/index.json: OK
+layouts/0001/oci-layout: OK
+layouts/0002/blobs/sha256/4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473: OK
+layouts/0002/blobs/sha256/a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94: OK
+layouts/0002/blobs/sha256/adce2b3d7d5861511f2da16a16da892706c0f9f2bab61ef9f7be5e205dee26b3: OK
+layouts/0002/index.json: OK
+layouts/0002/oci-layout: OK
+layouts/0003/blobs/sha256/5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0: OK
+layouts/0003/blobs/sha256/98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed: OK
+layouts/0003/blobs/sha256/f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3: OK
+layouts/0003/index.json: OK
+layouts/0003/oci-layout: OK
+layouts/0004/blobs/sha256/45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a: OK
+layouts/0004/blobs/sha256/6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a: OK
+layouts/0004/blobs/sha256/8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd: OK
+layouts/0004/index.json: OK
+layouts/0004/oci-layout: OK
+layouts/0005/blobs/sha256/1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3: OK
+layouts/0005/blobs/sha256/45e44afc92f0f9eca7ae8d87e92096b75ac6033f831d3a646a5868bfb41818ee: OK
+layouts/0005/blobs/sha256/b373fdda607f7e82f96b9001c17e26b5aad62a74ddeb6deb2709d020c5cc1057: OK
+layouts/0005/index.json: OK
+layouts/0005/oci-layout: OK
+layouts/0006/blobs/sha256/36614397371075d8703a456ad467247581624f3c30f1a6ea79500cd4b86fae47: OK
+layouts/0006/blobs/sha256/6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec: OK
+layouts/0006/blobs/sha256/9432d5dd36a8d91e076c0356c6fc09aef665c8486bd05891deb14316a0c8dd49: OK
+layouts/0006/index.json: OK
+layouts/0006/oci-layout: OK
+layouts/0007/blobs/sha256/2e78f2bb891e4a7b34fc3fe00c7bed4864e1c45b724032dda724054b1444d798: OK
+layouts/0007/blobs/sha256/9dd5897e51766eca19e9adee590e6d7efc9d72c49f4de5391575bc723341bd1f: OK
+layouts/0007/blobs/sha256/c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117: OK
+layouts/0007/index.json: OK
+layouts/0007/oci-layout: OK
+release-manifest.yaml: OK
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34
+Getting image source signatures
+Copying blob sha256:96ce958391754119c2f1853aae4401d0b6cd0a60709a43a01386e91834589eba
+Copying config sha256:e4fb4edb073b27384f68c9d30824423e0fbc4e5aec76565f1145e95c2c5d3685
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1
+Getting image source signatures
+Copying blob sha256:a8eec6ab3dc796e3d78b656dcf51893a9a1337a113697848f2a9b53da5e54c94
+Copying config sha256:4f236e9793d1c0b40b94bcd47bb69ef62adbfc087b0665a69c01cc73ca1b2473
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/registry:3.1.1
+Getting image source signatures
+Copying blob sha256:f19712fe487f9f544010126bf3280ad848221d8a208dc21b175fe78cef5903a3
+Copying config sha256:5fa0bb8246e8fd0d08cb7ac4607c6d61fca842c13e1e601f58d2aadf6ceb16a0
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/bootstrap/etcd:3.5.21
+Getting image source signatures
+Copying blob sha256:6dd3d02a5d2cb3b7996f3db7505d923c2c247399822c4022726443b962fc297a
+Copying config sha256:45c692b34f8af8c8aa2f205f3327e13d8add3eb5f072afe23c35dce6523deb5a
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/k8s/k8s:v1.36.4
+Getting image source signatures
+Copying blob sha256:b373fdda607f7e82f96b9001c17e26b5aad62a74ddeb6deb2709d020c5cc1057
+Copying config sha256:45e44afc92f0f9eca7ae8d87e92096b75ac6033f831d3a646a5868bfb41818ee
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/cri/containerd:2.2.4
+Getting image source signatures
+Copying blob sha256:36614397371075d8703a456ad467247581624f3c30f1a6ea79500cd4b86fae47
+Copying config sha256:9432d5dd36a8d91e076c0356c6fc09aef665c8486bd05891deb14316a0c8dd49
+Writing manifest to image destination
+importing package-image: 172.16.131.146:5103/imported/kubeclipper/packages/k8s-extension/k8s-extension:v1
+Getting image source signatures
+Copying blob sha256:9dd5897e51766eca19e9adee590e6d7efc9d72c49f4de5391575bc723341bd1f
+Copying config sha256:2e78f2bb891e4a7b34fc3fe00c7bed4864e1c45b724032dda724054b1444d798
+Writing manifest to image destination
+imported 7 artifact(s) into 172.16.131.146:5103/imported
+release manifest: /var/tmp/r42-more/bundle-release-manifest.yaml
+
+### sh-dev-3-publish-conflict.log
+publish package failed: package tag conflict: 172.16.131.146:5103/kubeclipper/packages/binary/r42-probe:v1 platform linux/amd64 already points to sha256:589ece48cf0fa27ca8644a714ed5c2f5130c30b3219dfcab70c913a6e0b22ce8, refusing sha256:a50f0fa9540343f67c0f1230b6c789f9ae3f03ffba764be21298afb0e758bf66
+
+### sh-dev-3-ipip-capture.log
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on ens3, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+02:41:35.853183 IP 172.16.131.146 > 172.16.131.230: IP 172.25.232.79 > 172.25.123.194: ICMP echo request, id 2, seq 1, length 64
+02:41:36.881059 IP 172.16.131.146 > 172.16.131.230: IP 172.25.232.79 > 172.25.123.194: ICMP echo request, id 2, seq 2, length 64
+02:41:37.905059 IP 172.16.131.146 > 172.16.131.230: IP 172.25.232.79 > 172.25.123.194: ICMP echo request, id 2, seq 3, length 64
+02:41:38.929020 IP 172.16.131.146 > 172.16.131.230: IP 172.25.232.79 > 172.25.123.194: ICMP echo request, id 2, seq 4, length 64
+4 packets captured
+4 packets received by filter
+0 packets dropped by kernel
+
+### sh-dev-4-ipip-worker.log
+tcpdump: verbose output suppressed, use -v[v]... for full protocol decode
+listening on ens3, link-type EN10MB (Ethernet), snapshot length 262144 bytes
+
+0 packets captured
+0 packets received by filter
+0 packets dropped by kernel
+
+### sh-dev-2-registry-clean.log
+[2026-10-13T03:20:28Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T03:20:28Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T03:20:33Z][INFO] registry uninstall successfully
+
+### sh-dev-2-bootstrap-console-isolation.log
+[2026-10-13T03:17:04Z][INFO] console upgrade target: bootstrap/console:v1.6.0-r31.1 from 172.16.131.146:5003
+[2026-10-13T03:17:05Z][INFO] upgrade plan: target v1.6.0-r31.1 (revision 5ce8f2dc88c1) from manifest /var/tmp/r42-more/manifest.json, registry 172.16.131.146:5003
+[2026-10-13T03:17:05Z][INFO]   node 172.16.131.208 role=console arch=amd64 current=unknown
+[2026-10-13T03:17:05Z][WARNING] package bootstrap/console:v1.6.0-r31.1(amd64) was published at platform revision 50f1a4a8d3b0c6bccc2b9b2a97aef2829d8c5549, release manifest pins 5ce8f2dc88c17143dad15ae6b0560b9e35bd2159; the console dist is not built from the platform source tree, the manifest digest binding is the integrity guarantee
+[2026-10-13T03:17:08Z][INFO] [172.16.131.208]transfer total size is: 42.32MB ;speed is 42MB
+[2026-10-13T03:17:10Z][INFO] [172.16.131.208]transfer total size is: 8.35MB ;speed is 8MB
+[2026-10-13T03:17:15Z][INFO] upgraded console 172.16.131.208 to v1.6.0-r31.1
+[2026-10-13T03:17:15Z][INFO] console upgrade complete; platform API revision not verified (component does not replace kubeclipper-server)

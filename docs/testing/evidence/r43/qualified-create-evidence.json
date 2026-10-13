@@ -1,0 +1,141 @@
+{
+  "candidate": "b4a5886e8e897528fd394a6fc7ef358162d444c3",
+  "cluster": "r43-qualified",
+  "phase": "Running",
+  "packagePlan": {
+    "kubernetesVersion": "v1.37.0",
+    "os": "linux",
+    "arch": "amd64",
+    "components": [
+      {
+        "slot": "k8s",
+        "kind": "k8s",
+        "name": "k8s",
+        "version": "v1.37.0",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5207/r43-b4a5886e/kubeclipper/packages/k8s/k8s:v1.37.0",
+          "digest": "sha256:b4224da79a2fbf8792ca400f2a8682be60343cfa2acd00557921258cc7dc758a"
+        },
+        "contents": [
+          {
+            "name": "configs",
+            "file": "configs.tar.gz",
+            "digest": "sha256:dd4b4223676feee47d019f07f63e78f2376164a867b01bcd8a3946a9d8f96741",
+            "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+            "transport": {
+              "type": "",
+              "ref": "",
+              "digest": ""
+            }
+          }
+        ]
+      },
+      {
+        "slot": "cri",
+        "kind": "cri",
+        "name": "containerd",
+        "version": "2.2.4",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5207/r43-b4a5886e/kubeclipper/packages/cri/containerd:2.2.4",
+          "digest": "sha256:fdb80b04044640313b99e24a81c888d1881f62c91ddf5c0300d1a0e9b93334d9"
+        },
+        "contents": [
+          {
+            "name": "configs",
+            "file": "configs.tar.gz",
+            "digest": "sha256:4b1ee7b1f8fe0e765e30ad5bd427431b7a03ed8841d49103800eca7ac6f2bb90",
+            "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+            "transport": {
+              "type": "",
+              "ref": "",
+              "digest": ""
+            }
+          }
+        ]
+      },
+      {
+        "slot": "cni",
+        "kind": "cni",
+        "name": "calico",
+        "version": "v3.31.5",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5207/r43-b4a5886e/kubeclipper/charts/tigera-operator:v3.31.5",
+          "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+        },
+        "contents": [
+          {
+            "name": "charts",
+            "file": "charts.tgz",
+            "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+            "transport": {
+              "type": "helm-oci",
+              "ref": "172.16.131.146:5207/r43-b4a5886e/kubeclipper/charts/tigera-operator",
+              "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+            }
+          }
+        ]
+      },
+      {
+        "slot": "k8s-extension",
+        "kind": "k8s-extension",
+        "name": "k8s-extension",
+        "version": "v1",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5207/r43-b4a5886e/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+          "digest": "sha256:bc9e74ebc47f185ec6c32e31f43a0e1e4ac2a811ca1c440ed2b72922af040e23"
+        },
+        "contents": [
+          {
+            "name": "configs",
+            "file": "configs.tar.gz",
+            "digest": "sha256:c30a837777424420630660c14bea6de70be209e3822291ff438514d4dcae4ad4",
+            "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+            "transport": {
+              "type": "",
+              "ref": "",
+              "digest": ""
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "operations": [
+    {
+      "name": "sync-kubeconfig-93bf8dae-a35b-4625-84e4-665fb613ed48",
+      "action": "SyncKubeConfig",
+      "status": {
+        "phase": "Succeeded",
+        "deadline": "2026-10-13T08:46:16Z",
+        "startedAt": "2026-10-13T08:44:16Z",
+        "finishedAt": "2026-10-13T08:44:16Z"
+      }
+    },
+    {
+      "name": "47051181-74c0-4884-9a98-b211f416b145",
+      "action": "CreateCluster",
+      "status": {
+        "phase": "Succeeded",
+        "deadline": "2026-10-13T10:12:24Z",
+        "startedAt": "2026-10-13T08:42:24Z",
+        "finishedAt": "2026-10-13T08:44:15Z"
+      }
+    }
+  ]
+}

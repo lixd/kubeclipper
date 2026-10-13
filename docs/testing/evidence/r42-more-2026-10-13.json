@@ -1,0 +1,855 @@
+{
+  "round": "R42 remaining cases continuation, 2026-10-13",
+  "sourceRevision": "3e339e409ab373b6d38f2f96288bda2f61485643",
+  "testBuild": "v2.0.3-r42-more, dirty local fixes; not a release",
+  "records": {
+    "r42-auto-retry": {
+      "operation": {
+        "name": "r42-auto-retry",
+        "uid": "538f61cd-1610-427b-b1e0-f3a4f2776647",
+        "action": "R42Verification",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T02:35:23Z",
+          "startedAt": "2026-10-13T02:34:23Z",
+          "finishedAt": "2026-10-13T02:34:24Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-003a3f7c71221c1b9bba3c0da84a3462",
+          "stepID": "retry",
+          "node": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+          "attempt": 0,
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 17"
+            },
+            "startedAt": "2026-10-13T02:34:23Z",
+            "finishedAt": "2026-10-13T02:34:23Z"
+          }
+        },
+        {
+          "name": "task-ae65fff89e1ba7336f5d7fe53428545a",
+          "stepID": "retry",
+          "node": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+          "attempt": 1,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T02:34:24Z",
+            "finishedAt": "2026-10-13T02:34:24Z"
+          }
+        }
+      ]
+    },
+    "r42-retry-exhausted": {
+      "operation": {
+        "name": "r42-retry-exhausted",
+        "uid": "60f22614-8470-4a5c-aab1-8749ec2c353f",
+        "action": "R42Verification",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Failed",
+          "reason": "StepFailed",
+          "message": "step \"exhaust\" exhausted its retry limit",
+          "deadline": "2026-10-13T02:35:27Z",
+          "startedAt": "2026-10-13T02:34:27Z",
+          "finishedAt": "2026-10-13T02:34:28Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-4cdbcbf00c358a43eab8e7bbdbfc2785",
+          "stepID": "exhaust",
+          "node": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+          "attempt": 0,
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 19"
+            },
+            "startedAt": "2026-10-13T02:34:27Z",
+            "finishedAt": "2026-10-13T02:34:27Z"
+          }
+        },
+        {
+          "name": "task-cc9f427a79d221790abf81c6d98c4b1d",
+          "stepID": "exhaust",
+          "node": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+          "attempt": 1,
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 19"
+            },
+            "startedAt": "2026-10-13T02:34:27Z",
+            "finishedAt": "2026-10-13T02:34:27Z"
+          }
+        }
+      ]
+    },
+    "r42-step-deadline-fixed": {
+      "operation": {
+        "name": "r42-step-deadline-fixed",
+        "uid": "3450ba13-a8d1-43bf-941e-5cbe78793a68",
+        "action": "R42Verification",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Failed",
+          "reason": "StepFailed",
+          "message": "step \"deadline\" exhausted its retry limit",
+          "deadline": "2026-10-13T02:40:09Z",
+          "startedAt": "2026-10-13T02:39:09Z",
+          "finishedAt": "2026-10-13T02:39:12Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-b840785e70b31b85166e4d0a993610f6",
+          "stepID": "deadline",
+          "node": "4c74fcf8-1cda-471e-9db3-c1749e09abfb",
+          "attempt": 0,
+          "status": {
+            "phase": "TimedOut",
+            "result": {
+              "reason": "DeadlineExceeded",
+              "message": "task deadline exceeded"
+            },
+            "startedAt": "2026-10-13T02:39:10Z",
+            "finishedAt": "2026-10-13T02:39:12Z"
+          }
+        }
+      ]
+    },
+    "r42-real-barrier-output-2": {
+      "operation": {
+        "name": "r42-real-barrier-output-2",
+        "uid": "45638cce-2afe-4cb1-8164-0ea3e10f42ef",
+        "action": "R42BarrierProof",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T02:42:55Z",
+          "startedAt": "2026-10-13T02:41:55Z",
+          "finishedAt": "2026-10-13T02:42:01Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-0a65774bea7491adbaa85a20510470cf",
+          "stepID": "preflight",
+          "node": "dec3e77d-b8ca-42df-8432-1e388bfaa316",
+          "attempt": 0,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "arch": "amd64",
+                "hostname": "lixd-dev-4",
+                "os": "linux"
+              }
+            },
+            "startedAt": "2026-10-13T02:42:01Z",
+            "finishedAt": "2026-10-13T02:42:01Z"
+          }
+        },
+        {
+          "name": "task-225298d0c55b143440dd9eacbf718b1f",
+          "stepID": "consume",
+          "node": "4c74fcf8-1cda-471e-9db3-c1749e09abfb",
+          "attempt": 0,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T02:42:01Z",
+            "finishedAt": "2026-10-13T02:42:01Z"
+          }
+        },
+        {
+          "name": "task-83908d8f21acf8b3e2e8bc24cb730f89",
+          "stepID": "preflight",
+          "node": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+          "attempt": 0,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "arch": "amd64",
+                "hostname": "lixd-dev-2",
+                "os": "linux"
+              }
+            },
+            "startedAt": "2026-10-13T02:41:59Z",
+            "finishedAt": "2026-10-13T02:41:59Z"
+          }
+        }
+      ]
+    },
+    "r42-terminal-response-loss": {
+      "operation": {
+        "name": "r42-terminal-response-loss",
+        "uid": "cfe9b487-c267-4ec3-a069-cd8e7e456da7",
+        "action": "R42ResponseLoss",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T02:43:27Z",
+          "startedAt": "2026-10-13T02:42:27Z",
+          "finishedAt": "2026-10-13T02:42:32Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-b81e6bcfb15a6aaa9c3d044b9561e37f",
+          "stepID": "once",
+          "node": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+          "attempt": 0,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T02:42:31Z",
+            "finishedAt": "2026-10-13T02:42:31Z"
+          }
+        }
+      ]
+    },
+    "r42-cache-first-fetch-2": {
+      "operation": {
+        "name": "r42-cache-first-fetch-2",
+        "uid": "6f39bc29-2176-40d6-ad41-75cdbfd8a35f",
+        "action": "R42CacheVerification",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T02:48:43Z",
+          "startedAt": "2026-10-13T02:47:43Z",
+          "finishedAt": "2026-10-13T02:47:53Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-cf4443a6baff69bf433b8026f766b472",
+          "stepID": "extension-cache",
+          "node": "4c74fcf8-1cda-471e-9db3-c1749e09abfb",
+          "attempt": 0,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T02:47:46Z",
+            "finishedAt": "2026-10-13T02:47:52Z"
+          }
+        }
+      ]
+    },
+    "r42-cache-offline-hit-2": {
+      "operation": {
+        "name": "r42-cache-offline-hit-2",
+        "uid": "e955702d-3f4a-4afd-9bef-1a5349de3329",
+        "action": "R42CacheVerification",
+        "target": "r42-more-network",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T02:48:56Z",
+          "startedAt": "2026-10-13T02:47:56Z",
+          "finishedAt": "2026-10-13T02:48:05Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-19759ff08e5c80a7a80c9927e9362233",
+          "stepID": "extension-cache",
+          "node": "4c74fcf8-1cda-471e-9db3-c1749e09abfb",
+          "attempt": 0,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T02:47:59Z",
+            "finishedAt": "2026-10-13T02:48:05Z"
+          }
+        }
+      ]
+    },
+    "r42-cache-corrupt-2": {
+      "operation": {
+        "name": "r42-cache-corrupt-2",
+        "uid": "f3ea0855-8511-43f2-8116-988a3ba35a10",
+        "action": "R42CacheVerification",
+        "target": "r42-more-network",
+        "retryGeneration": 1,
+        "status": {
+          "phase": "Succeeded",
+          "observedRetryGeneration": 1,
+          "deadline": "2026-10-13T02:49:39Z",
+          "startedAt": "2026-10-13T02:48:39Z",
+          "finishedAt": "2026-10-13T02:48:49Z"
+        }
+      },
+      "tasks": [
+        {
+          "name": "task-2027bd0a7c3b29539441366b354a3a74",
+          "stepID": "extension-cache",
+          "node": "4c74fcf8-1cda-471e-9db3-c1749e09abfb",
+          "attempt": 1,
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputs": {
+                "response": ""
+              }
+            },
+            "startedAt": "2026-10-13T02:48:42Z",
+            "finishedAt": "2026-10-13T02:48:49Z"
+          }
+        },
+        {
+          "name": "task-bfa173a48edc81e2c40fc47025141971",
+          "stepID": "extension-cache",
+          "node": "4c74fcf8-1cda-471e-9db3-c1749e09abfb",
+          "attempt": 0,
+          "status": {
+            "phase": "TimedOut",
+            "result": {
+              "reason": "DeadlineExceeded",
+              "message": "task deadline exceeded"
+            },
+            "startedAt": "2026-10-13T02:48:13Z",
+            "finishedAt": "2026-10-13T02:48:33Z"
+          }
+        }
+      ]
+    },
+    "priority-results": {
+      "results": [
+        {
+          "name": "priority-env",
+          "exit": 1
+        },
+        {
+          "name": "priority-flags",
+          "exit": 1
+        },
+        {
+          "name": "priority-agent",
+          "exit": 1
+        },
+        {
+          "name": "priority-server",
+          "exit": 1
+        }
+      ],
+      "configMode": "0600",
+      "restored": true
+    },
+    "token-expiry-results": {
+      "ttlSeconds": 20,
+      "before": 200,
+      "after": 401,
+      "accessTokenObjectsRemaining": 0,
+      "tokenLogged": false
+    },
+    "permissions-results": {
+      "modes": [
+        "600",
+        "600"
+      ],
+      "credentialsLogged": false
+    },
+    "policy-results": [
+      {
+        "name": "allowed-version",
+        "status": 200,
+        "body": "{\n \"kind\": \"Cluster\",\n \"apiVersion\": \"core.kubeclipper.io/v1\",\n \"metadata\": {\n  \"name\": \"r42-policy-dryrun\",\n  \"creationTimestamp\": null,\n  \"labels\": {\n   \"topology.kubeclipper.io/region\": \"default\"\n  },\n  \"annotations\": {\n   \"kubeclipper.io/offline\": \"true\"\n  }\n },\n \"imageRegistry\": \"kc-package-registry\",\n \"masters\": [\n  {\n   \"id\": \"4c74fcf8-1cda-471e-9db3-c1749e09abfb\",\n   \"containerRuntime\": {\n    \"type\": \"\"\n   }\n  }\n ],\n \"workers\": [],\n \"kubernetesVersion\": \"v1.36.4\",\n \"kubeProxy\": {},\n \"etcd\": {\n  \"dataDir\": \"/var/lib/etcd\"\n },\n \"kubelet\": {\n  \"rootDir\": \"/var/lib/kubelet\",\n  \"nodeIP\": \"\",\n  \"ipAsName\": false,\n  \"resolvConf\": \"\"\n },\n \"networking\": {\n  \"ipFamily\": \"IPv4\",\n  \"services\": {\n   \"cidrBlocks\": [\n    \"10.96.0.0/12\"\n   ]\n  },\n  \"pods\": {\n   \"cidrBlocks\": [\n    \"172.25.0.0/16\"\n   ]\n  },\n  \"dnsDomain\": \"cluster.local\",\n  \"proxyMode\": \"ipvs\",\n  \"workerNodeVip\": \"169.254.169.100\"\n },\n \"containerRuntime\": {\n  \"type\": \"containerd\",\n  \"version\": \"2.2.4\"\n },\n \"cni\": {\n  \"type\": \"calico\",\n  \"version\": \"v3.31.5\",\n  \"criType\": \"containerd\",\n  \"offline\": true,\n  \"namespace\": \"calico-system\",\n  \"calico\": {\n   \"IPv4AutoDetection\": \"interface=ens3\",\n   \"IPv6AutoDetection\": \"first-found\",\n   \"mode\": \"Overlay-Vxlan-All\",\n   \"IPManger\": true,\n   \"mtu\": 1440\n  }\n },\n \"addons\": null,\n \"status\": {\n  \"versions\": {\n   \"controlPlane\": \"\",\n   \"apiserver\": \"\",\n   \"controllerManager\": \"\",\n   \"scheduler\": \"\"\n  },\n  \"registries\": [\n   {\n    \"scheme\": \"http\",\n    \"host\": \"172.16.131.146:5003\"\n   }\n  ],\n  \"packagePlan\": {\n   \"kubernetesVersion\": \"v1.36.4\",\n   \"os\": \"linux\",\n   \"arch\": \"amd64\",\n   \"components\": [\n    {\n     \"slot\": \"k8s\",\n     \"kind\": \"k8s\",\n     \"name\": \"k8s\",\n     \"version\": \"v1.36.4\",\n     \"os\": \"linux\",\n     \"arch\": \"amd64\",\n     \"required\": true,\n     \"transport\": {\n      \"type\": \"oci\",\n      \"ref\": \"172.16.131.146:5003/kubeclipper/packages/k8s/k8s:v1.36.4\",\n      \"digest\": \"sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3\"\n     },\n     \"contents\": [\n      {\n       \"name\": \"configs\",\n       \"file\": \"configs.tar.gz\",\n       \"digest\": \"sha256:85a093ed0ee8e3f7b493054beaca0d5f00b36eaefda507b4696891e9d5eeee38\",\n       \"mediaType\": \"application/vnd.kubeclipper.configs.layer.v1.tar+gzip\",\n       \"transport\": {\n        \"type\": \"\",\n        \"ref\": \"\",\n        \"digest\": \"\"\n       }\n      }\n     ]\n    },\n    {\n     \"slot\": \"cri\",\n     \"kind\": \"cri\",\n     \"name\": \"containerd\",\n     \"version\": \"2.2.4\",\n     \"os\": \"linux\",\n     \"arch\": \"amd64\",\n     \"required\": true,\n     \"transport\": {\n      \"type\": \"oci\",\n      \"ref\": \"172.16.131.146:5003/kubeclipper/packages/cri/containerd:2.2.4\",\n      \"digest\": \"sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec\"\n     },\n     \"contents\": [\n      {\n       \"name\": \"configs\",\n       \"file\": \"configs.tar.gz\",\n       \"digest\": \"sha256:011e1ad7ffaf918c6757d58a97d35f8eba6d7ab62aee01f091617561b4b686c2\",\n       \"mediaType\": \"application/vnd.kubeclipper.configs.layer.v1.tar+gzip\",\n       \"transport\": {\n        \"type\": \"\",\n        \"ref\": \"\",\n        \"digest\": \"\"\n       }\n      }\n     ]\n    },\n    {\n     \"slot\": \"cni\",\n     \"kind\": \"cni\",\n     \"name\": \"calico\",\n     \"version\": \"v3.31.5\",\n     \"os\": \"linux\",\n     \"arch\": \"amd64\",\n     \"required\": true,\n     \"transport\": {\n      \"type\": \"oci\",\n      \"ref\": \"172.16.131.146:5003/kubeclipper/charts/tigera-operator:v3.31.5\",\n      \"digest\": \"sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18\"\n     },\n     \"contents\": [\n      {\n       \"name\": \"charts\",\n       \"file\": \"charts.tgz\",\n       \"mediaType\": \"application/vnd.cncf.helm.chart.content.v1.tar+gzip\",\n       \"transport\": {\n        \"type\": \"helm-oci\",\n        \"ref\": \"172.16.131.146:5003/kubeclipper/charts/tigera-operator\",\n        \"digest\": \"sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18\"\n       }\n      }\n     ]\n    },\n    {\n     \"slot\": \"k8s-extension\",\n     \"kind\": \"k8s-extension\",\n     \"name\": \"k8s-extension\",\n     \"version\": \"v1\",\n     \"os\": \"linux\",\n     \"arch\": \"amd64\",\n     \"required\": true,\n     \"transport\": {\n      \"type\": \"oci\",\n      \"ref\": \"172.16.131.146:5003/kubeclipper/packages/k8s-extension/k8s-extension:v1\",\n      \"digest\": \"sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117\"\n     },\n     \"contents\": [\n      {\n       \"name\": \"configs\",\n       \"file\": \"configs.tar.gz\",\n       \"digest\": \"sha256:16151c35ca1fe60cd5f847e01a47d0be6c836339ed2742338dcb1d84ad71e6a4\",\n       \"mediaType\": \"application/vnd.kubeclipper.configs.layer.v1.tar+gzip\",\n       \"transport\": {\n        \"type\": \"\",\n        \"ref\": \"\",\n        \"digest\": \"\"\n       }\n      }\n     ]\n    }\n   ]\n  }\n }\n}"
+      },
+      {
+        "name": "excluded-version",
+        "status": 400,
+        "body": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedKubernetesVersion: no policy matched kubernetes version \\\"v1.37.0\\\"\"\n}"
+      },
+      {
+        "name": "missing-cri-policy-apply",
+        "status": 200,
+        "body": "{\n \"apiVersion\": \"delivery.kubeclipper.io/v1alpha1\",\n \"kind\": \"SupportPolicy\",\n \"metadata\": {\n  \"name\": \"default\"\n },\n \"spec\": {\n  \"policies\": [\n   {\n    \"name\": \"k8s-v1.36\",\n    \"match\": {\n     \"kubernetesVersion\": \"v1.36.4\"\n    },\n    \"componentSlots\": [\n     {\n      \"slot\": \"cni\",\n      \"selection\": \"oneOf\",\n      \"required\": true,\n      \"default\": {\n       \"name\": \"calico\",\n       \"version\": \"v3.31.5\"\n      },\n      \"options\": [\n       {\n        \"name\": \"calico\",\n        \"kind\": \"cni\",\n        \"allowedVersions\": [\n         \"v3.31.5\"\n        ]\n       }\n      ]\n     },\n     {\n      \"slot\": \"k8s-extension\",\n      \"selection\": \"oneOf\",\n      \"required\": true,\n      \"default\": {\n       \"name\": \"k8s-extension\",\n       \"version\": \"v1\"\n      },\n      \"options\": [\n       {\n        \"name\": \"k8s-extension\",\n        \"kind\": \"k8s-extension\",\n        \"allowedVersions\": [\n         \"v1\"\n        ]\n       }\n      ]\n     },\n     {\n      \"slot\": \"bootstrap-kubeclipper\",\n      \"selection\": \"oneOf\",\n      \"required\": true,\n      \"default\": {\n       \"name\": \"kubeclipper\",\n       \"version\": \"v2.0.3\"\n      },\n      \"options\": [\n       {\n        \"name\": \"kubeclipper\",\n        \"kind\": \"bootstrap\",\n        \"allowedVersions\": [\n         \"v2.0.3\"\n        ]\n       }\n      ]\n     },\n     {\n      \"slot\": \"bootstrap-etcd\",\n      \"selection\": \"oneOf\",\n      \"required\": true,\n      \"default\": {\n       \"name\": \"etcd\",\n       \"version\": \"3.5.21\"\n      },\n      \"options\": [\n       {\n        \"name\": \"etcd\",\n        \"kind\": \"bootstrap\",\n        \"allowedVersions\": [\n         \"3.5.21\"\n        ]\n       }\n      ]\n     }\n    ]\n   }\n  ]\n }\n}"
+      },
+      {
+        "name": "missing-cri-request",
+        "status": 400,
+        "body": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedComponentSlot: slot \\\"cri\\\" is not declared\"\n}"
+      }
+    ],
+    "policy-missing-repository-results": {
+      "status": 400,
+      "body": {
+        "code": 400,
+        "message": "Bad request",
+        "reason": "ArtifactNotPublished: artifact k8s-extension/r42-missing-extension:v1 is not published"
+      },
+      "missingRepository": "kubeclipper/packages/k8s-extension/r42-missing-extension"
+    },
+    "node-identity-results": [
+      {
+        "name": "foreign-get",
+        "status": 403
+      },
+      {
+        "name": "foreign-status",
+        "status": 403
+      },
+      {
+        "name": "foreign-registration",
+        "status": 403
+      },
+      {
+        "name": "own-status",
+        "status": 200
+      },
+      {
+        "name": "stale-resource-version",
+        "status": 409
+      },
+      {
+        "name": "stale-uid",
+        "status": 409
+      }
+    ],
+    "platform-setting-results": {
+      "templateRoundTrip": true,
+      "passwordRedacted": true,
+      "passwordPreservedOnBlankUpdate": true,
+      "terminalKeyRotated": true,
+      "privateKeyExposed": false,
+      "originalSettingCount": 0
+    },
+    "publisher-results": {
+      "identicalRepeat": true,
+      "changedContentExit": 1,
+      "originalIndexDigestUnchanged": "sha256:a0b4b59555d25f7e4608e3d5f3421af4947e31abbd813f073a0942dcb6cb2dfa",
+      "originalChildDigestUnchanged": true
+    },
+    "firstfound-flow-results": [
+      {
+        "source": "r42-flow-master",
+        "target": "r42-flow-worker",
+        "targetIP": "172.25.58.193",
+        "icmpPackets": 3,
+        "loss": 0,
+        "http": 200
+      },
+      {
+        "source": "r42-flow-worker",
+        "target": "r42-flow-master",
+        "targetIP": "172.25.232.76",
+        "icmpPackets": 3,
+        "loss": 0,
+        "http": 200
+      }
+    ],
+    "capacity": {
+      "concurrentClusters": 2,
+      "nodesReady": true,
+      "operations": [
+        {
+          "name": "061dde0e-0e92-45f7-86ad-69854eae4fc5",
+          "uid": "65aae119-e7d8-436a-a687-6b6ed0254226",
+          "action": "CreateCluster",
+          "target": "r42-capacity-b",
+          "retryGeneration": 0,
+          "status": {
+            "phase": "Succeeded",
+            "deadline": "2026-10-13T04:37:06Z",
+            "startedAt": "2026-10-13T03:07:06Z",
+            "finishedAt": "2026-10-13T03:09:56Z"
+          }
+        },
+        {
+          "name": "74c47d73-51f8-41a8-81d6-56b09e58af09",
+          "uid": "b0ede797-7a5f-44b9-865f-093a63ae2bb5",
+          "action": "CreateCluster",
+          "target": "r42-capacity-a",
+          "retryGeneration": 0,
+          "status": {
+            "phase": "Succeeded",
+            "deadline": "2026-10-13T04:37:05Z",
+            "startedAt": "2026-10-13T03:07:05Z",
+            "finishedAt": "2026-10-13T03:09:09Z"
+          }
+        }
+      ]
+    },
+    "planIsolation": {
+      "bootstrapConsole": true,
+      "standaloneExtension": {
+        "name": "e8f072f2-10bb-4d65-91b1-cba1e7089130",
+        "uid": "4a03156d-2a05-494b-beb1-d06f0cc044e9",
+        "action": "UpgradeExtension",
+        "target": "r42-capacity-a",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T04:47:16Z",
+          "startedAt": "2026-10-13T03:17:16Z",
+          "finishedAt": "2026-10-13T03:17:24Z"
+        }
+      },
+      "packagePlansUnchanged": true
+    },
+    "addonRetry": {
+      "operation": {
+        "name": "3df0cab4-dbe3-4bb7-9b40-25445153141a",
+        "uid": "72466d6c-b3a2-411a-87a0-f2e3f8c2dde5",
+        "action": "InstallComponents",
+        "target": "r42-capacity-a",
+        "retryGeneration": 1,
+        "status": {
+          "phase": "Succeeded",
+          "observedRetryGeneration": 1,
+          "deadline": "2026-10-13T04:43:52Z",
+          "startedAt": "2026-10-13T03:13:52Z",
+          "finishedAt": "2026-10-13T03:14:59Z"
+        }
+      },
+      "failedForMissingImages": true,
+      "pods": [
+        {
+          "name": "controller-85dbc7c79d-p89g2",
+          "images": [
+            "172.16.131.230:5105/r42-addon/caas4/metallb-controller:v0.13.7"
+          ],
+          "containersReady": true
+        },
+        {
+          "name": "speaker-lgkvr",
+          "images": [
+            "172.16.131.230:5105/r42-addon/caas4/metallb-speaker:v0.13.7"
+          ],
+          "containersReady": true
+        }
+      ],
+      "uninstall": {
+        "name": "6f7867e8-7402-4fb3-9779-20b5c2a5575f",
+        "uid": "fee79c42-e5a3-406c-ae66-9af225ffed0e",
+        "action": "UninstallComponents",
+        "target": "r42-capacity-a",
+        "retryGeneration": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-10-13T04:45:04Z",
+          "startedAt": "2026-10-13T03:15:04Z",
+          "finishedAt": "2026-10-13T03:15:14Z"
+        }
+      },
+      "resourcesCleared": true
+    },
+    "proxyInjection": [
+      {
+        "time": 1791859277.8373246,
+        "kind": "watch-injected",
+        "mode": "410"
+      },
+      {
+        "time": 1791859345.8671634,
+        "kind": "watch-injected",
+        "mode": "eof"
+      },
+      {
+        "time": 1791859351.8963125,
+        "kind": "terminal-committed-response-dropped",
+        "status": 200,
+        "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-b81e6bcfb15a6aaa9c3d044b9561e37f/status"
+      }
+    ],
+    "registrySync": {
+      "artifacts": 7,
+      "first": {
+        "copied": 7,
+        "skipped": 0
+      },
+      "second": {
+        "copied": 0,
+        "skipped": 7
+      },
+      "strictCATLSSync": true,
+      "bundleImports": 2,
+      "manifest": {
+        "apiVersion": "delivery.kubeclipper.io/v1alpha1",
+        "kind": "ReleaseManifest",
+        "metadata": {
+          "name": "r42-isolated-qualification",
+          "version": "v2.0.3",
+          "sourceRevision": "5ce8f2dc88c17143dad15ae6b0560b9e35bd2159"
+        },
+        "registries": {
+          "package": "172.16.131.146:5003",
+          "image": "172.16.131.146:5003"
+        },
+        "artifacts": [
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "bootstrap",
+              "name": "kubeclipper",
+              "version": "v2.0.3-rc.34"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34",
+            "target": "kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.34",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:653191f70b8363964074f015ba6206d252c9de6dcfeb7775c1b60b8b61ce595a",
+            "sourceRevision": "5ce8f2dc88c17143dad15ae6b0560b9e35bd2159"
+          },
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "bootstrap",
+              "name": "console",
+              "version": "v1.6.0-r31.1"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/bootstrap/console:v1.6.0-r31.1",
+            "target": "kubeclipper/packages/bootstrap/console:v1.6.0-r31.1",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:f49f55382f072490366b0df21d87c0b8a38fa4f9395596d5797a10ed73639e94",
+            "sourceRevision": "50f1a4a8d3b0c6bccc2b9b2a97aef2829d8c5549"
+          },
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "bootstrap",
+              "name": "registry",
+              "version": "3.1.1"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/bootstrap/registry:3.1.1",
+            "target": "kubeclipper/packages/bootstrap/registry:3.1.1",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:98312c86d308384ae0c918ed29c1237a966a1248be8e7889221b00ea3a0666ed",
+            "sourceRevision": "e9e95f4cff4ee49fc396b4a35db09f6739b2fef6"
+          },
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "bootstrap",
+              "name": "etcd",
+              "version": "3.5.21"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/bootstrap/etcd:3.5.21",
+            "target": "kubeclipper/packages/bootstrap/etcd:3.5.21",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:8b9a777804e1178efa723a668b7214b3c69bcf6d0af93da8795ab294d79242fd",
+            "sourceRevision": "e9e95f4cff4ee49fc396b4a35db09f6739b2fef6"
+          },
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "k8s",
+              "name": "k8s",
+              "version": "v1.36.4"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/k8s/k8s:v1.36.4",
+            "target": "kubeclipper/packages/k8s/k8s:v1.36.4",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:1d3da4e0b5b7eb717dad71672c5e2595fefbac76b489e4f9f8352dd641a488f3",
+            "sourceRevision": "e9e95f4cff4ee49fc396b4a35db09f6739b2fef6"
+          },
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "cri",
+              "name": "containerd",
+              "version": "2.2.4"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/cri/containerd:2.2.4",
+            "target": "kubeclipper/packages/cri/containerd:2.2.4",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:6f8242b27aedd80d5fb626c33503479ccebadafcf88c5f5afb45edd38d4519ec",
+            "sourceRevision": "e9e95f4cff4ee49fc396b4a35db09f6739b2fef6"
+          },
+          {
+            "type": "package-image",
+            "component": {
+              "kind": "k8s-extension",
+              "name": "k8s-extension",
+              "version": "v1"
+            },
+            "source": "172.16.131.146:5003/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+            "target": "kubeclipper/packages/k8s-extension/k8s-extension:v1",
+            "platforms": [
+              "linux/amd64"
+            ],
+            "digest": "sha256:c431adcc8f26f518679c3b7d35c7c087b909bc223fbfaef2f52a707f20a77117",
+            "sourceRevision": "e9e95f4cff4ee49fc396b4a35db09f6739b2fef6"
+          }
+        ]
+      },
+      "scope": "qualification subset, not official complete release"
+    },
+    "registryReconcileStableSnapshot": {
+      "count": 112,
+      "latest": "2026-10-13T02:39:12Z",
+      "allTerminal": true
+    },
+    "registryCLI": {
+      "deploy": true,
+      "push": true,
+      "list": true,
+      "delete": true,
+      "deletedManifestHTTP": 404,
+      "clean": true,
+      "serviceInactive": true,
+      "configAndDataAbsent": true
+    },
+    "ipip": {
+      "senderIPIPPacketsCaptured": true,
+      "receiverIPIPPacketsCaptured": 0,
+      "bgpEstablished": true,
+      "podTrafficPassed": false,
+      "diagnosis": "underlay likely discards protocol4; security group and virtual network still require confirmation"
+    },
+    "cleanup": {
+      "sh-dev-2": {
+        "kc-agent": "active",
+        "kc-server": "active",
+        "kc-etcd": "active",
+        "kc-console": "active",
+        "kubelet": "inactive",
+        "containerd": "inactive",
+        "kc-registry": "inactive",
+        "r42-more-registry": "inactive",
+        "r42-more-tls-registry": "inactive",
+        "r42-more-api-proxy": "inactive",
+        "adminConfExists": false,
+        "testListeners": 0
+      },
+      "sh-dev-3": {
+        "kc-agent": "active",
+        "kc-server": "inactive",
+        "kc-etcd": "inactive",
+        "kc-console": "inactive",
+        "kubelet": "inactive",
+        "containerd": "inactive",
+        "kc-registry": "inactive",
+        "r42-more-registry": "inactive",
+        "r42-more-tls-registry": "inactive",
+        "r42-more-api-proxy": "inactive",
+        "adminConfExists": false,
+        "testListeners": 0
+      },
+      "sh-dev-4": {
+        "kc-agent": "active",
+        "kc-server": "inactive",
+        "kc-etcd": "inactive",
+        "kc-console": "inactive",
+        "kubelet": "inactive",
+        "containerd": "inactive",
+        "kc-registry": "inactive",
+        "r42-more-registry": "inactive",
+        "r42-more-tls-registry": "inactive",
+        "r42-more-api-proxy": "inactive",
+        "adminConfExists": false,
+        "testListeners": 0
+      }
+    }
+  },
+  "rawEvidenceSHA256": {
+    "sh-dev-2-r42-auto-retry.json": "c4ddf8e489f2b7ff988da808be0c11dac6094878409ddf422d119b00f7dd172e",
+    "sh-dev-2-wrong-address.log": "a92077c318fcc8004fff9159289702b8c7185f02ace58efd59b3df3d7480dd30",
+    "sh-dev-2-barrier-offline-snapshot.json": "e6ed600eeb40fa42b6d7f26afab90ba6d903cb4aa0182dfb95b2c210184f5578",
+    "sh-dev-4-ipip-worker.log": "c8c47eaf87b003368f00d46d400d9f9c34d001d1f0a090a16cf43f812e2bd6a6",
+    "sh-dev-3-ping-forward.log": "21d206691287410ca4f21e3ddd78d781d99ced7223362bd3d01d49149f6c4ecd",
+    "sh-dev-2-addon-uninstall-results.json": "4c0bb9b987474b3a7f31af5f3acaa389d583954088dcbce5c5b557a725838821",
+    "sh-dev-2-policy-results.json": "0872a8f79f79b8935e35206b6fa9743394a5701069203c542ff7fe7bc733551f",
+    "sh-dev-2-token-expiry-results.json": "72015272bc32f0affc1c1042850623f9f2663de92df67815440815df6da9fb72",
+    "sh-dev-2-proxy-events.jsonl": "8ee64e8fb2a8aee6b198896bee54ca068f531fb35d9f832cc22926b101a57ae2",
+    "sh-dev-2-registry-clean.log": "62b693dcfe401cb1eea5118a95363f82fbdab80942b8991e06b508a8385cc12a",
+    "sh-dev-2-deploy-wrong-ca.log": "c470913122df690ab113a60955bac8deed4914458b486294e2acff734ba2bf4a",
+    "sh-dev-3-publisher-results.json": "437447d16f494e509bf7488a5d69d1015702f0c7f4c6bedccc56c3158523dbb4",
+    "sh-dev-2-r42-cache-corrupt-2.json": "a17986ca58c64176aef13a3f6b9f3212adf60b54bffb286f646786b56737ee4c",
+    "sh-dev-3-tcp-forward.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "cleanup-services.json": "896be8aacb07f29b2f1047b8dfa5a21ca5bc407368781b71b1dba2180cf3db87",
+    "sh-dev-2-deploy-wrong-password.log": "c802fe621c751048a7bf7e28ac47b3cca5e7c2c14c3d4593b6378a8586e390fa",
+    "sh-dev-3-firstfound-nodes.json": "84e13005143ef822ab018687a6df876a1e1dbf8cc1ad8b860b375f10df6bd866",
+    "sh-dev-2-r42-step-deadline-fixed.json": "9690509f5f0ed4d7fbdbd36706642eb7a9ec643908dd5f04d1d29e67f98ec30d",
+    "sh-dev-2-registry-ops-stable-snapshot.json": "3697d9f7b0921edca7393b45be91c25838476052513b51d79006b212d8684400",
+    "sh-dev-3-export.log": "d8e31045b70eb0962a0d6bcf5ca3e1027e30d3d6c037022692f3e2ad2ca352ce",
+    "sh-dev-3-firstfound-flow-results.json": "18cf1203752b85a924e489cd4e6a687f254b910f1eb3b84edfead95b1c8e55ab",
+    "sh-dev-2-r42-retry-exhausted.json": "10f2656afb739cb833f4f3f8d73efcebc281962f4e3b79b9702e6d352c462f75",
+    "sh-dev-2-permissions-results.json": "acb34806a7445f1347f6e8cba20a7f925e557e723380f3b9b9e5352e1b37582c",
+    "sh-dev-2-r42-real-barrier-output-2.json": "eafcbb28ecf46c3bc98be7f14c6eabb98bc12b2d6944c4888e77ce3cfb3b9006",
+    "sh-dev-3-firstfound-calico.log": "230a2668297c3b74043b617686334e88ec5ec382bb7823310f36b4c238fcf3c7",
+    "sh-dev-3-import1.log": "a82547e985f12b247e53b9497d264c1eddca8e14aabae7341ae4ffa68cda4cba",
+    "sh-dev-2-addon-retry-results.json": "c2581cf96a550786a65e71c00ef52c5c95e819167099d8bc8d1bae7e8b94f269",
+    "sh-dev-2-r42-terminal-response-loss.json": "9f9aa1c5713b1c500a98fd6d53c87413e2f8b93a40a56ec46f0b940f72b9663b",
+    "sh-dev-3-sync2.log": "e1e5f6d380cac6bec8f70fdd8e73865b5ca68379b77115251180357330c0622b",
+    "sh-dev-3-import2.log": "a82547e985f12b247e53b9497d264c1eddca8e14aabae7341ae4ffa68cda4cba",
+    "sh-dev-3-manifest.json": "82cf00b30f9ee912c0409877821ddf923611b8cd931343d98b6bba9df5dee297",
+    "sh-dev-2-r42-cache-first-fetch-2.json": "bd5299602fcda288bb4e8bc32e41f401ac1f1efa0e2a2daddc26b2552d62b437",
+    "sh-dev-2-policy-missing-repository-results.json": "a781432677b18805835664e478382b11f74fa9423e9819541f90465cfea95fda",
+    "sh-dev-3-tls-sync.log": "cbc89ef21913ada2f386ec8fbb8bf161335e96d70c5e359629e2eb4cba0c4c93",
+    "sh-dev-2-node-identity-results.json": "1d523ea5419f40773da7b6575dd75232f3c4dcba24b8aa1b24459ec4b95a6d12",
+    "sh-dev-3-sync1.log": "138f024f6750a65691769008c17f553de17a810156d2d0fa37c4f1ee698160f4",
+    "sh-dev-3-ipip-capture.log": "42c4a2603e037e01617266d4ed4cf9f9cfa8578b691a1440c0d46c91db0a9605",
+    "sh-dev-2-bootstrap-console-isolation.log": "dca5125760fd46ff7a8389b03d77bb38e77a7fe12874f1f1046a5e12e988c8f0",
+    "sh-dev-2-r42-cache-offline-hit-2.json": "98b8d5154756ebf163a148b641924bc3328a1a7f985d0a40051f674c07783c9c",
+    "sh-dev-2-network-final.json": "492b80a2351a2f726fa6fd11c155b04d446a652aabda83e5db03f3af6ea4d096",
+    "sh-dev-2-platform-setting-results.json": "47d0faf023aa8b7e44f2809c0e90cbc50f1f17814bd6a6d57ee0283a74b97b36",
+    "sh-dev-2-network-cache-after.json": "91e41377c4801379bf1d60f3f0ddb537a2d48a1c22d1eb25febd24f565d6bbfb",
+    "sh-dev-2-priority-results.json": "52c9bfb981d190542ec850e8e6f0f4561ed399f3c88337a107672be0974cf44c",
+    "sh-dev-3-publish-conflict.log": "a81e6e9cd8927a4de5afe559f9c377f76960865f69e5410a8768b9814152da99",
+    "sh-dev-2-plan-isolation-results.json": "d5fa0db975bb22ac965637ec2b15047e0aa4ad465a00e0063e35d58fceb68097",
+    "sh-dev-2-capacity-results.json": "645417881059e5c94ad71f2aaf55e46db27e35e51d680bdb7e20392406abb180",
+    "sh-dev-2-missing-package.log": "85fc11d921285554472c6d9cfec0cff9767fe80de036062f586847455ccc97d2",
+    "sh-dev-3-firstfound-calico.yaml": "78d805e342b990e1cc07e3cce507afcb3d4535ad02c78c50529845c75e62c43f"
+  },
+  "finalVerification": {
+    "utc": "2026-10-13T03:31:00Z",
+    "doctor": "Healthy",
+    "passed": 19,
+    "warnings": 0,
+    "failed": 0,
+    "agents": "3/3",
+    "clusters": 0,
+    "sharedRegistryHTTP": 200,
+    "testWorkingDirectoriesAbsent": true
+  }
+}

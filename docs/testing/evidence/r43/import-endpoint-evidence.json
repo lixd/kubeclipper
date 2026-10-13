@@ -1,0 +1,6 @@
+{
+  "server": "https://172.16.131.208:6443",
+  "caVerification": true,
+  "apiCertificateIP_SAN": "172.16.131.208",
+  "readyz": "ok"
+}

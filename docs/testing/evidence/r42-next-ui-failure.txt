@@ -1,0 +1,175 @@
+- img "logo"
+- generic: KubeClipper
+- menu:
+  - menuitem "cluster 集群管理" [expanded]:
+    - img "cluster":
+    - text: 集群管理
+  - menu:
+    - menuitem "集群":
+      - link "集群":
+        - /url: /cluster
+    - menuitem "备份空间":
+      - link "备份空间":
+        - /url: /cluster/backup-point
+    - menuitem "模版管理":
+      - link "模版管理":
+        - /url: /cluster/template
+    - menuitem "镜像仓库":
+      - link "镜像仓库":
+        - /url: /cluster/registry
+    - menuitem "集群托管":
+      - link "集群托管":
+        - /url: /cluster/hosting
+  - menuitem "global 区域管理":
+    - img "global":
+    - link "区域管理":
+      - /url: /region
+  - menuitem "node-collapse 节点信息":
+    - img "node-collapse":
+    - link "节点信息":
+      - /url: /node
+  - menuitem "user 访问控制":
+    - img "user":
+    - text: 访问控制
+  - menuitem "audit 审计管理":
+    - img "audit":
+    - text: 审计管理
+- img "menu-fold":
+- button "user":
+  - img "user":
+- main:
+  - navigation:
+    - list:
+      - listitem: 集群管理/
+      - link "集群":
+        - /url: /cluster
+      - text: /
+      - listitem: 集群详情
+  - button "查看日志":
+    - generic: 查看日志
+  - separator
+  - button "更多 down":
+    - generic: 更多
+    - img "down":
+  - text: "ID:"
+  - text: r42-next-final
+  - button "复制":
+    - img "copy":
+  - separator
+  - button "返回":
+    - generic: 返回
+  - button "up":
+    - img "up":
+  - table:
+    - rowgroup:
+      - row "名称 r42-next-final 集群状态 question-circle 更新失败 区域 default":
+        - cell "名称 r42-next-final":
+          - generic: 名称
+          - generic: r42-next-final
+        - cell "集群状态 question-circle 更新失败":
+          - text: 集群状态
+          - img "question-circle":
+          - generic: 更新失败
+        - cell "区域 default":
+          - generic: 区域
+          - generic: default
+      - row "描述 - 创建于 34分钟前 更新于 -":
+        - cell "描述 -":
+          - generic: 描述
+          - generic: "-"
+        - cell "创建于 34分钟前":
+          - generic: 创建于
+          - generic: 34分钟前
+        - cell "更新于 -":
+          - generic: 更新于
+          - generic: "-"
+  - tablist:
+    - tab "详情"
+    - tab "节点列表"
+    - tab "操作日志" [selected]
+    - tab "备份"
+    - tab "定时备份"
+  - tabpanel "操作日志":
+    - textbox "筛选"
+    - img "search":
+    - button "sync":
+      - img "sync":
+    - button "eye":
+      - img "eye":
+    - button "download":
+      - img "download":
+    - table:
+      - rowgroup:
+        - row "操作 ID 操作名称 状态 创建时间 caret-up caret-down 操作":
+          - columnheader "操作 ID"
+          - columnheader "操作名称"
+          - columnheader "状态"
+          - columnheader "创建时间 caret-up caret-down":
+            - generic: 创建时间
+            - generic "caret-up":
+            - generic "caret-down":
+          - columnheader "操作"
+    - table:
+      - rowgroup:
+        - row "r42-next-ui-failure R42UIFailure 失败 2026-10-13 13:48:50 查看日志 从错误位置重试":
+          - cell "r42-next-ui-failure"
+          - cell "R42UIFailure"
+          - cell "失败":
+            - generic: 失败
+          - cell "2026-10-13 13:48:50"
+          - cell "查看日志 从错误位置重试":
+            - button "查看日志":
+              - generic: 查看日志
+            - separator
+            - button "从错误位置重试":
+              - generic: 从错误位置重试
+        - row "f647248c-3cc6-4266-bc10-52632ec21c0d UpgradeCluster 成功 2026-10-13 13:32:59 查看日志":
+          - cell "f647248c-3cc6-4266-bc10-52632ec21c0d"
+          - cell "UpgradeCluster"
+          - cell "成功":
+            - generic: 成功
+          - cell "2026-10-13 13:32:59"
+          - cell "查看日志":
+            - button "查看日志":
+              - generic: 查看日志
+        - row "sync-kubeconfig-1cbf2290-d828-4643-8c23-680a32de29b5 SyncKubeConfig 成功 2026-10-13 13:32:55 查看日志":
+          - cell "sync-kubeconfig-1cbf2290-d828-4643-8c23-680a32de29b5"
+          - cell "SyncKubeConfig"
+          - cell "成功":
+            - generic: 成功
+          - cell "2026-10-13 13:32:55"
+          - cell "查看日志":
+            - button "查看日志":
+              - generic: 查看日志
+        - row "1e8ba5fe-5f44-45ec-b824-3cb33833b5f0 CreateCluster 成功 2026-10-13 13:30:36 查看日志":
+          - cell "1e8ba5fe-5f44-45ec-b824-3cb33833b5f0"
+          - cell "CreateCluster"
+          - cell "成功":
+            - generic: 成功
+          - cell "2026-10-13 13:30:36"
+          - cell "查看日志":
+            - button "查看日志":
+              - generic: 查看日志
+    - text: 共 4 项
+    - button "left" [disabled]:
+      - img "left":
+    - button "1"
+    - button "right" [disabled]:
+      - img "right":
+    - combobox
+    - generic "10 条/页"
+  - button "info-circle":
+    - img "info-circle":
+- dialog "查看日志":
+  - button "Close":
+    - img "close":
+  - generic: 查看日志
+  - generic: 2026-10-13 13:48:50
+  - generic: MissingRequiredTestInput
+  - img "caret-down":
+  - text: 0b884850-d2ec-43df-be19-dc35fd147883(172.16.131.230)
+  - text: 0s
+  - img "close-circle":
+  - generic: "--- reconcile 2026-10-13T05:48:50Z --- command 1/1: shell [2026-10-13T05:48:50Z] + /usr/bin/sh -c test -f /var/tmp/r42-next/required-input || { echo R42_REQUIRED_INPUT_MISSING >&2; exit 23; } R42_REQUIRED_INPUT_MISSING"
+  - button "关 闭":
+    - generic: 关 闭

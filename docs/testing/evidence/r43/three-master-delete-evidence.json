@@ -1,0 +1,6 @@
+{
+  "deleteCommand": "kcctl delete cluster r43-three-master",
+  "normalDelete": true,
+  "remainingClusters": 0,
+  "deleteOperationNowGarbageCollected": true
+}

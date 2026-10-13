@@ -1,0 +1,83 @@
+{
+  "provider": "r43-kubeadm",
+  "sourceCluster": "r43-three-master",
+  "targetCluster": "r43-imported",
+  "precheck": "HTTP200",
+  "create": "HTTP201",
+  "sync": "HTTP200",
+  "providerStatus": {
+    "conditions": [
+      {
+        "type": "Progressing",
+        "status": "True",
+        "lastUpdateTime": "2026-10-13T08:02:48Z",
+        "lastTransitionTime": "2026-10-13T08:02:48Z",
+        "reason": "Created",
+        "message": "provider created success"
+      },
+      {
+        "type": "Ready",
+        "status": "True",
+        "lastUpdateTime": "2026-10-13T08:07:08Z",
+        "lastTransitionTime": "2026-10-13T08:07:08Z",
+        "reason": "SyncSucceed",
+        "message": "sync successful"
+      }
+    ]
+  },
+  "cluster": {
+    "phase": "Running",
+    "version": "v1.37.0",
+    "masters": 3,
+    "providerLabels": {
+      "kubeclipper.io/clusterProviderName": "r43-kubeadm",
+      "kubeclipper.io/clusterProviderType": "kubeadm",
+      "topology.kubeclipper.io/region": "default"
+    },
+    "actualName": {
+      "kubeclipper.io/actual-name": "r43-three-master",
+      "kubeclipper.io/description": "kubeadm cluster import"
+    }
+  },
+  "nodes": [
+    {
+      "id": "95e7b40b-ac48-475e-bda1-428a924712ac",
+      "ip": "172.16.131.146",
+      "ready": [
+        {
+          "type": "Ready",
+          "status": "True",
+          "lastHeartbeatTime": "2026-10-13T08:06:01Z",
+          "lastTransitionTime": "2026-10-13T08:06:01Z",
+          "reason": "AgentReady"
+        }
+      ]
+    },
+    {
+      "id": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+      "ip": "172.16.131.208",
+      "ready": [
+        {
+          "type": "Ready",
+          "status": "True",
+          "lastHeartbeatTime": "2026-10-13T08:05:38Z",
+          "lastTransitionTime": "2026-10-13T08:05:38Z",
+          "reason": "AgentReady"
+        }
+      ]
+    },
+    {
+      "id": "dec3e77d-b8ca-42df-8432-1e388bfaa316",
+      "ip": "172.16.131.230",
+      "ready": [
+        {
+          "type": "Ready",
+          "status": "True",
+          "lastHeartbeatTime": "2026-10-13T08:06:03Z",
+          "lastTransitionTime": "2026-10-13T08:05:03Z",
+          "reason": "AgentReady"
+        }
+      ]
+    }
+  ]
+}

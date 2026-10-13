@@ -1,0 +1,8 @@
+{
+  "providerCount": 0,
+  "clusterCount": 0,
+  "agentCount": 0,
+  "sourceClusterReadyNodes": 3,
+  "sourceAPIWriteReadDelete": true,
+  "sourceClusterDestroyed": false
+}
