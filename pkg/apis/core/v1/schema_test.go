@@ -260,3 +260,23 @@ func TestDecodeAddonConfigToleratesEmptyRaw(t *testing.T) {
 		t.Fatal("invalid raw must still error")
 	}
 }
+
+func TestUninstallEmptyConfigUsesInstalledAddonConfig(t *testing.T) {
+	for _, raw := range []string{"", "{}", "{ }", "null"} {
+		t.Run(raw, func(t *testing.T) {
+			stored := runtime.RawExtension{Raw: []byte(`{"scName":"r46-custom-nfs","serverAddr":"172.16.131.230","sharedPath":"/srv/r46"}`)}
+			cluster := &v1.Cluster{Addons: []v1.Addon{{Name: "nfs-csi", Version: "v1", Config: stored}}}
+			patch := &PatchComponents{Uninstall: true, Addons: []v1.Addon{{Name: "nfs-csi", Version: "v1", Config: runtime.RawExtension{Raw: []byte(raw)}}}}
+			if err := patch.checkComponents(cluster); err != nil {
+				t.Fatal(err)
+			}
+			if string(patch.Addons[0].Config.Raw) != string(stored.Raw) {
+				t.Fatalf("uninstall config = %s, want installed config %s", patch.Addons[0].Config.Raw, stored.Raw)
+			}
+			updated, err := patch.addOrRemoveComponentFromCluster(cluster)
+			if err != nil || len(updated.Addons) != 0 {
+				t.Fatalf("uninstall left addon records: %#v, error: %v", updated.Addons, err)
+			}
+		})
+	}
+}

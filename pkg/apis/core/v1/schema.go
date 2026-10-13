@@ -35,16 +35,30 @@ type PatchComponents struct {
 
 // checkComponent check whether the component is installed in the current cluster
 func (p *PatchComponents) checkComponents(cluster *corev1.Cluster) error {
-	for _, v := range p.Addons {
+	for i := range p.Addons {
+		v := &p.Addons[i]
 		itf, ok := component.Load(fmt.Sprintf(component.RegisterFormat, v.Name, v.Version))
 		if !ok {
 			return fmt.Errorf("kubeclipper does not support %s-%s component", v.Name, v.Version)
 		}
 		meta := itf.GetComponentMeta(component.English)
 		var installed bool
+		var installedAddons []corev1.Addon
 		for _, comp := range cluster.Addons {
 			if comp.Name == v.Name {
 				installed = true
+				installedAddons = append(installedAddons, comp)
+			}
+		}
+		if p.Uninstall {
+			var config map[string]interface{}
+			if len(v.Config.Raw) == 0 || (json.Unmarshal(v.Config.Raw, &config) == nil && len(config) == 0) {
+				if len(installedAddons) > 1 {
+					return fmt.Errorf("%s-%s has multiple installed instances; specify the uninstall configuration", v.Name, v.Version)
+				}
+				if len(installedAddons) == 1 {
+					v.Config = *installedAddons[0].Config.DeepCopy()
+				}
 			}
 		}
 		if p.Uninstall && !installed {
