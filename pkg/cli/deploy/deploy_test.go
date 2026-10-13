@@ -615,3 +615,39 @@ func TestDialDirectIgnoresProxyEnvironment(t *testing.T) {
 	}
 	conn.Close()
 }
+
+// TestLiveNTPPrecheck executes the production check only when explicitly enabled.
+func TestLiveNTPPrecheck(t *testing.T) {
+	if os.Getenv("KC_READINESS_LIVE") != "1" {
+		t.Skip("live acceptance is opt-in")
+	}
+	err := precheckNtpFunc(nil, "")
+	want := os.Getenv("KC_READINESS_WANT")
+	if want == "" {
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want %q, got %v", want, err)
+	}
+	t.Logf("production NTP precheck: %v", err)
+}
+
+func TestLiveTimeLagPrecheck(t *testing.T) {
+	if os.Getenv("KC_TIME_LAG_LIVE") != "1" {
+		t.Skip("live KVM acceptance is opt-in")
+	}
+	d := NewDeployOptions(options.IOStreams{})
+	d.allNodes = []string{os.Getenv("KC_TIME_LAG_HOST")}
+	d.deployConfig.SSHConfig = &sshutils.SSH{User: "root", Port: 22, PkFile: os.Getenv("KC_TIME_LAG_KEY")}
+	err := d.precheckTimeLag()
+	want := os.Getenv("KC_TIME_LAG_WANT")
+	if want == "" {
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else if err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("want %q, got %v", want, err)
+	}
+	t.Logf("production TIME-LAG precheck: %v", err)
+}

@@ -59,6 +59,7 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/autodetection"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/netutil"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/preflight"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -352,8 +353,7 @@ func (d *DeployOptions) preRun() {
 type precheckFunc func(sshConfig *sshutils.SSH, host string) error
 
 const (
-	timeSyncPrecheckCommand = `for service in chrony chronyd ntp ntpd systemd-timesyncd; ` +
-		`do systemctl is-active --quiet "$service" && exit 0; done; exit 10`
+	timeSyncPrecheckCommand        = preflight.TimeSyncCommand
 	timeSyncServiceMissingExitCode = 10
 )
 
@@ -365,6 +365,9 @@ var (
 		ret, err := sshutils.SSHCmdWithSudo(sshConfig, host, timeSyncPrecheckCommand)
 		if ret.ExitCode == timeSyncServiceMissingExitCode {
 			return fmt.Errorf("no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)")
+		}
+		if ret.ExitCode != 0 {
+			return fmt.Errorf("time synchronization check failed (exit %d): %s", ret.ExitCode, strings.TrimSpace(ret.Stderr))
 		}
 		return err
 	}
@@ -668,6 +671,15 @@ func (d *DeployOptions) preCheck() error {
 		return err
 	}
 	if err := d.precheckService("kc-agent", d.allNodes, precheckKcAgentFunc); err != nil {
+		return err
+	}
+	if err := d.precheckService("DISK", d.allNodes, func(sshConfig *sshutils.SSH, host string) error {
+		ret, err := sshutils.SSHCmdWithSudo(sshConfig, host, preflight.DiskCommand("/usr/local", "/var/lib", d.deployConfig.TempDir))
+		if err != nil {
+			return fmt.Errorf("disk precheck: %w: %s", err, strings.TrimSpace(ret.Stderr))
+		}
+		return nil
+	}); err != nil {
 		return err
 	}
 	if err := d.precheckTimeLag(); err != nil {

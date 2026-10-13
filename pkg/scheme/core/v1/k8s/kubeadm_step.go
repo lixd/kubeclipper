@@ -41,6 +41,7 @@ import (
 	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/preflight"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
 
@@ -159,6 +160,7 @@ func (runnable *Runnable) makeInstallSteps(ctx context.Context, metadata *compon
 	masters := utils.UnwrapNodeList(metadata.Masters)
 
 	var installSteps []v1.Step
+	installSteps = append(installSteps, nodeReadinessStep(nodes, &c))
 	steps, err := EnvSetupSteps(nodes)
 	if err != nil {
 		return nil, err
@@ -1448,4 +1450,21 @@ func (d *KubeadmConfigUpdater) Uninstall(_ context.Context, _ component.Options)
 
 func (d *KubeadmConfigUpdater) NewInstance() component.ObjectMeta {
 	return new(KubeadmConfigUpdater)
+}
+
+// nodeReadinessStep runs before environment changes and package installation.
+func nodeReadinessStep(nodes []v1.StepNode, c *v1.Cluster) v1.Step {
+	paths := []string{"/usr/local", "/tmp", strutil.StringDefaultIfEmpty(EtcdDefaultDataDir, c.Etcd.DataDir), strutil.StringDefaultIfEmpty(KubeletDefaultDataDir, c.Kubelet.RootDir), strutil.StringDefaultIfEmpty("/var/lib/containerd", c.ContainerRuntime.DataRootDir)}
+	// TimeSyncCommand exits its shell; run it in a subshell so hostname is checked.
+	script := "set -e\n" + preflight.DiskCommand(paths...) + "(\n" + preflight.TimeSyncCommand + ")\n"
+	if !c.Kubelet.IPAsName {
+		script += `
+name=$(hostname | tr '[:upper:]' '[:lower:]')
+if [ "${#name}" -gt 253 ] || ! printf '%s\n' "$name" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then
+  echo "invalid Kubernetes node hostname: $name" >&2
+  exit 13
+fi
+`
+	}
+	return v1.Step{ID: strutil.GetUUID(), Name: "nodeReadinessPrecheck", Timeout: metav1.Duration{Duration: 10 * time.Second}, Nodes: nodes, Action: v1.ActionInstall, Commands: []v1.Command{{Type: v1.CommandShell, ShellCommand: []string{binBashCommand, shellCommandFlag, script}}}}
 }
