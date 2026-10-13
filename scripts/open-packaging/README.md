@@ -641,3 +641,7 @@ explicit plain-HTTP test Registry. `--registry-skip-tls-verify` and
 production policy. Dynamic inventory uses the Registry Catalog API and filters
 repositories to the configured project prefix; use Harbor or another Registry
 that implements `/v2/_catalog` because GHCR does not expose that API.
+
+### Console fork 制品
+
+当前 R46 fork 候选使用 `lixd/console` 的 `v1.6.0-r46.1`，包含 Operation V2 与组件版本数据适配。发布 bootstrap console 前设置 `KC_CONSOLE_RELEASE_REPOSITORY=lixd/console`；GitHub Actions 从同名仓库变量读取。未设置时下载仓库为 `kubeclipper/console`。`packaging/resources.yaml` 中的 console 版本必须在所选仓库存在，并纳入同 revision 的 qualification。

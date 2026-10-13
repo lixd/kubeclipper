@@ -316,7 +316,8 @@ prepare_console_archive() {
   }
 
   local downloaded="$workdir/kc-console-release.tar.gz"
-  local url="https://github.com/kubeclipper/console/releases/download/$version/kc-console.tar.gz"
+  local repository="${KC_CONSOLE_RELEASE_REPOSITORY:-kubeclipper/console}"
+  local url="https://github.com/$repository/releases/download/$version/kc-console.tar.gz"
   echo "downloading kc-console $version" >&2
   download "$url" "$downloaded"
   normalize_console_archive "$downloaded"
