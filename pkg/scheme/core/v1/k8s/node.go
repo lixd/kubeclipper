@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -479,7 +480,30 @@ func (stepper JoinCmd) Install(ctx context.Context, opts component.Options) ([]b
 	// Control-plane join needs a certificate key that decrypts the certs
 	// uploaded to the kubeadm-certs secret; refresh the secret and pick up
 	// the fresh key from an existing control-plane member.
-	ec, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubeadm", "init", "phase", "upload-certs", "--upload-certs")
+	// The live configuration pins the version and certificate layout. Without
+	// it kubeadm queries the public stable version, even in offline clusters.
+	ec, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubectl", "--kubeconfig", "/etc/kubernetes/admin.conf",
+		"-n", "kube-system", "get", "configmap", "kubeadm-config", "-o", "jsonpath={.data.ClusterConfiguration}")
+	if err != nil {
+		return nil, fmt.Errorf("read kubeadm ClusterConfiguration: %w", err)
+	}
+	if strings.TrimSpace(ec.StdOut()) == "" {
+		return nil, fmt.Errorf("kubeadm ClusterConfiguration is empty")
+	}
+	config, err := os.CreateTemp("", "kc-upload-certs-*.yaml")
+	if err != nil {
+		return nil, err
+	}
+	defer os.Remove(config.Name())
+	_, writeErr := config.WriteString(ec.StdOut())
+	closeErr := config.Close()
+	if writeErr != nil {
+		return nil, writeErr
+	}
+	if closeErr != nil {
+		return nil, closeErr
+	}
+	ec, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "kubeadm", "init", "phase", "upload-certs", "--upload-certs", "--config", config.Name())
 	if err != nil {
 		logger.Error("run kubeadm init phase upload-certs error", zap.Error(err), zap.String("stderr", ec.StdErr()))
 		return nil, err
