@@ -80,6 +80,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
+	operationvalidation "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/validation"
 	apirequest "github.com/kubeclipper/kubeclipper/pkg/server/request"
 	"github.com/kubeclipper/kubeclipper/pkg/server/restplus"
 	bs "github.com/kubeclipper/kubeclipper/pkg/simple/backupstore"
@@ -475,6 +476,10 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 	} else {
 		timeoutSecs = v1.DefaultOperationTimeoutSecs
 	}
+	if err := validateClusterDeleteTimeout(timeoutSecs); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
 	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
 	force := query.GetBoolValueWithDefault(request, query.ParameterForce, false)
 	c, err := h.clusterOperator.GetClusterEx(request.Request.Context(), name, "0")
@@ -491,7 +496,19 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 		restplus.HandleBadRequest(response, request, errors.New("can't delete cluster which belongs to provider"))
 		return
 	}
-	if !allowedDeleteStatus.Has(string(c.Status.Phase)) {
+	var reservedName string
+	if c.Status.Phase == v1.ClusterTerminating {
+		active, reserved, stateErr := h.clusterDeletionState(request.Request.Context(), c)
+		if stateErr != nil {
+			restplus.HandleInternalError(response, request, stateErr)
+			return
+		}
+		if active {
+			response.WriteHeader(http.StatusOK)
+			return
+		}
+		reservedName = reserved
+	} else if !allowedDeleteStatus.Has(string(c.Status.Phase)) {
 		restplus.HandleBadRequest(response, request, fmt.Errorf("can't delete cluster when cluster is %s", c.Status.Phase))
 		return
 	}
@@ -517,10 +534,6 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 		// cannot be built or keeps failing.
 		logger.Warn("force delete cluster, skip uninstall operation", zap.String("cluster", name))
 		if !dryRun {
-			if err = h.setClusterPhase(request.Request.Context(), name, v1.ClusterTerminating); err != nil {
-				restplus.HandleInternalError(response, request, err)
-				return
-			}
 			if err = h.clusterOperator.DeleteCluster(request.Request.Context(), name); err != nil {
 				restplus.HandleInternalError(response, request, err)
 				return
@@ -550,12 +563,20 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 	op.Labels[common.LabelTimeoutSeconds] = timeoutSecs
 	op.Labels[common.LabelOperationAction] = v1.OperationDeleteCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
+	if reservedName != "" {
+		op.Name = reservedName
+	}
+	converted, err := operationv2builder.FromCoreOperation(request.Request.Context(), op, c, h.clusterOperator)
+	if err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+	if errs := operationvalidation.ValidateOperation(converted); len(errs) != 0 {
+		restplus.HandleBadRequest(response, request, errs.ToAggregate())
+		return
+	}
 	if !dryRun {
-		if err = h.setClusterPhase(request.Request.Context(), name, v1.ClusterTerminating); err != nil {
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
-		err = h.createOperationV2(request.Request.Context(), c, op)
+		err = h.submitClusterDeletion(request.Request.Context(), c, converted)
 		if err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
