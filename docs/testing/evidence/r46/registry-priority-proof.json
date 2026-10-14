@@ -1,0 +1,46 @@
+{
+  "scope": "production registry.Resolve and FileOptions/Write called by real Linux helper; no mocked files or selection output",
+  "checks": [
+    {
+      "check": "Agent file precedes Server file",
+      "exit": 0,
+      "selected": "registry=172.16.131.146:5247 scheme=https",
+      "pass": true
+    },
+    {
+      "check": "Server file used when Agent file absent",
+      "exit": 0,
+      "selected": "registry=172.16.131.146:5247 scheme=http",
+      "pass": true
+    },
+    {
+      "check": "environment config precedes Agent file",
+      "exit": 0,
+      "selected": "registry=172.16.131.146:5247 scheme=http",
+      "pass": true
+    },
+    {
+      "check": "malformed explicit environment config fails without fallback",
+      "exit": 1,
+      "selected": "parse package registry config: invalid character 'i' looking for beginning of object key string",
+      "pass": true
+    },
+    {
+      "check": "explicit options precede malformed environment config",
+      "exit": 0,
+      "selected": "registry=172.16.131.146:5247 scheme=https",
+      "pass": true
+    },
+    {
+      "check": "production registry.Write rewrite",
+      "exit": 0,
+      "selected": "registry=172.16.131.146:5247 scheme=http",
+      "pass": true
+    },
+    {
+      "check": "atomic file rewrite tightens mode to 0600; private directory0700",
+      "pass": true
+    }
+  ],
+  "originalConfigurationBytesAndModesRestored": true
+}

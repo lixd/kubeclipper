@@ -1,0 +1,1079 @@
+[
+  {
+    "check": "all-node step barrier and UID/IP enriched",
+    "pass": true,
+    "detail": {
+      "operation": "r46-barrier-b",
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-521167b42d6712c90ff1bef741874b59",
+            "uid": "15571278-91ea-43d5-bb17-fbe34a3493a2",
+            "resourceVersion": "5803",
+            "creationTimestamp": "2026-10-13T12:58:49Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-barrier-b",
+              "uid": "187e901f-b62c-442b-b84f-91aaa61f97c0"
+            },
+            "stepID": "after",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "after",
+                "name": "after",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "test -s /var/tmp/r46/ops/barrier-ready; date +%s > /var/tmp/r46/ops/barrier-after"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:47Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:49Z",
+            "finishedAt": "2026-10-13T12:58:49Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-702bde848a8f24e41a27f1cd9099830c",
+            "uid": "c7732f7c-1402-4af6-b627-6b2a2b15342e",
+            "resourceVersion": "5800",
+            "creationTimestamp": "2026-10-13T12:58:49Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-barrier-b",
+              "uid": "187e901f-b62c-442b-b84f-91aaa61f97c0"
+            },
+            "stepID": "after",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "after",
+                "name": "after",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "test -s /var/tmp/r46/ops/barrier-ready; date +%s > /var/tmp/r46/ops/barrier-after"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:47Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:49Z",
+            "finishedAt": "2026-10-13T12:58:49Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-ad639085ce5ab168371ffa877a6677ca",
+            "uid": "61961578-816d-4dd9-888f-edee5311eba2",
+            "resourceVersion": "5790",
+            "creationTimestamp": "2026-10-13T12:58:47Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-barrier-b",
+              "uid": "187e901f-b62c-442b-b84f-91aaa61f97c0"
+            },
+            "stepID": "prepare",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "prepare",
+                "name": "prepare",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; sleep 2; date +%s > /var/tmp/r46/ops/barrier-ready"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:47Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:47Z",
+            "finishedAt": "2026-10-13T12:58:49Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-aec18afc25a7a7fb95500d548d8e32f6",
+            "uid": "8e22f314-587b-4de1-9e6b-110998476d0e",
+            "resourceVersion": "5786",
+            "creationTimestamp": "2026-10-13T12:58:47Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-barrier-b",
+              "uid": "187e901f-b62c-442b-b84f-91aaa61f97c0"
+            },
+            "stepID": "prepare",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "prepare",
+                "name": "prepare",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; sleep 2; date +%s > /var/tmp/r46/ops/barrier-ready"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:47Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:47Z",
+            "finishedAt": "2026-10-13T12:58:49Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-e2c0725c1abf7971b591dea0f08cd76b",
+            "uid": "b435082e-d706-4e6f-8351-e8a50d226ce5",
+            "resourceVersion": "5805",
+            "creationTimestamp": "2026-10-13T12:58:49Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-barrier-b",
+              "uid": "187e901f-b62c-442b-b84f-91aaa61f97c0"
+            },
+            "stepID": "after",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "after",
+                "name": "after",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "test -s /var/tmp/r46/ops/barrier-ready; date +%s > /var/tmp/r46/ops/barrier-after"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:47Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:49Z",
+            "finishedAt": "2026-10-13T12:58:49Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-e5a20d481f0e53fbfbcc2b4499800461",
+            "uid": "f2bde159-0d9c-4002-b9d7-8f9c3704d60e",
+            "resourceVersion": "5788",
+            "creationTimestamp": "2026-10-13T12:58:47Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-barrier-b",
+              "uid": "187e901f-b62c-442b-b84f-91aaa61f97c0"
+            },
+            "stepID": "prepare",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "prepare",
+                "name": "prepare",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; sleep 2; date +%s > /var/tmp/r46/ops/barrier-ready"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:47Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:47Z",
+            "finishedAt": "2026-10-13T12:58:49Z"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "check": "automatic retry with actual first failure",
+    "pass": true,
+    "detail": {
+      "operation": "r46-auto-retry-b",
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-007acf676360b7ce5bb74f0afc22e913",
+            "uid": "33accaff-afcf-4af3-a378-3d803b39dd81",
+            "resourceVersion": "5825",
+            "creationTimestamp": "2026-10-13T12:58:50Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-auto-retry-b",
+              "uid": "493449bd-ab68-4f59-8456-b89a56b45563"
+            },
+            "stepID": "once",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "once",
+                "name": "once",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; if test ! -f /var/tmp/r46/ops/retry-once; then touch /var/tmp/r46/ops/retry-once; exit 17; fi; touch /var/tmp/r46/ops/retry-done"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:50Z"
+          },
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 17"
+            },
+            "startedAt": "2026-10-13T12:58:50Z",
+            "finishedAt": "2026-10-13T12:58:50Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-11c27d29d1de5ea635173dedaa880033",
+            "uid": "1fcf69c3-f7b7-40ed-9c1f-aa5cc6a63a77",
+            "resourceVersion": "5837",
+            "creationTimestamp": "2026-10-13T12:58:51Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-auto-retry-b",
+              "uid": "493449bd-ab68-4f59-8456-b89a56b45563"
+            },
+            "stepID": "once",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 1,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "once",
+                "name": "once",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; if test ! -f /var/tmp/r46/ops/retry-once; then touch /var/tmp/r46/ops/retry-once; exit 17; fi; touch /var/tmp/r46/ops/retry-done"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:50Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:51Z",
+            "finishedAt": "2026-10-13T12:58:51Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-218b668ee39377654b58ac8653158601",
+            "uid": "b1120bd3-e6b7-4d46-a4ba-b9ee17c3c6d2",
+            "resourceVersion": "5840",
+            "creationTimestamp": "2026-10-13T12:58:51Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-auto-retry-b",
+              "uid": "493449bd-ab68-4f59-8456-b89a56b45563"
+            },
+            "stepID": "once",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 1,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "once",
+                "name": "once",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; if test ! -f /var/tmp/r46/ops/retry-once; then touch /var/tmp/r46/ops/retry-once; exit 17; fi; touch /var/tmp/r46/ops/retry-done"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:50Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:51Z",
+            "finishedAt": "2026-10-13T12:58:51Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-54a352bcdcb58d861e23954ac5a0ba3e",
+            "uid": "724096f7-421b-4405-8160-634ea810ee9e",
+            "resourceVersion": "5822",
+            "creationTimestamp": "2026-10-13T12:58:50Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-auto-retry-b",
+              "uid": "493449bd-ab68-4f59-8456-b89a56b45563"
+            },
+            "stepID": "once",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "once",
+                "name": "once",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; if test ! -f /var/tmp/r46/ops/retry-once; then touch /var/tmp/r46/ops/retry-once; exit 17; fi; touch /var/tmp/r46/ops/retry-done"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:50Z"
+          },
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 17"
+            },
+            "startedAt": "2026-10-13T12:58:50Z",
+            "finishedAt": "2026-10-13T12:58:50Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-82546ddc3c09e710cdd70da51b864e1d",
+            "uid": "79d84784-fc9c-45d6-9560-6f32bbec9edf",
+            "resourceVersion": "5827",
+            "creationTimestamp": "2026-10-13T12:58:50Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-auto-retry-b",
+              "uid": "493449bd-ab68-4f59-8456-b89a56b45563"
+            },
+            "stepID": "once",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "once",
+                "name": "once",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; if test ! -f /var/tmp/r46/ops/retry-once; then touch /var/tmp/r46/ops/retry-once; exit 17; fi; touch /var/tmp/r46/ops/retry-done"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:50Z"
+          },
+          "status": {
+            "phase": "Failed",
+            "result": {
+              "reason": "ExecutionFailed",
+              "message": "run shell command: exit status 17"
+            },
+            "startedAt": "2026-10-13T12:58:50Z",
+            "finishedAt": "2026-10-13T12:58:50Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-97e4db4053f95cc64af2596b5d852fcd",
+            "uid": "9171a153-712d-415c-8a35-94513c437133",
+            "resourceVersion": "5842",
+            "creationTimestamp": "2026-10-13T12:58:51Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-auto-retry-b",
+              "uid": "493449bd-ab68-4f59-8456-b89a56b45563"
+            },
+            "stepID": "once",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 1,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "once",
+                "name": "once",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "mkdir -p /var/tmp/r46/ops; if test ! -f /var/tmp/r46/ops/retry-once; then touch /var/tmp/r46/ops/retry-once; exit 17; fi; touch /var/tmp/r46/ops/retry-done"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:00:50Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T12:58:51Z",
+            "finishedAt": "2026-10-13T12:58:51Z"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "check": "manual retry prerequisite initially fails",
+    "pass": true,
+    "detail": {
+      "phase": "Failed",
+      "reason": "StepFailed",
+      "message": "step \"manual\" exhausted its retry limit",
+      "deadline": "2026-10-13T13:00:51Z",
+      "startedAt": "2026-10-13T12:58:51Z",
+      "finishedAt": "2026-10-13T12:58:53Z"
+    }
+  },
+  {
+    "check": "manual retry after real prerequisite repair",
+    "pass": true,
+    "detail": {
+      "operation": "r46-manual-retry-b",
+      "status": {
+        "phase": "Succeeded",
+        "observedRetryGeneration": 1,
+        "deadline": "2026-10-13T13:01:32Z",
+        "startedAt": "2026-10-13T12:59:32Z",
+        "finishedAt": "2026-10-13T12:59:33Z"
+      }
+    }
+  },
+  {
+    "check": "step timeout converges",
+    "pass": true,
+    "detail": {
+      "operation": "r46-timeout-b",
+      "status": {
+        "phase": "Failed",
+        "reason": "StepFailed",
+        "message": "step \"timeout\" exhausted its retry limit",
+        "deadline": "2026-10-13T13:02:24Z",
+        "startedAt": "2026-10-13T13:00:24Z",
+        "finishedAt": "2026-10-13T13:00:27Z"
+      },
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-72ac8b06b7e57fbde0d93403c53bdf84",
+            "uid": "313fdde6-85c6-4fd2-8ea8-cc5478f274e6",
+            "resourceVersion": "6008",
+            "creationTimestamp": "2026-10-13T13:00:24Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-timeout-b",
+              "uid": "b40943a3-cd0f-47dd-83c7-7ba1f4e85ba3"
+            },
+            "stepID": "timeout",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "timeout",
+                "name": "timeout",
+                "action": "install",
+                "timeout": "2s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "sleep 60; touch /var/tmp/r46/ops/timeout-should-not-exist"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:02:24Z"
+          },
+          "status": {
+            "phase": "TimedOut",
+            "result": {
+              "reason": "DeadlineExceeded",
+              "message": "task deadline exceeded"
+            },
+            "startedAt": "2026-10-13T13:00:25Z",
+            "finishedAt": "2026-10-13T13:00:27Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-b3b5e5e0ee3a378c8227cbbc0a8db9ea",
+            "uid": "a1fac95a-c44f-4e94-95ad-cd468fda25ba",
+            "resourceVersion": "6010",
+            "creationTimestamp": "2026-10-13T13:00:24Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-timeout-b",
+              "uid": "b40943a3-cd0f-47dd-83c7-7ba1f4e85ba3"
+            },
+            "stepID": "timeout",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "timeout",
+                "name": "timeout",
+                "action": "install",
+                "timeout": "2s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "sleep 60; touch /var/tmp/r46/ops/timeout-should-not-exist"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:02:24Z"
+          },
+          "status": {
+            "phase": "TimedOut",
+            "result": {
+              "reason": "DeadlineExceeded",
+              "message": "task deadline exceeded"
+            },
+            "startedAt": "2026-10-13T13:00:25Z",
+            "finishedAt": "2026-10-13T13:00:27Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-d4f06a139458b723b7785c792acc9100",
+            "uid": "f118f9db-8075-4f52-86f0-1da0d3910398",
+            "resourceVersion": "6011",
+            "creationTimestamp": "2026-10-13T13:00:25Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-timeout-b",
+              "uid": "b40943a3-cd0f-47dd-83c7-7ba1f4e85ba3"
+            },
+            "stepID": "timeout",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "timeout",
+                "name": "timeout",
+                "action": "install",
+                "timeout": "2s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "sleep 60; touch /var/tmp/r46/ops/timeout-should-not-exist"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:02:24Z"
+          },
+          "status": {
+            "phase": "TimedOut",
+            "result": {
+              "reason": "DeadlineExceeded",
+              "message": "task deadline exceeded"
+            },
+            "startedAt": "2026-10-13T13:00:25Z",
+            "finishedAt": "2026-10-13T13:00:27Z"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "check": "cancel last already-running step may finish Succeeded per cooperative semantics",
+    "pass": true,
+    "detail": {
+      "phase": "Succeeded",
+      "deadline": "2026-10-13T13:02:28Z",
+      "startedAt": "2026-10-13T13:00:28Z",
+      "finishedAt": "2026-10-13T13:01:58Z"
+    }
+  },
+  {
+    "check": "cooperative cancel prevents future steps",
+    "pass": true,
+    "detail": {
+      "operation": "r46-cancel-followup-b",
+      "status": {
+        "phase": "Canceled",
+        "reason": "CancelledByRequest",
+        "message": "operation canceled; running tasks finished",
+        "deadline": "2026-10-13T13:05:15Z",
+        "startedAt": "2026-10-13T13:03:15Z",
+        "finishedAt": "2026-10-13T13:03:30Z"
+      },
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-0d70d1153ab16afa29118249ad0e0653",
+            "uid": "49c13085-ad08-4d13-90a4-82f13aef468a",
+            "resourceVersion": "6248",
+            "creationTimestamp": "2026-10-13T13:03:15Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-cancel-followup-b",
+              "uid": "70b9453c-ad21-496b-aa8e-1995de611458"
+            },
+            "stepID": "running",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "running",
+                "name": "running",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "sleep 15; touch /var/tmp/r46/ops/cooperative-finished"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:05:15Z"
+          },
+          "status": {
+            "phase": "Canceled",
+            "result": {
+              "reason": "OperationCancelled"
+            },
+            "finishedAt": "2026-10-13T13:03:19Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-1095defce8399cbcfc23349b3b7a4be5",
+            "uid": "5a2a50bc-30fc-4563-9f5a-0b9123260a9a",
+            "resourceVersion": "6262",
+            "creationTimestamp": "2026-10-13T13:03:15Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-cancel-followup-b",
+              "uid": "70b9453c-ad21-496b-aa8e-1995de611458"
+            },
+            "stepID": "running",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "running",
+                "name": "running",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "sleep 15; touch /var/tmp/r46/ops/cooperative-finished"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:05:15Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T13:03:15Z",
+            "finishedAt": "2026-10-13T13:03:30Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-43190a21e58a75283874986520a93221",
+            "uid": "00963b08-798b-405a-a56f-e305104e4917",
+            "resourceVersion": "6264",
+            "creationTimestamp": "2026-10-13T13:03:15Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-cancel-followup-b",
+              "uid": "70b9453c-ad21-496b-aa8e-1995de611458"
+            },
+            "stepID": "running",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "step": {
+                "id": "running",
+                "name": "running",
+                "action": "install",
+                "timeout": "30s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "sleep 15; touch /var/tmp/r46/ops/cooperative-finished"
+                    ]
+                  }
+                ]
+              },
+              "dryRun": false
+            },
+            "deadline": "2026-10-13T13:05:15Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T13:03:15Z",
+            "finishedAt": "2026-10-13T13:03:30Z"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "check": "cancel prevents future side effects and timeout 172.16.131.208",
+    "pass": true
+  },
+  {
+    "check": "cancel prevents future side effects and timeout 172.16.131.146",
+    "pass": true
+  },
+  {
+    "check": "cancel prevents future side effects and timeout 172.16.131.230",
+    "pass": true
+  }
+]

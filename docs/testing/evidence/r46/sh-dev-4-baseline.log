@@ -1,0 +1,38 @@
+x86_64
+lixd-dev-4
+Reference ID    : D21C8204 (time.nju.edu.cn)
+Stratum         : 2
+Ref time (UTC)  : Tue Oct 13 10:41:26 2026
+System time     : 0.000987213 seconds slow of NTP time
+Last offset     : -0.000086772 seconds
+RMS offset      : 0.000144695 seconds
+Frequency       : 24.722 ppm fast
+Residual freq   : -0.001 ppm
+Skew            : 0.023 ppm
+Root delay      : 0.029790118 seconds
+Root dispersion : 0.000387414 seconds
+Update interval : 1043.6 seconds
+Leap status     : Normal
+Filesystem     1048576-blocks  Used Available Capacity Mounted on
+/dev/vda1               98122 26845     71262      28% /
+/dev/vda1               98122 26845     71262      28% /
+/dev/vda1               98122 26845     71262      28% /
+State  Recv-Q Send-Q                    Local Address:Port  Peer Address:PortProcess                                                     
+LISTEN 0      64                              0.0.0.0:2049       0.0.0.0:*                                                               
+LISTEN 0      4096                      127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=1358691,fd=15))              
+LISTEN 0      4096                            0.0.0.0:36103      0.0.0.0:*    users:(("rpc.mountd",pid=898299,fd=5))                     
+LISTEN 0      4096                            0.0.0.0:52903      0.0.0.0:*    users:(("rpc.mountd",pid=898299,fd=9))                     
+LISTEN 0      4096                            0.0.0.0:60955      0.0.0.0:*    users:(("rpc.statd",pid=898296,fd=9))                      
+LISTEN 0      4096                            0.0.0.0:111        0.0.0.0:*    users:(("rpcbind",pid=26162,fd=4),("systemd",pid=1,fd=251))
+LISTEN 0      4096                            0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=3274020,fd=3),("systemd",pid=1,fd=157)) 
+LISTEN 0      4096                         127.0.0.54:53         0.0.0.0:*    users:(("systemd-resolve",pid=1358691,fd=17))              
+LISTEN 0      4096                            0.0.0.0:50707      0.0.0.0:*    users:(("rpc.mountd",pid=898299,fd=13))                    
+LISTEN 0      64                              0.0.0.0:39041      0.0.0.0:*                                                               
+LISTEN 0      32                            10.8.39.1:53         0.0.0.0:*    users:(("dnsmasq",pid=3768582,fd=9))                       
+LISTEN 0      4096                                  *:10260            *:*    users:(("kubeclipper-age",pid=3497833,fd=8))               
+LISTEN 0      64                                 [::]:2049          [::]:*                                                               
+LISTEN 0      4096                               [::]:60095         [::]:*    users:(("rpc.mountd",pid=898299,fd=7))                     
+LISTEN 0      4096                               [::]:44969         [::]:*    users:(("rpc.mountd",pid=898299,fd=15))                    
+LISTEN 0      4096                               [::]:52775         [::]:*    users:(("rpc.statd",pid=898296,fd=11))                     
+LISTEN 0      4096                               [::]:111           [::]:*    users:(("rpcbind",pid=26162,fd=6),("systemd",pid=1,fd=253))
+# Warning: iptables-legacy tables present, use iptables-legacy-save to see them

@@ -1,0 +1,5 @@
+[2026-10-13T19:25:48Z][INFO] node-ip-detect inherits from ip-detect: first-found
+[2026-10-13T19:25:48Z][INFO] ============>sudo PRECHECK ...
+[2026-10-13T19:25:48Z][INFO] ============>sudo PRECHECK OK!
+[2026-10-13T19:26:48Z][ERROR] check node 192.0.2.1 failed: dial tcp 192.0.2.1:22: i/o timeout
+join precheck failed

@@ -1,0 +1,20 @@
+{
+  "operation": "89205224-4aa2-43ed-9331-d918fd9a0f53",
+  "phase": "Succeeded",
+  "addons": [
+    {
+      "name": "nfs-csi",
+      "version": "v1",
+      "config": {
+        "serverAddr": "172.16.131.230",
+        "sharedPath": "/srv/kc-backup/r46",
+        "scName": "r46-nfs",
+        "replicas": 1,
+        "reclaimPolicy": "Delete"
+      }
+    }
+  ],
+  "remainingPluginPods": [],
+  "customSCAbsent": false,
+  "requestConfigsEmpty": true
+}

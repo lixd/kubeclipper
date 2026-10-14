@@ -1,0 +1,41 @@
+{
+  "version": "v1.36.4",
+  "cri": "containerd://2.2.4",
+  "nodeConditions": [
+    {
+      "lastHeartbeatTime": "2026-10-13T12:13:00Z",
+      "lastTransitionTime": "2026-10-13T12:12:48Z",
+      "message": "kubelet has sufficient memory available",
+      "reason": "KubeletHasSufficientMemory",
+      "status": "False",
+      "type": "MemoryPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-10-13T12:13:00Z",
+      "lastTransitionTime": "2026-10-13T12:12:48Z",
+      "message": "kubelet has no disk pressure",
+      "reason": "KubeletHasNoDiskPressure",
+      "status": "False",
+      "type": "DiskPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-10-13T12:13:00Z",
+      "lastTransitionTime": "2026-10-13T12:12:48Z",
+      "message": "kubelet has sufficient PID available",
+      "reason": "KubeletHasSufficientPID",
+      "status": "False",
+      "type": "PIDPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-10-13T12:13:00Z",
+      "lastTransitionTime": "2026-10-13T12:12:48Z",
+      "message": "container runtime network not ready: NetworkReady=false reason:NetworkPluginNotReady message:Network plugin returns error: cni plugin not initialized",
+      "reason": "KubeletNotReady",
+      "status": "False",
+      "type": "Ready"
+    }
+  ],
+  "calicoAbsent": true,
+  "featureGatesRendered": true,
+  "caSHA256": "aeb19ca57ddbbe0e1fbac22e54a80fc4a4cb557ed41ce381e10839f0c8685f16"
+}

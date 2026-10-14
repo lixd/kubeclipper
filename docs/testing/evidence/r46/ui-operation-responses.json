@@ -1,0 +1,30 @@
+[
+  {
+    "path": "/apis/api/config.kubeclipper.io/v1/components",
+    "status": 200
+  },
+  {
+    "path": "/apis/api/core.kubeclipper.io/v1/clusters",
+    "status": 200
+  },
+  {
+    "path": "/apis/api/core.kubeclipper.io/v1/clusters/r46-minimal",
+    "status": 200
+  },
+  {
+    "path": "/apis/api/core.kubeclipper.io/v1/nodes",
+    "status": 200
+  },
+  {
+    "path": "/apis/api/core.kubeclipper.io/v1/operations",
+    "status": 404
+  },
+  {
+    "path": "/apis/api/core.kubeclipper.io/v1/operations",
+    "status": 404
+  },
+  {
+    "path": "/apis/api/core.kubeclipper.io/v1/clusters",
+    "status": 200
+  }
+]

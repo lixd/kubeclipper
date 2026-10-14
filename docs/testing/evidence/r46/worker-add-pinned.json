@@ -1,0 +1,127 @@
+{
+  "operation": "03059c7c-60f1-4682-bda4-0377ac78c0ad",
+  "status": {
+    "phase": "Succeeded",
+    "deadline": "2026-10-14T05:05:38Z",
+    "startedAt": "2026-10-14T03:35:38Z",
+    "finishedAt": "2026-10-14T03:36:30Z"
+  },
+  "planHashBefore": "0e2b414fb8963fb0f62ae3e6356514f31eb2cddd1309ab95a23e184dbc89d239",
+  "packagePlanUnchanged": true,
+  "RegistryTagChangedDuringAdd": {
+    "originalDigest": "sha256:dd979e893e995dd2cd9901379cdf7db3ca49b00e7450de303d714708e202dc48",
+    "changedDigest": "sha256:7d818f27368b41b730025ced4f46b8bc6d0345b2af2cde0ad5e61b3becd1de63"
+  },
+  "freshAgentCacheFileCountAfter": 9,
+  "tasks": [
+    {
+      "name": "task-0a7830a80049cf61bc8d861e2d4668ab",
+      "stepID": "315482dd-bacb-4c85-a1b2-6c4efbde1bcc",
+      "nodeRef": {
+        "name": "d361e0fb-de73-447f-82a3-d8bbad6dde00",
+        "uid": "2ed53ad7-c4aa-4997-b0dc-f9782076babc",
+        "ip": "172.16.131.230"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:35:57Z",
+      "finishedAt": "2026-10-14T03:36:03Z",
+      "reason": null
+    },
+    {
+      "name": "task-0e13d24f39e9be4c38964654713997f6",
+      "stepID": "7853f023-ea3c-4f58-9298-063c4fd8595e",
+      "nodeRef": {
+        "name": "d361e0fb-de73-447f-82a3-d8bbad6dde00",
+        "uid": "2ed53ad7-c4aa-4997-b0dc-f9782076babc",
+        "ip": "172.16.131.230"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:35:38Z",
+      "finishedAt": "2026-10-14T03:35:45Z",
+      "reason": null
+    },
+    {
+      "name": "task-23f0294e7bfe492f0bb8aeaa6503ed54",
+      "stepID": "7d894a1a-c2b0-4aad-8ed9-a26c535e675d",
+      "nodeRef": {
+        "name": "07865ab9-3485-49bd-94ff-da3187143574",
+        "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+        "ip": "172.16.131.146"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:36:03Z",
+      "finishedAt": "2026-10-14T03:36:04Z",
+      "reason": null
+    },
+    {
+      "name": "task-28f83be91cc001c8e9463f19f0bffd5a",
+      "stepID": "69857bba-ddd4-4b1c-8de1-917724a8349d",
+      "nodeRef": {
+        "name": "d361e0fb-de73-447f-82a3-d8bbad6dde00",
+        "uid": "2ed53ad7-c4aa-4997-b0dc-f9782076babc",
+        "ip": "172.16.131.230"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:35:45Z",
+      "finishedAt": "2026-10-14T03:35:56Z",
+      "reason": null
+    },
+    {
+      "name": "task-5600f33a7c769c97ead4cc7791287af6",
+      "stepID": "d614952f-31ac-4676-9862-eed867bcdd83",
+      "nodeRef": {
+        "name": "d361e0fb-de73-447f-82a3-d8bbad6dde00",
+        "uid": "2ed53ad7-c4aa-4997-b0dc-f9782076babc",
+        "ip": "172.16.131.230"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:36:04Z",
+      "finishedAt": "2026-10-14T03:36:04Z",
+      "reason": null
+    },
+    {
+      "name": "task-57b3cc01305b7b34f7ba65ccaba249eb",
+      "stepID": "3f39709f-e811-4b4f-8f2c-443d36498d9b",
+      "nodeRef": {
+        "name": "d361e0fb-de73-447f-82a3-d8bbad6dde00",
+        "uid": "2ed53ad7-c4aa-4997-b0dc-f9782076babc",
+        "ip": "172.16.131.230"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:36:03Z",
+      "finishedAt": "2026-10-14T03:36:03Z",
+      "reason": null
+    },
+    {
+      "name": "task-80681254a1e50389c4104b76534a113e",
+      "stepID": "5b391466-a52d-46aa-80d9-6fb49fc3201b",
+      "nodeRef": {
+        "name": "d361e0fb-de73-447f-82a3-d8bbad6dde00",
+        "uid": "2ed53ad7-c4aa-4997-b0dc-f9782076babc",
+        "ip": "172.16.131.230"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:36:06Z",
+      "finishedAt": "2026-10-14T03:36:09Z",
+      "reason": null
+    },
+    {
+      "name": "task-b7b7145b2741a3a98d4bc8294cca7fcd",
+      "stepID": "5dd7f4f4-ddde-4807-9b3b-65b23058cb8c",
+      "nodeRef": {
+        "name": "07865ab9-3485-49bd-94ff-da3187143574",
+        "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+        "ip": "172.16.131.146"
+      },
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T03:36:09Z",
+      "finishedAt": "2026-10-14T03:36:22Z",
+      "reason": null
+    }
+  ],
+  "newKubernetesNodeReady": true,
+  "businessThreeReplicasReady": true,
+  "initialHarnessRevisionLabel": "d2532cf765ccbecf3bf44be743ba42781a145648",
+  "actualAgentRevision": "d2136132dd65c83903333d0b30a1be8c5dcfc29e",
+  "revisionEvidence": "Same live Agent SHA256 as current qualification bootstrap; v205-live-proof.json"
+}

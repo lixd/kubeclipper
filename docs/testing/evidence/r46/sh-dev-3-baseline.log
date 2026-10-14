@@ -1,0 +1,32 @@
+x86_64
+lixd-dev-3
+Reference ID    : D21C8204 (time.nju.edu.cn)
+Stratum         : 2
+Ref time (UTC)  : Tue Oct 13 10:42:09 2026
+System time     : 0.000655076 seconds slow of NTP time
+Last offset     : -0.000075422 seconds
+RMS offset      : 0.002771615 seconds
+Frequency       : 21.361 ppm fast
+Residual freq   : -0.024 ppm
+Skew            : 1.133 ppm
+Root delay      : 0.028666696 seconds
+Root dispersion : 0.000473937 seconds
+Update interval : 128.5 seconds
+Leap status     : Normal
+Filesystem     1048576-blocks  Used Available Capacity Mounted on
+/dev/vda1              217155 99532    117607      46% /
+/dev/vda1              217155 99532    117607      46% /
+/dev/vda1              217155 99532    117607      46% /
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                                                                        
+LISTEN 0      4096      127.0.0.54:53         0.0.0.0:*    users:(("systemd-resolve",pid=1478580,fd=17))                                                 
+LISTEN 0      10           0.0.0.0:8000       0.0.0.0:*    users:(("python",pid=1807328,fd=4))                                                           
+LISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=1478580,fd=15))                                                 
+LISTEN 0      511        127.0.0.1:5173       0.0.0.0:*    users:(("node",pid=718577,fd=22))                                                             
+LISTEN 0      4096         0.0.0.0:111        0.0.0.0:*    users:(("rpcbind",pid=1478565,fd=4),("systemd",pid=1,fd=101))                                 
+LISTEN 0      128          0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=2441272,fd=3))                                                             
+LISTEN 0      2048         0.0.0.0:9000       0.0.0.0:*    users:(("gunicorn",pid=198608,fd=4),("gunicorn",pid=198607,fd=4),("gunicorn",pid=198580,fd=4))
+LISTEN 0      4096               *:5003             *:*    users:(("registry",pid=3959892,fd=4))                                                         
+LISTEN 0      4096               *:10260            *:*    users:(("kubeclipper-age",pid=1632682,fd=8))                                                  
+LISTEN 0      4096            [::]:111           [::]:*    users:(("rpcbind",pid=1478565,fd=6),("systemd",pid=1,fd=108))                                 
+LISTEN 0      128             [::]:22            [::]:*    users:(("sshd",pid=2441272,fd=4))                                                             
+# Warning: iptables-legacy tables present, use iptables-legacy-save to see them

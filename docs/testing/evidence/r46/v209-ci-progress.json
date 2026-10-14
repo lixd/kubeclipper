@@ -1,0 +1,42 @@
+[
+  {
+    "conclusion": "",
+    "databaseId": 38529958987,
+    "headSha": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+    "name": "publish-oci-qualification",
+    "status": "in_progress",
+    "url": "https://github.com/lixd/kubeclipper/actions/runs/38529958987"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 38529958948,
+    "headSha": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+    "name": "offline-resource-validate",
+    "status": "completed",
+    "url": "https://github.com/lixd/kubeclipper/actions/runs/38529958948"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 38529958965,
+    "headSha": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+    "name": "go-test-coverage",
+    "status": "completed",
+    "url": "https://github.com/lixd/kubeclipper/actions/runs/38529958965"
+  },
+  {
+    "conclusion": "success",
+    "databaseId": 38529958930,
+    "headSha": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+    "name": "e2e-aio-test",
+    "status": "completed",
+    "url": "https://github.com/lixd/kubeclipper/actions/runs/38529958930"
+  },
+  {
+    "conclusion": "cancelled",
+    "databaseId": 38529855167,
+    "headSha": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+    "name": "go-test-coverage",
+    "status": "completed",
+    "url": "https://github.com/lixd/kubeclipper/actions/runs/38529855167"
+  }
+]

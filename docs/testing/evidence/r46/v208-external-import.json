@@ -1,0 +1,85 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "case": "4-11",
+  "source": "r46-v208-three-master",
+  "targetPlatform": "separate process, API port 18085 and independent etcd prefix /registry/r46-external-import; shared test platform CA",
+  "kubeconfigEndpoint": "https://172.16.131.146:6443",
+  "freshCAClientSignature": true,
+  "checks": [
+    {
+      "check": "fresh signed IP kubeconfig authenticates",
+      "pass": true
+    },
+    {
+      "check": "external import precheck",
+      "pass": true
+    },
+    {
+      "check": "independent platform imports three masters and agents",
+      "pass": true,
+      "nodeIPs": [
+        "172.16.131.208",
+        "172.16.131.230",
+        "172.16.131.146"
+      ],
+      "version": "v1.37.0"
+    },
+    {
+      "check": "provider resync accepted",
+      "pass": true
+    },
+    {
+      "check": "unimport removes independent provider cluster and agents",
+      "pass": true,
+      "remaining": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "check": "source cluster survives with real write read delete",
+      "pass": true
+    },
+    {
+      "check": "all borrowed source credential and terminal Kubernetes UIDs preserved",
+      "pass": true,
+      "originalUIDs": {
+        "sa/kc-server": "a4aa86b1-e65b-4ad0-83d4-0fd22a2f9adb",
+        "secret/kc-server-secret": "6f7d0cfa-0ea2-424a-9b1a-a6e7effc02b1",
+        "clusterrolebinding/kc-server": "8717287a-784c-481d-a9c1-12dc7cf0da81",
+        "deploy/kc-kubectl": "6661c699-7b64-4bff-a340-4ca4ce620213",
+        "sa/kc-kubectl": "18e13346-202f-4295-8d16-b669f90f3d11",
+        "clusterrolebinding/kc-kubectl-rolebind": "7295f530-0553-4871-9e25-1d62a77193c5"
+      },
+      "afterUIDs": {
+        "sa/kc-server": "a4aa86b1-e65b-4ad0-83d4-0fd22a2f9adb",
+        "secret/kc-server-secret": "6f7d0cfa-0ea2-424a-9b1a-a6e7effc02b1",
+        "clusterrolebinding/kc-server": "8717287a-784c-481d-a9c1-12dc7cf0da81",
+        "deploy/kc-kubectl": "6661c699-7b64-4bff-a340-4ca4ce620213",
+        "sa/kc-kubectl": "18e13346-202f-4295-8d16-b669f90f3d11",
+        "clusterrolebinding/kc-kubectl-rolebind": "7295f530-0553-4871-9e25-1d62a77193c5"
+      }
+    }
+  ],
+  "sourceNativeOperationAfterUnimport": {
+    "action": "ConvertNodes master-to-worker",
+    "operation": "8ed6e082-351e-4910-8814-26341686f137",
+    "phase": "Succeeded",
+    "actualNodesReady": true,
+    "etcdEndpointHealth": [
+      {
+        "endpoint": "https://172.16.131.230:2379",
+        "health": true,
+        "took": "91.037724ms"
+      },
+      {
+        "endpoint": "https://172.16.131.146:2379",
+        "health": true,
+        "took": "92.984325ms"
+      }
+    ],
+    "businessDeploymentReady": true,
+    "credentialUIDsWerePreserved": true
+  }
+}

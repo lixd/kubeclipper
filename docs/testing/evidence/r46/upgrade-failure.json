@@ -1,0 +1,136 @@
+[
+  {
+    "check": "real missing admin.conf upgrade failure",
+    "pass": true,
+    "operation": "be96918a-f06d-4545-ab3c-fa5996d7b368",
+    "status": {
+      "phase": "Failed",
+      "reason": "StepFailed",
+      "message": "step \"7ab59071-8573-4f90-9302-5f77ad55b8a9\" exhausted its retry limit",
+      "deadline": "2026-10-13T20:55:51Z",
+      "startedAt": "2026-10-13T19:25:51Z",
+      "finishedAt": "2026-10-13T19:25:59Z"
+    },
+    "clusterPhase": "UpgradeFailed",
+    "immutableStepsHash": "ba8cc439bf65cb9a8381d4dc8bf4550cc1256de68856ecf7da4d9ffd6f26040a",
+    "initialPlan": {
+      "kubernetesVersion": "v1.36.4",
+      "os": "linux",
+      "arch": "amd64",
+      "components": [
+        {
+          "slot": "k8s",
+          "kind": "k8s",
+          "name": "k8s",
+          "version": "v1.36.4",
+          "os": "linux",
+          "arch": "amd64",
+          "required": true,
+          "transport": {
+            "type": "oci",
+            "ref": "172.16.131.146:5247/kubeclipper/packages/k8s/k8s:v1.36.4",
+            "digest": "sha256:7d818f27368b41b730025ced4f46b8bc6d0345b2af2cde0ad5e61b3becd1de63"
+          },
+          "contents": [
+            {
+              "name": "configs",
+              "file": "configs.tar.gz",
+              "digest": "sha256:eca1ae2f49dc1845df64a084c73166957e37a5c1c05a5f622083f3d4d6cd9d1d",
+              "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+              "transport": {
+                "type": "",
+                "ref": "",
+                "digest": ""
+              }
+            }
+          ]
+        },
+        {
+          "slot": "cri",
+          "kind": "cri",
+          "name": "containerd",
+          "version": "2.2.4",
+          "os": "linux",
+          "arch": "amd64",
+          "required": true,
+          "transport": {
+            "type": "oci",
+            "ref": "172.16.131.146:5247/kubeclipper/packages/cri/containerd:2.2.4",
+            "digest": "sha256:46b6654c81e22225992f18df38f647117294d6c86d765e6cd2384d82d91b52c4"
+          },
+          "contents": [
+            {
+              "name": "configs",
+              "file": "configs.tar.gz",
+              "digest": "sha256:09c55a240f1914a0255d572c95d1d645157c2e51ea27e10b6573324b47f53c8e",
+              "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+              "transport": {
+                "type": "",
+                "ref": "",
+                "digest": ""
+              }
+            }
+          ]
+        },
+        {
+          "slot": "cni",
+          "kind": "cni",
+          "name": "calico",
+          "version": "v3.31.5",
+          "os": "linux",
+          "arch": "amd64",
+          "required": true,
+          "transport": {
+            "type": "oci",
+            "ref": "172.16.131.146:5247/kubeclipper/charts/tigera-operator:v3.31.5",
+            "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+          },
+          "contents": [
+            {
+              "name": "charts",
+              "file": "charts.tgz",
+              "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+              "transport": {
+                "type": "helm-oci",
+                "ref": "172.16.131.146:5247/kubeclipper/charts/tigera-operator",
+                "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+              }
+            }
+          ]
+        },
+        {
+          "slot": "k8s-extension",
+          "kind": "k8s-extension",
+          "name": "k8s-extension",
+          "version": "v1",
+          "os": "linux",
+          "arch": "amd64",
+          "required": true,
+          "transport": {
+            "type": "oci",
+            "ref": "172.16.131.146:5247/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+            "digest": "sha256:11e89a42858586d26116a3f77e18484cb8785bddaba496299369e4ad84e711fa"
+          },
+          "contents": [
+            {
+              "name": "configs",
+              "file": "configs.tar.gz",
+              "digest": "sha256:893887ee739f78ce1bd546157c0b56daceaae241387d76d7bf12fff173f51747",
+              "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+              "transport": {
+                "type": "",
+                "ref": "",
+                "digest": ""
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "check": "formal cluster reset after repairing prerequisite",
+    "pass": true,
+    "phase": "Running"
+  }
+]

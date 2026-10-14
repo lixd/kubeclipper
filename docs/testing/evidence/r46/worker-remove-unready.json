@@ -1,0 +1,191 @@
+{
+  "operation": "0e2a5bd6-478d-42d2-bbe8-8da694105e9a",
+  "status": {
+    "phase": "Succeeded",
+    "deadline": "2026-10-14T03:37:02Z",
+    "startedAt": "2026-10-14T02:07:02Z",
+    "finishedAt": "2026-10-14T02:07:14Z"
+  },
+  "nodeReadyBeforeRemove": "Unknown",
+  "AgentOnline": true,
+  "workerAbsentFromCluster": true,
+  "KubernetesNodeDeleted": true,
+  "packagePlanUnchanged": true,
+  "notReadyDrainEvidence": [],
+  "tasks": [
+    {
+      "name": "task-1436cc06ad7998ca62540996ef091623",
+      "stepID": "4ef7cf70-8a90-4e28-b22e-c3c20cbce9eb",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:12Z",
+        "finishedAt": "2026-10-14T02:07:12Z"
+      }
+    },
+    {
+      "name": "task-3b4484633a6e62c80311fc790aff97ca",
+      "stepID": "21e3242c-a9ae-468e-b7cb-f31cfd55f5f0",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:11Z",
+        "finishedAt": "2026-10-14T02:07:11Z"
+      }
+    },
+    {
+      "name": "task-3fa3c5144cefeedc1d3e7889a289bc58",
+      "stepID": "f963a6cb-1ee3-4d89-b886-cabb9ab65b40",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:12Z",
+        "finishedAt": "2026-10-14T02:07:12Z"
+      }
+    },
+    {
+      "name": "task-5dd3d6c8a4045ed1578631e62ad9e843",
+      "stepID": "8d24507e-8f7b-49c9-871d-989bb0ad783e",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:12Z",
+        "finishedAt": "2026-10-14T02:07:12Z"
+      }
+    },
+    {
+      "name": "task-67ae97048bda3a07aec227ff47f220ec",
+      "stepID": "5706a5c9-093d-4961-8c70-2984ef4ac6f6",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:11Z",
+        "finishedAt": "2026-10-14T02:07:11Z"
+      }
+    },
+    {
+      "name": "task-8d75a46dd3cdb4aeb1d04b6b7da75499",
+      "stepID": "78d920e0-d767-49ec-9951-575b4c3bfadb",
+      "nodeRef": {
+        "name": "07865ab9-3485-49bd-94ff-da3187143574",
+        "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+        "ip": "172.16.131.146"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:02Z",
+        "finishedAt": "2026-10-14T02:07:03Z"
+      }
+    },
+    {
+      "name": "task-a306a46d55989bb2232b4a2d5e5f300c",
+      "stepID": "fb8706b9-e7c3-4ee4-b296-61e682abdc36",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:12Z",
+        "finishedAt": "2026-10-14T02:07:14Z"
+      }
+    },
+    {
+      "name": "task-b4aa0a529c4c72e2b8b457536a761278",
+      "stepID": "ebab8c09-762f-42b1-9fb8-9b6c40db7eb0",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:11Z",
+        "finishedAt": "2026-10-14T02:07:11Z"
+      }
+    },
+    {
+      "name": "task-c84da11f04e6cdceca01c391c8c666e7",
+      "stepID": "fee2facb-b051-42bd-a58d-9b8508fb5273",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:11Z",
+        "finishedAt": "2026-10-14T02:07:11Z"
+      }
+    },
+    {
+      "name": "task-cd896613d2807351832de80fc717f240",
+      "stepID": "cf8d8951-8cf4-415f-8920-8a9f8cbe9627",
+      "nodeRef": {
+        "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+        "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+        "ip": "172.16.131.230"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:07:03Z",
+        "finishedAt": "2026-10-14T02:07:11Z"
+      }
+    }
+  ],
+  "notReadyDrainJournalEvidence": [
+    "Oct 14 02:07:03 lixd-dev-3 kubeclipper-agent[1934254]: {\"level\":\"warn\",\"ts\":\"2026-10-14T02:07:03Z\",\"msg\":\"node lixd-dev-4 is not ready, skipping drain and deleting the node object\"}"
+  ],
+  "pass": true
+}

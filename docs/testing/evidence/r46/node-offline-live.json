@@ -1,0 +1,49 @@
+[
+  {
+    "check": "offline agent operation bounded convergence",
+    "pass": true,
+    "detail": {
+      "phase": "TimedOut",
+      "reason": "DeadlineExceeded",
+      "message": "operation deadline exceeded",
+      "deadline": "2026-10-13T20:02:17Z",
+      "startedAt": "2026-10-13T20:01:17Z",
+      "finishedAt": "2026-10-13T20:02:17Z"
+    }
+  },
+  {
+    "check": "offline side effect never executed",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "node grace period transitions to Unknown",
+    "pass": true,
+    "detail": {
+      "condition": {
+        "type": "Ready",
+        "status": "Unknown",
+        "lastHeartbeatTime": "2026-10-13T20:00:51Z",
+        "lastTransitionTime": "2026-10-13T20:04:58Z",
+        "reason": "NodeStatusUnknown",
+        "message": "KcAgent stopped posting node status."
+      },
+      "elapsed": 222.78090872988105
+    }
+  },
+  {
+    "check": "same node identity returns Ready",
+    "pass": true,
+    "detail": {
+      "node": "c7413e92-ad70-47d7-b489-f90699072ccb",
+      "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+      "condition": {
+        "type": "Ready",
+        "status": "True",
+        "lastHeartbeatTime": "2026-10-13T20:05:00Z",
+        "lastTransitionTime": "2026-10-13T20:05:00Z",
+        "reason": "AgentReady"
+      }
+    }
+  }
+]

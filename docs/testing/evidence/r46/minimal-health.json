@@ -1,0 +1,37 @@
+[
+  {
+    "check": "all initial system pods ready",
+    "pass": true,
+    "detail": 18
+  },
+  {
+    "check": "2 nodes Ready",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cross node pod IP connectivity",
+    "pass": true,
+    "detail": "p_seq=1 ttl=62 time=1.46 ms\n64 bytes from 172.27.232.72: icmp_seq=2 ttl=62 time=1.17 ms\n64 bytes from 172.27.232.72: icmp_seq=3 ttl=62 time=1.16 ms\n\n--- 172.27.232.72 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 2004ms\nrtt min/avg/max/mdev = 1.155/1.260/1.455/0.138 ms\n"
+  },
+  {
+    "check": "custom DNS kubernetes service resolution",
+    "pass": true,
+    "detail": "Server:\t\t10.98.0.10\nAddress:\t10.98.0.10#53\n\nName:\tkubernetes.default.svc.r46.local\nAddress: 10.98.0.1\n\n"
+  },
+  {
+    "check": "cross node service actual TCP exchange",
+    "pass": true,
+    "detail": "R46_NETWORK_OK\n"
+  },
+  {
+    "check": "IPVS proxy mode rendered",
+    "pass": true,
+    "detail": "ipvs"
+  },
+  {
+    "check": "master untaint permits scheduling",
+    "pass": true,
+    "detail": null
+  }
+]

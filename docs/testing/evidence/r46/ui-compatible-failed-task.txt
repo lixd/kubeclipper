@@ -1,0 +1,257 @@
+KubeClipper
+集群管理
+集群
+备份空间
+模版管理
+镜像仓库
+集群托管
+区域管理
+节点信息
+访问控制
+审计管理
+集群管理/
+集群/
+集群详情
+查看日志
+更多
+ID:r46-aio
+返回
+名称
+r46-aio
+	
+集群状态 
+运行中
+	
+区域
+-
+
+
+描述
+-
+	
+创建于
+1小时前
+	
+更新于
+-
+详情
+节点列表
+操作日志
+备份
+定时备份
+操作 ID	操作名称	状态	
+创建时间
+	操作
+ 
+	
+ 
+	
+ 
+	
+ 
+	
+ 
+
+12ddf4ad-66da-4666-a2e0-7d99abbae3ec	UpgradeCluster	失败	2026-10-13 21:04:47	
+查看日志
+
+sync-kubeconfig-cf2b16b5-8d05-4286-81e7-617518d8b04e	SyncKubeConfig	成功	2026-10-13 20:42:53	
+查看日志
+
+8d91f9f5-e2b5-473d-ab54-d05b1384d081	CreateCluster	成功	2026-10-13 20:40:54	
+查看日志
+共 3 项
+1
+10 条/页
+查看日志
+2026-10-13 21:04:48
+DownloadUpgradePackage
+2026-10-13 21:04:55
+RenderUpgradeKubeadm
+2026-10-13 21:04:55
+UpgradeControlPlane-lixd-dev-4
+c7413e92-ad70-47d7-b489-f90699072ccb(172.16.131.230)
+5m12s
+
+--- reconcile 2026-10-13T13:04:55Z ---
+command 1/1: shell
+[2026-10-13T13:04:55Z] + /bin/bash -c 
+set -euo pipefail
+node="lixd-dev-4"
+trap 'rc=$?; kubectl uncordon "$node" || true; exit "$rc"' EXIT
+kubeadm upgrade apply v1.37.0 -y --ignore-preflight-errors all --config /tmp/.k8s/kubeadm.yaml
+sleep 10
+kubectl drain "$node" --ignore-daemonsets --delete-emptydir-data --force --timeout=120s
+systemctl stop kubelet
+systemctl daemon-reload && systemctl restart kubelet
+
+ready_samples=0
+ready_deadline=$((SECONDS + 240))
+while (( SECONDS < ready_deadline && ready_samples < 7 )); do
+  if kubectl get --raw=/readyz --request-timeout=3s >/dev/null 2>&1 &&
+     kubectl wait --for=condition=Ready "node/$node" --timeout=3s >/dev/null 2>&1 &&
+     kubectl wait --for=condition=Ready "pod/kube-apiserver-$node" -n kube-system --timeout=3s >/dev/null 2>&1; then
+    ready_samples=$((ready_samples + 1))
+  else
+    ready_samples=0
+  fi
+  if (( ready_samples < 7 )); then sleep 5; fi
+done
+if (( ready_samples < 7 )); then
+  echo "control plane API did not remain ready for 30 seconds after kubelet restart" >&2
+  exit 1
+fi
+
+
+
+W1013 13:04:55.972762 3530240 upgradeconfiguration.go:42] [config] WARNING: Ignored configuration document with GroupVersionKind kubeadm.k8s.io/v1beta4, Kind=InitConfiguration
+W1013 13:04:55.973552 3530240 upgradeconfiguration.go:42] [config] WARNING: Ignored configuration document with GroupVersionKind kubeadm.k8s.io/v1beta4, Kind=ClusterConfiguration
+W1013 13:04:55.973652 3530240 upgradeconfiguration.go:42] [config] WARNING: Ignored configuration document with GroupVersionKind kubeproxy.config.k8s.io/v1alpha1, Kind=KubeProxyConfiguration
+W1013 13:04:55.973663 3530240 upgradeconfiguration.go:42] [config] WARNING: Ignored configuration document with GroupVersionKind kubelet.config.k8s.io/v1beta1, Kind=KubeletConfiguration
+[upgrade] Reading configuration from the "kubeadm-config" ConfigMap in namespace "kube-system"...
+[upgrade] Use 'kubeadm init phase upload-config kubeadm --config your-config-file' to re-upload it.
+W1013 13:04:56.083759 3530240 kubeproxy.go:144] The "KubeProxyConfiguration" field "mode" is set to "ipvs" which has been deprecated since version v1.35. For newer Linux kernel versions, we recommend using the "nftables" mode, which has been GA since v1.33. For older Linux kernel versions, you can use the "iptables" mode which is still the default one.
+[upgrade/preflight] Running preflight checks
+[upgrade] Running cluster health checks
+[upgrade/preflight] You have chosen to upgrade the cluster version to "v1.37.0"
+[upgrade/versions] Cluster version: v1.36.4
+[upgrade/versions] kubeadm version: v1.37.0
+[upgrade/preflight] Pulling images required for setting up a Kubernetes cluster
+[upgrade/preflight] This might take a minute or two, depending on the speed of your internet connection
+[upgrade/preflight] You can also perform this action beforehand using 'kubeadm config images pull'
+[upgrade/control-plane] Upgrading your static Pod-hosted control plane to version "v1.37.0" (timeout: 5m0s)...
+[upgrade/staticpods] Writing new Static Pod manifests to "/etc/kubernetes/tmp/kubeadm-upgraded-manifests299042959"
+[upgrade/staticpods] Preparing for "etcd" upgrade
+[upgrade/staticpods] Renewing etcd-server certificate
+[upgrade/staticpods] Renewing etcd-peer certificate
+[upgrade/staticpods] Renewing etcd-healthcheck-client certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/etcd.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2026-10-13-13-05-15/etcd.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+[apiclient] Found 1 Pods for label selector component=etcd
+[upgrade/staticpods] Component "etcd" upgraded successfully!
+[upgrade/etcd] Waiting for etcd to become available
+[upgrade/staticpods] Preparing for "kube-apiserver" upgrade
+[upgrade/staticpods] Renewing apiserver certificate
+[upgrade/staticpods] Renewing apiserver-kubelet-client certificate
+[upgrade/staticpods] Renewing front-proxy-client certificate
+[upgrade/staticpods] Renewing apiserver-etcd-client certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/kube-apiserver.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2026-10-13-13-05-15/kube-apiserver.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+[apiclient] Found 1 Pods for label selector component=kube-apiserver
+[upgrade/staticpods] Component "kube-apiserver" upgraded successfully!
+[upgrade/staticpods] Preparing for "kube-controller-manager" upgrade
+[upgrade/staticpods] Renewing controller-manager.conf certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/kube-controller-manager.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2026-10-13-13-05-15/kube-controller-manager.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+[apiclient] Found 1 Pods for label selector component=kube-controller-manager
+[upgrade/staticpods] Component "kube-controller-manager" upgraded successfully!
+[upgrade/staticpods] Preparing for "kube-scheduler" upgrade
+[upgrade/staticpods] Renewing scheduler.conf certificate
+[upgrade/staticpods] Moving new manifest to "/etc/kubernetes/manifests/kube-scheduler.yaml" and backing up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2026-10-13-13-05-15/kube-scheduler.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This can take up to 5m0s
+[apiclient] Found 1 Pods for label selector component=kube-scheduler
+[upgrade/staticpods] Component "kube-scheduler" upgraded successfully!
+[upgrade/control-plane] The control plane instance for this node was successfully upgraded!
+[upload-config] Storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
+[kubelet] Creating a ConfigMap "kubelet-config" in namespace kube-system with the configuration for the kubelets in the cluster
+[upgrade/kubeconfig] The kubeconfig files for this node were successfully upgraded!
+[upgrade] Backing up kubelet config file to /etc/kubernetes/tmp/kubeadm-kubelet-config-2026-10-13-13-07-51/config.yaml
+W1013 13:07:51.245541 3530240 postupgrade.go:105] Using temporary directory /etc/kubernetes/tmp/kubeadm-kubelet-config-2026-10-13-13-07-51 for kubelet config. To override it set the environment variable KUBEADM_UPGRADE_DRYRUN_DIR
+[patches] Applied patch of type "application/strategic-merge-patch+json" to target "kubeletconfiguration"
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[upgrade/kubelet-config] The kubelet configuration for this node was successfully upgraded!
+[upgrade/bootstrap-token] Configuring bootstrap token and cluster-info RBAC rules
+[bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to get nodes
+[bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstrap-token] Configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstrap-token] Configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[bootstrap-token] Configured RBAC rules to allow the API server kubelet client certificate to access the kubelet API
+[addons] Applied essential addon: CoreDNS
+[addons] Applied essential addon: kube-proxy
+
+[upgrade] SUCCESS! A control plane node of your cluster was upgraded to "v1.37.0".
+
+[upgrade] Now please proceed with upgrading the rest of the nodes by following the right order.
+node/lixd-dev-4 cordoned
+Warning: ignoring DaemonSet-managed Pods: calico-system/calico-node-kljft, kube-system/kube-proxy-jmvdn
+evicting pod tigera-operator/tigera-operator-5f94dd84c6-xrstq
+evicting pod calico-system/calico-typha-c7cf88bff-mcnmj
+evicting pod kube-system/coredns-7558ff4596-nv54s
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+evicting pod kube-system/coredns-7558ff4596-pgslq
+evicting pod kube-system/kc-kubectl-867b5fd867-92pfh
+evicting pod calico-system/calico-kube-controllers-5d7db6848c-tzlkb
+evicting pod kube-system/coredns-5cd7584cd8-x557v
+evicting pod calico-system/calico-apiserver-5cdf7977cd-skklr
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+pod/tigera-operator-5f94dd84c6-xrstq evicted
+pod/calico-kube-controllers-5d7db6848c-tzlkb evicted
+pod/calico-apiserver-5cdf7977cd-skklr evicted
+I1013 13:08:09.349250 3533682 request.go:754] "Waited before sending request" delay="1.045350809s" reason="client-side throttling, not priority and fairness" verb="GET" URL="https://apiserver.cluster.local:6443/api/v1/namespaces/kube-system/pods/coredns-7558ff4596-pgslq"
+pod/coredns-5cd7584cd8-x557v evicted
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+pod/calico-typha-c7cf88bff-mcnmj evicted
+pod/coredns-7558ff4596-nv54s evicted
+pod/coredns-7558ff4596-pgslq evicted
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+pod/kc-kubectl-867b5fd867-92pfh evicted
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod calico-system/calico-apiserver-5cdf7977cd-8rbf4
+There are pending pods in node "lixd-dev-4" when an error occurred: error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system": global timeout reached: 2m0s
+pod/calico-apiserver-5cdf7977cd-8rbf4
+pod/calico-typha-c7cf88bff-l8g7s
+pod/tigera-operator-5f94dd84c6-26bld
+error: unable to drain node "lixd-dev-4" due to error: error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system": global timeout reached: 2m0s, continuing command...
+There are pending nodes to be drained:
+ lixd-dev-4
+error when evicting pods/"calico-apiserver-5cdf7977cd-8rbf4" -n "calico-system": global timeout reached: 2m0s
+node/lixd-dev-4 uncordoned
+
+关 闭

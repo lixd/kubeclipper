@@ -1,0 +1,117 @@
+[
+  {
+    "component": "server",
+    "exit": 0,
+    "beforeBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "3441b1c42f40ca471045bc94c18b21de70adc14ce3c31c90130f89a14a311031",
+      "172.16.131.230/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "afterBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "changedBinaries": [
+      "172.16.131.230/kubeclipper-server"
+    ],
+    "unexpectedBinaryChanges": [],
+    "source": "real CI bootstrap component artifacts of candidate 1f30e199; complete qualification still pending",
+    "targetMatchesCurrentCI": true
+  },
+  {
+    "component": "agent",
+    "exit": 0,
+    "beforeBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "afterBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "changedBinaries": [
+      "172.16.131.208/kubeclipper-agent",
+      "172.16.131.146/kubeclipper-agent",
+      "172.16.131.230/kubeclipper-agent"
+    ],
+    "unexpectedBinaryChanges": [],
+    "source": "real CI bootstrap component artifacts of candidate 1f30e199; complete qualification still pending",
+    "targetMatchesCurrentCI": true
+  },
+  {
+    "component": "console",
+    "exit": 0,
+    "beforeBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "afterBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "changedBinaries": [],
+    "unexpectedBinaryChanges": [],
+    "source": "real CI bootstrap component artifacts of candidate 1f30e199; complete qualification still pending",
+    "consoleHTTPStatus": 200
+  },
+  {
+    "component": "kcctl",
+    "exit": 0,
+    "beforeBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.230/kcctl": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005"
+    },
+    "afterBinarySHA": {
+      "172.16.131.208/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.208/kcctl": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+      "172.16.131.146/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.146/kcctl": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+      "172.16.131.230/kubeclipper-server": "6523c187edf0721ea28a47f9632dfb5d1195dea5d862f7fefba54ce075d7705e",
+      "172.16.131.230/kubeclipper-agent": "d6ec1cd89a9546459c057dcd5763542203a74459bf6a3394aac5d5c8e3252633",
+      "172.16.131.230/kcctl": "799c3274833870b3ae865bf596fc27055f63564e1715950c566e01de57fff3ae"
+    },
+    "changedBinaries": [
+      "172.16.131.230/kcctl"
+    ],
+    "unexpectedBinaryChanges": [],
+    "source": "real CI bootstrap component artifacts of candidate 1f30e199; complete qualification still pending",
+    "targetMatchesCurrentCI": true,
+    "initialHarnessScopeError": "expected CLI upgrade on agent-only nodes; product documents console/kcctl reside on server nodes",
+    "targetScope": "server nodes only",
+    "agentOnlyNodeCLIsUnchanged": true
+  }
+]

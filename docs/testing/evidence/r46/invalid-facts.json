@@ -1,0 +1,48 @@
+[
+  {
+    "mode": "executor",
+    "operation": "r46-invalid-facts-executor",
+    "status": {
+      "phase": "Failed",
+      "reason": "InvalidExecutionFacts",
+      "message": "task \"task-979c7dbdea1e6e8949d8b41f98fc1b87\" executor differs from its immutable plan",
+      "deadline": "2026-10-14T03:09:57Z",
+      "startedAt": "2026-10-14T03:04:57Z",
+      "finishedAt": "2026-10-14T03:05:16Z"
+    },
+    "tasks": [
+      {
+        "name": "task-979c7dbdea1e6e8949d8b41f98fc1b87",
+        "phase": "Canceled"
+      },
+      {
+        "name": "task-ccb8a8fcf870770ac75a2be7e4f2525d",
+        "phase": "Canceled"
+      }
+    ],
+    "actualSideEffectAbsentOnBothNodes": true
+  },
+  {
+    "mode": "payload",
+    "operation": "r46-invalid-facts-payload",
+    "status": {
+      "phase": "Failed",
+      "reason": "InvalidExecutionFacts",
+      "message": "task \"task-d566b6e93e5d59f8e96c04fdd27b906b\" payload differs from its immutable plan",
+      "deadline": "2026-10-14T03:10:18Z",
+      "startedAt": "2026-10-14T03:05:18Z",
+      "finishedAt": "2026-10-14T03:05:41Z"
+    },
+    "tasks": [
+      {
+        "name": "task-d566b6e93e5d59f8e96c04fdd27b906b",
+        "phase": "Canceled"
+      },
+      {
+        "name": "task-e934a7c2e58104a8e99c9c16a5cf67da",
+        "phase": "Canceled"
+      }
+    ],
+    "actualSideEffectAbsentOnBothNodes": true
+  }
+]

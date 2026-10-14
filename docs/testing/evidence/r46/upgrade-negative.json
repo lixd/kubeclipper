@@ -1,0 +1,20 @@
+[
+  {
+    "version": "v1.37.0",
+    "status": 400,
+    "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"cluster r46-ui-full is already at version [v1.37.0], a different version is required to upgrade\"\n}",
+    "pass": true
+  },
+  {
+    "version": "v1.36.4",
+    "status": 400,
+    "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"cannot downgrade: cluster r46-ui-full is at version [v1.37.0], downgrade to [v1.36.4] is not supported\"\n}",
+    "pass": true
+  },
+  {
+    "version": "v1.39.0",
+    "status": 400,
+    "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"version [v1.39.0] you specify is too high\"\n}",
+    "pass": true
+  }
+]

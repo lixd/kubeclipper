@@ -1,0 +1,13 @@
+[
+  {
+    "check": "duplicate business request rejected without new operation",
+    "pass": true,
+    "httpStatus": 400,
+    "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"metallb-v1 component has been installed in the current cluster\"\n}"
+  },
+  {
+    "check": "BGP uninstall succeeded",
+    "pass": true,
+    "operation": "ac7f3704-dd1e-44d9-a3e6-2f9f5af55fa7"
+  }
+]

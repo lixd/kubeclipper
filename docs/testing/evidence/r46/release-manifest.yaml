@@ -1,0 +1,1224 @@
+apiVersion: delivery.kubeclipper.io/v1alpha1
+kind: ReleaseManifest
+metadata:
+  name: kubeclipper-resources
+  version: v2.0.3
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+registries:
+  package: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d
+  image: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d
+artifacts:
+- type: helm-chart
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/charts/tigera-operator:v3.29.6
+  target: kubeclipper/charts/tigera-operator:v3.29.6
+  digest: sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f
+- type: helm-chart
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/charts/tigera-operator:v3.31.5
+  target: kubeclipper/charts/tigera-operator:v3.31.5
+  digest: sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18
+- type: package-image
+  component:
+    kind: bootstrap
+    name: console
+    version: v1.6.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/bootstrap/console:v1.6.0
+  target: kubeclipper/packages/bootstrap/console:v1.6.0
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:4eff3a66ca34c58e28f8ef5be98b56dacd9cb35c7dcf5a0eb9b69482a75adf1c
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: bootstrap
+    name: etcd
+    version: 3.5.21
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/bootstrap/etcd:3.5.21
+  target: kubeclipper/packages/bootstrap/etcd:3.5.21
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:bdb5f26bc70d0f546b8e181bceb87f5452cf97c7c5c3b33edbb6582d1f170f36
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: bootstrap
+    name: kubeclipper
+    version: v2.0.3
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3
+  target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.3
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:c83b79174d03af6dba8f6b475ae18fbfa28f4ee8cca7ad6f4200e4d6f1698ece
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: bootstrap
+    name: registry
+    version: 3.1.1
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/bootstrap/registry:3.1.1
+  target: kubeclipper/packages/bootstrap/registry:3.1.1
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:8071d6950ca81ee405dcbdaef91c15bc504a974a34f42b72d00f6c04e94207bc
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: cri
+    name: containerd
+    version: 1.7.29
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/cri/containerd:1.7.29
+  target: kubeclipper/packages/cri/containerd:1.7.29
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:46ee17e4df673fdac374b42dc6b3451c141f722f13fb97990daf646d4360e66a
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: cri
+    name: containerd
+    version: 2.2.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/cri/containerd:2.2.4
+  target: kubeclipper/packages/cri/containerd:2.2.4
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:9d48967cc9e5d741e94730409fe78ac56029408a6f035e9ea856f4083a03bb3f
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/k8s/k8s:v1.35.8
+  target: kubeclipper/packages/k8s/k8s:v1.35.8
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:23c7f58b729c3008a93f95742e5dbde648e7c93638be423eb857fcc03beb992d
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/k8s/k8s:v1.36.4
+  target: kubeclipper/packages/k8s/k8s:v1.36.4
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:8150fd44a3e76178fbbc723f15ba7f209a9c67a57c42ad6cb27d835acd0ca75c
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/k8s/k8s:v1.37.0
+  target: kubeclipper/packages/k8s/k8s:v1.37.0
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:6a5efb65d068792e017480d8f671784fb9935b3baabf3f5eabbc3c5984d51b53
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: package-image
+  component:
+    kind: k8s-extension
+    name: k8s-extension
+    version: v1
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/packages/k8s-extension/k8s-extension:v1
+  target: kubeclipper/packages/k8s-extension/k8s-extension:v1
+  platforms:
+  - linux/amd64
+  - linux/arm64
+  digest: sha256:e757fc7df3f90159c94d9d868296d15c89e0a6df2003faed2ae7f84f12da1b17
+  sourceRevision: 7250c886dcb28f46a7c59fc88c3407fe61be587d
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/frr:v7.5.1
+  target: caas4/frr:v7.5.1
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/frr:v7.5.1
+  digest: sha256:61a95fe14406594a65043f5905aa684cb46c5950ecb6b407b4dd5346ec177970
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/frr:v7.5.1
+  target: caas4/frr:v7.5.1
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/frr:v7.5.1
+  digest: sha256:e389e73aa13b0ce99811856a8c0f377ad5f74954fa43455b0ce7f19ac8968eb9
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/metallb-controller:v0.13.7
+  target: caas4/metallb-controller:v0.13.7
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/metallb-controller:v0.13.7
+  digest: sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/metallb-controller:v0.13.7
+  target: caas4/metallb-controller:v0.13.7
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/metallb-controller:v0.13.7
+  digest: sha256:03e389e6cd1e93955c1e3eaf5f53f1e052185ca28a33bba74bb9a471f82edc30
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/metallb-speaker:v0.13.7
+  target: caas4/metallb-speaker:v0.13.7
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/metallb-speaker:v0.13.7
+  digest: sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/metallb-speaker:v0.13.7
+  target: caas4/metallb-speaker:v0.13.7
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/metallb-speaker:v0.13.7
+  digest: sha256:0c796827d497c7f4321f9105708ba7d021d84db7b48f95fa8513f5e3eb6f941b
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/csi-attacher:v3.2.1
+  target: caas4/csi-attacher:v3.2.1
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/csi-attacher:v3.2.1
+  digest: sha256:8cd2c0171cd135d20705759429feaa3ee80b6def312fef28a31d958ccb1e96e9
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/csi-attacher:v3.2.1
+  target: caas4/csi-attacher:v3.2.1
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/csi-attacher:v3.2.1
+  digest: sha256:b88a8fdec28fc72a0f1b2628f91da014ba5028fd92c0ce7b9d7be4ed5b7acfda
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/csi-node-driver-registrar:v2.5.1
+  target: caas4/csi-node-driver-registrar:v2.5.1
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/csi-node-driver-registrar:v2.5.1
+  digest: sha256:0e2b44916eb0a240cbe34206721e2079a5251eae5526469652c949aa5a941c1c
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/csi-node-driver-registrar:v2.5.1
+  target: caas4/csi-node-driver-registrar:v2.5.1
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/csi-node-driver-registrar:v2.5.1
+  digest: sha256:a8544fd23f870e64d5fa0c3d1f3653659f0695fab57f252ddb0af544106a4685
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/csi-provisioner:v3.2.0
+  target: caas4/csi-provisioner:v3.2.0
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/csi-provisioner:v3.2.0
+  digest: sha256:c1ad4f78e65cbac02f64f9731b57638eb01c51bed20d03f818669a217745abe5
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/csi-provisioner:v3.2.0
+  target: caas4/csi-provisioner:v3.2.0
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/csi-provisioner:v3.2.0
+  digest: sha256:8a3fd20e4fe0d27b81846638db17926a2de4eb51cbe2667fee63ebd0e9b6143e
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/livenessprobe:v2.7.0
+  target: caas4/livenessprobe:v2.7.0
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/livenessprobe:v2.7.0
+  digest: sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/livenessprobe:v2.7.0
+  target: caas4/livenessprobe:v2.7.0
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/livenessprobe:v2.7.0
+  digest: sha256:29674179500af99c8b0d87a692d9971e8d723b1e84205ae44955c8738aaeba78
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/nfsplugin:v4.1.0
+  target: caas4/nfsplugin:v4.1.0
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/nfsplugin:v4.1.0
+  digest: sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/caas4/nfsplugin:v4.1.0
+  target: caas4/nfsplugin:v4.1.0
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/nfsplugin:v4.1.0
+  digest: sha256:7f9959b6698c8373ac781c83fa68f4394e2019401b02a921d94f49667c4d2b6f
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/apiserver:v3.29.6
+  target: calico/apiserver:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/apiserver:v3.29.6
+  digest: sha256:419457e6ae62b29ba49b497a9e28aaa9979eec0569a5ca690e7f7b9094deb719
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/apiserver:v3.29.6
+  target: calico/apiserver:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/apiserver:v3.29.6
+  digest: sha256:15164a132009e851408147567168fe53de6fc8c136c3e483b4df79c9df5391cf
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/cni:v3.29.6
+  target: calico/cni:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/cni:v3.29.6
+  digest: sha256:0eebbab959b584e6a9d9b9864287f0455c454252ac0fd740aeb924fcfd6423fc
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/cni:v3.29.6
+  target: calico/cni:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/cni:v3.29.6
+  digest: sha256:4317fb352296bba1540ad71921812da42ccb49bc63499580362e842d0bddb8dd
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/csi:v3.29.6
+  target: calico/csi:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/csi:v3.29.6
+  digest: sha256:a57375a2220cdcec83d9b22195123a73b96c2ed06909dcfa5a3ed1f9c559a98c
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/csi:v3.29.6
+  target: calico/csi:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/csi:v3.29.6
+  digest: sha256:f8afdb738d600a1b930b2679b1838bef93ee770f42f464711e80ac2065e1dd08
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/kube-controllers:v3.29.6
+  target: calico/kube-controllers:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/kube-controllers:v3.29.6
+  digest: sha256:3214c8710c411502adefc63018735d556ea5ee4eef5d132096acb5a37781a61c
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/kube-controllers:v3.29.6
+  target: calico/kube-controllers:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/kube-controllers:v3.29.6
+  digest: sha256:69c3cf0b0acb374651f1eefb4f082954a243f26251703b17db57de0e051a676a
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node-driver-registrar:v3.29.6
+  target: calico/node-driver-registrar:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node-driver-registrar:v3.29.6
+  digest: sha256:728e0350dbc78e7ee9c7c7bf22d2e2cec0a5e61da933b122bed001ced4014a99
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node-driver-registrar:v3.29.6
+  target: calico/node-driver-registrar:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node-driver-registrar:v3.29.6
+  digest: sha256:2ce38cc30e66277e7924ea15210e1add589f7889b6ae2e545ff771829ec72977
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node:v3.29.6
+  target: calico/node:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node:v3.29.6
+  digest: sha256:d736f125f0cbf26e564ed35a80afc8c69708b51d2b86a71030a53628d53d336b
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node:v3.29.6
+  target: calico/node:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node:v3.29.6
+  digest: sha256:380e1739758024eee897b1d5534c7ef27283380974daf1989c9737fbba497939
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/pod2daemon-flexvol:v3.29.6
+  target: calico/pod2daemon-flexvol:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.29.6
+  digest: sha256:8226b68b920339df7ffaccdc6bf8bd14925abc4dafa15284e884b18f167e01fe
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/pod2daemon-flexvol:v3.29.6
+  target: calico/pod2daemon-flexvol:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.29.6
+  digest: sha256:cf97a55a233d4e2a4622dc38579e2dc7fe9dc24484bd34af7d37c74958cd0ac3
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/typha:v3.29.6
+  target: calico/typha:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/typha:v3.29.6
+  digest: sha256:d960ed68494367492443004c666e66a7b92dbec874e8178e65ce6de5b835f8e5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/typha:v3.29.6
+  target: calico/typha:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/typha:v3.29.6
+  digest: sha256:d4de76aaedd7428c0005b16536d9073eca072098dae00c61fcbbcefeb4e62712
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/tigera/operator:v1.36.14
+  target: tigera/operator:v1.36.14
+  platforms:
+  - linux/amd64
+  upstream: quay.io/tigera/operator:v1.36.14
+  digest: sha256:690765ef54cd54e43dcb67fcc3a5e242cff97cb5dce212b3f28d426da1c98870
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/tigera/operator:v1.36.14
+  target: tigera/operator:v1.36.14
+  platforms:
+  - linux/arm64
+  upstream: quay.io/tigera/operator:v1.36.14
+  digest: sha256:52dd1fe801b05b107dd47ff08100c069b620df773fa6c40d5d381b87c582cb23
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/apiserver:v3.31.5
+  target: calico/apiserver:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/apiserver:v3.31.5
+  digest: sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/apiserver:v3.31.5
+  target: calico/apiserver:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/apiserver:v3.31.5
+  digest: sha256:c742490c6acca08275437815e9a9ee4894a745aa7d4460b4b0bf90b3fcd6d18c
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/cni:v3.31.5
+  target: calico/cni:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/cni:v3.31.5
+  digest: sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/cni:v3.31.5
+  target: calico/cni:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/cni:v3.31.5
+  digest: sha256:5f9f020d98457f227ef36634bbbd7590df8e92cfd420710f6866091cebbcb281
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/csi:v3.31.5
+  target: calico/csi:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/csi:v3.31.5
+  digest: sha256:82f5c3d54f8bd3b37bae33ad77ba19898b6e3d8e5d1e223e64226b33209e48e9
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/csi:v3.31.5
+  target: calico/csi:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/csi:v3.31.5
+  digest: sha256:7b591634f41efcc8278417aac347f70e928760d7b8e088cbfd77d18d83085c37
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/kube-controllers:v3.31.5
+  target: calico/kube-controllers:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/kube-controllers:v3.31.5
+  digest: sha256:4a1c3d86e8501edb1429226b4b8939b57d2b297ef990703c5dbea30a0b3bd84d
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/kube-controllers:v3.31.5
+  target: calico/kube-controllers:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/kube-controllers:v3.31.5
+  digest: sha256:c2b4187444325b404e5c1b7b6a0ffd310ad6f4b0e1ca33d07877956c2090930b
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node-driver-registrar:v3.31.5
+  target: calico/node-driver-registrar:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node-driver-registrar:v3.31.5
+  digest: sha256:5fb53bbe228c6ac773befe6ee0d34f0b61ae96356d36aa4e3e9a8c47b1239fa0
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node-driver-registrar:v3.31.5
+  target: calico/node-driver-registrar:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node-driver-registrar:v3.31.5
+  digest: sha256:70d0aeb20264a109c835f2c9107faac4fc177427da2f71ca9d7889f21db113a8
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node:v3.31.5
+  target: calico/node:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node:v3.31.5
+  digest: sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/node:v3.31.5
+  target: calico/node:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node:v3.31.5
+  digest: sha256:7ad215b3a22661ed7c3f01cd128724e4f2150d77092d86a605c8688ad14163bd
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/pod2daemon-flexvol:v3.31.5
+  target: calico/pod2daemon-flexvol:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.31.5
+  digest: sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/pod2daemon-flexvol:v3.31.5
+  target: calico/pod2daemon-flexvol:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.31.5
+  digest: sha256:1774a60858a49317ce961692bd860abecb05aea8fc9c0566578a5b1e6a4e94b8
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/typha:v3.31.5
+  target: calico/typha:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/typha:v3.31.5
+  digest: sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/calico/typha:v3.31.5
+  target: calico/typha:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/typha:v3.31.5
+  digest: sha256:df8b376c2cf715a9d1981c8ee95322ce3ee2ddda5ec4ea68d3d158e82af24c09
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/tigera/operator:v1.40.8
+  target: tigera/operator:v1.40.8
+  platforms:
+  - linux/amd64
+  upstream: quay.io/tigera/operator:v1.40.8
+  digest: sha256:bb3104920794aca0b4b89334a6b5f5a3f45191b94ae296ea7e4164175787292f
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/tigera/operator:v1.40.8
+  target: tigera/operator:v1.40.8
+  platforms:
+  - linux/arm64
+  upstream: quay.io/tigera/operator:v1.40.8
+  digest: sha256:c9afce9472a44510b5d8bb457fa55716a08905df479a2fac8a4b1f3ff40b654f
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/coredns:v1.13.1
+  target: coredns:v1.13.1
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/coredns/coredns:v1.13.1
+  digest: sha256:246e7333fde10251c693b68f13d21d6d64c7dbad866bbfa11bd49315e3f725a7
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/coredns:v1.13.1
+  target: coredns:v1.13.1
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/coredns/coredns:v1.13.1
+  digest: sha256:cbd225373d1800b8d9aa2cac02d5be4172ad301cf7a1ffb509ddf8ca1fe06d74
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/etcd:3.6.6-0
+  target: etcd:3.6.6-0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/etcd:3.6.6-0
+  digest: sha256:5279f56db4f32772bb41e47ca44c553f5c87a08fdf339d74c23a4cdc3c388d6a
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/etcd:3.6.6-0
+  target: etcd:3.6.6-0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/etcd:3.6.6-0
+  digest: sha256:aa0d8bc8f6a6c3655b8efe0a10c5bf052f5574ebe13f904c5b0c9002ce4b2561
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-apiserver:v1.35.8
+  target: kube-apiserver:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-apiserver:v1.35.8
+  digest: sha256:1ca06c62c256f8336f6bc5ad9be1bc9e6298dcf4a91de5ecd55a3831d0dc2276
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-apiserver:v1.35.8
+  target: kube-apiserver:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-apiserver:v1.35.8
+  digest: sha256:fbadc48678eb964877fa31978f6bc1acf8f3b63ebcef12413b7b1f3d5ce2ceae
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-controller-manager:v1.35.8
+  target: kube-controller-manager:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-controller-manager:v1.35.8
+  digest: sha256:5705680203ce0bc4f9ea7593d16ee96685bb3b62fe6e3b170c184b088f98bbc7
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-controller-manager:v1.35.8
+  target: kube-controller-manager:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-controller-manager:v1.35.8
+  digest: sha256:c75aa14860f595ad52c53269df32e15e460d7c1667dd1a3210f8a2506d32ba7f
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-proxy:v1.35.8
+  target: kube-proxy:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-proxy:v1.35.8
+  digest: sha256:fa9db975627d896cbfa140b6bf64e4966566d09ffe0b8b512b8c4d9a6395d793
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-proxy:v1.35.8
+  target: kube-proxy:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-proxy:v1.35.8
+  digest: sha256:4e8884d1bb05f022771a5f44402830622f0d69724800dbe25764c7f6020ca40f
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-scheduler:v1.35.8
+  target: kube-scheduler:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-scheduler:v1.35.8
+  digest: sha256:fed5f9a7b9e2a799ec24ca9f6438df6991a05e0e4f6274b34ca5375023137970
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-scheduler:v1.35.8
+  target: kube-scheduler:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-scheduler:v1.35.8
+  digest: sha256:ba18e322aa1552876fde1b94fa1dd99b801d76134ec79a19b54327dab0869936
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/pause:3.10.1
+  target: pause:3.10.1
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/pause:3.10.1
+  digest: sha256:e5b941ef8f71de54dc3a13398226c269ba217d06650a21bd3afcf9d890cf1f41
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/pause:3.10.1
+  target: pause:3.10.1
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/pause:3.10.1
+  digest: sha256:e9c466420bcaeede00f46ecfa0ca8cd854c549f2f13330e2723173d88f2de70f
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/coredns:v1.14.2
+  target: coredns:v1.14.2
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.2
+  digest: sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/coredns:v1.14.2
+  target: coredns:v1.14.2
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.2
+  digest: sha256:3c5a66ca0d50fbd3ddb862857ce2a01a9d74dd409aea4b1fde83a9c68c598754
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/etcd:3.6.8-0
+  target: etcd:3.6.8-0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/etcd:3.6.8-0
+  digest: sha256:aa2b41e3f99c9a337b82f687875a63c5119e6d39bc43fc76b6c40a96f55cf391
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/etcd:3.6.8-0
+  target: etcd:3.6.8-0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/etcd:3.6.8-0
+  digest: sha256:82bf8bc50b9a953f8b477adb63f12637229d8044e85b21501a3c6a4be59afbb8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-apiserver:v1.36.4
+  target: kube-apiserver:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-apiserver:v1.36.4
+  digest: sha256:feb6509b541379d76b37cf6e7a5c1e3767458f7468288525f75574672fee1b18
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-apiserver:v1.36.4
+  target: kube-apiserver:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-apiserver:v1.36.4
+  digest: sha256:854e76868e933ef924a7b4ec75f9e79f76950461ef5d0f69f901323d9c60d29d
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-controller-manager:v1.36.4
+  target: kube-controller-manager:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-controller-manager:v1.36.4
+  digest: sha256:ff4b86d6ed3cb2a8ef22c2fea31054bdc16099e583c343aabf3d54d212480c8e
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-controller-manager:v1.36.4
+  target: kube-controller-manager:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-controller-manager:v1.36.4
+  digest: sha256:4a0c4cf4f0df0dcbd11e9a5f3b2ebb482938063f47dbd55537dad4ced1237f89
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-proxy:v1.36.4
+  target: kube-proxy:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-proxy:v1.36.4
+  digest: sha256:70f5e02ebce27a7a3b1bc9b164f64e1982acf46f4ed68348c9a7b94a43d6d014
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-proxy:v1.36.4
+  target: kube-proxy:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-proxy:v1.36.4
+  digest: sha256:00013c715a6bae0dbfed7ab68b9b55b11e99bbdbc56ed7a1772ae05b8b775876
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-scheduler:v1.36.4
+  target: kube-scheduler:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-scheduler:v1.36.4
+  digest: sha256:883d4d505bf015f73cea8bfead8b9d9d1ec3a9f19bcad6c004f929d666102c2a
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-scheduler:v1.36.4
+  target: kube-scheduler:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-scheduler:v1.36.4
+  digest: sha256:8934df437b2ec88fb807d40a31759893442a4020c0c6698e9e4b6833d9bfd24a
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/pause:3.10.2
+  target: pause:3.10.2
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/pause:3.10.2
+  digest: sha256:412c4a7219cb8a299a37337f3d87810c5340095322e15594a1637785adad0f17
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/pause:3.10.2
+  target: pause:3.10.2
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/pause:3.10.2
+  digest: sha256:a433214620b407678934ebd69690a9ed6066247231eacfba181fab20dbc3dbf1
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/coredns:v1.14.6
+  target: coredns:v1.14.6
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.6
+  digest: sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/coredns:v1.14.6
+  target: coredns:v1.14.6
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.6
+  digest: sha256:d5cc132a34e034ecfd2d4c73c5bf341e5d8af9a0ba46bd7619d9448beb27e7a2
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/etcd:3.7.0-0
+  target: etcd:3.7.0-0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/etcd:3.7.0-0
+  digest: sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/etcd:3.7.0-0
+  target: etcd:3.7.0-0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/etcd:3.7.0-0
+  digest: sha256:141de174189a9097c2c75c51cb64b4a4d3d2fcb43e5115b854243611ebd0212c
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-apiserver:v1.37.0
+  target: kube-apiserver:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-apiserver:v1.37.0
+  digest: sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-apiserver:v1.37.0
+  target: kube-apiserver:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-apiserver:v1.37.0
+  digest: sha256:75f6e9a3a617c74c3974865d0803770d05925cfde413fb473817c791bb5713ac
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-controller-manager:v1.37.0
+  target: kube-controller-manager:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-controller-manager:v1.37.0
+  digest: sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-controller-manager:v1.37.0
+  target: kube-controller-manager:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-controller-manager:v1.37.0
+  digest: sha256:601d0b50a3793f2e583adaa770697786360e648acb234274c511b59e60f681d6
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-proxy:v1.37.0
+  target: kube-proxy:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-proxy:v1.37.0
+  digest: sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-proxy:v1.37.0
+  target: kube-proxy:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-proxy:v1.37.0
+  digest: sha256:12095938d8aae34229c2d41c7b9fa584a6c56cf27072d1d96856ecd5e3b2acdf
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-scheduler:v1.37.0
+  target: kube-scheduler:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-scheduler:v1.37.0
+  digest: sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kube-scheduler:v1.37.0
+  target: kube-scheduler:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-scheduler:v1.37.0
+  digest: sha256:174e5f607a6fb2c9446391143dd133b9d9cddbd3962dea826505d02c5a9d5783
+- type: runtime-image
+  component:
+    kind: k8s-extension
+    name: k8s-extension
+    version: v1
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/nicolaka/netshoot:v0.13
+  target: nicolaka/netshoot:v0.13
+  platforms:
+  - linux/amd64
+  upstream: nicolaka/netshoot:v0.13
+  digest: sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8
+- type: runtime-image
+  component:
+    kind: k8s-extension
+    name: k8s-extension
+    version: v1
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/nicolaka/netshoot:v0.13
+  target: nicolaka/netshoot:v0.13
+  platforms:
+  - linux/arm64
+  upstream: nicolaka/netshoot:v0.13
+  digest: sha256:1445e6a86241f3b1267503388b52f68a17a582c97aae8e80d9aa287939757c97
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/fanux/lvscare:v1.1.1
+  target: fanux/lvscare:v1.1.1
+  platforms:
+  - linux/amd64
+  upstream: fanux/lvscare:v1.1.1
+  digest: sha256:4c62fc42b6737fa8f14f36eca1a6f224e0de3d2a02ea4cb0528ef16520674613
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/fanux/lvscare:v1.1.1
+  target: fanux/lvscare:v1.1.1
+  platforms:
+  - linux/arm64
+  upstream: fanux/lvscare:v1.1.1
+  digest: sha256:1af08788097065e0a83f8039964674f90da3874ff81baa4b80b49989d5f297e1
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/kubectl:latest
+  target: kubeclipper/kubectl:latest
+  platforms:
+  - linux/amd64
+  upstream: kubeclipper/kubectl:latest
+  digest: sha256:85db688a80a1493d40ba9d13f64bf2c615121112fbe9f44dd43368fa4f837c59
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/lixd/kubeclipper/qualification-7250c886dcb28f46a7c59fc88c3407fe61be587d/kubeclipper/kubectl:latest
+  target: kubeclipper/kubectl:latest
+  platforms:
+  - linux/arm64
+  upstream: kubeclipper/kubectl:latest
+  digest: sha256:9f6ecaa1354dc7578e792429c5c3078f5c069a24132de8121af383a152bbf9ec

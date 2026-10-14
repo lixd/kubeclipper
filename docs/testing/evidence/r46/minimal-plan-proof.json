@@ -1,0 +1,120 @@
+{
+  "candidate": "7250c886dcb28f46a7c59fc88c3407fe61be587d",
+  "phase": "Running",
+  "plan": {
+    "kubernetesVersion": "v1.35.8",
+    "os": "linux",
+    "arch": "amd64",
+    "components": [
+      {
+        "slot": "k8s",
+        "kind": "k8s",
+        "name": "k8s",
+        "version": "v1.35.8",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5247/kubeclipper/packages/k8s/k8s:v1.35.8",
+          "digest": "sha256:ea529e9e4736409d0081645098b28beb114130f2c86aa4ea976e4291a4109601"
+        },
+        "contents": [
+          {
+            "name": "configs",
+            "file": "configs.tar.gz",
+            "digest": "sha256:1788247f47ed79a59255580bc898e6b04754e1ea3d21ebf7fcf49990bf42b9bb",
+            "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+            "transport": {
+              "type": "",
+              "ref": "",
+              "digest": ""
+            }
+          }
+        ]
+      },
+      {
+        "slot": "cri",
+        "kind": "cri",
+        "name": "containerd",
+        "version": "1.7.29",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5247/kubeclipper/packages/cri/containerd:1.7.29",
+          "digest": "sha256:87d79eb427e63cf7b43d7f5fb31e0d46cd17021a8edfe57e69b6437fcfb8af2b"
+        },
+        "contents": [
+          {
+            "name": "configs",
+            "file": "configs.tar.gz",
+            "digest": "sha256:7057ec46a9e6ae88531155c59f1750fa8ca047664123e16072b4988748361995",
+            "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+            "transport": {
+              "type": "",
+              "ref": "",
+              "digest": ""
+            }
+          }
+        ]
+      },
+      {
+        "slot": "cni",
+        "kind": "cni",
+        "name": "calico",
+        "version": "v3.29.6",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5247/kubeclipper/charts/tigera-operator:v3.29.6",
+          "digest": "sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f"
+        },
+        "contents": [
+          {
+            "name": "charts",
+            "file": "charts.tgz",
+            "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+            "transport": {
+              "type": "helm-oci",
+              "ref": "172.16.131.146:5247/kubeclipper/charts/tigera-operator",
+              "digest": "sha256:e70d51dd2ff6d0d2a8013a112fe1f13faddd186b9582f11fe8375e86b088610f"
+            }
+          }
+        ]
+      },
+      {
+        "slot": "k8s-extension",
+        "kind": "k8s-extension",
+        "name": "k8s-extension",
+        "version": "v1",
+        "os": "linux",
+        "arch": "amd64",
+        "required": true,
+        "transport": {
+          "type": "oci",
+          "ref": "172.16.131.146:5247/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+          "digest": "sha256:11e89a42858586d26116a3f77e18484cb8785bddaba496299369e4ad84e711fa"
+        },
+        "contents": [
+          {
+            "name": "configs",
+            "file": "configs.tar.gz",
+            "digest": "sha256:893887ee739f78ce1bd546157c0b56daceaae241387d76d7bf12fff173f51747",
+            "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+            "transport": {
+              "type": "",
+              "ref": "",
+              "digest": ""
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "noRegistryCredentialsOrBlob": true,
+  "noBootstrapInClusterPlan": true
+}

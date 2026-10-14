@@ -1,0 +1,91 @@
+[
+  {
+    "check": "record query",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "record update",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "CoreDNS actual synced record lookup",
+    "pass": true,
+    "detail": "Server:\t\t10.98.0.10\nAddress:\t10.98.0.10#53\n\nName:\tapi.r46.example\nAddress: 192.0.2.47\n\nWarning: Use tokens from the TokenRequest API or manually created secret-based tokens instead of auto-generated secret-based tokens.\n"
+  },
+  {
+    "check": "invalid DNS record rejected",
+    "pass": true,
+    "detail": {
+      "status": 400
+    }
+  },
+  {
+    "check": "invalid DNS record rejected",
+    "pass": true,
+    "detail": {
+      "status": 400
+    }
+  },
+  {
+    "check": "domain/record cleaned",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "introspection /api/config.kubeclipper.io/v1/configz",
+    "pass": true,
+    "detail": {
+      "status": 200,
+      "bytes": 132
+    }
+  },
+  {
+    "check": "introspection /api/config.kubeclipper.io/v1/status",
+    "pass": true,
+    "detail": {
+      "status": 200,
+      "bytes": 751
+    }
+  },
+  {
+    "check": "introspection /api/config.kubeclipper.io/v1/components",
+    "pass": true,
+    "detail": {
+      "status": 200,
+      "bytes": 3664
+    }
+  },
+  {
+    "check": "introspection /api/config.kubeclipper.io/v1/componentmeta",
+    "pass": true,
+    "detail": {
+      "status": 200,
+      "bytes": 3191
+    }
+  },
+  {
+    "check": "configz exposes flags only",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "PlatformSetting registry template write/read",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "terminal key public material provided",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "audit events query",
+    "pass": false,
+    "detail": {
+      "status": 404,
+      "bytes": 19
+    }
+  }
+]

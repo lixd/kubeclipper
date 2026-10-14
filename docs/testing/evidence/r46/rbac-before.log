@@ -1,0 +1,5 @@
+--- FAIL: TestFromConfigDoesNotRequestUnrelatedPermissions (0.00s)
+    client_status_test.go:47: request returned Forbidden for API route and version http://127.0.0.1:57359/api/core.kubeclipper.io/v1/configmaps?paging=limit%3D-1%2Cpage%3D0, check if the server supports the requested API version
+FAIL
+FAIL	github.com/kubeclipper/kubeclipper/pkg/simple/client/kc	1.016s
+FAIL

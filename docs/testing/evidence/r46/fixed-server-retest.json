@@ -1,0 +1,102 @@
+[
+  {
+    "check": "source-built repair candidate revision",
+    "pass": true,
+    "detail": {
+      "version": {
+        "major": "",
+        "minor": "",
+        "gitVersion": "v2.0.3",
+        "gitCommit": "c0018d6a526f282737ffcbeb2a0c5c6ecc7f5efb",
+        "gitTreeState": "dirty",
+        "buildDate": "1970-01-01T00:00:00Z",
+        "goVersion": "go1.24.2",
+        "compiler": "gc",
+        "platform": "linux/amd64"
+      },
+      "binaryOrigin": "Linux source build; CI-qualified replacement still pending"
+    }
+  },
+  {
+    "check": "duplicate master worker rejected before occupied node check",
+    "pass": true,
+    "detail": {
+      "status": 400,
+      "body": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"duplicate node \\\"07865ab9-3485-49bd-94ff-da3187143574\\\" in master/worker lists\"\n}"
+    }
+  },
+  {
+    "check": "cursor exact snapshot 1",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 2",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 3",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 4",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 5",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 6",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 7",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 8",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 9",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 10",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor exact snapshot 11",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "cursor no missing or duplicate operations",
+    "pass": true,
+    "detail": {
+      "pages": 12,
+      "objects": 34,
+      "resourceVersion": "10191"
+    }
+  },
+  {
+    "check": "empty config uninstall removes custom SC and stored addon",
+    "pass": true,
+    "detail": {
+      "operation": "6251b6ba-8fbf-4846-a5a7-5d9d4ab96c57",
+      "phase": "Succeeded",
+      "addonCount": 0,
+      "customSCAbsent": true
+    }
+  }
+]

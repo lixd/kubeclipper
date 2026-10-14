@@ -1,0 +1,70 @@
+{
+  "scope": "restore original pre-R46 one-Server platform on dev2 and three Agents, no Kubernetes clusters",
+  "checks": [
+    {
+      "check": "no test Kubernetes before baseline restore 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "no test Kubernetes before baseline restore 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "no test Kubernetes before baseline restore 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "original private configs units binaries restored 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "original private configs units binaries restored 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "original private configs units binaries restored 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "original real etcd snapshot restored as original single member",
+      "pass": true
+    },
+    {
+      "check": "original baseline doctor healthy",
+      "pass": true
+    },
+    {
+      "check": "original three Agent identities and zero clusters restored",
+      "pass": true,
+      "nodeIDs": {
+        "172.16.131.230": "dec3e77d-b8ca-42df-8432-1e388bfaa316",
+        "172.16.131.208": "e427f1b5-d8b2-4b1f-9a1e-0d8e0f3f304f",
+        "172.16.131.146": "4c74fcf8-1cda-471e-9db3-c1749e09abfb"
+      },
+      "clusterCount": 0
+    },
+    {
+      "check": "no introduced Core service remains 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "no introduced Core service remains 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "original Server configuration exact SHA restored",
+      "pass": true,
+      "SHA256": "be7326c76e31a59f9326738a8c8215f54e979f05e7c439cfa46fcbc94042c666"
+    },
+    {
+      "check": "protected original Registry 5003 retained",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "original Console restored and serves HTTP200",
+      "pass": true,
+      "httpStatus": 200
+    }
+  ]
+}

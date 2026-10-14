@@ -1,0 +1,14 @@
+{
+  "scope": "restore real source credentials deleted by unimport defect; not counted as import fix acceptance",
+  "serviceAccountTokenCreatedByRealController": true,
+  "formalSyncRetry": {
+    "name": "sync-kubeconfig-755f9eb8-1449-4c45-afa3-9a9fa0837758-1e4fb7ac06ba",
+    "status": {
+      "phase": "Succeeded",
+      "observedRetryGeneration": 1,
+      "deadline": "2026-10-14T04:49:11Z",
+      "startedAt": "2026-10-14T04:47:11Z",
+      "finishedAt": "2026-10-14T04:47:12Z"
+    }
+  }
+}

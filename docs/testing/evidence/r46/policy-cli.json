@@ -1,0 +1,57 @@
+[
+  {
+    "check": "resource-list",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "resource-inspect",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "resource-refresh",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-get-original",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-template",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-validate",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-invalid-reject",
+    "exit": 1,
+    "expected": 1
+  },
+  {
+    "check": "policy-diff",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-apply",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-get-custom",
+    "exit": 0,
+    "expected": 0
+  },
+  {
+    "check": "policy-restore",
+    "exit": 0,
+    "expected": 0
+  }
+]

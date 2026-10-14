@@ -1,0 +1,44 @@
+[
+  {
+    "operation": "f297f065-824d-4908-b6b9-0cecdacd7c6d",
+    "task": "task-445f99d9def9aa7d0aca13fa22dd2859",
+    "step": "b3a59cea-81a1-4dd1-bcbd-2f4be5fd3c62",
+    "attempt": 0,
+    "diagnosticLines": [
+      "[preflight] Running pre-flight checks",
+      "W1014 03:50:09.811581 2348194 joinconfiguration.go:124] error unmarshaling configuration schema.GroupVersionKind{Group:\"kubeadm.k8s.io\", Version:\"v1beta4\", Kind:\"JoinConfiguration\"}: strict decoding error: unknown field \"discovery.timeout\"",
+      "W1014 03:50:09.811917 2348194 initconfiguration.go:127] Usage of CRI endpoints without URL scheme is deprecated and can cause kubelet errors in the future. Automatically prepending scheme \"unix\" to the \"criSocket\" with value \"/run/containerd/containerd.sock\". Please update your configuration!",
+      "[preflight] Running pre-flight checks",
+      "[preflight] Reading configuration from the \"kubeadm-config\" ConfigMap in namespace \"kube-system\"...",
+      "[preflight] Use 'kubeadm init phase upload-config kubeadm --config your-config-file' to re-upload it.",
+      "[preflight] Running pre-flight checks before initializing the new control plane instance",
+      "[preflight] Pulling images required for setting up a Kubernetes cluster",
+      "[preflight] This might take a minute or two, depending on the speed of your internet connection",
+      "[preflight] You can also perform this action beforehand using 'kubeadm config images pull'",
+      "error: error execution phase kubelet-start: a Node with name \"lixd-dev-2\" and status \"Ready\" already exists in the cluster. You must delete the existing Node or change the name of this new joining Node",
+      "To see the stack trace of this error execute with --v=5 or higher"
+    ]
+  },
+  {
+    "operation": "b4f8bbda-6ee6-47bf-9eca-d9306e1ca2cc",
+    "task": "task-b94c5d22e5862fd6fb76fbebfa5d486e",
+    "step": "e4519723-0dce-40bd-951e-3617f0a0d1b2",
+    "attempt": 0,
+    "diagnosticLines": [
+      "E1014 03:51:54.185081 3692988 remote_runtime.go:375] \"RemovePodSandbox from runtime service failed\" err=\"rpc error: code = Unknown desc = failed to remove container \\\"[HASH]\\\": failed to set removing state for container \\\"[HASH]\\\": container is still running, to stop first\" podSandboxID=\"[HASH]\"",
+      "E1014 03:51:54.559555 3692988 remote_runtime.go:375] \"RemovePodSandbox from runtime service failed\" err=\"rpc error: code = Unknown desc = failed to remove container \\\"[HASH]\\\": failed to set removing state for container \\\"[HASH]\\\": container is still running, to stop first\" podSandboxID=\"[HASH]\"",
+      "E1014 03:51:55.000714 3692988 remote_runtime.go:375] \"RemovePodSandbox from runtime service failed\" err=\"rpc error: code = Unknown desc = failed to remove container \\\"[HASH]\\\": failed to set removing state for container \\\"[HASH]\\\": container is still running, to stop first\" podSandboxID=\"[HASH]\"",
+      "W1014 03:51:55.628279 3693426 joinconfiguration.go:124] error unmarshaling configuration schema.GroupVersionKind{Group:\"kubeadm.k8s.io\", Version:\"v1beta4\", Kind:\"JoinConfiguration\"}: strict decoding error: unknown field \"discovery.timeout\"",
+      "W1014 03:51:55.628913 3693426 initconfiguration.go:127] Usage of CRI endpoints without URL scheme is deprecated and can cause kubelet errors in the future. Automatically prepending scheme \"unix\" to the \"criSocket\" with value \"/run/containerd/containerd.sock\". Please update your configuration!",
+      "[preflight] Running pre-flight checks",
+      "[preflight] Reading configuration from the \"kubeadm-config\" ConfigMap in namespace \"kube-system\"...",
+      "[preflight] Use 'kubeadm init phase upload-config kubeadm --config your-config-file' to re-upload it.",
+      "[preflight] Running pre-flight checks before initializing the new control plane instance",
+      "[preflight] Pulling images required for setting up a Kubernetes cluster",
+      "[preflight] This might take a minute or two, depending on the speed of your internet connection",
+      "[preflight] You can also perform this action beforehand using 'kubeadm config images pull'",
+      "error: error execution phase kubelet-start: a Node with name \"lixd-dev-4\" and status \"Ready\" already exists in the cluster. You must delete the existing Node or change the name of this new joining Node",
+      "To see the stack trace of this error execute with --v=5 or higher"
+    ]
+  }
+]

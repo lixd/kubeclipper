@@ -1,0 +1,22 @@
+[2026-10-14T01:57:26Z][INFO] upgrade plan: target v2.0.4 (revision d2532cf765cc) from manifest downloaded for v2.0.4, registry ghcr.io/lixd/kubeclipper/qualification-d2532cf765ccbecf3bf44be743ba42781a145648
+[2026-10-14T01:57:26Z][INFO]   node 172.16.131.230 role=server arch=amd64 current=c0018d6a526f
+[2026-10-14T01:57:26Z][INFO]   node 172.16.131.146 role=agent arch=amd64 current=c0018d6a526f
+[2026-10-14T01:57:26Z][INFO]   node 172.16.131.208 role=agent arch=amd64 current=c0018d6a526f
+[2026-10-14T01:57:26Z][INFO]   node 172.16.131.230 role=agent arch=amd64 current=c0018d6a526f
+[2026-10-14T01:57:26Z][INFO]   node 172.16.131.230 role=console arch=amd64 current=unknown
+[2026-10-14T01:57:26Z][INFO]   node 172.16.131.230 role=kcctl arch=amd64 current=c0018d6a526f
+[2026-10-14T01:59:06Z][INFO] [172.16.131.230]transfer total size is: 100.00MB ;speed is 100MB
+[2026-10-14T01:59:06Z][INFO] [172.16.131.230]transfer total size is: 108.78MB ;speed is 8MB
+[2026-10-14T01:59:13Z][INFO] upgraded server 172.16.131.230 to v2.0.4
+[2026-10-14T01:59:16Z][INFO] [172.16.131.146]transfer total size is: 83.53MB ;speed is 83MB
+[2026-10-14T01:59:20Z][INFO] upgraded agent 172.16.131.146 to v2.0.4
+[2026-10-14T01:59:23Z][INFO] [172.16.131.208]transfer total size is: 83.53MB ;speed is 83MB
+[2026-10-14T01:59:26Z][INFO] upgraded agent 172.16.131.208 to v2.0.4
+[2026-10-14T01:59:29Z][INFO] [172.16.131.230]transfer total size is: 83.53MB ;speed is 83MB
+[2026-10-14T01:59:32Z][INFO] upgraded agent 172.16.131.230 to v2.0.4
+[2026-10-14T01:59:34Z][INFO] [172.16.131.230]transfer total size is: 42.32MB ;speed is 42MB
+[2026-10-14T01:59:36Z][INFO] [172.16.131.230]transfer total size is: 8.32MB ;speed is 8MB
+[2026-10-14T01:59:43Z][INFO] upgraded console 172.16.131.230 to v2.0.4
+[2026-10-14T01:59:46Z][INFO] [172.16.131.230]transfer total size is: 81.41MB ;speed is 81MB
+[2026-10-14T01:59:48Z][INFO] upgraded kcctl 172.16.131.230 to v2.0.4
+[2026-10-14T01:59:49Z][INFO] platform API reports v2.0.4 (revision d2532cf765cc)

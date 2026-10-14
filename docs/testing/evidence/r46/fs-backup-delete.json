@@ -1,0 +1,22 @@
+[
+  {
+    "backup": "r46-minimal-r46-addons-mrvmzf",
+    "apiRecordDeleted": true,
+    "actualNFSFileDeleted": true
+  },
+  {
+    "backup": "r46-minimal-r46-cycle-q7t9xq",
+    "apiRecordDeleted": true,
+    "actualNFSFileDeleted": true
+  },
+  {
+    "backup": "r46-minimal-r46-fs-manual-tq9nj7",
+    "apiRecordDeleted": true,
+    "actualNFSFileDeleted": true
+  },
+  {
+    "backup": "r46-minimal-r46-once-rpqqn8",
+    "apiRecordDeleted": true,
+    "actualNFSFileDeleted": true
+  }
+]

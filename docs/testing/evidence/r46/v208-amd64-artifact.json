@@ -1,0 +1,13 @@
+{
+  "source": "lixd/kubeclipper/qualification-3a4b574724b934bf81f04be9819b683e386a0745/kubeclipper/packages/bootstrap/kubeclipper",
+  "platform": "linux/amd64",
+  "completeOCILayerSize": 137605310,
+  "completeOCILayerSHA256": "sha256:a636db63503b9e90731bd47f30d688752a098ce9f53202dbb7e1fab1ee8a5980",
+  "matchesActualOCIImageManifest": true,
+  "binarySHA256": {
+    "kcctl": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+    "kubeclipper-server": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+    "kubeclipper-agent": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547"
+  },
+  "transport": "real GHCR redirect plus curl Range resume; previous crane streaming EOFs retained in task logs"
+}

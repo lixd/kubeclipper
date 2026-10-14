@@ -1,0 +1,17 @@
+# github.com/kubeclipper/kubeclipper/pkg/simple/client/kc [github.com/kubeclipper/kubeclipper/pkg/simple/client/kc.test]
+pkg/simple/client/kc/client_status_test.go:31:20: undefined: clusterPath
+--- FAIL: TestExtractRegistryBinaryFromPublishedPackage (0.00s)
+    registry_test.go:186: registry binary not found in image; expected one of: /registry, /usr/local/bin/registry, /usr/bin/registry, /bin/registry, /root/registry
+FAIL
+FAIL	github.com/kubeclipper/kubeclipper/pkg/cli/registry	1.117s
+FAIL	github.com/kubeclipper/kubeclipper/pkg/simple/client/kc [build failed]
+--- FAIL: TestCreateClusterCheckRejectsRepeatedNodeRoles (0.00s)
+    --- FAIL: TestCreateClusterCheckRejectsRepeatedNodeRoles/master (0.00s)
+        handler_test.go:387: expected duplicate node rejection, got some nodes in used or disabled
+    --- FAIL: TestCreateClusterCheckRejectsRepeatedNodeRoles/worker (0.00s)
+        handler_test.go:387: expected duplicate node rejection, got some nodes in used or disabled
+    --- FAIL: TestCreateClusterCheckRejectsRepeatedNodeRoles/both (0.00s)
+        handler_test.go:387: expected duplicate node rejection, got some nodes in used or disabled
+FAIL
+FAIL	github.com/kubeclipper/kubeclipper/pkg/apis/core/v1	0.872s
+FAIL

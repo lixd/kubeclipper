@@ -1,0 +1,28 @@
+[
+  {
+    "claimsUser": {
+      "username": "r46-custom-user",
+      "sub": null,
+      "name": null
+    },
+    "currentContext": "r46-custom-user@default"
+  },
+  {
+    "path": "/api/core.kubeclipper.io/v1/clusters",
+    "status": 200
+  },
+  {
+    "path": "/api/core.kubeclipper.io/v1/clusters?paging=limit=10,page=0",
+    "status": 200
+  },
+  {
+    "CLIRequestPath": "/api/core.kubeclipper.io/v1/configmaps?paging=limit%3D-1%2Cpage%3D0",
+    "status": 403,
+    "hasBearer": true
+  },
+  {
+    "CLIGetExit": 1,
+    "stdout": "Forbidden due to reason \n",
+    "stderr": ""
+  }
+]

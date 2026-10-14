@@ -1,0 +1,7 @@
+{
+  "beforeStatus": 200,
+  "rotateStatus": 200,
+  "afterStatus": 200,
+  "publicKeyChanged": true,
+  "noPrivateKeyInAPI": true
+}

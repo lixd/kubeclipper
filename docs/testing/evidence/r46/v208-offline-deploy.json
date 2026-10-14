@@ -1,0 +1,179 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "checks": [
+    {
+      "check": "real unavailable Server force clean with saved deploy-config",
+      "pass": true,
+      "exit": 0
+    },
+    {
+      "check": "force clean Agent 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "force clean Agent 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "force clean Agent 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "force clean original one-Server platform",
+      "pass": true
+    },
+    {
+      "check": "no IPv6 default route 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "no IPv6 default route 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "no IPv6 default route 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "proxy loopback unavailable for offline deployment",
+      "pass": true
+    },
+    {
+      "check": "actual native three-Server three-etcd three-Agent redeploy",
+      "pass": true,
+      "exit": 0
+    },
+    {
+      "check": "native HA doctor healthy",
+      "pass": true,
+      "exit": 0
+    },
+    {
+      "check": "direct TLS health 172.16.131.208",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "direct TLS health 172.16.131.146",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "direct TLS health 172.16.131.230",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "actual three non-learner etcd members and all endpoints healthy",
+      "pass": true,
+      "members": [
+        {
+          "name": "lixd-dev-2",
+          "peerURLs": [
+            "https://172.16.131.208:12380"
+          ],
+          "isLearner": false
+        },
+        {
+          "name": "lixd-dev-3",
+          "peerURLs": [
+            "https://172.16.131.146:12380"
+          ],
+          "isLearner": false
+        },
+        {
+          "name": "lixd-dev-4",
+          "peerURLs": [
+            "https://172.16.131.230:12380"
+          ],
+          "isLearner": false
+        }
+      ],
+      "endpointHealth": [
+        {
+          "endpoint": "https://172.16.131.146:12379",
+          "health": true,
+          "took": "339.553522ms"
+        },
+        {
+          "endpoint": "https://172.16.131.208:12379",
+          "health": true,
+          "took": "745.04497ms"
+        },
+        {
+          "endpoint": "https://172.16.131.230:12379",
+          "health": true,
+          "took": "817.328357ms"
+        }
+      ]
+    },
+    {
+      "check": "protected original Registry retained",
+      "pass": true
+    },
+    {
+      "check": "actual public egress blocked 172.16.131.208",
+      "pass": true,
+      "curlExit": 7,
+      "ownedOutputRules": "Chain R46AIRGAP (1 references)\n    pkts      bytes target     prot opt in     out     source               destination         \n      38     7620 RETURN     0    --  *      *       0.0.0.0/0            127.0.0.0/8         \n       0        0 RETURN     0    --  *      *       0.0.0.0/0            10.0.0.0/8          \n  120966 644722441 RETURN     0    --  *      *       0.0.0.0/0            172.16.0.0/12       \n       0        0 RETURN     0    --  *      *       0.0.0.0/0            192.168.0.0/16      \n       6      424 REJECT     0    --  *      *       0.0.0.0/0            0.0.0.0/0            reject-with icmp-port-unreachable\n"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.208/kcctl",
+      "pass": true,
+      "SHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.208/kubeclipper-server",
+      "pass": true,
+      "SHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.208/kubeclipper-agent",
+      "pass": true,
+      "SHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547"
+    },
+    {
+      "check": "actual public egress blocked 172.16.131.146",
+      "pass": true,
+      "curlExit": 7,
+      "ownedOutputRules": "Chain R46AIRGAP (1 references)\n    pkts      bytes target     prot opt in     out     source               destination         \n      40     7724 RETURN     0    --  *      *       0.0.0.0/0            127.0.0.0/8         \n      28     1680 RETURN     0    --  *      *       0.0.0.0/0            10.0.0.0/8          \n   27758  3766964 RETURN     0    --  *      *       0.0.0.0/0            172.16.0.0/12       \n       0        0 RETURN     0    --  *      *       0.0.0.0/0            192.168.0.0/16      \n      16     1016 REJECT     0    --  *      *       0.0.0.0/0            0.0.0.0/0            reject-with icmp-port-unreachable\n"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.146/kcctl",
+      "pass": true,
+      "SHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.146/kubeclipper-server",
+      "pass": true,
+      "SHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.146/kubeclipper-agent",
+      "pass": true,
+      "SHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547"
+    },
+    {
+      "check": "actual public egress blocked 172.16.131.230",
+      "pass": true,
+      "curlExit": 7,
+      "ownedOutputRules": "Chain R46AIRGAP (1 references)\n    pkts      bytes target     prot opt in     out     source               destination         \n      56     8528 RETURN     0    --  *      *       0.0.0.0/0            127.0.0.0/8         \n    3477   139080 RETURN     0    --  *      *       0.0.0.0/0            10.0.0.0/8          \n   42060 384665517 RETURN     0    --  *      *       0.0.0.0/0            172.16.0.0/12       \n       0        0 RETURN     0    --  *      *       0.0.0.0/0            192.168.0.0/16      \n       4      272 REJECT     0    --  *      *       0.0.0.0/0            0.0.0.0/0            reject-with icmp-port-unreachable\n"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.230/kcctl",
+      "pass": true,
+      "SHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.230/kubeclipper-server",
+      "pass": true,
+      "SHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3"
+    },
+    {
+      "check": "actual offline binary matches current CI 172.16.131.230/kubeclipper-agent",
+      "pass": true,
+      "SHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547"
+    }
+  ],
+  "initialHarnessError": "deployment and health completed; final curl assertion had a Python quoting error, corrected and rerun against the same live platform"
+}

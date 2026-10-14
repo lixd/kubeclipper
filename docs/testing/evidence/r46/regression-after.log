@@ -1,0 +1,3 @@
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/registry	2.326s
+ok  	github.com/kubeclipper/kubeclipper/pkg/simple/client/kc	60.850s
+ok  	github.com/kubeclipper/kubeclipper/pkg/apis/core/v1	0.618s

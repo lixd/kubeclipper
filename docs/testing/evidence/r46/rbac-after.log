@@ -1,0 +1,4 @@
+=== RUN   TestFromConfigDoesNotRequestUnrelatedPermissions
+--- PASS: TestFromConfigDoesNotRequestUnrelatedPermissions (0.00s)
+PASS
+ok  	github.com/kubeclipper/kubeclipper/pkg/simple/client/kc	0.793s

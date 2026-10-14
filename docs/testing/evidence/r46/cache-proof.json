@@ -1,0 +1,18 @@
+{
+  "scope": "production OCIArtifactFetcher invoked by isolated Linux helper; no mocked Registry or payload",
+  "checks": [
+    {
+      "check": "verified cached production Fetcher payload available during Registry outage",
+      "pass": true
+    },
+    {
+      "check": "corrupted cache cannot return success while Registry unavailable",
+      "pass": true,
+      "exit": 1
+    },
+    {
+      "check": "real Registry redownload repairs corrupted payload",
+      "pass": true
+    }
+  ]
+}

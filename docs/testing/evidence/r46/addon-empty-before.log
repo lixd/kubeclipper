@@ -1,0 +1,12 @@
+--- FAIL: TestUninstallEmptyConfigUsesInstalledAddonConfig (0.00s)
+    --- FAIL: TestUninstallEmptyConfigUsesInstalledAddonConfig/#00 (0.00s)
+        schema_test.go:274: uninstall config = , want installed config {"scName":"r46-custom-nfs","serverAddr":"172.16.131.230","sharedPath":"/srv/r46"}
+    --- FAIL: TestUninstallEmptyConfigUsesInstalledAddonConfig/{} (0.00s)
+        schema_test.go:274: uninstall config = {}, want installed config {"scName":"r46-custom-nfs","serverAddr":"172.16.131.230","sharedPath":"/srv/r46"}
+    --- FAIL: TestUninstallEmptyConfigUsesInstalledAddonConfig/{_} (0.00s)
+        schema_test.go:274: uninstall config = { }, want installed config {"scName":"r46-custom-nfs","serverAddr":"172.16.131.230","sharedPath":"/srv/r46"}
+    --- FAIL: TestUninstallEmptyConfigUsesInstalledAddonConfig/null (0.00s)
+        schema_test.go:274: uninstall config = null, want installed config {"scName":"r46-custom-nfs","serverAddr":"172.16.131.230","sharedPath":"/srv/r46"}
+FAIL
+FAIL	github.com/kubeclipper/kubeclipper/pkg/apis/core/v1	1.075s
+FAIL

@@ -1,0 +1,38 @@
+{
+  "checks": [
+    {
+      "name": "cli-role-create",
+      "exit": 0
+    },
+    {
+      "name": "cli-role-get",
+      "exit": 0
+    },
+    {
+      "name": "cli-user-create",
+      "exit": 0
+    },
+    {
+      "name": "cli-user-get",
+      "exit": 0
+    },
+    {
+      "name": "cli-login",
+      "exit": 0
+    },
+    {
+      "name": "CLI issued token reads permitted cluster API",
+      "status": 200
+    },
+    {
+      "name": "cli-user-delete",
+      "exit": 0
+    },
+    {
+      "name": "cli-role-delete",
+      "exit": 0
+    }
+  ],
+  "originalCLIConfigRestored": true,
+  "fixtureUserRoleDeleted": true
+}

@@ -1,0 +1,40 @@
+{
+  "realConsoleAssets": [
+    {
+      "asset": "/global.config.js",
+      "bytes": 61,
+      "retiredNFSAddonAbsent": true
+    },
+    {
+      "asset": "/runtime.1791941517.js",
+      "bytes": 2280,
+      "retiredNFSAddonAbsent": true
+    },
+    {
+      "asset": "/antd.bundle.1791941517.js",
+      "bytes": 1683262,
+      "retiredNFSAddonAbsent": true
+    },
+    {
+      "asset": "/page.bundle.1791941517.js",
+      "bytes": 387728,
+      "retiredNFSAddonAbsent": true
+    },
+    {
+      "asset": "/components.bundle.1791941517.js",
+      "bytes": 260488,
+      "retiredNFSAddonAbsent": true
+    },
+    {
+      "asset": "/vendors~main.bundle.1791941517.js",
+      "bytes": 2818660,
+      "retiredNFSAddonAbsent": true
+    },
+    {
+      "asset": "/main.bundle.1791941517.js",
+      "bytes": 309123,
+      "retiredNFSAddonAbsent": true
+    }
+  ],
+  "componentMetadataRetiredNFSAddonAbsent": true
+}

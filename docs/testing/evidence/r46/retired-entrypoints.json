@@ -1,0 +1,6 @@
+{
+  "dockerCLIRejected": true,
+  "dockerAPIDryRunStatus": 400,
+  "dockerAPIMessage": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"Docker CRI is not supported, use containerd\"\n}",
+  "legacyStaticDeployFlagsAbsent": true
+}

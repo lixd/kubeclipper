@@ -1,0 +1,29 @@
+{
+  "candidateRevision": "1f30e19987dd456d40b5066ba366192a56d3fa64",
+  "checks": [
+    {
+      "check": "real occupied API port causes InstallFailed",
+      "pass": true,
+      "operation": "8fe7ca02-2e41-48e7-90aa-dfc7698edd0b",
+      "clusterPhase": "InstallFailed"
+    },
+    {
+      "check": "normal DeleteCluster after InstallFailed",
+      "pass": true,
+      "completionBasis": "actual cluster404 after normal Delete request; terminal Operation was garbage-collected before polling observed it"
+    },
+    {
+      "check": "create interrupted through formal cooperative cancel",
+      "pass": true,
+      "operation": "afc9dc99-8d2a-4c24-a44e-04330795cee7",
+      "completedBeforeCancel": 3
+    },
+    {
+      "check": "formal create retry succeeds without replaying completed tasks or changing plan",
+      "pass": true,
+      "operation": "afc9dc99-8d2a-4c24-a44e-04330795cee7",
+      "phase": "Succeeded",
+      "completedTaskTimestampsUnchanged": true
+    }
+  ]
+}

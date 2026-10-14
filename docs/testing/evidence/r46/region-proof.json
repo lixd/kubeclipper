@@ -1,0 +1,23 @@
+[
+  {
+    "check": "real join assigns r46-west Node label and Region list",
+    "pass": true,
+    "NodeName": "9aaa1ca3-8811-4430-9971-0f75f79462b9",
+    "region": "r46-west",
+    "regions": [
+      "r46-west",
+      "default"
+    ]
+  },
+  {
+    "check": "real mixed Region create POST rejected before object/Operation",
+    "pass": true,
+    "status": 400,
+    "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"nodes belongs to different region\"\n}"
+  },
+  {
+    "check": "formal join restores default Region and Ready",
+    "pass": true,
+    "NodeName": "d361e0fb-de73-447f-82a3-d8bbad6dde00"
+  }
+]

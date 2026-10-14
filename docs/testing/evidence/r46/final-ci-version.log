@@ -1,0 +1,2 @@
+kcctl version: version.Info{Major:"2", Minor:"0", GitVersion:"v2.0.3", GitCommit:"c0018d6a526f282737ffcbeb2a0c5c6ecc7f5efb", GitTreeState:"clean", BuildDate:"2026-10-13T13:51:09Z", GoVersion:"go1.24.2", Compiler:"gc", Platform:"linux/amd64"}
+kubeclipper-server version: version.Info{Major:"2", Minor:"0", GitVersion:"v2.0.3", GitCommit:"c0018d6a526f282737ffcbeb2a0c5c6ecc7f5efb", GitTreeState:"clean", BuildDate:"2026-10-13T13:51:09Z", GoVersion:"go1.24.2", Compiler:"gc", Platform:"linux/amd64"}

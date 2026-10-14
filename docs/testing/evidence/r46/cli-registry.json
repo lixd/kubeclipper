@@ -1,0 +1,17 @@
+{
+  "checks": [
+    {
+      "name": "registry-create",
+      "exit": 0
+    },
+    {
+      "name": "registry-get",
+      "exit": 0
+    },
+    {
+      "name": "registry-delete",
+      "exit": 0
+    }
+  ],
+  "fixtureAbsent": true
+}

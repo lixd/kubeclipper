@@ -1,0 +1,34 @@
+[
+  {
+    "check": "agent restart recovers actual running operation",
+    "pass": true,
+    "detail": {
+      "phase": "Succeeded",
+      "deadline": "2026-10-13T14:10:47Z",
+      "startedAt": "2026-10-13T14:08:47Z",
+      "finishedAt": "2026-10-13T14:09:09Z"
+    }
+  },
+  {
+    "check": "agent restart actual side effect 172.16.131.208",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "agent restart actual side effect 172.16.131.146",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "agent restart actual side effect 172.16.131.230",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "duplicate operation identity rejected",
+    "pass": true,
+    "detail": {
+      "status": 409
+    }
+  }
+]

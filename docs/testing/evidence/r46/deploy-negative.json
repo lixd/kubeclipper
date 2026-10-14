@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "name": "duplicate",
+      "exit": 1,
+      "expectedErrorFound": true
+    },
+    {
+      "name": "bad-address",
+      "exit": 1,
+      "expectedErrorFound": true
+    },
+    {
+      "name": "missing-package",
+      "exit": 1,
+      "expectedErrorFound": true
+    }
+  ],
+  "healthyAfterNegative": true
+}

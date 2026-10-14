@@ -1,0 +1,44 @@
+{
+  "forkRelease": "https://github.com/lixd/kubeclipper/releases/tag/v2.0.4",
+  "qualificationRun": 38496629970,
+  "revision": "d2532cf765ccbecf3bf44be743ba42781a145648",
+  "commandExit": 0,
+  "binaryComparisons": [
+    {
+      "host": "172.16.131.208",
+      "component": "kubeclipper-agent",
+      "sha256": "a5dc1d3b2f798ccdc2601d12e28df16394c8bddc304f37cee6bce49a77ab7f59",
+      "sameCIArtifact": true
+    },
+    {
+      "host": "172.16.131.146",
+      "component": "kubeclipper-agent",
+      "sha256": "a5dc1d3b2f798ccdc2601d12e28df16394c8bddc304f37cee6bce49a77ab7f59",
+      "sameCIArtifact": true
+    },
+    {
+      "host": "172.16.131.230",
+      "component": "kubeclipper-server",
+      "sha256": "19391bc127a01a8e0cc9d122acf7562e8d7022cba0d74e147f2174356269d749",
+      "sameCIArtifact": true
+    },
+    {
+      "host": "172.16.131.230",
+      "component": "kubeclipper-agent",
+      "sha256": "a5dc1d3b2f798ccdc2601d12e28df16394c8bddc304f37cee6bce49a77ab7f59",
+      "sameCIArtifact": true
+    },
+    {
+      "host": "172.16.131.230",
+      "component": "kcctl",
+      "sha256": "7acf0510cd3f9fb6a2c1b753bd18e129289c713040ec257a043f45a9258208e5",
+      "sameCIArtifact": true
+    }
+  ],
+  "consoleVersion": {
+    "sourceRevision": "07f527e002331070d6f59665a186520b7bf109f8",
+    "release": "v1.6.0-r46.3",
+    "buildTime": "2026-10-14T01:34:19.040876+00:00"
+  },
+  "doctor": "19 passed 0 warnings 0 failed"
+}

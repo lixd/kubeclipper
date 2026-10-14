@@ -1,0 +1,156 @@
+{
+  "revision": "d2136132dd65c83903333d0b30a1be8c5dcfc29e",
+  "qualificationRun": 38504633873,
+  "version": "v2.0.5",
+  "upgradeAllFromSameCIManifestExit": 0,
+  "binaryComparisons": [
+    {
+      "host": "172.16.131.208",
+      "component": "kubeclipper-agent",
+      "sha256": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "matchesSameRevisionCI": true
+    },
+    {
+      "host": "172.16.131.146",
+      "component": "kubeclipper-agent",
+      "sha256": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "matchesSameRevisionCI": true
+    },
+    {
+      "host": "172.16.131.230",
+      "component": "kubeclipper-server",
+      "sha256": "3441b1c42f40ca471045bc94c18b21de70adc14ce3c31c90130f89a14a311031",
+      "matchesSameRevisionCI": true
+    },
+    {
+      "host": "172.16.131.230",
+      "component": "kubeclipper-agent",
+      "sha256": "1a0dbf0d762784b5d18a117628631cb5d77142c8b52db42cd42b0e6e1a08cab9",
+      "matchesSameRevisionCI": true
+    },
+    {
+      "host": "172.16.131.230",
+      "component": "kcctl",
+      "sha256": "93204cb5b88fb968bd072b42e0a298b4d656748754828c36b34f54e84d8c4005",
+      "matchesSameRevisionCI": true
+    }
+  ],
+  "historicalStateRegressionAfterTwoActualServerRestarts": [
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 1,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    },
+    {
+      "restart": 2,
+      "version": "v1.37.0",
+      "phase": "Running"
+    }
+  ],
+  "doctorExit": 0,
+  "doctorStartupReadinessPolls": [
+    {
+      "attempt": 1,
+      "exit": 1
+    },
+    {
+      "attempt": 2,
+      "exit": 1
+    },
+    {
+      "attempt": 3,
+      "exit": 0
+    }
+  ],
+  "startedAt": "2026-10-14T03:45:05.905628+00:00"
+}

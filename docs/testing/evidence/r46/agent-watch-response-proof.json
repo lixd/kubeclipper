@@ -1,0 +1,279 @@
+{
+  "startedAt": "2026-10-14T02:58:45.109428+00:00",
+  "actualAgent": true,
+  "tlsVerification": true,
+  "watchRecovery": {
+    "operation": "r46-watch-after-410-eof",
+    "phase": "Succeeded",
+    "actualSideEffectCount": 1
+  },
+  "lostResponse": {
+    "operation": "r46-terminal-response-lost",
+    "phase": "Succeeded",
+    "actualSideEffectCount": 1
+  },
+  "events": [
+    {
+      "method": "GET",
+      "path": "/api/core.kubeclipper.io/v1/nodes/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "phase": null,
+      "seq": 1,
+      "time": 1791946728.302062
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/core.kubeclipper.io/v1/nodes/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "seq": 2,
+      "time": 1791946728.322225
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": false,
+      "phase": null,
+      "seq": 3,
+      "time": 1791946728.3435822
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": false,
+      "seq": 4,
+      "time": 1791946728.36266
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": true,
+      "phase": null,
+      "seq": 5,
+      "time": 1791946728.3855152
+    },
+    {
+      "fault": "watch410",
+      "seq": 6,
+      "time": 1791946728.3859377
+    },
+    {
+      "method": "GET",
+      "path": "/api/core.kubeclipper.io/v1/leases/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "phase": null,
+      "seq": 7,
+      "time": 1791946728.439474
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/core.kubeclipper.io/v1/leases/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "seq": 8,
+      "time": 1791946728.4538517
+    },
+    {
+      "method": "GET",
+      "path": "/api/core.kubeclipper.io/v1/nodes/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "phase": null,
+      "seq": 9,
+      "time": 1791946728.4550881
+    },
+    {
+      "method": "PUT",
+      "path": "/api/core.kubeclipper.io/v1/leases/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "phase": null,
+      "seq": 10,
+      "time": 1791946728.4732904
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/core.kubeclipper.io/v1/nodes/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "seq": 11,
+      "time": 1791946728.47397
+    },
+    {
+      "method": "PUT",
+      "path": "/api/core.kubeclipper.io/v1/nodes/21e536c8-bc03-41fd-b8f6-decc5fdf65b1/status",
+      "watch": false,
+      "phase": null,
+      "seq": 12,
+      "time": 1791946728.4973783
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/core.kubeclipper.io/v1/leases/21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+      "watch": false,
+      "seq": 13,
+      "time": 1791946728.5366848
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/core.kubeclipper.io/v1/nodes/21e536c8-bc03-41fd-b8f6-decc5fdf65b1/status",
+      "watch": false,
+      "seq": 14,
+      "time": 1791946728.5544798
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": false,
+      "phase": null,
+      "seq": 15,
+      "time": 1791946729.6348748
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": false,
+      "seq": 16,
+      "time": 1791946729.6533768
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": true,
+      "phase": null,
+      "seq": 17,
+      "time": 1791946729.675796
+    },
+    {
+      "fault": "watchEOF",
+      "seq": 18,
+      "time": 1791946729.6761303
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": false,
+      "phase": null,
+      "seq": 19,
+      "time": 1791946731.605052
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": false,
+      "seq": 20,
+      "time": 1791946731.6258993
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks",
+      "watch": true,
+      "phase": null,
+      "seq": 21,
+      "time": 1791946731.6464827
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-33859617085a8e599463feb1dd6f2dcc",
+      "watch": false,
+      "phase": null,
+      "seq": 22,
+      "time": 1791946732.589855
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-33859617085a8e599463feb1dd6f2dcc",
+      "watch": false,
+      "seq": 23,
+      "time": 1791946732.6062486
+    },
+    {
+      "method": "PUT",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-33859617085a8e599463feb1dd6f2dcc/status",
+      "watch": false,
+      "phase": "Running",
+      "seq": 24,
+      "time": 1791946732.6249878
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-33859617085a8e599463feb1dd6f2dcc/status",
+      "watch": false,
+      "seq": 25,
+      "time": 1791946732.6818657
+    },
+    {
+      "method": "PUT",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-33859617085a8e599463feb1dd6f2dcc/status",
+      "watch": false,
+      "phase": "Succeeded",
+      "seq": 26,
+      "time": 1791946732.707857
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-33859617085a8e599463feb1dd6f2dcc/status",
+      "watch": false,
+      "seq": 27,
+      "time": 1791946732.7628314
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e",
+      "watch": false,
+      "phase": null,
+      "seq": 28,
+      "time": 1791946733.582556
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e",
+      "watch": false,
+      "seq": 29,
+      "time": 1791946733.5993354
+    },
+    {
+      "method": "PUT",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e/status",
+      "watch": false,
+      "phase": "Running",
+      "seq": 30,
+      "time": 1791946733.6171062
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e/status",
+      "watch": false,
+      "seq": 31,
+      "time": 1791946733.666934
+    },
+    {
+      "method": "PUT",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e/status",
+      "watch": false,
+      "phase": "Succeeded",
+      "seq": 32,
+      "time": 1791946733.687048
+    },
+    {
+      "fault": "terminal-committed-response-dropped",
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e/status",
+      "seq": 33,
+      "time": 1791946733.7161756
+    },
+    {
+      "method": "GET",
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e",
+      "watch": false,
+      "phase": null,
+      "seq": 34,
+      "time": 1791946733.736662
+    },
+    {
+      "upstreamStatus": 200,
+      "path": "/api/operations.kubeclipper.io/v1alpha1/operationtasks/task-50645064fa064ba1ad18c6719f1b3b4e",
+      "watch": false,
+      "seq": 35,
+      "time": 1791946733.7569926
+    }
+  ],
+  "pass": true,
+  "agentConfigBytesRestored": true,
+  "proxyStopped": true
+}

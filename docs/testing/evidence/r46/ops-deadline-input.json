@@ -1,0 +1,360 @@
+[
+  {
+    "check": "operation deadline terminates real tasks",
+    "pass": true,
+    "detail": {
+      "status": {
+        "phase": "TimedOut",
+        "reason": "DeadlineExceeded",
+        "message": "operation deadline exceeded",
+        "deadline": "2026-10-13T14:11:42Z",
+        "startedAt": "2026-10-13T14:10:42Z",
+        "finishedAt": "2026-10-13T14:11:42Z"
+      },
+      "tasks": [
+        {
+          "phase": "TimedOut",
+          "result": {
+            "reason": "DeadlineExceeded",
+            "message": "task deadline exceeded"
+          },
+          "startedAt": "2026-10-13T14:10:43Z",
+          "finishedAt": "2026-10-13T14:11:42Z"
+        },
+        {
+          "phase": "TimedOut",
+          "result": {
+            "reason": "DeadlineExceeded",
+            "message": "task deadline exceeded"
+          },
+          "startedAt": "2026-10-13T14:10:43Z",
+          "finishedAt": "2026-10-13T14:11:42Z"
+        },
+        {
+          "phase": "TimedOut",
+          "result": {
+            "reason": "DeadlineExceeded",
+            "message": "task deadline exceeded"
+          },
+          "startedAt": "2026-10-13T14:10:43Z",
+          "finishedAt": "2026-10-13T14:11:42Z"
+        }
+      ]
+    }
+  },
+  {
+    "check": "no post-deadline side effect 172.16.131.208",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "no post-deadline side effect 172.16.131.146",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "no post-deadline side effect 172.16.131.230",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "real hostname output bound after three-node barrier",
+    "pass": true,
+    "detail": {
+      "hostname": "lixd-dev-4",
+      "tasks": [
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-2563e752a6ca538584c6609bded4a553",
+            "uid": "51131e7e-5abc-47eb-877e-5d576881ae89",
+            "resourceVersion": "11431",
+            "creationTimestamp": "2026-10-13T14:11:45Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-output-binding",
+              "uid": "d41055a4-a355-4196-9ac1-b9593eb81c8d"
+            },
+            "stepID": "consume",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "lastTaskReply": "lixd-dev-4",
+              "step": {
+                "id": "consume",
+                "name": "consume",
+                "action": "install",
+                "timeout": "120s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "touch /var/tmp/r46/ops/input-binding-done"
+                    ]
+                  }
+                ]
+              }
+            },
+            "deadline": "2026-10-13T14:13:44Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T14:11:45Z",
+            "finishedAt": "2026-10-13T14:11:45Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-3410e5e36763eaf8bafe2802f36e8ba2",
+            "uid": "cf924d0e-f4e4-4bcc-9084-be149f5513f9",
+            "resourceVersion": "11427",
+            "creationTimestamp": "2026-10-13T14:11:45Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-output-binding",
+              "uid": "d41055a4-a355-4196-9ac1-b9593eb81c8d"
+            },
+            "stepID": "consume",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "lastTaskReply": "lixd-dev-4",
+              "step": {
+                "id": "consume",
+                "name": "consume",
+                "action": "install",
+                "timeout": "120s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "touch /var/tmp/r46/ops/input-binding-done"
+                    ]
+                  }
+                ]
+              }
+            },
+            "deadline": "2026-10-13T14:13:44Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T14:11:45Z",
+            "finishedAt": "2026-10-13T14:11:45Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-44176e81cac880fa63bae5422f13e07c",
+            "uid": "e56bd9b5-505b-4e15-95f2-70bf1aa49494",
+            "resourceVersion": "11412",
+            "creationTimestamp": "2026-10-13T14:11:45Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-output-binding",
+              "uid": "d41055a4-a355-4196-9ac1-b9593eb81c8d"
+            },
+            "stepID": "preflight",
+            "nodeRef": {
+              "name": "c7413e92-ad70-47d7-b489-f90699072ccb",
+              "uid": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+              "ip": "172.16.131.230"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "NodePreflight/v1",
+            "payload": {
+              "requiredExecutables": [
+                "sh"
+              ],
+              "requiredPaths": [
+                "/var/tmp/r46"
+              ]
+            },
+            "deadline": "2026-10-13T14:13:44Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T14:11:45Z",
+            "finishedAt": "2026-10-13T14:11:45Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-7bb23126bc655a334cb8b55af4b833da",
+            "uid": "adb8b3cf-703c-4bbd-99e4-a61aeba1e14f",
+            "resourceVersion": "11432",
+            "creationTimestamp": "2026-10-13T14:11:45Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-output-binding",
+              "uid": "d41055a4-a355-4196-9ac1-b9593eb81c8d"
+            },
+            "stepID": "consume",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "CommandStep/v1",
+            "payload": {
+              "lastTaskReply": "lixd-dev-4",
+              "step": {
+                "id": "consume",
+                "name": "consume",
+                "action": "install",
+                "timeout": "120s",
+                "commands": [
+                  {
+                    "type": "shell",
+                    "shellCommand": [
+                      "/bin/sh",
+                      "-ec",
+                      "touch /var/tmp/r46/ops/input-binding-done"
+                    ]
+                  }
+                ]
+              }
+            },
+            "deadline": "2026-10-13T14:13:44Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T14:11:45Z",
+            "finishedAt": "2026-10-13T14:11:45Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-b173bff87a40a682d00b64cefb5416ba",
+            "uid": "bf0f406d-d930-43d6-916c-9c63627db18d",
+            "resourceVersion": "11416",
+            "creationTimestamp": "2026-10-13T14:11:45Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-output-binding",
+              "uid": "d41055a4-a355-4196-9ac1-b9593eb81c8d"
+            },
+            "stepID": "preflight",
+            "nodeRef": {
+              "name": "21e536c8-bc03-41fd-b8f6-decc5fdf65b1",
+              "uid": "dd395d01-cb8c-45ed-b918-a24d6db9ec8b",
+              "ip": "172.16.131.208"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "NodePreflight/v1",
+            "payload": {
+              "requiredExecutables": [
+                "sh"
+              ],
+              "requiredPaths": [
+                "/var/tmp/r46"
+              ]
+            },
+            "deadline": "2026-10-13T14:13:44Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T14:11:45Z",
+            "finishedAt": "2026-10-13T14:11:45Z"
+          }
+        },
+        {
+          "kind": "OperationTask",
+          "apiVersion": "operations.kubeclipper.io/v1alpha1",
+          "metadata": {
+            "name": "task-bad304b7ef61f5170ce1586829babbce",
+            "uid": "7f14d682-5466-47ca-bfc6-d7b26174b258",
+            "resourceVersion": "11417",
+            "creationTimestamp": "2026-10-13T14:11:45Z"
+          },
+          "spec": {
+            "operationRef": {
+              "kind": "Operation",
+              "name": "r46-output-binding",
+              "uid": "d41055a4-a355-4196-9ac1-b9593eb81c8d"
+            },
+            "stepID": "preflight",
+            "nodeRef": {
+              "name": "07865ab9-3485-49bd-94ff-da3187143574",
+              "uid": "127c113f-fbdb-4eaf-ac0a-b6b30e9a6c73",
+              "ip": "172.16.131.146"
+            },
+            "retryGeneration": 0,
+            "attempt": 0,
+            "executor": "NodePreflight/v1",
+            "payload": {
+              "requiredExecutables": [
+                "sh"
+              ],
+              "requiredPaths": [
+                "/var/tmp/r46"
+              ]
+            },
+            "deadline": "2026-10-13T14:13:44Z"
+          },
+          "status": {
+            "phase": "Succeeded",
+            "result": {
+              "outputsRedacted": true
+            },
+            "startedAt": "2026-10-13T14:11:45Z",
+            "finishedAt": "2026-10-13T14:11:45Z"
+          }
+        }
+      ]
+    }
+  }
+]

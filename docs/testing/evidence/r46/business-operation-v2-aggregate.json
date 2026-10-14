@@ -1,0 +1,53 @@
+{
+  "scope": "Actual R46 native business operations; source revisions are recorded in individual proof files and are not all final candidate SHA",
+  "operations": [
+    {
+      "businessAction": "CreateCluster",
+      "evidence": "v208-offline-create.json",
+      "actualOperationNames": [
+        "1434c7ad-6e46-4a29-ba92-e5b1c2a4ffec"
+      ]
+    },
+    {
+      "businessAction": "AddNodes",
+      "evidence": "worker-add-pinned.json",
+      "actualOperationNames": [
+        "03059c7c-60f1-4682-bda4-0377ac78c0ad"
+      ]
+    },
+    {
+      "businessAction": "RemoveNodes",
+      "evidence": "master-lifecycle.json",
+      "actualOperationNames": [
+        "f297f065-824d-4908-b6b9-0cecdacd7c6d",
+        "b4f8bbda-6ee6-47bf-9eca-d9306e1ca2cc",
+        "379f7bbb-0656-43a8-85a6-76b21e0dd11c",
+        "2384415e-18b8-4252-961a-c672551ad263",
+        "90f63889-5f7e-48bf-a340-ca897ce66cfc",
+        "15e99e0d-3657-4841-80de-d55c19668574"
+      ]
+    },
+    {
+      "businessAction": "UpgradeCluster",
+      "evidence": "upgrade-final-proof.json",
+      "actualOperationNames": [
+        "r46-upgrade-pinned-retry"
+      ]
+    },
+    {
+      "businessAction": "BackupCluster/RecoveryCluster",
+      "evidence": "v208-backup-recovery.json",
+      "actualOperationNames": [
+        "7ea7bc87-dff0-4763-9549-f41d9bc75d07",
+        "6d1eb298-6bf9-4128-adba-d216ef0c09b4"
+      ]
+    },
+    {
+      "businessAction": "DeleteCluster",
+      "evidence": "v208-delete-timeout.json",
+      "actualOperationNames": [
+        "a55e9798-bceb-4c3a-a5d2-72833abd4f07"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "case": "2.1-29",
+  "checks": [
+    {
+      "check": "healthy deploy.test",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveNTPPrecheck\n    deploy_test.go:633: production NTP precheck: <nil>\n--- PASS: TestLiveNTPPrecheck (0.03s)\nPASS\n"
+    },
+    {
+      "check": "healthy k8s.test",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:59: real generated readiness command: err=<nil> output=try: 1, refid: 8BC7D7FB, correction: 0.000073313, skew: 0.026\n    readiness_test.go:69: real CommandStep/v1 executor result: <nil>\n--- PASS: TestNodeReadinessStep (0.16s)\nPASS\n"
+    },
+    {
+      "check": "real low-space filesystem rejected before writes",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:59: real generated readiness command: err=exit status 12 output=insufficient disk space for /usr/local: 64MB available, at least 256MB required\n2026-10-13T13:18:24Z\t\u001b[31mERROR\u001b[0m\trun command failed(exit status 12): insufficient disk space for /usr/local: 64MB available, at least 256MB required\n%!(EXTRA zapcore.Field={cmd 15 0 /bin/bash -c set -e\n\nfor target in '/usr/local' '/tmp' '/var/tmp/r46/etcd custom' '/var/tmp/r46/kubelet' '/var/tmp/r46/runtime'; do\n  case \"$target\" in /*) ;; *) echo \"disk precheck requires an absolute path: $target\" >&2; exit 12 ;; esac\n  path=\"$target\"\n  while [ ! -e \"$path\" ]; do path=$(dirname -- \"$path\"); done\n  available=$(LC_ALL=C df -Pm -- \"$path\" | awk 'NR==2 {print $4}')\n  case \"$available\" in ''|*[!0-9]*) echo \"cannot read free disk space for $target\" >&2; exit 12 ;; esac\n  if [ \"$available\" -lt 256 ]; then\n    echo \"insufficient disk space for $target: ${available}MB available, at least 256MB required\" >&2\n    exit 12\n  fi\ndone\n(\n\nfor service in chrony chronyd ntp ntpd systemd-timesyncd; do\n  if systemctl is-active --quiet \"$service\"; then\n    if case \"$service\" in\n      chrony|chronyd) timeout 3 chronyc waitsync 1 5 0 0.1 ;;\n      *) test \"$(timeout 3 timedatectl show -p NTPSynchronized --value)\" = yes ;;\n    esac; then\n      exit 0\n    else\n      echo \"time synchronization service $service is running but synchronization is not confirmed (maximum correction 5s for chrony)\" >&2\n      exit 11\n    fi\n  fi\ndone\necho \"no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\" >&2\nexit 10\n)\n\nname=$(hostname | tr '[:upper:]' '[:lower:]')\nif [ \"${#name}\" -gt 253 ] || ! printf '%s\\n' \"$name\" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then\n  echo \"invalid Kubernetes node hostname: $name\" >&2\n  exit 13\nfi\n <nil>})\ngithub.com/kubeclipper/kubeclipper/pkg/logger.Errorf\n\t/var/tmp/r46/source/pkg/logger/logger.go:201\ngithub.com/kubeclipper/kubeclipper/pkg/utils/cmdutil.RunCmdWithContext\n\t/var/tmp/r46/source/pkg/utils/cmdutil/cmdutil.go:72\ngithub.com/kubeclipper/kubeclipper/pkg/agent/operationv2.CommandStepExecutor.Reconcile\n\t/var/tmp/r46/source/pkg/agent/operationv2/command_step.go:74\ngithub.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s.TestNodeReadinessStep\n\t/var/tmp/r46/source/pkg/scheme/core/v1/k8s/readiness_test.go:65\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:1792\n    readiness_test.go:69: real CommandStep/v1 executor result: run shell command: exit status 12\n--- PASS: TestNodeReadinessStep (0.02s)\nPASS\n"
+    },
+    {
+      "check": "custom etcd filesystem low space rejected",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:59: real generated readiness command: err=exit status 12 output=insufficient disk space for /var/tmp/r46/etcd custom: 64MB available, at least 256MB required\n2026-10-13T13:18:24Z\t\u001b[31mERROR\u001b[0m\trun command failed(exit status 12): insufficient disk space for /var/tmp/r46/etcd custom: 64MB available, at least 256MB required\n%!(EXTRA zapcore.Field={cmd 15 0 /bin/bash -c set -e\n\nfor target in '/usr/local' '/tmp' '/var/tmp/r46/etcd custom' '/var/tmp/r46/kubelet' '/var/tmp/r46/runtime'; do\n  case \"$target\" in /*) ;; *) echo \"disk precheck requires an absolute path: $target\" >&2; exit 12 ;; esac\n  path=\"$target\"\n  while [ ! -e \"$path\" ]; do path=$(dirname -- \"$path\"); done\n  available=$(LC_ALL=C df -Pm -- \"$path\" | awk 'NR==2 {print $4}')\n  case \"$available\" in ''|*[!0-9]*) echo \"cannot read free disk space for $target\" >&2; exit 12 ;; esac\n  if [ \"$available\" -lt 256 ]; then\n    echo \"insufficient disk space for $target: ${available}MB available, at least 256MB required\" >&2\n    exit 12\n  fi\ndone\n(\n\nfor service in chrony chronyd ntp ntpd systemd-timesyncd; do\n  if systemctl is-active --quiet \"$service\"; then\n    if case \"$service\" in\n      chrony|chronyd) timeout 3 chronyc waitsync 1 5 0 0.1 ;;\n      *) test \"$(timeout 3 timedatectl show -p NTPSynchronized --value)\" = yes ;;\n    esac; then\n      exit 0\n    else\n      echo \"time synchronization service $service is running but synchronization is not confirmed (maximum correction 5s for chrony)\" >&2\n      exit 11\n    fi\n  fi\ndone\necho \"no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\" >&2\nexit 10\n)\n\nname=$(hostname | tr '[:upper:]' '[:lower:]')\nif [ \"${#name}\" -gt 253 ] || ! printf '%s\\n' \"$name\" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then\n  echo \"invalid Kubernetes node hostname: $name\" >&2\n  exit 13\nfi\n <nil>})\ngithub.com/kubeclipper/kubeclipper/pkg/logger.Errorf\n\t/var/tmp/r46/source/pkg/logger/logger.go:201\ngithub.com/kubeclipper/kubeclipper/pkg/utils/cmdutil.RunCmdWithContext\n\t/var/tmp/r46/source/pkg/utils/cmdutil/cmdutil.go:72\ngithub.com/kubeclipper/kubeclipper/pkg/agent/operationv2.CommandStepExecutor.Reconcile\n\t/var/tmp/r46/source/pkg/agent/operationv2/command_step.go:74\ngithub.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s.TestNodeReadinessStep\n\t/var/tmp/r46/source/pkg/scheme/core/v1/k8s/readiness_test.go:65\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:1792\n    readiness_test.go:69: real CommandStep/v1 executor result: run shell command: exit status 12\n--- PASS: TestNodeReadinessStep (0.04s)\nPASS\n"
+    },
+    {
+      "check": "real invalid UTS hostname rejected",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:59: real generated readiness command: err=exit status 13 output=try: 1, refid: 8BC7D7FB, correction: 0.000073310, skew: 0.026\n        invalid Kubernetes node hostname: r46_bad_hostname\n2026-10-13T13:18:24Z\t\u001b[31mERROR\u001b[0m\trun command failed(exit status 13): invalid Kubernetes node hostname: r46_bad_hostname\n%!(EXTRA zapcore.Field={cmd 15 0 /bin/bash -c set -e\n\nfor target in '/usr/local' '/tmp' '/var/tmp/r46/etcd custom' '/var/tmp/r46/kubelet' '/var/tmp/r46/runtime'; do\n  case \"$target\" in /*) ;; *) echo \"disk precheck requires an absolute path: $target\" >&2; exit 12 ;; esac\n  path=\"$target\"\n  while [ ! -e \"$path\" ]; do path=$(dirname -- \"$path\"); done\n  available=$(LC_ALL=C df -Pm -- \"$path\" | awk 'NR==2 {print $4}')\n  case \"$available\" in ''|*[!0-9]*) echo \"cannot read free disk space for $target\" >&2; exit 12 ;; esac\n  if [ \"$available\" -lt 256 ]; then\n    echo \"insufficient disk space for $target: ${available}MB available, at least 256MB required\" >&2\n    exit 12\n  fi\ndone\n(\n\nfor service in chrony chronyd ntp ntpd systemd-timesyncd; do\n  if systemctl is-active --quiet \"$service\"; then\n    if case \"$service\" in\n      chrony|chronyd) timeout 3 chronyc waitsync 1 5 0 0.1 ;;\n      *) test \"$(timeout 3 timedatectl show -p NTPSynchronized --value)\" = yes ;;\n    esac; then\n      exit 0\n    else\n      echo \"time synchronization service $service is running but synchronization is not confirmed (maximum correction 5s for chrony)\" >&2\n      exit 11\n    fi\n  fi\ndone\necho \"no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\" >&2\nexit 10\n)\n\nname=$(hostname | tr '[:upper:]' '[:lower:]')\nif [ \"${#name}\" -gt 253 ] || ! printf '%s\\n' \"$name\" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then\n  echo \"invalid Kubernetes node hostname: $name\" >&2\n  exit 13\nfi\n <nil>})\ngithub.com/kubeclipper/kubeclipper/pkg/logger.Errorf\n\t/var/tmp/r46/source/pkg/logger/logger.go:201\ngithub.com/kubeclipper/kubeclipper/pkg/utils/cmdutil.RunCmdWithContext\n\t/var/tmp/r46/source/pkg/utils/cmdutil/cmdutil.go:72\ngithub.com/kubeclipper/kubeclipper/pkg/agent/operationv2.CommandStepExecutor.Reconcile\n\t/var/tmp/r46/source/pkg/agent/operationv2/command_step.go:74\ngithub.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s.TestNodeReadinessStep\n\t/var/tmp/r46/source/pkg/scheme/core/v1/k8s/readiness_test.go:65\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:1792\n    readiness_test.go:69: real CommandStep/v1 executor result: run shell command: exit status 13\n--- PASS: TestNodeReadinessStep (0.09s)\nPASS\n"
+    },
+    {
+      "check": "isolated unsynchronized chronyd is active",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "active\n"
+    },
+    {
+      "check": "old service-active check incorrectly accepts unsynchronized daemon",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": ""
+    },
+    {
+      "check": "unsynchronized daemon rejected deploy.test",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveNTPPrecheck\n    deploy_test.go:633: production NTP precheck: time synchronization check failed (exit 11): time synchronization service chrony is running but synchronization is not confirmed (maximum correction 5s for chrony)\n--- PASS: TestLiveNTPPrecheck (0.02s)\nPASS\n"
+    },
+    {
+      "check": "unsynchronized daemon rejected k8s.test",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:59: real generated readiness command: err=exit status 11 output=try: 1, refid: 00000000, correction: 0.000000000, skew: 0.000\n        time synchronization service chrony is running but synchronization is not confirmed (maximum correction 5s for chrony)\n2026-10-13T13:18:25Z\t\u001b[31mERROR\u001b[0m\trun command failed(exit status 11): time synchronization service chrony is running but synchronization is not confirmed (maximum correction 5s for chrony)\n%!(EXTRA zapcore.Field={cmd 15 0 /bin/bash -c set -e\n\nfor target in '/usr/local' '/tmp' '/var/tmp/r46/etcd custom' '/var/tmp/r46/kubelet' '/var/tmp/r46/runtime'; do\n  case \"$target\" in /*) ;; *) echo \"disk precheck requires an absolute path: $target\" >&2; exit 12 ;; esac\n  path=\"$target\"\n  while [ ! -e \"$path\" ]; do path=$(dirname -- \"$path\"); done\n  available=$(LC_ALL=C df -Pm -- \"$path\" | awk 'NR==2 {print $4}')\n  case \"$available\" in ''|*[!0-9]*) echo \"cannot read free disk space for $target\" >&2; exit 12 ;; esac\n  if [ \"$available\" -lt 256 ]; then\n    echo \"insufficient disk space for $target: ${available}MB available, at least 256MB required\" >&2\n    exit 12\n  fi\ndone\n(\n\nfor service in chrony chronyd ntp ntpd systemd-timesyncd; do\n  if systemctl is-active --quiet \"$service\"; then\n    if case \"$service\" in\n      chrony|chronyd) timeout 3 chronyc waitsync 1 5 0 0.1 ;;\n      *) test \"$(timeout 3 timedatectl show -p NTPSynchronized --value)\" = yes ;;\n    esac; then\n      exit 0\n    else\n      echo \"time synchronization service $service is running but synchronization is not confirmed (maximum correction 5s for chrony)\" >&2\n      exit 11\n    fi\n  fi\ndone\necho \"no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\" >&2\nexit 10\n)\n\nname=$(hostname | tr '[:upper:]' '[:lower:]')\nif [ \"${#name}\" -gt 253 ] || ! printf '%s\\n' \"$name\" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then\n  echo \"invalid Kubernetes node hostname: $name\" >&2\n  exit 13\nfi\n <nil>})\ngithub.com/kubeclipper/kubeclipper/pkg/logger.Errorf\n\t/var/tmp/r46/source/pkg/logger/logger.go:201\ngithub.com/kubeclipper/kubeclipper/pkg/utils/cmdutil.RunCmdWithContext\n\t/var/tmp/r46/source/pkg/utils/cmdutil/cmdutil.go:72\ngithub.com/kubeclipper/kubeclipper/pkg/agent/operationv2.CommandStepExecutor.Reconcile\n\t/var/tmp/r46/source/pkg/agent/operationv2/command_step.go:74\ngithub.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s.TestNodeReadinessStep\n\t/var/tmp/r46/source/pkg/scheme/core/v1/k8s/readiness_test.go:65\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:1792\n    readiness_test.go:69: real CommandStep/v1 executor result: run shell command: exit status 11\n--- PASS: TestNodeReadinessStep (0.08s)\nPASS\n"
+    },
+    {
+      "check": "real chronyd selected faulty NTP source",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "Reference ID    : 7F000001 (localhost)\nStratum         : 3\nRef time (UTC)  : Tue Oct 13 13:19:25 2026\nSystem time     : 60.000041962 seconds slow of NTP time\nLast offset     : -60.000041962 seconds\nRMS offset      : 60.000041962 seconds\nFrequency       : 0.000 ppm slow\nResidual freq   : +96.410 ppm\nSkew            : 1000000.000 ppm\nRoot delay      : 0.011204843 seconds\nRoot dispersion : 0.919820726 seconds\nUpdate interval : 0.0 seconds\nLeap status     : Normal\n"
+    },
+    {
+      "check": "60-second source correction rejected deploy.test",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestLiveNTPPrecheck\n    deploy_test.go:633: production NTP precheck: time synchronization check failed (exit 11): time synchronization service chrony is running but synchronization is not confirmed (maximum correction 5s for chrony)\n--- PASS: TestLiveNTPPrecheck (0.02s)\nPASS\n"
+    },
+    {
+      "check": "60-second source correction rejected k8s.test",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "=== RUN   TestNodeReadinessStep\n    readiness_test.go:59: real generated readiness command: err=exit status 11 output=try: 1, refid: 7F000001, correction: 60.000041962, skew: 1000000.000\n        time synchronization service chrony is running but synchronization is not confirmed (maximum correction 5s for chrony)\n2026-10-13T13:18:26Z\t\u001b[31mERROR\u001b[0m\trun command failed(exit status 11): time synchronization service chrony is running but synchronization is not confirmed (maximum correction 5s for chrony)\n%!(EXTRA zapcore.Field={cmd 15 0 /bin/bash -c set -e\n\nfor target in '/usr/local' '/tmp' '/var/tmp/r46/etcd custom' '/var/tmp/r46/kubelet' '/var/tmp/r46/runtime'; do\n  case \"$target\" in /*) ;; *) echo \"disk precheck requires an absolute path: $target\" >&2; exit 12 ;; esac\n  path=\"$target\"\n  while [ ! -e \"$path\" ]; do path=$(dirname -- \"$path\"); done\n  available=$(LC_ALL=C df -Pm -- \"$path\" | awk 'NR==2 {print $4}')\n  case \"$available\" in ''|*[!0-9]*) echo \"cannot read free disk space for $target\" >&2; exit 12 ;; esac\n  if [ \"$available\" -lt 256 ]; then\n    echo \"insufficient disk space for $target: ${available}MB available, at least 256MB required\" >&2\n    exit 12\n  fi\ndone\n(\n\nfor service in chrony chronyd ntp ntpd systemd-timesyncd; do\n  if systemctl is-active --quiet \"$service\"; then\n    if case \"$service\" in\n      chrony|chronyd) timeout 3 chronyc waitsync 1 5 0 0.1 ;;\n      *) test \"$(timeout 3 timedatectl show -p NTPSynchronized --value)\" = yes ;;\n    esac; then\n      exit 0\n    else\n      echo \"time synchronization service $service is running but synchronization is not confirmed (maximum correction 5s for chrony)\" >&2\n      exit 11\n    fi\n  fi\ndone\necho \"no supported time synchronization service is running (chrony, ntp, or systemd-timesyncd)\" >&2\nexit 10\n)\n\nname=$(hostname | tr '[:upper:]' '[:lower:]')\nif [ \"${#name}\" -gt 253 ] || ! printf '%s\\n' \"$name\" | LC_ALL=C grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$'; then\n  echo \"invalid Kubernetes node hostname: $name\" >&2\n  exit 13\nfi\n <nil>})\ngithub.com/kubeclipper/kubeclipper/pkg/logger.Errorf\n\t/var/tmp/r46/source/pkg/logger/logger.go:201\ngithub.com/kubeclipper/kubeclipper/pkg/utils/cmdutil.RunCmdWithContext\n\t/var/tmp/r46/source/pkg/utils/cmdutil/cmdutil.go:72\ngithub.com/kubeclipper/kubeclipper/pkg/agent/operationv2.CommandStepExecutor.Reconcile\n\t/var/tmp/r46/source/pkg/agent/operationv2/command_step.go:74\ngithub.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s.TestNodeReadinessStep\n\t/var/tmp/r46/source/pkg/scheme/core/v1/k8s/readiness_test.go:65\ntesting.tRunner\n\t/usr/local/go/src/testing/testing.go:1792\n    readiness_test.go:69: real CommandStep/v1 executor result: run shell command: exit status 11\n--- PASS: TestNodeReadinessStep (0.11s)\nPASS\n"
+    },
+    {
+      "check": "original chrony synchronization remains healthy",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "try: 1, refid: 8BC7D7FB, correction: 0.000073291, skew: 0.026\n"
+    },
+    {
+      "check": "original agent active",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": "active\n"
+    },
+    {
+      "check": "no leaked low-space mount",
+      "exit": 0,
+      "expectedExit": 0,
+      "pass": true,
+      "output": ""
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+[
+  {
+    "check": "template PUT credential masked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "template GET credential masked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "empty-password update response masked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "audit list no plaintext canary",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "audit contains real canary user operation",
+    "pass": true,
+    "detail": {
+      "matchingEventCount": 7
+    }
+  },
+  {
+    "check": "kc-agent journal no canary",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "kc-server journal no canary",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "metrics no canary",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "private config mode /root/.kc/config",
+    "pass": true,
+    "detail": "0o600"
+  },
+  {
+    "check": "private config mode /root/.kc/deploy-config.yaml",
+    "pass": true,
+    "detail": "0o600"
+  },
+  {
+    "check": "private config mode /etc/kubeclipper-agent/delivery/package-registry.json",
+    "pass": true,
+    "detail": "0o600"
+  }
+]

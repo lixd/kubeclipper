@@ -1,0 +1,65 @@
+[
+  {
+    "check": "unsupported Kubernetes",
+    "status": 400,
+    "expectedMessage": "supported",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedKubernetesVersion: no policy matched kubernetes version \\\"v1.99.0\\\"\"\n}"
+  },
+  {
+    "check": "unsupported CRI",
+    "status": 400,
+    "expectedMessage": "version",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedComponentVersion: slot \\\"cri\\\" option \\\"containerd\\\" does not allow version \\\"9.9.9\\\"\"\n}"
+  },
+  {
+    "check": "unsupported CNI",
+    "status": 400,
+    "expectedMessage": "version",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedComponentVersion: slot \\\"cni\\\" option \\\"calico\\\" does not allow version \\\"v9.9.9\\\"\"\n}"
+  },
+  {
+    "check": "offline missing image registry",
+    "status": 400,
+    "expectedMessage": "imageRegistry",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"offline cluster requires an explicit imageRegistry (a Registry object name); otherwise kubeadm pulls control-plane images from registry.k8s.io which is unreachable offline\"\n}"
+  },
+  {
+    "check": "duplicate master worker",
+    "status": 200,
+    "expectedMessage": "duplicate",
+    "pass": false,
+    "response": "{\n \"kind\": \"Cluster\",\n \"apiVersion\": \"core.kubeclipper.io/v1\",\n \"metadata\": {\n  \"name\": \"r46-invalid\",\n  \"creationTimestamp\": null,\n  \"labels\": {\n   \"topology.kubeclipper.io/region\": \"default\"\n  },\n  \"annotations\": {\n   \"kubeclipper.io/ignore-preflight-errors\": \"NumCPU\",\n   \"kubeclipper.io/offline\": \"true\"\n  }\n },\n \"imageRegistry\": \"r46-http\",\n \"masters\": [\n  {\n   \"id\": \"c7413e92-ad70-47d7-b489-f90699072ccb\",\n   \"containerRuntime\": {\n    \"type\": \"\"\n   }\n  }\n ],\n \"workers\": [\n  {\n   \"id\": \"c7413e92-ad70-47d7-b489-f90699072ccb\",\n   \"containerRuntime\": {\n    \"type\": \"\"\n   }\n  }\n ],\n \"kubernetesVersion\": \"v1.35.8\",\n \"certSANs\": [\n  \"172.16.131.146\",\n  \"r46-api.test\"\n ],\n \"kubeProxy\": {},\n \"etcd\": {\n  \"dataDir\": \"/var/lib/etcd\"\n },\n \"kubelet\": {\n  \"rootDir\": \"/var/lib/kubelet\",\n  \"nodeIP\": \"\",\n  \"ipAsName\": false,\n  \"resolvConf\": \"\"\n },\n \"networking\": {\n  \"ipFamily\": \"IPv4\",\n  \"services\": {\n   \"cidrBlocks\": [\n    \"10.98.0.0/16\"\n   ]\n  },\n  \"pods\": {\n   \"cidrBlocks\": [\n    \"172.27.0.0/16\"\n   ]\n  },\n  \"dnsDomain\": \"r46.local\",\n  \"proxyMode\": \"ipvs\",\n  \"workerNodeVip\": \"169.254.169.100\"\n },\n \"containerRuntime\": {\n  \"type\": \"containerd\",\n  \"version\": \"1.7.29\"\n },\n \"cni\": {\n  \"type\": \"calico\",\n  \"version\": \"v3.29.6\",\n  \"criType\": \"containerd\",\n  \"offline\": true,\n  \"namespace\": \"calico-system\",\n  \"calico\": {\n   \"IPv4AutoDetection\": \"interface=ens3\",\n   \"IPv6AutoDetection\": \"first-found\",\n   \"mode\": \"Overlay-Vxlan-All\",\n   \"IPManger\": true,\n   \"mtu\": 1440\n  }\n },\n \"addons\": null,\n \"statu"
+  },
+  {
+    "check": "occupied node",
+    "status": 400,
+    "expectedMessage": "used",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"some nodes in used or disabled\"\n}"
+  },
+  {
+    "check": "invalid Pod CIDR",
+    "status": 400,
+    "expectedMessage": "CIDR",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"invalid cluster networking: invalid pod subnet \\\"not-a-cidr\\\": invalid CIDR address: not-a-cidr\"\n}"
+  },
+  {
+    "check": "Pod Service overlap",
+    "status": 400,
+    "expectedMessage": "overlap",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"invalid cluster networking: pod subnet 172.27.0.0/16 overlaps service subnet 172.27.0.0/16; use disjoint subnets\"\n}"
+  },
+  {
+    "check": "host subnet overlap",
+    "status": 400,
+    "expectedMessage": "conflicts",
+    "pass": true,
+    "response": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"invalid cluster networking: pod subnet 172.16.131.0/24 conflicts with node c7413e92-ad70-47d7-b489-f90699072ccb address 172.16.131.230; use subnets outside the node network\"\n}"
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "check": "pod-exec",
+    "expectedMarker": "R46_POD_EXEC_OK",
+    "pass": true,
+    "output": "R46_POD_EXEC_OK\r\n"
+  },
+  {
+    "check": "cluster-terminal",
+    "expectedMarker": "R46_TERMINAL_OK",
+    "pass": true,
+    "output": "printf 'R46_%s\\n' 'TERMINAL_OK'\r\n\u001b[H\u001b[J\u001b[?2004hkc-kubectl-6cbfbd9f4b-cbskp:/# printf 'R46_%s\\n' 'TERMINAL_OK'\r\n\u001b[?2004l\rR46_TERMINAL_OK\r\n\u001b[?2004h"
+  }
+]

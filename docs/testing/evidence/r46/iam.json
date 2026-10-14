@@ -1,0 +1,74 @@
+{
+  "checks": [
+    {
+      "name": "user create",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "password login",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "RBAC viewer read",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "RBAC unauthorized write forbidden",
+      "status": 403,
+      "expected": 403
+    },
+    {
+      "name": "user update",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "disable user",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "disabled login rejected",
+      "status": 403,
+      "expected": 403
+    },
+    {
+      "name": "enable user",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "change password",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "old password rejected",
+      "status": 401,
+      "expected": 401
+    },
+    {
+      "name": "new password accepted",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "login records",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "user delete",
+      "status": 200,
+      "expected": 200
+    },
+    {
+      "name": "deleted user absent",
+      "status": 404,
+      "expected": 404
+    }
+  ]
+}

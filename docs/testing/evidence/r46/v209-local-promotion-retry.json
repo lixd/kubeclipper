@@ -1,0 +1,88 @@
+{
+  "fixRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "agentProvenance": "locally built exact committed source archive, Go1.26.1; not CI artifact qualification acceptance",
+  "sourceAgentHost": "172.16.131.146",
+  "actualAgentBinarySHA256": "235a37a2c658f86003e0b207c1f53c1d9204aa06d1fbe249f6720e480385867e",
+  "platformServerRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "operation": "5fc26f60-9a88-434d-9b22-08b5faec46dd",
+  "sameOperationUID": "3f87c08f-0afa-4943-b5ff-8af857ad4b8b",
+  "status": {
+    "phase": "Succeeded",
+    "observedRetryGeneration": 1,
+    "deadline": "2026-10-14T09:14:24Z",
+    "startedAt": "2026-10-14T07:44:24Z",
+    "finishedAt": "2026-10-14T07:45:56Z"
+  },
+  "allNodesReady": true,
+  "businessDeploymentReady": true,
+  "etcdHealth": [
+    {
+      "endpoint": "https://172.16.131.230:2379",
+      "health": true,
+      "took": "26.32665ms"
+    },
+    {
+      "endpoint": "https://172.16.131.208:2379",
+      "health": true,
+      "took": "35.120093ms"
+    },
+    {
+      "endpoint": "https://172.16.131.146:2379",
+      "health": true,
+      "took": "24.390455ms"
+    }
+  ],
+  "certificateUploadUsesLiveConfig": true,
+  "publicVersionLookupAbsentInSuccessfulTask": true,
+  "tasks": [
+    {
+      "step": "getJoinCommand",
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T07:44:24Z",
+      "finishedAt": "2026-10-14T07:44:25Z"
+    },
+    {
+      "step": "waitForAddedNodesReady",
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T07:45:46Z",
+      "finishedAt": "2026-10-14T07:45:56Z"
+    },
+    {
+      "step": "drainNode",
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T07:29:24Z",
+      "finishedAt": "2026-10-14T07:29:44Z"
+    },
+    {
+      "step": "getJoinCommand",
+      "phase": "Failed",
+      "startedAt": "2026-10-14T07:29:50Z",
+      "finishedAt": "2026-10-14T07:30:00Z"
+    },
+    {
+      "step": "renderMasterJoinConfig",
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T07:44:25Z",
+      "finishedAt": "2026-10-14T07:44:25Z"
+    },
+    {
+      "step": "getJoinCommand",
+      "phase": "Failed",
+      "startedAt": "2026-10-14T07:30:02Z",
+      "finishedAt": "2026-10-14T07:30:13Z"
+    },
+    {
+      "step": "nodeEnvSetup",
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T07:29:46Z",
+      "finishedAt": "2026-10-14T07:29:48Z"
+    },
+    {
+      "step": "joinNode",
+      "phase": "Succeeded",
+      "startedAt": "2026-10-14T07:44:25Z",
+      "finishedAt": "2026-10-14T07:45:46Z"
+    }
+  ],
+  "priorFailedAttemptsRetained": true
+}

@@ -1,0 +1,57 @@
+[
+  {
+    "host": "172.16.131.208",
+    "ownedUnitsStopped": [
+      "r46-agent-drain-rejoin.service",
+      "r46-cert-update-2.service",
+      "r46-cert-update-3.service",
+      "r46-cert-update.service",
+      "r46-cli-cancel-proof.service",
+      "r46-delete-failure-retry.service",
+      "r46-delete-sync-concurrency.service",
+      "r46-fork-version-upgrade.service",
+      "r46-lifecycle-failure-suite-resume.service",
+      "r46-lifecycle-failure-suite.service",
+      "r46-minio.service",
+      "r46-promotion-v206.service",
+      "r46-upgrade-current-members.service",
+      "r46-upgrade-retry-pinned-2.service",
+      "r46-upgrade-retry-pinned-3.service",
+      "r46-upgrade-retry-pinned.service",
+      "r46-v206-independent-components.service",
+      "r46-v208-master-regression.service",
+      "r46-v208-offline-deploy.service",
+      "r46-v208-root-runtime.service",
+      "r46-v209-final-create.service",
+      "r46-v209-master-regression.service",
+      "r46-v209-release-consume.service",
+      "r46-v209-upgrade-ha.service",
+      "r46-worker-remove-unready.service"
+    ],
+    "ownedNFSMountsUnmounted": true,
+    "ownedAirgapChainRemoved": true,
+    "baselineBackupsRetainedUntilRestore": true
+  },
+  {
+    "host": "172.16.131.146",
+    "ownedUnitsStopped": [
+      "r46-registry-http.service",
+      "r46-registry-tls.service"
+    ],
+    "ownedNFSMountsUnmounted": true,
+    "ownedAirgapChainRemoved": true,
+    "baselineBackupsRetainedUntilRestore": true
+  },
+  {
+    "host": "172.16.131.230",
+    "ownedUnitsStopped": [
+      "r46-dex.service",
+      "r46-external-import.service",
+      "r46-oidc.service",
+      "r46-sshd.service"
+    ],
+    "ownedNFSMountsUnmounted": true,
+    "ownedAirgapChainRemoved": true,
+    "baselineBackupsRetainedUntilRestore": true
+  }
+]

@@ -1,0 +1,78 @@
+{
+  "revision": "7250c886",
+  "actualWaitSeconds": 23,
+  "checks": [
+    {
+      "check": "token create",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "token query",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "token authenticates real API",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "expired access token rejected",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "valid refresh token issues new access",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "logout revokes refresh token",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "check": "revoked refresh rejected",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "bad password 0",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "bad password 1",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "bad password 2",
+      "actual": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "check": "limit reached rejects correct password",
+      "actual": 429,
+      "expected": 429,
+      "pass": true
+    },
+    {
+      "check": "login recovers after limiter TTL",
+      "actual": 200,
+      "expected": 200,
+      "pass": true
+    }
+  ]
+}

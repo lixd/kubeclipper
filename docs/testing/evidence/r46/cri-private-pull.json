@@ -1,0 +1,41 @@
+{
+  "configMode": "0600",
+  "registryAuthConfigured": true,
+  "hostUsesActualCA": true,
+  "skipVerify": false,
+  "hostsFile": "/etc/containerd/certs.d/172.16.131.146:5247/hosts.toml",
+  "actualPodReady": true,
+  "podNode": "lixd-dev-4",
+  "imageID": "172.16.131.146:5246/nicolaka/netshoot@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8",
+  "imagePullSecretsAbsent": true,
+  "actualContainerMarkerMatched": true,
+  "startedAt": "2026-10-14T03:52:52.089157+00:00",
+  "actualPrivateRegistryRequestsFromContainerd": [
+    {
+      "method": "HEAD",
+      "path": "/v2/nicolaka/netshoot/manifests/v0.13",
+      "userAgent": "containerd/v2.2.4",
+      "status": 401,
+      "challenge": true,
+      "timeMicros": "1791950014802492"
+    },
+    {
+      "method": "HEAD",
+      "path": "/v2/nicolaka/netshoot/manifests/v0.13",
+      "userAgent": "containerd/v2.2.4",
+      "status": null,
+      "challenge": false,
+      "timeMicros": "1791950014811756"
+    },
+    {
+      "method": "HEAD",
+      "path": "/v2/nicolaka/netshoot/manifests/v0.13",
+      "userAgent": "containerd/v2.2.4",
+      "status": 200,
+      "challenge": false,
+      "timeMicros": "1791950014813006"
+    }
+  ],
+  "authenticationChallengeThenAuthorized": true,
+  "imageIDUsesExistingContentName": true
+}

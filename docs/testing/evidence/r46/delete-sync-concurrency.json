@@ -1,0 +1,32 @@
+{
+  "cluster": "r46-ui-full",
+  "uid": "755f9eb8-1449-4c45-afa3-9a9fa0837758",
+  "actualTransportFault": "primary master outbound Kubernetes API TCP 6443 DROP while SyncKubeConfig runs",
+  "primaryMaster": "172.16.131.146",
+  "runningSyncOperation": "sync-kubeconfig-755f9eb8-1449-4c45-afa3-9a9fa0837758-1d2a77fea601",
+  "runningTaskNames": [
+    "task-51a05099d64bcf903ab9729902302ae6"
+  ],
+  "normalDeleteHTTPStatus": 200,
+  "clusterHTTPStatusAfter": 404,
+  "remainingOperations": 0,
+  "remainingTasks": 0,
+  "remainingNodeOwnershipLabels": 0,
+  "hostCleanup": [
+    {
+      "host": "172.16.131.208",
+      "actualKubernetesCleanupAndOwnedFaultRemoved": true
+    },
+    {
+      "host": "172.16.131.146",
+      "actualKubernetesCleanupAndOwnedFaultRemoved": true
+    },
+    {
+      "host": "172.16.131.230",
+      "actualKubernetesCleanupAndOwnedFaultRemoved": true
+    }
+  ],
+  "verifiedAt": "2026-10-14T05:08:22.682676+00:00",
+  "initialHarnessError": "assumed object deletionTimestamp immediately after business Delete API; actual phase changes first and object deletion follows uninstall Operation",
+  "terminationRespawnWatchScope": "initial harness ended after API accepted Delete; no uninterrupted respawn-watch claim; actual Running Sync plus successful concurrent normal Delete and all target operation/task cleanup verified"
+}

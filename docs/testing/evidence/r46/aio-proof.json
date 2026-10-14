@@ -1,0 +1,25 @@
+{
+  "phase": "Running",
+  "version": "v1.36.4",
+  "cni": {
+    "type": "calico",
+    "version": "v3.31.5",
+    "criType": "containerd",
+    "offline": true,
+    "namespace": "calico-system",
+    "calico": {
+      "IPv4AutoDetection": "can-reach=172.16.131.146",
+      "IPv6AutoDetection": "first-found",
+      "mode": "Overlay-IPIP-Cross-Subnet",
+      "IPManger": true,
+      "mtu": 1440
+    }
+  },
+  "runtime": {
+    "type": "containerd",
+    "version": "2.2.4"
+  },
+  "kubeconfigHTTP": 200,
+  "masters": 1,
+  "workers": 0
+}

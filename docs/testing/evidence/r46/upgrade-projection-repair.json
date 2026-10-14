@@ -1,0 +1,20 @@
+{
+  "operation": "r46-upgrade-complete-metadata",
+  "status": {
+    "phase": "Succeeded",
+    "deadline": "2026-10-14T03:12:06Z",
+    "startedAt": "2026-10-14T01:42:06Z",
+    "finishedAt": "2026-10-14T01:45:37Z"
+  },
+  "metadataLabels": {
+    "kubeclipper.io/cluster": "r46-ui-full",
+    "kubeclipper.io/operation": "UpgradeCluster",
+    "kubeclipper.io/operation-sponsor": "https-172.16.131.230-8080",
+    "kubeclipper.io/timeout": "5400",
+    "kubeclipper.io/upgrade-version": "v1.37.0",
+    "topology.kubeclipper.io/region": "default"
+  },
+  "platformVersion": "v1.37.0",
+  "platformPhase": "Running",
+  "pass": true
+}

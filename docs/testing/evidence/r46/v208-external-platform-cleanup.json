@@ -1,0 +1,5 @@
+{
+  "remainingOwnedEtcdKeys": 0,
+  "temporaryUnitRemovedOnHost": "172.16.131.230",
+  "workerInternalVIPExcludedFromPublicEgressBlock": "169.254.169.100/32"
+}

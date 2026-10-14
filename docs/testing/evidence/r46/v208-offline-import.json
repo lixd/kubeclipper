@@ -1,0 +1,8 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "artifactCount": 61,
+  "crossHostBundleSHA256": "5e7782a52a5380b807fa1302595f02b86e09419d57ac65d4d12fc615dfbe75dc",
+  "copiedBundleSHA256": "5e7782a52a5380b807fa1302595f02b86e09419d57ac65d4d12fc615dfbe75dc",
+  "nativeImportExit": 0,
+  "destination": "172.16.131.230:5248/r46-v208"
+}

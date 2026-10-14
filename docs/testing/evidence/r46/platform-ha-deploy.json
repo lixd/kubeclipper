@@ -1,0 +1,99 @@
+{
+  "candidateRevision": "1f30e19987dd456d40b5066ba366192a56d3fa64",
+  "checks": [
+    {
+      "check": "real unavailable Server force clean with saved deploy-config",
+      "pass": true,
+      "exit": 0
+    },
+    {
+      "check": "force clean Agent 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "force clean Agent 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "force clean Agent 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "force clean original one-Server platform",
+      "pass": true
+    },
+    {
+      "check": "actual native three-Server three-etcd three-Agent redeploy",
+      "pass": true,
+      "exit": 0
+    },
+    {
+      "check": "native HA doctor healthy",
+      "pass": true,
+      "exit": 0
+    },
+    {
+      "check": "direct TLS health 172.16.131.208",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "direct TLS health 172.16.131.146",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "direct TLS health 172.16.131.230",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "actual three non-learner etcd members and all endpoints healthy",
+      "pass": true,
+      "members": [
+        {
+          "name": "lixd-dev-2",
+          "peerURLs": [
+            "https://172.16.131.208:12380"
+          ],
+          "isLearner": false
+        },
+        {
+          "name": "lixd-dev-3",
+          "peerURLs": [
+            "https://172.16.131.146:12380"
+          ],
+          "isLearner": false
+        },
+        {
+          "name": "lixd-dev-4",
+          "peerURLs": [
+            "https://172.16.131.230:12380"
+          ],
+          "isLearner": false
+        }
+      ],
+      "endpointHealth": [
+        {
+          "endpoint": "https://172.16.131.208:12379",
+          "health": true,
+          "took": "14.453963ms"
+        },
+        {
+          "endpoint": "https://172.16.131.230:12379",
+          "health": true,
+          "took": "23.204937ms"
+        },
+        {
+          "endpoint": "https://172.16.131.146:12379",
+          "health": true,
+          "took": "23.906217ms"
+        }
+      ]
+    },
+    {
+      "check": "protected original Registry retained",
+      "pass": true
+    }
+  ]
+}

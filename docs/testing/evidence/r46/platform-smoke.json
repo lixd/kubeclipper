@@ -1,0 +1,124 @@
+{
+  "revision": "7250c886dcb28f46a7c59fc88c3407fe61be587d",
+  "checks": [
+    {
+      "name": "single-doctor",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "version",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "status",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "get-node",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "get-role",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "get-user",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "deploy-config-template",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "completion-bash",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "completion-zsh",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "/healthz",
+      "status": 200,
+      "bytes": 2
+    },
+    {
+      "name": "/metrics",
+      "status": 200,
+      "bytes": 5516
+    },
+    {
+      "name": "/api/config.kubeclipper.io/v1/configz",
+      "status": 200,
+      "bytes": 132
+    },
+    {
+      "name": "/api/config.kubeclipper.io/v1/status",
+      "status": 200,
+      "bytes": 748
+    },
+    {
+      "name": "/api/config.kubeclipper.io/v1/components",
+      "status": 200,
+      "bytes": 3664
+    },
+    {
+      "name": "/api/config.kubeclipper.io/v1/template",
+      "status": 200,
+      "bytes": 29
+    },
+    {
+      "name": "/api/config.kubeclipper.io/v1/terminal.key",
+      "status": 200,
+      "bytes": 632
+    },
+    {
+      "name": "console/",
+      "status": 200,
+      "bytes": 1031
+    },
+    {
+      "name": "console/version",
+      "status": 200,
+      "bytes": 224
+    },
+    {
+      "name": "custom initial admin password login",
+      "status": 200
+    },
+    {
+      "name": "list-user",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "list-role",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "list-registry",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "list-configmap",
+      "exit": 0,
+      "expected": 0
+    },
+    {
+      "name": "list-cluster",
+      "exit": 0,
+      "expected": 0
+    }
+  ]
+}

@@ -1,0 +1,297 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "cluster": "r46-v208-three-master",
+  "checks": [
+    {
+      "check": "real airgapped three-master zero-worker CreateCluster",
+      "pass": true,
+      "operation": "1434c7ad-6e46-4a29-ba92-e5b1c2a4ffec",
+      "phase": "Succeeded",
+      "tasks": [
+        {
+          "name": "task-08a788e8766e8f7ae18f4c9e790ce419",
+          "stepID": "b43f0efe-5f1f-462b-bf4b-ec04b3967f02",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-18665cb03e3e266a20eec8ec746b36da",
+          "stepID": "c4701e34-c81e-4352-85b0-25f67efb1809",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-1869555bc5d316e08cd8381bfe5d34fd",
+          "stepID": "a1e7b84b-4c14-4708-9ac4-c3e92e568485",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-209b4c06c662ea1ba24a30b53d313163",
+          "stepID": "4949ca12-89ad-484d-9901-0ce9f70ca0f0",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-21192243b4d26de6c4bead3a3a07f673",
+          "stepID": "feedd732-0b06-491d-8874-0f95e290ff49",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-21d0691151ea4c494f5bada136ba9ca5",
+          "stepID": "36bf059f-ab2a-4a97-8c06-6964aa146a70",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-2e668d8cbaf290c5141fdffe41ca9cfd",
+          "stepID": "a12c130f-2174-4583-b0e4-c9a69a171435",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-2e716c5ac96475f781074b5e3c9223b8",
+          "stepID": "eb3b6d4a-bf9d-4c01-acb4-5686c96a3903",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-32c2c748255acfb057b8f3d92a79d14d",
+          "stepID": "a12c130f-2174-4583-b0e4-c9a69a171435",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-4b70591ef91964360fe72b0d709a43da",
+          "stepID": "36bf059f-ab2a-4a97-8c06-6964aa146a70",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-5f115cbc6b879cb7cb0f7a3746cd5694",
+          "stepID": "0ea42b2a-192a-4f94-8a05-19204b6764c6",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-69f3a83b1d463802ed43120c2686bb20",
+          "stepID": "c5e42cdf-4a5f-4fe2-bde2-05011bc40aee",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-6a2094a3278572a76a45cae674efda9e",
+          "stepID": "b533f1e5-dfdf-439b-a378-413909695680",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-7ad3c938b6f8c0e4f3d0f6d05eb16fd3",
+          "stepID": "36bf059f-ab2a-4a97-8c06-6964aa146a70",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-7e039751e166dd0ead6cb92abafa94b5",
+          "stepID": "9fac9fed-bf52-4433-bfff-f2ef56568fd3",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-7ed0cd4732fd733dd3e8fd5349d470ee",
+          "stepID": "b0091b43-c42d-41c4-ab57-9de58194532e",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-8cacc7c1db6ec15478c301f4b3dfa921",
+          "stepID": "c5e42cdf-4a5f-4fe2-bde2-05011bc40aee",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-95ad4bab2ee103e66bc110aa9f348d9c",
+          "stepID": "b43f0efe-5f1f-462b-bf4b-ec04b3967f02",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-96618a4123c1be9b9943f74940291213",
+          "stepID": "9fac9fed-bf52-4433-bfff-f2ef56568fd3",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-9691c253b97812e6b670fb7c4d777c71",
+          "stepID": "a12c130f-2174-4583-b0e4-c9a69a171435",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-a7014b0f54036ae383cc7edc5c6d83a9",
+          "stepID": "c99bcea5-0114-4054-8063-b396b1a416cd",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-aad7c22ccbc547e55ca9ccf749a5e095",
+          "stepID": "a1e7b84b-4c14-4708-9ac4-c3e92e568485",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-b732ebeb1ee4ba78d2309957b41b62ce",
+          "stepID": "62f2b872-7373-4cab-8b73-5da43dca7088",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-c79dfecd70fd38a92f06c62af92fd32e",
+          "stepID": "c5e42cdf-4a5f-4fe2-bde2-05011bc40aee",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-c88a4460d815c71d660407b750573d3e",
+          "stepID": "feedd732-0b06-491d-8874-0f95e290ff49",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-ec9c0ac12a62b617435aeeae301da32c",
+          "stepID": "0ea42b2a-192a-4f94-8a05-19204b6764c6",
+          "phase": "Failed"
+        },
+        {
+          "name": "task-f18fed22b77b6b809034ca4c7185709f",
+          "stepID": "a1e7b84b-4c14-4708-9ac4-c3e92e568485",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-f4c99c768febd7b23de35f30883faf7f",
+          "stepID": "a7ce9bec-e15d-4df7-8040-c0fa49bcadf0",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-fc803b3d78623f0ea5a718d6a191618e",
+          "stepID": "9fac9fed-bf52-4433-bfff-f2ef56568fd3",
+          "phase": "Succeeded"
+        }
+      ]
+    },
+    {
+      "check": "public egress remains blocked 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "public egress remains blocked 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "public egress remains blocked 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "all three native Nodes Ready",
+      "pass": true
+    },
+    {
+      "check": "native Kubernetes real write read delete under public egress block",
+      "pass": true
+    },
+    {
+      "check": "actual three masters zero workers topology",
+      "pass": true,
+      "packagePlan": {
+        "kubernetesVersion": "v1.37.0",
+        "os": "linux",
+        "arch": "amd64",
+        "components": [
+          {
+            "slot": "k8s",
+            "kind": "k8s",
+            "name": "k8s",
+            "version": "v1.37.0",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/packages/k8s/k8s:v1.37.0",
+              "digest": "sha256:ece6fdcd65a7213d5c6cbe0243c56aedcf3d2481eada5c5f84bb54132e77f816"
+            },
+            "contents": [
+              {
+                "name": "configs",
+                "file": "configs.tar.gz",
+                "digest": "sha256:8be3aabd4a0d567a16c1f9db4f0695340853e1ffeeafe5df93b8d6c4764f5bbd",
+                "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                "transport": {
+                  "type": "",
+                  "ref": "",
+                  "digest": ""
+                }
+              }
+            ]
+          },
+          {
+            "slot": "cri",
+            "kind": "cri",
+            "name": "containerd",
+            "version": "2.2.4",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/packages/cri/containerd:2.2.4",
+              "digest": "sha256:c5fdd9af4bfa9928ac6ba31da9c025aacc8974f629ba9fe815cf10578f54795c"
+            },
+            "contents": [
+              {
+                "name": "configs",
+                "file": "configs.tar.gz",
+                "digest": "sha256:9de384a7383dca19f3233ad96b4d17610a69bcdfc858e1e616800d2a0102138d",
+                "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                "transport": {
+                  "type": "",
+                  "ref": "",
+                  "digest": ""
+                }
+              }
+            ]
+          },
+          {
+            "slot": "cni",
+            "kind": "cni",
+            "name": "calico",
+            "version": "v3.31.5",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/charts/tigera-operator:v3.31.5",
+              "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+            },
+            "contents": [
+              {
+                "name": "charts",
+                "file": "charts.tgz",
+                "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                "transport": {
+                  "type": "helm-oci",
+                  "ref": "172.16.131.230:5248/r46-v208/kubeclipper/charts/tigera-operator",
+                  "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                }
+              }
+            ]
+          },
+          {
+            "slot": "k8s-extension",
+            "kind": "k8s-extension",
+            "name": "k8s-extension",
+            "version": "v1",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+              "digest": "sha256:daa3e7c67e312c742163b7a903d3fa196ccc7506de2464644c196ed437f970b9"
+            },
+            "contents": [
+              {
+                "name": "configs",
+                "file": "configs.tar.gz",
+                "digest": "sha256:7246b185db126e2eda8a93f0b5cb3023a8d67069c1ef79f466bbc458855952cb",
+                "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                "transport": {
+                  "type": "",
+                  "ref": "",
+                  "digest": ""
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

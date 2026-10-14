@@ -1,0 +1,143 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "cluster": "r46-v208-online",
+  "actualPublicImageRegistry": "",
+  "packageRegistry": "172.16.131.146:5246/r46-v208",
+  "offline": false,
+  "operation": "66d17d03-d9a4-4d8f-90a9-7217543eae3d",
+  "status": {
+    "phase": "Succeeded",
+    "deadline": "2026-10-14T08:26:54Z",
+    "startedAt": "2026-10-14T06:56:54Z",
+    "finishedAt": "2026-10-14T07:04:20Z"
+  },
+  "tasks": [
+    {
+      "name": "task-1b283682f29bc1064147541ae47dda14",
+      "step": "9af20dab-d385-4f37-9de5-7bf015b8873a",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:01:00Z",
+        "finishedAt": "2026-10-14T07:01:01Z"
+      }
+    },
+    {
+      "name": "task-4945a5a9fb5c2ed261ce1c2f5cdfea47",
+      "step": "bcea7b1a-360c-4d36-b44d-07eb98df259d",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:04:19Z",
+        "finishedAt": "2026-10-14T07:04:19Z"
+      }
+    },
+    {
+      "name": "task-5190b00c0fe534f1ea036e59509b4a8e",
+      "step": "630d59ae-7fca-4810-b367-22bfb3690cd8",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:01:07Z",
+        "finishedAt": "2026-10-14T07:01:07Z"
+      }
+    },
+    {
+      "name": "task-6cdcc06dec99a98bc2b5111dc1d8dbd4",
+      "step": "21e80048-3ae4-4403-900d-d4f414e05705",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:57:02Z",
+        "finishedAt": "2026-10-14T06:57:02Z"
+      }
+    },
+    {
+      "name": "task-6ef4c769a0cf69de0e8a711c6583bfd5",
+      "step": "e7fb34fd-b997-4480-b726-8b579b5a1ae2",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:57:03Z",
+        "finishedAt": "2026-10-14T06:57:13Z"
+      }
+    },
+    {
+      "name": "task-9348455df4a9904074fae111aced7217",
+      "step": "f52395df-9d46-436d-b09f-eeb7db530531",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:04:18Z",
+        "finishedAt": "2026-10-14T07:04:18Z"
+      }
+    },
+    {
+      "name": "task-a4b5a6452b132c58d6144e47ba75e803",
+      "step": "d05710b6-aa4d-4c20-b40a-7ef9632e2426",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:57:32Z",
+        "finishedAt": "2026-10-14T07:01:00Z"
+      }
+    },
+    {
+      "name": "task-ac872873d34ed401d70fa02f0bd9a99f",
+      "step": "4a2608f4-b95a-4754-9c4d-8fe4b46e71eb",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:56:54Z",
+        "finishedAt": "2026-10-14T06:57:02Z"
+      }
+    },
+    {
+      "name": "task-ad3d75056070c98c321544cc729ec8e2",
+      "step": "48b0f607-6a56-46fd-9c7d-5878fd8488fa",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:57:31Z",
+        "finishedAt": "2026-10-14T06:57:31Z"
+      }
+    },
+    {
+      "name": "task-b04c1f41d45a4b17590dcc93b466e6d1",
+      "step": "1e5e121b-a7f3-4f27-88f9-069f016dc3f2",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:01:00Z",
+        "finishedAt": "2026-10-14T07:01:00Z"
+      }
+    },
+    {
+      "name": "task-cfb32745bb275e612e5469171f34154b",
+      "step": "279b482f-f207-48bc-8d28-3456ef4e6f1f",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:01:07Z",
+        "finishedAt": "2026-10-14T07:04:18Z"
+      }
+    },
+    {
+      "name": "task-dc88c38a4de39b0198335f8e43f49e6d",
+      "step": "a39a4dbe-f302-4bee-b823-ff81721f089a",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:57:02Z",
+        "finishedAt": "2026-10-14T06:57:02Z"
+      }
+    },
+    {
+      "name": "task-e771d9856c32c74392761ff4ea57ba92",
+      "step": "54df1357-c745-42bc-98c3-1119bddbad71",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T06:57:23Z",
+        "finishedAt": "2026-10-14T06:57:31Z"
+      }
+    },
+    {
+      "name": "task-fc68af90771045d3d15a4db42347e983",
+      "step": "3c038eba-85b2-4ede-b7b1-fbb5d94c1601",
+      "status": {
+        "phase": "Succeeded",
+        "startedAt": "2026-10-14T07:01:01Z",
+        "finishedAt": "2026-10-14T07:01:07Z"
+      }
+    }
+  ],
+  "allNodesReady": true
+}

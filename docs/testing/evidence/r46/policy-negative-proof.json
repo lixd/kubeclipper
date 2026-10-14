@@ -1,0 +1,42 @@
+{
+  "checks": [
+    {
+      "check": "original policy valid real dry-run",
+      "status": 200,
+      "message": "dry-run accepted",
+      "pass": true
+    },
+    {
+      "check": "custom exact whitelist allows v1.36.4",
+      "status": 200,
+      "message": "dry-run accepted",
+      "pass": true
+    },
+    {
+      "check": "custom exact whitelist rejects v1.37.0",
+      "status": 400,
+      "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedKubernetesVersion: no policy matched kubernetes version \\\"v1.37.0\\\"\"\n}",
+      "pass": true
+    },
+    {
+      "check": "missing required cri slot rejected before operation",
+      "status": 400,
+      "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"UnsupportedComponentSlot: slot \\\"cri\\\" is not declared\"\n}",
+      "pass": true
+    },
+    {
+      "check": "missing extension repository rejected before operation",
+      "status": 400,
+      "message": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"ArtifactNotPublished: artifact k8s-extension/r46-missing-extension:v1 is not published\"\n}",
+      "pass": true
+    },
+    {
+      "check": "restored original policy valid",
+      "status": 200,
+      "message": "dry-run accepted",
+      "pass": true
+    }
+  ],
+  "originalSpecRestored": true,
+  "noClusterOrOperationCreated": true
+}

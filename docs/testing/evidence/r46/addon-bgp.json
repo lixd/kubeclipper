@@ -1,0 +1,12 @@
+{
+  "operation": "22aceefa-d8a1-48c1-8edf-839a78163ad7",
+  "status": {
+    "phase": "Succeeded",
+    "deadline": "2026-10-13T15:37:48Z",
+    "startedAt": "2026-10-13T14:07:48Z",
+    "finishedAt": "2026-10-13T14:08:17Z"
+  },
+  "addons": [
+    "metallb"
+  ]
+}

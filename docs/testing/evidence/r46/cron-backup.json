@@ -1,0 +1,67 @@
+[
+  {
+    "check": "existing one-shot retained with original runAt",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "actual runAt fired single backup",
+    "pass": true,
+    "detail": [
+      {
+        "name": "r46-minimal-r46-once-rpqqn8",
+        "status": {
+          "kubernetesVersion": "v1.35.8",
+          "fileName": "r46-minimal-r46-once-rpqqn8",
+          "backupFileSize": 8663072,
+          "backupFileMD5": "2ebeda8d7f6fea69e6704baced872126",
+          "status": "available"
+        }
+      }
+    ]
+  },
+  {
+    "check": "one shot not duplicated",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "actual minute cadence and maxBackupNum rotation",
+    "pass": true,
+    "detail": {
+      "seen": [
+        "r46-minimal-r46-cycle-bsfgk9",
+        "r46-minimal-r46-cycle-q7t9xq"
+      ],
+      "retained": [
+        "r46-minimal-r46-cycle-q7t9xq"
+      ]
+    }
+  },
+  {
+    "check": "cron disable",
+    "pass": true,
+    "detail": {
+      "status": 200
+    }
+  },
+  {
+    "check": "cron enable",
+    "pass": true,
+    "detail": {
+      "status": 200
+    }
+  },
+  {
+    "check": "cron disable",
+    "pass": true,
+    "detail": {
+      "status": 200
+    }
+  },
+  {
+    "check": "owned cron resources cleaned",
+    "pass": true,
+    "detail": null
+  }
+]

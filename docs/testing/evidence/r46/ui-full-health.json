@@ -1,0 +1,59 @@
+{
+  "candidate": "c0018d6a526f282737ffcbeb2a0c5c6ecc7f5efb",
+  "nodes": [
+    {
+      "name": "lixd-dev-2",
+      "version": "v1.36.4",
+      "ready": true,
+      "master": false
+    },
+    {
+      "name": "lixd-dev-3",
+      "version": "v1.36.4",
+      "ready": true,
+      "master": true
+    },
+    {
+      "name": "lixd-dev-4",
+      "version": "v1.36.4",
+      "ready": true,
+      "master": false
+    }
+  ],
+  "networking": {
+    "ipFamily": "IPv4",
+    "services": {
+      "cidrBlocks": [
+        "10.96.0.0/12"
+      ]
+    },
+    "pods": {
+      "cidrBlocks": [
+        "172.25.0.0/16"
+      ]
+    },
+    "dnsDomain": "cluster.local",
+    "proxyMode": "iptables",
+    "workerNodeVip": "169.254.169.100"
+  },
+  "cri": {
+    "type": "containerd",
+    "version": "2.2.4",
+    "rootDir": "/var/lib/containerd"
+  },
+  "cni": {
+    "type": "calico",
+    "version": "v3.31.5",
+    "criType": "containerd",
+    "offline": true,
+    "namespace": "calico-system",
+    "calico": {
+      "IPv4AutoDetection": "first-found",
+      "IPv6AutoDetection": "",
+      "mode": "Overlay-Vxlan-All",
+      "IPManger": true,
+      "mtu": 1440
+    }
+  },
+  "phase": "Running"
+}

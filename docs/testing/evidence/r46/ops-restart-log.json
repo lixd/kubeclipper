@@ -1,0 +1,52 @@
+[
+  {
+    "check": "task log offset at end task-521167b42d6712c90ff1bef741874b59",
+    "pass": true,
+    "detail": {
+      "task": "task-521167b42d6712c90ff1bef741874b59",
+      "firstSize": 179,
+      "endSize": 0
+    }
+  },
+  {
+    "check": "task log offset at end task-702bde848a8f24e41a27f1cd9099830c",
+    "pass": true,
+    "detail": {
+      "task": "task-702bde848a8f24e41a27f1cd9099830c",
+      "firstSize": 179,
+      "endSize": 0
+    }
+  },
+  {
+    "check": "server restart recovers actual running operation",
+    "pass": true,
+    "detail": {
+      "phase": "Succeeded",
+      "deadline": "2026-10-13T13:14:17Z",
+      "startedAt": "2026-10-13T13:12:17Z",
+      "finishedAt": "2026-10-13T13:12:40Z"
+    }
+  },
+  {
+    "check": "server restart actual side effect 172.16.131.208",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "server restart actual side effect 172.16.131.146",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "server restart actual side effect 172.16.131.230",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "duplicate operation identity rejected",
+    "pass": true,
+    "detail": {
+      "status": 409
+    }
+  }
+]

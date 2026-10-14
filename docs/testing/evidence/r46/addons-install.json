@@ -1,0 +1,13 @@
+{
+  "operation": "6e7bfc64-eab6-4e71-ba6f-e4295c52b70e",
+  "status": {
+    "phase": "Succeeded",
+    "deadline": "2026-10-13T13:28:15Z",
+    "startedAt": "2026-10-13T11:58:15Z",
+    "finishedAt": "2026-10-13T12:00:14Z"
+  },
+  "addons": [
+    "nfs-csi",
+    "metallb"
+  ]
+}

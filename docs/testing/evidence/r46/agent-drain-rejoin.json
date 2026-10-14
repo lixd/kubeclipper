@@ -1,0 +1,12 @@
+{
+  "oldNodeName": "c7413e92-ad70-47d7-b489-f90699072ccb",
+  "oldUID": "ae40688b-82a1-440a-b3b2-52141a4e7dba",
+  "oldNodeGetAfterDrain": 404,
+  "newNodeName": "a58f0928-23ae-42c1-b64b-77c58eb85bdc",
+  "newUID": "fe45b83f-3fc2-4527-9628-ff4cf585e4f0",
+  "certificateBefore": "serial=5B106A288BC46AE5\nsubject=O = system:kc-agents, CN = system:kc-agent:c7413e92-ad70-47d7-b489-f90699072ccb\n",
+  "certificateAfter": "serial=71A7F729704AB0C6\nsubject=O = system:kc-agents, CN = system:kc-agent:a58f0928-23ae-42c1-b64b-77c58eb85bdc\n",
+  "oldCertificateCannotAccessNewIdentity": 403,
+  "newNodeReady": true,
+  "scope": "Formal drain removes Agent + DELETE Node; formal join signs new certificate. Does not claim X509 revocation of old certificate."
+}

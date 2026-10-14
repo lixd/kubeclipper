@@ -1,0 +1,23 @@
+{
+  "candidate": "b985a0b182474dc343678599e9c0e6ec26330e8f",
+  "qualificationRun": {
+    "conclusion": "success",
+    "headSha": "b985a0b182474dc343678599e9c0e6ec26330e8f",
+    "status": "completed",
+    "url": "https://github.com/lixd/kubeclipper/actions/runs/38393393159"
+  },
+  "artifactCount": 110,
+  "artifactTypes": {
+    "helm-chart": 2,
+    "package-image": 10,
+    "runtime-image": 98
+  },
+  "allDigestsPinned": true,
+  "allSourcesSameQualificationRevisionPrefix": true,
+  "bootstrapComplete": true,
+  "platforms": {
+    "linux/amd64": 59,
+    "linux/arm64": 59
+  },
+  "qualificationManifestDigestAndProvenanceVerification": "success in workflow manifest job"
+}

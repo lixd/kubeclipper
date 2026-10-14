@@ -1,0 +1,34 @@
+x86_64
+lixd-dev-2
+Reference ID    : 8BC7D7FB (139.199.215.251)
+Stratum         : 3
+Ref time (UTC)  : Tue Oct 13 10:28:50 2026
+System time     : 0.000127544 seconds slow of NTP time
+Last offset     : -0.000073629 seconds
+RMS offset      : 0.000183480 seconds
+Frequency       : 24.735 ppm fast
+Residual freq   : -0.001 ppm
+Skew            : 0.028 ppm
+Root delay      : 0.029706661 seconds
+Root dispersion : 0.008763866 seconds
+Update interval : 1027.7 seconds
+Leap status     : Normal
+Filesystem     1048576-blocks  Used Available Capacity Mounted on
+/dev/vda1               98122 35277     62830      36% /
+/dev/vda1               98122 35277     62830      36% /
+/dev/vda1               98122 35277     62830      36% /
+State  Recv-Q Send-Q  Local Address:Port  Peer Address:PortProcess                                                     
+LISTEN 0      4096       127.0.0.54:53         0.0.0.0:*    users:(("systemd-resolve",pid=3481321,fd=17))              
+LISTEN 0      4096        127.0.0.1:12381      0.0.0.0:*    users:(("etcd",pid=1260244,fd=11))                         
+LISTEN 0      4096   172.16.131.208:8080       0.0.0.0:*    users:(("kubeclipper-ser",pid=1673182,fd=33))              
+LISTEN 0      4096          0.0.0.0:111        0.0.0.0:*    users:(("rpcbind",pid=68059,fd=4),("systemd",pid=1,fd=236))
+LISTEN 0      4096          0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=1481390,fd=3),("systemd",pid=1,fd=79))  
+LISTEN 0      4096        127.0.0.1:2020       0.0.0.0:*    users:(("caddy",pid=2907413,fd=4))                         
+LISTEN 0      4096    127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=3481321,fd=15))              
+LISTEN 0      4096                *:10260            *:*    users:(("kubeclipper-age",pid=1809947,fd=8))               
+LISTEN 0      4096                *:18080            *:*    users:(("caddy",pid=2907413,fd=7))                         
+LISTEN 0      4096             [::]:111           [::]:*    users:(("rpcbind",pid=68059,fd=6),("systemd",pid=1,fd=238))
+LISTEN 0      4096                *:80               *:*    users:(("caddy",pid=1668096,fd=3))                         
+LISTEN 0      4096                *:12379            *:*    users:(("etcd",pid=1260244,fd=7))                          
+LISTEN 0      4096                *:12380            *:*    users:(("etcd",pid=1260244,fd=6))                          
+LISTEN 0      4096             [::]:22            [::]:*    users:(("sshd",pid=1481390,fd=4),("systemd",pid=1,fd=82))  

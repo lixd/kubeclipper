@@ -1,0 +1,168 @@
+=== RUN   TestRunE2ETests
+Oct 13 10:57:27.669: INFO: Starting e2e run on Ginkgo 1 node
+Running Suite: KubeClipper e2e suite
+====================================
+Random Seed: 1791889047 - Will randomize all specs
+Will run 7 of 16 specs
+
+SSS
+------------------------------
+[sig-node] [Serial] 
+  [Fast] [new-node] [Detail] [Info] should get info and detail of node
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:143
+[BeforeEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+STEP: Creating a KubeClipper client
+[BeforeEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:45
+STEP: Check that there are enough available nodes
+[It] [Fast] [new-node] [Detail] [Info] should get info and detail of node
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:143
+STEP: show node info
+STEP: show node detail
+[AfterEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+•SS
+------------------------------
+[sig-cluster] [Serial] 
+  [Fast] [AIO] [Template] should create addon template
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:116
+[BeforeEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+STEP: Creating a KubeClipper client
+[It] [Fast] [AIO] [Template] should create addon template
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:116
+STEP: Create nfs-csi addon-template
+STEP: Describe nfs-csi addon-template
+STEP: Update nfs-csi addon-template
+STEP: List addon-template nfs-csi
+STEP: Delete addon-template nfs-csi
+[AfterEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+[AfterEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:46
+STEP: delete cluster
+STEP: waiting for cluster to be deleted
+•S
+------------------------------
+[sig-cluster] [Serial] 
+  [Fast] [AIO] [Registry] should create registry
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:189
+[BeforeEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+[It] [Fast] [AIO] [Registry] should create registry
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:189
+STEP: Create test-http registry
+STEP: Create test-https-skip registry
+STEP: Create test-https-not-skip registry
+STEP: Create test-https-not-skip-ca registry
+STEP: Check whether registries is created successfully
+[AfterEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+STEP:  delete registries 
+[AfterEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:46
+STEP: delete cluster
+STEP: waiting for cluster to be deleted
+
+• Failure [0.283 seconds]
+[sig-cluster] [Serial]
+/Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/framework.go:25
+  [Fast] [AIO] [Registry] should create registry [It]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:189
+
+  4 registries have not been created
+  Expected
+      <int>: 5
+  to equal
+      <int>: 4
+
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:206
+------------------------------
+S
+------------------------------
+[sig-cluster] [Serial] 
+  [Fast] [AIO] [Template] should create template
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:152
+[BeforeEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+[It] [Fast] [AIO] [Template] should create template
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:152
+STEP: Create cluster-template from cluster
+STEP: Describe cluster-template e2e-cluster-template
+STEP: Update cluster-template e2e-cluster-template
+STEP: List cluster-template e2e-cluster-template
+STEP: Delete cluster-template e2e-cluster-template
+[AfterEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+STEP:  delete registries 
+[AfterEach] [sig-cluster] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:46
+STEP: delete cluster
+STEP: waiting for cluster to be deleted
+•SS
+------------------------------
+[sig-node] [Serial] 
+  [Fast] [new-node] [Terminal] should connect node ssh
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:83
+[BeforeEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+[BeforeEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:45
+STEP: Check that there are enough available nodes
+[It] [Fast] [new-node] [Terminal] should connect node ssh
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:83
+STEP: Get public key
+STEP: Get msg
+STEP: connect node
+STEP: check the node is connected
+STEP: close the connection
+[AfterEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+•
+------------------------------
+[sig-region] [Fast] [Serial] List Region 
+  list region and check is default region exist
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/region/region.go:37
+[BeforeEach] [sig-region] [Fast] [Serial] List Region
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+STEP: Creating a KubeClipper client
+[It] list region and check is default region exist
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/region/region.go:37
+STEP: list region
+STEP: search default region
+[AfterEach] [sig-region] [Fast] [Serial] List Region
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+•
+------------------------------
+[sig-node] [Serial] 
+  [Fast] [new-node] [Enable] [Disable] should disable and enable node of kubeclipper platform
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:56
+[BeforeEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:90
+[BeforeEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:45
+STEP: Check that there are enough available nodes
+[It] [Fast] [new-node] [Enable] [Disable] should disable and enable node of kubeclipper platform
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/node/spec.go:56
+STEP: disable node
+STEP: check node is disabled
+STEP: node is disabled
+STEP: enable node
+STEP: check node is enabled
+STEP: node is enabled
+[AfterEach] [sig-node] [Serial]
+  /Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/framework/framework.go:91
+•Oct 13 10:57:29.676: INFO: Running AfterSuite actions on all nodes
+Oct 13 10:57:29.676: INFO: Running AfterSuite actions on node 1
+
+
+Summarizing 1 Failure:
+
+[Fail] [sig-cluster] [Serial] [It] [Fast] [AIO] [Registry] should create registry 
+/Users/lixueduan/17x/tmp/kc-oci-inventory-fix/test/e2e/cluster/spec.go:206
+
+Ran 7 of 16 Specs in 1.996 seconds
+FAIL! -- 6 Passed | 1 Failed | 0 Pending | 9 Skipped
+--- FAIL: TestRunE2ETests (2.01s)
+FAIL

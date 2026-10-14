@@ -1,0 +1,5 @@
+--- FAIL: TestListOperationsWithOptionsPaginatesNewestFirst (0.00s)
+    store_test.go:130: continuation must read the exact first-page snapshot, got RV="42" match=""
+FAIL
+FAIL	github.com/kubeclipper/kubeclipper/pkg/models/operationv2	1.150s
+FAIL

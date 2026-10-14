@@ -1,0 +1,42 @@
+[
+  {
+    "check": "real missing image addon fails",
+    "pass": true,
+    "detail": {
+      "operation": "094ac3c0-359c-44ef-8d52-e8cc6d1c11a4",
+      "status": {
+        "phase": "Failed",
+        "reason": "StepFailed",
+        "message": "step \"22c48584-ffd7-4132-ae6d-e42b19b808b1\" exhausted its retry limit",
+        "deadline": "2026-10-13T15:25:28Z",
+        "startedAt": "2026-10-13T13:55:28Z",
+        "finishedAt": "2026-10-13T13:57:36Z"
+      }
+    }
+  },
+  {
+    "check": "actual kubelet image pull failure events",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "retry succeeds after populating actual required images",
+    "pass": true,
+    "detail": {
+      "phase": "Succeeded",
+      "observedRetryGeneration": 1,
+      "deadline": "2026-10-13T15:27:40Z",
+      "startedAt": "2026-10-13T13:57:40Z",
+      "finishedAt": "2026-10-13T13:58:47Z"
+    }
+  },
+  {
+    "check": "recovered addon uninstall clean",
+    "pass": true,
+    "detail": {
+      "operation": "7c8a9d29-0cd9-43fe-b653-798a0bb5e1a1",
+      "remainingPods": 0,
+      "addonCount": 0
+    }
+  }
+]

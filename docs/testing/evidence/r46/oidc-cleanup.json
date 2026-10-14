@@ -1,0 +1,13 @@
+{
+  "deletedOwnedEtcdKeys": 50,
+  "remainingOwnedEtcdKeys": 0,
+  "oidcServerStopped": true,
+  "realDexStopped": true,
+  "temporaryUnitRemoved": true,
+  "coreServices": {
+    "kc-server": "active",
+    "kc-etcd": "active",
+    "kc-agent": "active",
+    "kc-console": "active"
+  }
+}

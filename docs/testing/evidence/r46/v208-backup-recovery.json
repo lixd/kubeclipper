@@ -1,0 +1,74 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "cluster": "r46-v208-three-master",
+  "checks": [
+    {
+      "check": "native BackupCluster Operation V2 terminal",
+      "pass": true,
+      "operation": "7ea7bc87-dff0-4763-9549-f41d9bc75d07",
+      "operationUID": "35b6bcee-6555-4d4f-9b77-72f460a9b551",
+      "action": "BackupCluster",
+      "phase": "Succeeded",
+      "tasks": [
+        {
+          "name": "task-9e3dea44966374903daa3b6389e70429",
+          "stepID": "29409165-0253-4c3f-99a9-6833fd4ab5fc",
+          "phase": "Succeeded"
+        }
+      ]
+    },
+    {
+      "check": "real current three-master backup snapshot available",
+      "pass": true,
+      "backup": "r46-v208-three-master-r46-v208-fs-manual-k65j2c",
+      "backupStatus": {
+        "kubernetesVersion": "v1.37.0",
+        "fileName": "r46-v208-three-master-r46-v208-fs-manual-k65j2c",
+        "backupFileSize": 9089056,
+        "backupFileMD5": "b79b1b72d1dd398ec5085cdb6259f739",
+        "status": "available"
+      }
+    },
+    {
+      "check": "native actual RecoveryCluster Operation V2 terminal",
+      "pass": true,
+      "operation": "6d1eb298-6bf9-4128-adba-d216ef0c09b4",
+      "operationUID": "ebfdb5c9-c926-4083-b6f6-149c155850cf",
+      "action": "RecoveryCluster",
+      "phase": "Succeeded",
+      "tasks": [
+        {
+          "name": "task-3b8c931da9398a2777c33d29e62706ff",
+          "stepID": "e0ca20a9-2bb2-4cdc-adf7-b1fa90f6c366",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-533e6d97dbff028cb5f1e04350f8a032",
+          "stepID": "e0ca20a9-2bb2-4cdc-adf7-b1fa90f6c366",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-68eeb0e200e43994998179c96927c214",
+          "stepID": "e0ca20a9-2bb2-4cdc-adf7-b1fa90f6c366",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-890d02fa1b3a9eae24a1612a61b64f22",
+          "stepID": "7046f40e-884a-428e-a864-c9c0232e5574",
+          "phase": "Succeeded"
+        }
+      ]
+    },
+    {
+      "check": "actual etcd recovery restores old ConfigMap content",
+      "pass": true,
+      "actualMarker": "before-backup"
+    },
+    {
+      "check": "all three recovered Nodes Ready",
+      "pass": true
+    }
+  ],
+  "initialHarnessError": "poller used the Go constant name RecoverCluster instead of actual API action RecoveryCluster; actual operation completed and live recovery result verified independently",
+  "backupDeleteRequestAccepted": true
+}

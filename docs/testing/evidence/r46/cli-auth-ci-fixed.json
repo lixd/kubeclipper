@@ -1,0 +1,26 @@
+[
+  {
+    "claimsUser": {
+      "username": "r46-custom-user",
+      "sub": null,
+      "name": null
+    },
+    "currentContext": "r46-custom-user@default"
+  },
+  {
+    "path": "/api/core.kubeclipper.io/v1/clusters",
+    "status": 200
+  },
+  {
+    "path": "/api/core.kubeclipper.io/v1/clusters?paging=limit=10,page=0",
+    "status": 200
+  },
+  {
+    "CLIGetExit": 0,
+    "clusterNames": [
+      "r46-aio",
+      "r46-minimal"
+    ],
+    "stderr": ""
+  }
+]

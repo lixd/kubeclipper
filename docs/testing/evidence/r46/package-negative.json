@@ -1,0 +1,17 @@
+[
+  {
+    "check": "wrong-password",
+    "exit": 1,
+    "packageRegistryPrecheckFailed": true
+  },
+  {
+    "check": "wrong-ca",
+    "exit": 1,
+    "packageRegistryPrecheckFailed": true
+  },
+  {
+    "check": "SSH unreachable",
+    "exit": 255,
+    "connectionRefused": true
+  }
+]

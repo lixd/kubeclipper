@@ -1,0 +1,52 @@
+{
+  "startedAt": "2026-10-14T02:54:54.038277+00:00",
+  "original": {
+    "interface": "ens3"
+  },
+  "method": {
+    "canReach": "172.16.131.146"
+  },
+  "requests": [
+    {
+      "node": "lixd-dev-2",
+      "ip": "172.16.131.208",
+      "status": 200,
+      "markerMatched": true
+    },
+    {
+      "node": "lixd-dev-2",
+      "ip": "172.16.131.208",
+      "status": 200,
+      "markerMatched": true
+    },
+    {
+      "node": "lixd-dev-2",
+      "ip": "172.16.131.208",
+      "status": 200,
+      "markerMatched": true
+    },
+    {
+      "node": "lixd-dev-3",
+      "ip": "172.16.131.146",
+      "status": 200,
+      "markerMatched": true
+    },
+    {
+      "node": "lixd-dev-3",
+      "ip": "172.16.131.146",
+      "status": 200,
+      "markerMatched": true
+    },
+    {
+      "node": "lixd-dev-3",
+      "ip": "172.16.131.146",
+      "status": 200,
+      "markerMatched": true
+    }
+  ],
+  "installation": {
+    "canReach": "172.16.131.146"
+  },
+  "pass": true,
+  "restored": true
+}

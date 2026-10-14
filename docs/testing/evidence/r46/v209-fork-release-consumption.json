@@ -1,0 +1,7 @@
+{
+  "candidateRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "release": "https://github.com/lixd/kubeclipper/releases/tag/v2.0.9",
+  "nativeCommand": "upgrade all --version v2.0.9 --release-base-url https://github.com/lixd/kubeclipper/releases/download",
+  "exit": 0,
+  "scope": "real fork Release versioned manifest/checksum consumption on current same-revision platform; prior v2.0.4 test separately proved actual version-delta upgrade"
+}

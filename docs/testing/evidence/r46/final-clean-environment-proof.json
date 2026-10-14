@@ -1,0 +1,90 @@
+[
+  {
+    "host": "172.16.131.208",
+    "originalBinaries": {
+      "kcctl": {
+        "SHA256": "9bac9314758bd359385497306a22cb0fce08baae8da1e9a84fc55e261122b0e7",
+        "originalMatch": true
+      },
+      "kubeclipper-server": {
+        "SHA256": "6871a352c3a7404e5ea33f3c3828296e3fa9346012a2b55c2822732e60bca4b4",
+        "originalMatch": true
+      },
+      "kubeclipper-agent": {
+        "SHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+        "originalMatch": true
+      },
+      "etcd": {
+        "SHA256": "75510f25ad5de09e368fba1aef0d3a4ee963567cb2a2ee6db125ada8244b0e07",
+        "originalMatch": true
+      },
+      "etcdctl": {
+        "SHA256": "a3599fe339c6c1c9f67263565055ba7b84ac9198c9aea7abf9175a476ae2ca22",
+        "originalMatch": true
+      },
+      "etcdutl": {
+        "SHA256": "d53c10c77c96016168c48123f06acec4407e112c6d6246ed437d4960e35c9299",
+        "originalMatch": true
+      },
+      "caddy": {
+        "SHA256": "4ef1f68c70219536b2711fd16547a79841a2dec2d6b4e56b1e3e5e9da76028e6",
+        "originalMatch": true
+      }
+    },
+    "ownedMountsDetached": true,
+    "KubernetesAbsent": true,
+    "ownedAirgapAbsent": true
+  },
+  {
+    "host": "172.16.131.146",
+    "originalBinaries": {
+      "kcctl": {
+        "SHA256": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+        "originalMatch": true
+      },
+      "kubeclipper-server": {
+        "SHA256": "6871a352c3a7404e5ea33f3c3828296e3fa9346012a2b55c2822732e60bca4b4",
+        "originalMatch": true
+      },
+      "kubeclipper-agent": {
+        "SHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+        "originalMatch": true
+      },
+      "etcd": {
+        "SHA256": "75510f25ad5de09e368fba1aef0d3a4ee963567cb2a2ee6db125ada8244b0e07",
+        "originalMatch": true
+      },
+      "etcdctl": {
+        "SHA256": "a3599fe339c6c1c9f67263565055ba7b84ac9198c9aea7abf9175a476ae2ca22",
+        "originalMatch": true
+      },
+      "etcdutl": {
+        "SHA256": "d53c10c77c96016168c48123f06acec4407e112c6d6246ed437d4960e35c9299",
+        "originalMatch": true
+      },
+      "caddy": {
+        "SHA256": "4ef1f68c70219536b2711fd16547a79841a2dec2d6b4e56b1e3e5e9da76028e6",
+        "originalMatch": true
+      }
+    },
+    "ownedMountsDetached": true,
+    "KubernetesAbsent": true,
+    "ownedAirgapAbsent": true
+  },
+  {
+    "host": "172.16.131.230",
+    "originalBinaries": {
+      "kcctl": {
+        "SHA256": "eff962054592d234ab93c13435f71cab377fd85bbdef27086466fc2de5a1f011",
+        "originalMatch": true
+      },
+      "kubeclipper-agent": {
+        "SHA256": "c36c396e1310cc9d3376d0e412f1ddc6d745bb8a1878d6447d97e7a49b775cf5",
+        "originalMatch": true
+      }
+    },
+    "ownedMountsDetached": true,
+    "KubernetesAbsent": true,
+    "ownedAirgapAbsent": true
+  }
+]

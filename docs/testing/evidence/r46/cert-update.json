@@ -1,0 +1,94 @@
+{
+  "before": "serial=695A8ADA0AF634AE\nnotAfter=Oct 14 01:47:06 2027 GMT\nsha256 Fingerprint=8E:BC:E2:29:CB:F7:43:65:CE:E2:13:D5:3E:4C:30:74:67:45:71:BC:16:FE:A2:3D:20:F7:D4:82:5D:00:07:99\n",
+  "after": "serial=35556C4284E406EA\nnotAfter=Oct 14 01:51:09 2027 GMT\nsha256 Fingerprint=58:30:F3:D3:CF:C3:D1:A0:9F:4D:7D:8D:0B:D2:06:59:B5:23:AF:78:25:B0:68:37:B9:7B:D8:9F:E9:54:9E:1E\n",
+  "certificateFingerprintChanged": true,
+  "realHTTPSReadyzVerified": true,
+  "concurrencyBehavior": "Both certificate API requests accepted; Operation controller serializes dangerous execution, second starts after first finishes, not API rejection.",
+  "operations": [
+    {
+      "name": "d746a290-00ef-47b5-8971-99a332453c2a",
+      "status": {
+        "phase": "Succeeded",
+        "deadline": "2026-10-14T03:20:46Z",
+        "startedAt": "2026-10-14T01:50:46Z",
+        "finishedAt": "2026-10-14T01:51:09Z"
+      }
+    },
+    {
+      "name": "f53317b9-28e9-4868-8dd0-33f96e57a7ba",
+      "status": {
+        "phase": "Succeeded",
+        "deadline": "2026-10-14T03:21:09Z",
+        "startedAt": "2026-10-14T01:51:09Z",
+        "finishedAt": "2026-10-14T01:51:41Z"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "task-80212ac3ff2b1e235982d2834115e650",
+      "operation": {
+        "kind": "Operation",
+        "name": "d746a290-00ef-47b5-8971-99a332453c2a",
+        "uid": "e0f75e05-1bab-4262-b419-47ecb0779025"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T01:50:46Z",
+        "finishedAt": "2026-10-14T01:50:48Z"
+      }
+    },
+    {
+      "name": "task-a388fd62930840f977af1cfc0f281ecd",
+      "operation": {
+        "kind": "Operation",
+        "name": "f53317b9-28e9-4868-8dd0-33f96e57a7ba",
+        "uid": "cebefa25-a493-4f75-bcf1-3a1c266df9da"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T01:51:21Z",
+        "finishedAt": "2026-10-14T01:51:41Z"
+      }
+    },
+    {
+      "name": "task-bfa4d61a0938b0bbbefb7414e9f49109",
+      "operation": {
+        "kind": "Operation",
+        "name": "f53317b9-28e9-4868-8dd0-33f96e57a7ba",
+        "uid": "cebefa25-a493-4f75-bcf1-3a1c266df9da"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T01:51:09Z",
+        "finishedAt": "2026-10-14T01:51:21Z"
+      }
+    },
+    {
+      "name": "task-da440536753c93c90087cf670d4c58fb",
+      "operation": {
+        "kind": "Operation",
+        "name": "d746a290-00ef-47b5-8971-99a332453c2a",
+        "uid": "e0f75e05-1bab-4262-b419-47ecb0779025"
+      },
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T01:50:48Z",
+        "finishedAt": "2026-10-14T01:51:09Z"
+      }
+    }
+  ],
+  "noOverlappingDangerousExecution": true
+}

@@ -1,0 +1,92 @@
+{
+  "candidateRevision": "1f30e19987dd456d40b5066ba366192a56d3fa64",
+  "scope": "actual 3 machines; 3-master 0-worker topology; no worker-side VIP path asserted",
+  "operations": [
+    {
+      "kind": "convert",
+      "ip": "172.16.131.208",
+      "role": "master",
+      "operation": "2d5068fb-3bcd-4dc7-b31f-561ce87a8a99",
+      "phase": "Succeeded",
+      "reason": null,
+      "masters": 3,
+      "workers": 0,
+      "originalPackagePlanUnchanged": true,
+      "tasks": [
+        {
+          "name": "task-21007bec0720c2fafdbe6f6598ee5c4e",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "7f2ead79-c572-49af-8e1e-82bc538613fb"
+        },
+        {
+          "name": "task-25a022d3e78d03f3953b21ab9f12da1d",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "9b500f3e-9c4d-4e87-b327-628eda9e53c9"
+        },
+        {
+          "name": "task-73f9950a8512858e186a3bb9c06b933d",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "d22a31db-29ac-40aa-b25f-69ea9ede9af8"
+        },
+        {
+          "name": "task-7fe14a1350ca0adf606c652a8f718c2b",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "81e0a9eb-36bd-4af6-9ef8-3832685cbb46"
+        },
+        {
+          "name": "task-be5d3c67223e655c38e63f53a0dc7255",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "2e7e9129-510a-4bed-bf6e-2a3bf2d10b19"
+        },
+        {
+          "name": "task-d4d712c5bc4531fd6e4e8089f4a34361",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "d5a550fa-3096-490e-af4c-fd138145f46d"
+        }
+      ],
+      "etcdMembers": [
+        {
+          "name": "lixd-dev-3",
+          "peerURLs": [
+            "https://172.16.131.146:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-4",
+          "peerURLs": [
+            "https://172.16.131.230:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-2",
+          "peerURLs": [
+            "https://172.16.131.208:2380"
+          ]
+        }
+      ],
+      "etcdEndpointsHealth": [
+        {
+          "endpoint": "https://172.16.131.146:2379",
+          "health": true,
+          "took": "25.238616ms"
+        },
+        {
+          "endpoint": "https://172.16.131.230:2379",
+          "health": true,
+          "took": "30.508229ms"
+        },
+        {
+          "endpoint": "https://172.16.131.208:2379",
+          "health": true,
+          "took": "38.9015ms"
+        }
+      ]
+    }
+  ]
+}

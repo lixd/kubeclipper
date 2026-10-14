@@ -1,0 +1,94 @@
+{
+  "candidateRevision": "1f30e19987dd456d40b5066ba366192a56d3fa64",
+  "checks": [
+    {
+      "check": "kc-server single outage surviving API real write 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "kc-server single outage surviving API real write 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "kc-server outage Console 172.16.131.208",
+      "pass": true,
+      "httpStatus": "200"
+    },
+    {
+      "check": "kc-server outage Console 172.16.131.146",
+      "pass": true,
+      "httpStatus": "200"
+    },
+    {
+      "check": "kc-server restored",
+      "pass": true
+    },
+    {
+      "check": "kc-etcd single outage surviving API real write 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "kc-etcd single outage surviving API real write 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "kc-etcd outage Console 172.16.131.208",
+      "pass": true,
+      "httpStatus": "200"
+    },
+    {
+      "check": "kc-etcd outage Console 172.16.131.146",
+      "pass": true,
+      "httpStatus": "200"
+    },
+    {
+      "check": "kc-etcd restored",
+      "pass": true
+    },
+    {
+      "check": "rolling etcd restart real write 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "rolling Server restart real write 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "rolling etcd restart real write 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "rolling Server restart real write 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "rolling etcd restart real write 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "rolling Server restart real write 172.16.131.230",
+      "pass": true
+    },
+    {
+      "check": "cold start Server before etcd does not fake writable readiness",
+      "pass": true,
+      "unavailable": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "check": "cold etcd restored Server actual write 172.16.131.208",
+      "pass": true
+    },
+    {
+      "check": "cold etcd restored Server actual write 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "cold etcd restored Server actual write 172.16.131.230",
+      "pass": true
+    }
+  ]
+}

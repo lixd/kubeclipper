@@ -1,0 +1,226 @@
+{
+  "backup": "r46-minimal-r46-fs-manual-tq9nj7",
+  "clusterPhase": "Running",
+  "afterBackupConfigMapRemovedByEtcdRestore": true,
+  "nodesReady": true,
+  "addonsReady": true,
+  "podStatuses": [
+    {
+      "namespace": "calico-apiserver",
+      "name": "calico-apiserver-7b48dcf44b-ch6px",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "calico-apiserver",
+      "name": "calico-apiserver-7b48dcf44b-kw25n",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "calico-system",
+      "name": "calico-kube-controllers-566f5dbd8d-5lbjs",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "calico-system",
+      "name": "calico-node-hl2qp",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "calico-system",
+      "name": "calico-node-xhsxm",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "calico-system",
+      "name": "calico-typha-66bc4dccbc-vsdz4",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "calico-system",
+      "name": "csi-node-driver-xntr5",
+      "phase": "Running",
+      "ready": [
+        true,
+        true
+      ]
+    },
+    {
+      "namespace": "calico-system",
+      "name": "csi-node-driver-xs9n2",
+      "phase": "Running",
+      "ready": [
+        true,
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "coredns-66485ff84c-2d2sj",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "coredns-66485ff84c-8hshk",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "csi-nfs-controller-79d48d7964-64nk9",
+      "phase": "Running",
+      "ready": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "csi-nfs-node-qlgn8",
+      "phase": "Running",
+      "ready": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "csi-nfs-node-zgz2d",
+      "phase": "Running",
+      "ready": [
+        true,
+        true,
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "etcd-lixd-dev-3",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kc-kubectl-6cbfbd9f4b-cbskp",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-apiserver-lixd-dev-3",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-controller-manager-lixd-dev-3",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-proxy-6nw4s",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-proxy-m2wtw",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "kube-system",
+      "name": "kube-scheduler-lixd-dev-3",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "metallb-system",
+      "name": "controller-64cf6dbb5-tbdk2",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "metallb-system",
+      "name": "speaker-qvxkd",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "r46-validation",
+      "name": "client",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "r46-validation",
+      "name": "nfs-write",
+      "phase": "Succeeded",
+      "ready": [
+        false
+      ]
+    },
+    {
+      "namespace": "r46-validation",
+      "name": "server",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    },
+    {
+      "namespace": "tigera-operator",
+      "name": "tigera-operator-55c8c4f454-jrpl8",
+      "phase": "Running",
+      "ready": [
+        true
+      ]
+    }
+  ]
+}

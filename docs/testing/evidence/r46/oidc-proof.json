@@ -1,0 +1,60 @@
+{
+  "case": "7-01",
+  "realIdP": "Dex v2.46.0",
+  "idpScope": "isolated loopback HTTP; production IdP TLS not asserted",
+  "kcTLS": "real CA verification; Bearer requests have no administrator client certificate",
+  "serverBinarySHA256": "19391bc127a01a8e0cc9d122acf7562e8d7022cba0d74e147f2174356269d749",
+  "checks": [
+    {
+      "check": "independent KC password login ready",
+      "pass": true
+    },
+    {
+      "check": "wrong IdP password keeps authentication form and issues no code",
+      "pass": true,
+      "httpStatus": 401
+    },
+    {
+      "check": "real authorization code exchanged by KC callback",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "configured access token TTL returned",
+      "pass": true,
+      "expiresIn": 15
+    },
+    {
+      "check": "OIDC Bearer authenticates self API without admin certificate",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "authorization code replay rejected",
+      "pass": true,
+      "httpStatus": 401
+    },
+    {
+      "check": "real external identity automatically mapped to KC user",
+      "pass": true,
+      "mappedUsername": "r46_oidc_user",
+      "emailMatched": true
+    },
+    {
+      "check": "expired token rejected after actual TTL",
+      "pass": true,
+      "httpStatus": 401,
+      "waitSeconds": 18
+    },
+    {
+      "check": "OIDC user logout accepted",
+      "pass": true,
+      "httpStatus": 200
+    },
+    {
+      "check": "same token rejected after logout",
+      "pass": true,
+      "httpStatus": 401
+    }
+  ]
+}

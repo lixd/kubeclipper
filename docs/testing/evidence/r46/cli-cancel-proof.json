@@ -1,0 +1,27 @@
+{
+  "status": {
+    "phase": "Canceled",
+    "reason": "CancelledByRequest",
+    "message": "operation canceled; running tasks finished",
+    "deadline": "2026-10-14T02:20:53Z",
+    "startedAt": "2026-10-14T02:18:53Z",
+    "finishedAt": "2026-10-14T02:19:05Z"
+  },
+  "runningTaskAllowedToFinish": true,
+  "laterTaskNotCreated": true,
+  "laterSideEffectAbsent": true,
+  "tasks": [
+    {
+      "name": "task-6b718b56f7bf7f65a067726e0cf0b957",
+      "stepID": "running",
+      "status": {
+        "phase": "Succeeded",
+        "result": {
+          "outputsRedacted": true
+        },
+        "startedAt": "2026-10-14T02:18:53Z",
+        "finishedAt": "2026-10-14T02:19:05Z"
+      }
+    }
+  ]
+}

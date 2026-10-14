@@ -1,0 +1,24 @@
+{
+  "platformCandidateRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "clusterCreatedOnRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "cluster": "r46-v209-final-create",
+  "normalDeleteRequestHTTPStatus": 200,
+  "observedOperation": "b497c0cc-aabc-4c08-aea0-e44baea5d095",
+  "lastObservedPhase": "Succeeded",
+  "clusterFinalHTTPStatus": 404,
+  "hostCleanup": [
+    {
+      "host": "172.16.131.208",
+      "KubernetesEtcdKubeletAndWorkerVIPClean": true
+    },
+    {
+      "host": "172.16.131.146",
+      "KubernetesEtcdKubeletAndWorkerVIPClean": true
+    },
+    {
+      "host": "172.16.131.230",
+      "KubernetesEtcdKubeletAndWorkerVIPClean": true
+    }
+  ],
+  "completionBasis": "actual Cluster404 and all host cleanup; no fabricated terminal Succeeded if garbage collection outpaces polling"
+}

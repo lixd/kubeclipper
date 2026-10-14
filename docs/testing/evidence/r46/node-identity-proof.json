@@ -1,0 +1,44 @@
+[
+  {
+    "check": "real Agent certificate reads own Node",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  },
+  {
+    "check": "real Agent cannot read foreign Node",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "check": "real Agent cannot register foreign identity",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "check": "real Agent cannot update foreign Node status",
+    "status": 403,
+    "expected": 403,
+    "pass": true
+  },
+  {
+    "check": "same Agent mismatched UID rejected",
+    "status": 409,
+    "expected": 409,
+    "pass": true
+  },
+  {
+    "check": "same Agent stale RV rejected",
+    "status": 409,
+    "expected": 409,
+    "pass": true
+  },
+  {
+    "check": "same Agent own identical status CAS accepted",
+    "status": 200,
+    "expected": 200,
+    "pass": true
+  }
+]

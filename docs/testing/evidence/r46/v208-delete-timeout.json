@@ -1,0 +1,28 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "cluster": "r46-v208-online",
+  "checks": [
+    {
+      "check": "actual offline Agent delete deadline produces TerminateFailed",
+      "pass": true,
+      "operation": "a55e9798-bceb-4c3a-a5d2-72833abd4f07",
+      "operationPhase": "TimedOut",
+      "clusterPhase": "TerminateFailed",
+      "reason": "DeadlineExceeded",
+      "timeout": "3m0s"
+    },
+    {
+      "check": "formal same-UID DeleteCluster retry after Agent restore cleans cluster",
+      "pass": true,
+      "operation": "a55e9798-bceb-4c3a-a5d2-72833abd4f07",
+      "sameOperationUID": "ec95fed3-c609-4970-9c55-95bdbe3b63b3",
+      "observedRetryGeneration": 1,
+      "lastObservedPhase": "Running",
+      "clusterHTTPStatus": 404
+    },
+    {
+      "check": "actual node Kubernetes and etcd cleanup",
+      "pass": true
+    }
+  ]
+}

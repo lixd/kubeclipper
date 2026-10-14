@@ -1,0 +1,49 @@
+[
+  {
+    "check": "wrong S3 credentials fail clearly",
+    "pass": true,
+    "detail": {
+      "backup": "r46-minimal-r46-s3-bad-w25b2m",
+      "status": "error"
+    }
+  },
+  {
+    "check": "real MinIO S3 backup available",
+    "pass": true,
+    "detail": {
+      "backup": "r46-minimal-r46-s3-good-jcs8qj",
+      "status": {
+        "kubernetesVersion": "v1.35.8",
+        "fileName": "r46-minimal-r46-s3-good-jcs8qj",
+        "backupFileSize": 8663072,
+        "backupFileMD5": "61901cfe05095b12d151d9b1ca082745",
+        "status": "available"
+      }
+    }
+  },
+  {
+    "check": "actual S3 stored snapshot object",
+    "pass": true,
+    "detail": "r46-minimal-r46-s3-good-jcs8qj 8663072\nobjects=1\n"
+  },
+  {
+    "check": "S3 actual etcd restore marker rollback",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "backup delete submitted r46-minimal-r46-s3-good-jcs8qj",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "backup delete submitted r46-minimal-r46-s3-bad-w25b2m",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "S3 delete removes actual bucket object and API record",
+    "pass": true,
+    "detail": "objects=0\n"
+  }
+]

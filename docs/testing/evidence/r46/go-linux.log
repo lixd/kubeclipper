@@ -1,0 +1,225 @@
+go: downloading github.com/golang/mock v1.5.0
+go: downloading github.com/stretchr/testify v1.7.0
+go: downloading github.com/pmezard/go-difflib v1.0.0
+go: downloading github.com/go-openapi/strfmt v0.19.5
+go: downloading github.com/go-openapi/loads v0.19.5
+go: downloading github.com/go-openapi/validate v0.19.8
+go: downloading github.com/bmatcuk/doublestar/v4 v4.8.1
+go: downloading github.com/go-openapi/analysis v0.19.10
+go: downloading github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
+go: downloading github.com/go-openapi/errors v0.19.4
+go: downloading go.mongodb.org/mongo-driver v1.3.0
+go: downloading github.com/go-openapi/runtime v0.19.15
+go: downloading github.com/go-stack/stack v1.8.0
+ok  	github.com/kubeclipper/kubeclipper/pkg/agent	0.028s
+ok  	github.com/kubeclipper/kubeclipper/pkg/agent/config	0.045s
+ok  	github.com/kubeclipper/kubeclipper/pkg/agent/operationv2	0.545s
+?   	github.com/kubeclipper/kubeclipper/pkg/apis/auditing/v1	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/apis/config/v1	0.300s
+ok  	github.com/kubeclipper/kubeclipper/pkg/apis/core/v1	0.079s
+ok  	github.com/kubeclipper/kubeclipper/pkg/apis/iam/v1	0.038s
+ok  	github.com/kubeclipper/kubeclipper/pkg/apis/oauth	0.031s
+ok  	github.com/kubeclipper/kubeclipper/pkg/apis/operations/v1alpha1	0.029s
+?   	github.com/kubeclipper/kubeclipper/pkg/apis/proxy	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/auditing	0.010s
+?   	github.com/kubeclipper/kubeclipper/pkg/auditing/option	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/auth	0.021s
+?   	github.com/kubeclipper/kubeclipper/pkg/authentication/identityprovider	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/authentication/identityprovider/oidc	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/authentication/mfa	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/mfa/sms	0.016s
+?   	github.com/kubeclipper/kubeclipper/pkg/authentication/oauth	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/options	0.011s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/request/anonymous	0.004s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/request/bearertoken	0.020s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/request/internaltoken	0.005s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/request/path	0.004s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/request/wstoken	0.011s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/request/x509	0.011s
+ok  	github.com/kubeclipper/kubeclipper/pkg/authentication/token	0.007s
+?   	github.com/kubeclipper/kubeclipper/pkg/authentication/user	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/authorization/authorizer	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/authorization/rbac	0.174s
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/clean	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/cluster	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/completion	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/config	0.029s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/create	0.100s
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/delete	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/deliverypolicy	0.125s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/deploy	10.143s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/doctor	0.119s
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/drain	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/get	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/join	0.101s
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/logger	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/login	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/operation	0.079s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/operation/tui	0.075s
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/printer	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/registry	0.033s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/registry/client	0.014s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/resource	0.069s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/set	0.095s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/status	0.217s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/sudo	0.029s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/upgrade	0.126s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/utils	0.151s
+?   	github.com/kubeclipper/kubeclipper/pkg/cli/version	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/client/clientrest	0.006s
+?   	github.com/kubeclipper/kubeclipper/pkg/client/clientset	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/clientset/versioned/scheme	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/client/clientset/versioned/typed/core/v1	0.019s
+?   	github.com/kubeclipper/kubeclipper/pkg/client/clientset/versioned/typed/iam/v1	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/client/clientset/versioned/typed/operations/v1alpha1	0.017s
+?   	github.com/kubeclipper/kubeclipper/pkg/client/clientset/versioned/typed/operations/v1alpha1/fake	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers/core	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers/core/v1	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers/iam	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers/iam/v1	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers/operations	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/informers/operations/v1alpha1	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/internal	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/lister/core/v1	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/lister/iam/v1	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/client/lister/operations/v1alpha1	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/clustermanage	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/clustermanage/kubeadm	0.804s
+ok  	github.com/kubeclipper/kubeclipper/pkg/clusteroperation	0.057s
+ok  	github.com/kubeclipper/kubeclipper/pkg/component	0.008s
+?   	github.com/kubeclipper/kubeclipper/pkg/component/common	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/component/metallb	0.044s
+ok  	github.com/kubeclipper/kubeclipper/pkg/component/nfscsi	0.031s
+ok  	github.com/kubeclipper/kubeclipper/pkg/component/utils	1.304s
+ok  	github.com/kubeclipper/kubeclipper/pkg/component/validation	0.006s
+?   	github.com/kubeclipper/kubeclipper/pkg/constatns	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/backupcontroller	0.063s
+?   	github.com/kubeclipper/kubeclipper/pkg/controller/cloudprovidercontroller	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/clustercontroller	0.059s
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/cronbackupcontroller	0.088s
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/dnscontroller	0.038s
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/nodecontroller	0.033s
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/operationv2	0.056s
+?   	github.com/kubeclipper/kubeclipper/pkg/controller/regioncontroller	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller/tokencontroller	0.068s
+?   	github.com/kubeclipper/kubeclipper/pkg/controller/utils	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/client	0.041s
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/controller	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/event	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/handler	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/manager	0.072s
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/predicate	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/ratelimiter	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/reconcile	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/source	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/controller-runtime/source/internal	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/apis	0.009s
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/bootstrap	0.013s
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher	0.212s
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/indexer	0.036s
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/publisher	0.304s
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/registry	0.121s
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest	0.184s
+ok  	github.com/kubeclipper/kubeclipper/pkg/errors	0.005s
+?   	github.com/kubeclipper/kubeclipper/pkg/healthz	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/leaderelect	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/logger	0.006s
+?   	github.com/kubeclipper/kubeclipper/pkg/models	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/models/cluster	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/models/core	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/models/iam	0.013s
+?   	github.com/kubeclipper/kubeclipper/pkg/models/iam/mock	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/models/lease	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/models/lease/mock	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/models/operationv2	0.008s
+ok  	github.com/kubeclipper/kubeclipper/pkg/models/platform	0.009s
+?   	github.com/kubeclipper/kubeclipper/pkg/models/platform/mock	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/nodestatus	0.034s
+ok  	github.com/kubeclipper/kubeclipper/pkg/operationv2	0.011s
+ok  	github.com/kubeclipper/kubeclipper/pkg/oplog	0.010s
+ok  	github.com/kubeclipper/kubeclipper/pkg/platformstatus	0.005s
+ok  	github.com/kubeclipper/kubeclipper/pkg/query	0.005s
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme	0.006s
+?   	github.com/kubeclipper/kubeclipper/pkg/scheme/common	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/scheme/core	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1	0.006s
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/cni	0.060s
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/cri	0.068s
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s	2.080s
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation	0.009s
+?   	github.com/kubeclipper/kubeclipper/pkg/scheme/iam	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/scheme/iam/v1	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/iam/validation	0.006s
+?   	github.com/kubeclipper/kubeclipper/pkg/scheme/operations	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/scheme/operations/validation	0.007s
+ok  	github.com/kubeclipper/kubeclipper/pkg/server	0.127s
+?   	github.com/kubeclipper/kubeclipper/pkg/server/config	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/filters	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/backup	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/backuppoint	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/cloudprovider	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/cluster	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/configmap	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/cronbackup	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/domain	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/event	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/globalrole	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/globalrolebinding	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/lease	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/loginrecord	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/node	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/server/registry/operationv2	0.066s
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/platformsetting	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/recovery	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/region	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/registry	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/template	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/token	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/server/registry/user	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/server/request	0.009s
+ok  	github.com/kubeclipper/kubeclipper/pkg/server/restplus	0.016s
+?   	github.com/kubeclipper/kubeclipper/pkg/server/runtime	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/service	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/simple/backupstore	0.054s
+ok  	github.com/kubeclipper/kubeclipper/pkg/simple/client/cache	0.019s
+?   	github.com/kubeclipper/kubeclipper/pkg/simple/client/etcd	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/simple/client/kc	18.892s
+?   	github.com/kubeclipper/kubeclipper/pkg/simple/downloader	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/simple/generic	[no test files]
+?   	github.com/kubeclipper/kubeclipper/pkg/simple/imageproxy	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/autodetection	0.010s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/certs	0.443s
+?   	github.com/kubeclipper/kubeclipper/pkg/utils/cgroups	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil	5.536s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/fileutil	0.006s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/hashutil	0.007s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/httputil	0.064s
+?   	github.com/kubeclipper/kubeclipper/pkg/utils/initsystem	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/ipvsutil	0.003s
+?   	github.com/kubeclipper/kubeclipper/pkg/utils/metrics	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/netutil	0.018s
+?   	github.com/kubeclipper/kubeclipper/pkg/utils/pointer	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/preflight	0.033s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/random	0.004s [no tests to run]
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/sliceutil	0.005s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/sshutils	0.162s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/strutil	0.009s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/systemctl	0.038s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/sysutil	0.014s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/template	0.010s
+ok  	github.com/kubeclipper/kubeclipper/pkg/utils/wssstream	0.006s
+?   	github.com/kubeclipper/kubeclipper/tools/doc-gen	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/helm-oci-publish	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/kcctldocs-gen	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/kcctldocs-gen/generators	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/licfmt	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/oci-migrate	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/oci-publish	[no test files]
+?   	github.com/kubeclipper/kubeclipper/tools/oci-verify	[no test files]
+ok  	github.com/kubeclipper/kubeclipper/tools/release-policy-verify	0.010s

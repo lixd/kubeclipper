@@ -1,0 +1,4 @@
+[2026-10-14T01:27:45Z][INFO] use default k8s version v1.35.8
+[2026-10-14T01:27:46Z][INFO] use default calico version v3.29.6
+Docker CRI is not supported, use containerd (the Docker CRI entry was removed; dockershim has no supported Kubernetes release)
+See 'kcctl create cluster -h' for help and examples

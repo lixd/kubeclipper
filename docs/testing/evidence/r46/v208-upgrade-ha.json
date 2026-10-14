@@ -1,0 +1,70 @@
+{
+  "candidateRevision": "3a4b574724b934bf81f04be9819b683e386a0745",
+  "realNativeUpgradeExit": 0,
+  "doctorExit": 0,
+  "binaries": [
+    {
+      "host": "172.16.131.208",
+      "binary": "kcctl",
+      "expectedSHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+      "actualSHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.208",
+      "binary": "kubeclipper-server",
+      "expectedSHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+      "actualSHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.208",
+      "binary": "kubeclipper-agent",
+      "expectedSHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547",
+      "actualSHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.146",
+      "binary": "kcctl",
+      "expectedSHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+      "actualSHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.146",
+      "binary": "kubeclipper-server",
+      "expectedSHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+      "actualSHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.146",
+      "binary": "kubeclipper-agent",
+      "expectedSHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547",
+      "actualSHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.230",
+      "binary": "kcctl",
+      "expectedSHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+      "actualSHA256": "da5d57766a1c3cb9985eac76ff7b13add0d6ad88cdfeef6a3e5bceff6802cd10",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.230",
+      "binary": "kubeclipper-server",
+      "expectedSHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+      "actualSHA256": "92a08e88be449e7b924f231b03e9560bb4d80d3f86a7d8c3ca07e30df3d963e3",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.230",
+      "binary": "kubeclipper-agent",
+      "expectedSHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547",
+      "actualSHA256": "a5fdc58f39702a697dd667517c43ca915098a4d6b6ca3caadae0593354142547",
+      "pass": true
+    }
+  ]
+}

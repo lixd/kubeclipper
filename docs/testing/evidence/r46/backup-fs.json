@@ -1,0 +1,44 @@
+[
+  {
+    "check": "invalid backuppoint storage type rejected",
+    "pass": true,
+    "detail": {
+      "status": 400,
+      "body": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"unsupported backup storage type \\\"invalid\\\", only \\\"fs\\\" and \\\"s3\\\" are supported\"\n}"
+    }
+  },
+  {
+    "check": "FS backuppoint create",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "manual FS backup available after real prerequisite and operation retry",
+    "pass": true,
+    "detail": {
+      "kubernetesVersion": "v1.35.8",
+      "fileName": "r46-minimal-r46-fs-manual-tq9nj7",
+      "backupFileSize": 8663072,
+      "backupFileMD5": "a15e6294b7b0b5ab21d7d1283c325a6e",
+      "status": "available"
+    }
+  },
+  {
+    "check": "cluster delete blocked with existing backup",
+    "pass": true,
+    "detail": {
+      "status": 400,
+      "body": "{\n \"code\": 400,\n \"message\": \"Bad request\",\n \"reason\": \"before deleting the cluster, please delete the cluster backup file first\"\n}"
+    }
+  },
+  {
+    "check": "real etcd restore rolls marker back",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "check": "restored nodes Ready",
+    "pass": true,
+    "detail": null
+  }
+]

@@ -1,0 +1,1 @@
+Oct 14 02:07:03 lixd-dev-3 kubeclipper-agent[1934254]: {"level":"warn","ts":"2026-10-14T02:07:03Z","msg":"node lixd-dev-4 is not ready, skipping drain and deleting the node object"}

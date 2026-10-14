@@ -1,0 +1,22 @@
+[
+  {
+    "check": "actual occupied 6443 fails kubeadm preflight",
+    "pass": true,
+    "operation": "4f08657c-7810-4b2e-825c-cf84e15d2f62",
+    "phase": "Failed",
+    "error": "[ERROR Port-6443]: Port 6443 is in use"
+  },
+  {
+    "check": "real create retry after releasing port",
+    "pass": true,
+    "status": {
+      "phase": "Succeeded",
+      "observedRetryGeneration": 1,
+      "deadline": "2026-10-13T16:32:27Z",
+      "startedAt": "2026-10-13T15:02:27Z",
+      "finishedAt": "2026-10-13T15:04:57Z"
+    },
+    "phase": "Running",
+    "planUnchanged": true
+  }
+]
