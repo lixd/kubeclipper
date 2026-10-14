@@ -285,7 +285,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 6-07 | Registry sync 与目标仓库消费 | ✅ | R2/R3 真实同步并用于部署；每个发布候选仍需保存证据 **R42 再补测（2026-10-13）**：7 个制品同步到隔离 5103 仓库，真实 Agent extension Operation 按固定 digest 从目标仓库消费成功；重复 sync、缓存及目标冲突验证通过。全发布制品资格检查另见 6-08。 详见 R42 台账与续测报告。 |
 | 6-08 | 完整 qualification 发布 | ✅ | R43 当前候选b4a5886e，qualification run38364805938成功，manifest SHA256 d567fe021cbd3bb1a69daf1142db62480484d6ca5a14b4985a3259aebd4eb2e3。同revision的干净CI构建Server/Agent/kcctl完成fork GHCR直装、隔离仓库加入Agent、v1.37.0建群；CreateCluster47051181及SyncKubeConfig Succeeded，14系统Pod Running/0重启；Addon及镜像digest验证、正常卸载/删群完成。arm64运行未测；发布限fork候选。 详见 [R43 报告](status-2026-10-13-r43.md)。 |
 | 6-09 | linux/amd64 主路径 | ✅ | 当前主要实测架构；覆盖平台部署、建群、升级和删除 |
-| 6-10 | linux/arm64 主路径 | ⏸️ | 有构建和历史使用记录，缺当前 OCI 基线整轮证据。**R38 复核：与 6-06 同因双缺失**——无 arm64 真机，且 5003 当前制品全部 amd64-only（见 6-06 行实测），无法在本环境补齐整轮证据；代码/CI 的 arm64 构建与多架构索引逻辑已具备 **R42 续测（2026-10-13）**：已拿到真实 arm64 制品；仍无 linux/arm64 原生节点。需真机/原生 VM 后部署、建群及网络验证。 最新逐项状态见 [R42 台账](r42-case-ledger.md)。 |
+| 6-10 | linux/arm64 主路径 | ➖ | **R46（2026-10-14，用户确认）范围外**：本轮仅验收现有 amd64 环境，原生 ARM64 主路径未测；arm64 构建/制品验证继续计入 6-06。以下为历史记录。 有构建和历史使用记录，缺当前 OCI 基线整轮证据。**R38 复核：与 6-06 同因双缺失**——无 arm64 真机，且 5003 当前制品全部 amd64-only（见 6-06 行实测），无法在本环境补齐整轮证据；代码/CI 的 arm64 构建与多架构索引逻辑已具备 **R42 续测（2026-10-13）**：已拿到真实 arm64 制品；仍无 linux/arm64 原生节点。需真机/原生 VM 后部署、建群及网络验证。 最新逐项状态见 [R42 台账](r42-case-ledger.md)。 |
 | 6-11 | Tier 1 OS 矩阵 | ✅ | **R40（2026-10-11，用户裁定）清单固定**：Tier 1 = **Ubuntu 24.04（amd64）**，不承诺其他 OS（环境亦无其他 OS 机器）。矩阵即该一款 OS 的完整生命周期——三台真机（dev-2/3/4）均为 Ubuntu 24.04.3 LTS，R1-R40 全部真机验证都发生在该 OS 上：平台本体重 deploy（R17）、40 轮数十个集群 deploy→建群→Running→升级→备份恢复→删除→doctor 全链路、负向矩阵，即矩阵已逐项跑完并全绿，故转 ✅。若未来清单扩充其他 OS，再按各款补跑部署→建群→删除并回填本行。 |
 | 6-12 | Docker CRI 废弃入口清理 | ✅ | **R19（2026-09-24，§12.15）已执行**：CLI 侧 `--cri docker` 落入显式拒绝（`Docker CRI is not supported, use containerd`，create_cluster.go）；服务端 `AllowedCRIType` 仅 containerd、`CRIDocker` 常量与 enum 已删、createClusterCheck 前置拒绝；`pkg/scheme/core/v1/cri/docker.go` 整文件删除；`scripts/migrate-legacy-packages-to-oci.sh` 同步移除。Docker CRI 不安排 E2E（已无入口） |
 | 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | ✅ | **R31**：Console fork commit `50f1a4a8` 已部署到 dev-2/3/4，三个 `kc-console` 均 active、HTTP `/`=200，`version.json` 均为 `fix/console-retired-addon-r29` 且 `add_workload=true`；三个 dist 均无 `nfs-provisioner` 标识。平台侧 legacy server/tar downloader 与旧包清理证据见 R28/R30。本项只验证退役入口清除；完整 Console UI E2E 仍是 4-07 |
@@ -319,7 +319,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 - `1.1-01` 在线部署允许 fork GHCR；正常系统根证书校验一并覆盖。`1.1-10` 合并至本项，不再要求独立搭建公共 CA 仓库。
 - `2.1-03` 改为3 master、0 worker，验收三个控制面/etcd成员及多数派故障恢复；独立 worker VIP 不在此调整范围内。
 - `4-11` 可以使用 KC 创建的 kubeadm 集群，接入另一独立平台完成 precheck、纳管、sync、解除纳管，原集群继续运行。
-- 当前修复仅发布到 fork，通过同 source revision 的 qualification；arm64 继续构建/制品校验，原生运行 `6-10` 保留未测。
+- 当前修复仅发布到 fork，通过同 source revision 的 qualification；arm64 继续构建/制品校验，原生运行 `6-10` 保留未测，并按 2026-10-14 用户确认列为范围外。
 
 ### R46 多网卡 Calico 前置条件
 

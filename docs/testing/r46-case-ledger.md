@@ -2,7 +2,7 @@
 
 初始候选：`7250c886dcb28f46a7c59fc88c3407fe61be587d`；复验过程中逐项修复并构建新候选，证据分别记录实际 revision，不将全表声明为同一 SHA。当前修复候选为 fork v2.0.9（0c37f1d7），完整 qualification、真机验收与 fork 稳定发布已通过。每条结果来自本轮执行，历史结果不计入。
 
-当前汇总：通过 190、范围外 3、阻塞 1，总计 194。
+当前汇总：通过 190、范围外 4、阻塞 0，总计 194。
 
 | Case | 功能 | R46 状态 | 本轮证据 |
 |---|---|---|---|
@@ -188,12 +188,12 @@
 | 6-02 | bootstrap、Kubernetes、CRI、CNI、extension、addon OCI 制品完整 | 通过 | R46 支持策略与资源声明校验成功；同revision b985 qualification成功，manifest包含110项package/chart/runtime/bootstrap且digest固定，CI逐项验证digest/provenance。release-proof-b985.json、policy-inventory-verify.log。 |
 | 6-03 | Release Manifest 包含 package、chart、runtime image 和 bootstrap | 通过 | R46 支持策略与资源声明校验成功；同revision b985 qualification成功，manifest包含110项package/chart/runtime/bootstrap且digest固定，CI逐项验证digest/provenance。release-proof-b985.json、policy-inventory-verify.log。 |
 | 6-04 | digest、source、revision、version provenance 正确 | 通过 | R46 支持策略与资源声明校验成功；同revision b985 qualification成功，manifest包含110项package/chart/runtime/bootstrap且digest固定，CI逐项验证digest/provenance。release-proof-b985.json、policy-inventory-verify.log。 |
-| 6-05 | 制品不可变性与重复发布保护 | 通过 | R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10阻塞。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。 |
-| 6-06 | amd64/arm64 Manifest 与架构过滤 | 通过 | R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10阻塞。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。 |
+| 6-05 | 制品不可变性与重复发布保护 | 通过 | R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10范围外（用户确认，原生运行未测）。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。 |
+| 6-06 | amd64/arm64 Manifest 与架构过滤 | 通过 | R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10范围外（用户确认，原生运行未测）。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。 |
 | 6-07 | Registry sync 与目标仓库消费 | 通过 | R46完整GHCR物料61项同步至本地；重复同步0复制/61跳过。自签CA+认证HTTPS严格验证部署230 Server/146 Agent；key接入208，非root/password/sudo/SSH2226接入230；doctor19通过/0警告/0失败。sync1/2-retry.log、deploy-tls.log、join-key.log、join-password.log。 |
 | 6-08 | 完整 qualification 发布 | 通过 | 当前d2532cf7 qualification38496629970/go-test/AIO/offline均成功，forkRelease已发布并真机--version升级同CI制品；stable-tag release38498033932缺当前候选acceptance record被门禁拒绝。继续当前候选E2E后写准确record并复跑，不借旧记录。；当前最终候选已推进到 v2.0.9 / 0c37f1d7：修复离线 upload-certs 公网版本探测导致 10 秒步骤被终止。新增测试先失败后通过；真实同 UID 提升重试已用精确源码本地构建 Agent 成功，来源明确标记非 CI 制品。当前 revision 的完整 qualification / AIO / 全 Go 测试及最终 CI 制品真机验收继续中，不能复用 v2.0.8 的 qualification 结论。；当前 0c37f1d7 / v2.0.9 完整 qualification38529958987、Go/AIO/offline CI成功；9个当前CI二进制hash匹配、离线角色转换/移除重加/最终候选新建删除真实通过；fork stable workflow38534627843全部成功，实际 --version --release-base-url 消费成功，发布清单checksum等于原资格清单。范围为Tier1 Ubuntu24 amd64，原生ARM不借用制品检查算通过。 |
 | 6-09 | linux/amd64 主路径 | 通过 | R46 fork-version-upgrade-2.log/fork-version-live-proof.json：真实fork v2.0.4 Release+checksum、--release-base-url完整upgrade all exit0；Server/3Agent/kcctl SHA等于d2532cf7 CI，console07f527e/r46.3，doctor19/0/0。Ubuntu24.04amd64当前唯一Tier1。真实Console7个JS资源与componentmeta均无退役NFS，CLI旧static-server旗标不存在。完整qualification成功，stable-tag legacy release job另查，未混为同一CI结果。 |
-| 6-10 | linux/arm64 主路径 | 阻塞 | 本轮三机 uname -m 均 x86_64；没有原生 ARM64 真机或原生 VM，制品检查另计6-06。 |
+| 6-10 | linux/arm64 主路径 | 范围外 | 本轮三机 uname -m 均 x86_64；没有原生 ARM64 真机或原生 VM，制品检查另计6-06。；2026-10-14 用户确认改为范围外：本轮仅验收现有 amd64 环境；原生 ARM64 主路径未执行，不计为通过，制品校验结果保留在6-06。 |
 | 6-11 | Tier 1 OS 矩阵 | 通过 | R46 fork-version-upgrade-2.log/fork-version-live-proof.json：真实fork v2.0.4 Release+checksum、--release-base-url完整upgrade all exit0；Server/3Agent/kcctl SHA等于d2532cf7 CI，console07f527e/r46.3，doctor19/0/0。Ubuntu24.04amd64当前唯一Tier1。真实Console7个JS资源与componentmeta均无退役NFS，CLI旧static-server旗标不存在。完整qualification成功，stable-tag legacy release job另查，未混为同一CI结果。 |
 | 6-12 | Docker CRI 废弃入口清理 | 通过 | R46 retired-entrypoints.json/retired-docker.log：真实 CLI 指定 docker/version 明确拒绝；真实 API dry-run 同样400 Docker CRI is not supported。 |
 | 6-13 | legacy static server 与 `nfs-provisioner` 不再暴露 | 通过 | R46 fork-version-upgrade-2.log/fork-version-live-proof.json：真实fork v2.0.4 Release+checksum、--release-base-url完整upgrade all exit0；Server/3Agent/kcctl SHA等于d2532cf7 CI，console07f527e/r46.3，doctor19/0/0。Ubuntu24.04amd64当前唯一Tier1。真实Console7个JS资源与componentmeta均无退役NFS，CLI旧static-server旗标不存在。完整qualification成功，stable-tag legacy release job另查，未混为同一CI结果。 |

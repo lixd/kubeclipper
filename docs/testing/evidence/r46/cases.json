@@ -1496,7 +1496,7 @@
     "name": "制品不可变性与重复发布保护",
     "status": "通过",
     "evidence": [
-      "R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10阻塞。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。"
+      "R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10范围外（用户确认，原生运行未测）。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。"
     ]
   },
   {
@@ -1504,7 +1504,7 @@
     "name": "amd64/arm64 Manifest 与架构过滤",
     "status": "通过",
     "evidence": [
-      "R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10阻塞。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。"
+      "R46 b985同版本制品向既有镜像仓库同步被明确target tag conflict拒绝，既有tag保持原digest；amd64与arm64 dry-run均严格过滤为61项；原生arm64执行另列6-10范围外（用户确认，原生运行未测）。tag-overwrite-refusal.log/arch-{amd64,arm64}-dry.log。"
     ]
   },
   {
@@ -1536,9 +1536,10 @@
   {
     "id": "6-10",
     "name": "linux/arm64 主路径",
-    "status": "阻塞",
+    "status": "范围外",
     "evidence": [
-      "本轮三机 uname -m 均 x86_64；没有原生 ARM64 真机或原生 VM，制品检查另计6-06。"
+      "本轮三机 uname -m 均 x86_64；没有原生 ARM64 真机或原生 VM，制品检查另计6-06。",
+      "2026-10-14 用户确认改为范围外：本轮仅验收现有 amd64 环境；原生 ARM64 主路径未执行，不计为通过，制品校验结果保留在6-06。"
     ]
   },
   {
