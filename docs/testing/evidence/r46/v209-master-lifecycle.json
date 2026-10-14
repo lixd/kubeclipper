@@ -1,0 +1,400 @@
+{
+  "candidateRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "scope": "actual 3 machines; 3-master 0-worker topology; no worker-side VIP path asserted",
+  "operations": [
+    {
+      "kind": "convert",
+      "ip": "172.16.131.208",
+      "role": "worker",
+      "operation": "16f2a6af-a5ee-4378-9961-a387b8b8932a",
+      "phase": "Succeeded",
+      "reason": null,
+      "masters": 2,
+      "workers": 1,
+      "originalPackagePlanUnchanged": true,
+      "tasks": [
+        {
+          "name": "task-22acab9b9fc32bcdb735650e36dfdc30",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "a3dff647-7f3a-49b7-812b-b6a299ce7c34"
+        },
+        {
+          "name": "task-50c449b90c943dafb842ef8554cf0e44",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "1ec450f9-d2b1-4d39-85b3-5c96558a599b"
+        },
+        {
+          "name": "task-632fc750e5f9412fe503ae1ea8d58f3b",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "767f9390-ae88-4c7a-8b32-638ce0a3801a"
+        },
+        {
+          "name": "task-67ff6a36d5e76a858817da3d9764d0d2",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "b1983571-c8cd-4fc5-b163-1d525dfb395f"
+        },
+        {
+          "name": "task-6e815b62fc745b4d87f72acf9633faaf",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "cf027712-d803-4891-a37b-9b61508b73f0"
+        },
+        {
+          "name": "task-728640f064f22b0ca9855e18ac8113d6",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "79330a2e-b1d9-4b68-a89b-dcd1ae0ccdeb"
+        },
+        {
+          "name": "task-8326d0a39676b99c6489ec7607e1c06c",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "ac0c7351-9e6d-4be5-a740-1ef946391045"
+        },
+        {
+          "name": "task-8740bbcd29672a1a78f5119a0a9587b7",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "fafd5d56-4090-450c-8d82-7fc0fce7e8e3"
+        },
+        {
+          "name": "task-916849d1b193f1a3dba7be4f2ff6dc24",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "9b64de23-c4d3-4dfe-a14d-9d1de2b8f6ea"
+        },
+        {
+          "name": "task-b674eb49e2f440c9946cf81c08fe3ce8",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "2f86074a-f34f-4ac5-bbd7-454d63079539"
+        },
+        {
+          "name": "task-b9f6a9806baf839b2411cce124878479",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "dacae847-af47-4beb-9be0-872d5641a064"
+        },
+        {
+          "name": "task-ea700ea90a75807aec15b17e829848a1",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "1ca3b331-43b7-43c6-b27f-e01b5c30111b"
+        },
+        {
+          "name": "task-fa358356aae17b31bb1c78af8eefe294",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "913fbdd8-f52e-4145-811a-3cb38b2acb5f"
+        }
+      ],
+      "businessPDBMinAvailable": 1,
+      "businessDeploymentReady": true,
+      "etcdMembers": [
+        {
+          "name": "lixd-dev-3",
+          "peerURLs": [
+            "https://172.16.131.146:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-4",
+          "peerURLs": [
+            "https://172.16.131.230:2380"
+          ]
+        }
+      ],
+      "etcdEndpointsHealth": [
+        {
+          "endpoint": "https://172.16.131.230:2379",
+          "health": true,
+          "took": "26.230278ms"
+        },
+        {
+          "endpoint": "https://172.16.131.146:2379",
+          "health": true,
+          "took": "26.087121ms"
+        }
+      ]
+    },
+    {
+      "kind": "convert",
+      "ip": "172.16.131.208",
+      "role": "master",
+      "operation": "06098bdc-a933-48c0-9a73-2a9a6b000d99",
+      "phase": "Succeeded",
+      "reason": null,
+      "masters": 3,
+      "workers": 0,
+      "originalPackagePlanUnchanged": true,
+      "tasks": [
+        {
+          "name": "task-012df364e75d1000b56940da63adf337",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "580073e1-1437-4df8-8279-de488ba69068"
+        },
+        {
+          "name": "task-2bceb35f13f3ac50c33a08e97899ca3b",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "c78926e3-aff5-4428-8c5d-3ac8b36ff505"
+        },
+        {
+          "name": "task-654304041db9695aa42ba3a4f099ecf3",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "94a9a96f-c9ab-455a-aa07-c89dfb537fba"
+        },
+        {
+          "name": "task-7a6ebdce9da88b6abb3d15d43764bfbf",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "3609f7fa-7c45-4f49-ad4f-29919fc1a8a0"
+        },
+        {
+          "name": "task-a5dbc9008f86f761e1a292147c4ca0cf",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "1d10274a-3d47-4fee-bb61-4a2d6aa86a6c"
+        },
+        {
+          "name": "task-ac0c36fd29fc6b091bd2902e395ca8f8",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "788c7d93-090e-44ab-9921-7e5c03719b03"
+        }
+      ],
+      "businessPDBMinAvailable": 1,
+      "businessDeploymentReady": true,
+      "etcdMembers": [
+        {
+          "name": "lixd-dev-3",
+          "peerURLs": [
+            "https://172.16.131.146:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-4",
+          "peerURLs": [
+            "https://172.16.131.230:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-2",
+          "peerURLs": [
+            "https://172.16.131.208:2380"
+          ]
+        }
+      ],
+      "etcdEndpointsHealth": [
+        {
+          "endpoint": "https://172.16.131.208:2379",
+          "health": true,
+          "took": "19.709116ms"
+        },
+        {
+          "endpoint": "https://172.16.131.230:2379",
+          "health": true,
+          "took": "32.658285ms"
+        },
+        {
+          "endpoint": "https://172.16.131.146:2379",
+          "health": true,
+          "took": "32.741152ms"
+        }
+      ]
+    },
+    {
+      "kind": "remove",
+      "ip": "172.16.131.208",
+      "role": null,
+      "operation": "9045ff9c-0a96-4ba5-aa1e-d9467d56d2b4",
+      "phase": "Succeeded",
+      "reason": null,
+      "masters": 2,
+      "workers": 0,
+      "originalPackagePlanUnchanged": true,
+      "tasks": [
+        {
+          "name": "task-063a004bc640ae69448ccde61be898f3",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "0da99db1-6dd5-4461-a930-49cefcb87679"
+        },
+        {
+          "name": "task-086e0e1ae13a0a11c821b64e62c051dd",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "231cc217-1408-4a51-b4ad-b18d8faf6d12"
+        },
+        {
+          "name": "task-1f06209d458049a16697e1b5b7a54fca",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "1f89ffe9-f6bd-4b78-9a55-910cab1a77e1"
+        },
+        {
+          "name": "task-46af9a67b99be37894b06b727f2194df",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "5d117793-91ad-4a96-9b12-d8a9dc41bd02"
+        },
+        {
+          "name": "task-8099ec175d5aae89c44bb363f393d050",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "ef70eec6-4c68-495f-967f-86c91a5afc37"
+        },
+        {
+          "name": "task-84ac5d453e0422c9aa47e4415f7d260d",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "6aa355d8-e568-45c3-980d-e1400ac469ca"
+        },
+        {
+          "name": "task-91d85790b47d9c7fb1fc2f5f0aba20b4",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "f55df071-613e-4ca5-b76e-4afaae5a5061"
+        },
+        {
+          "name": "task-bc5866362b9c1db8a448e9401ed17e65",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "affb1e0e-951b-4927-9517-bf6e86df9a3f"
+        },
+        {
+          "name": "task-c2cbf880268ecae953ca62df517bb9f7",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "d0e31bb6-b0c9-46c1-b929-46446aae760b"
+        },
+        {
+          "name": "task-dc7e6b1b53db99f45726ca62e46f2530",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "ac528880-84e2-4650-96b7-dbb2c07226e4"
+        },
+        {
+          "name": "task-e859627197d7cb8b45ce782abb29c166",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "ec5b09f0-c527-4973-91d9-9e9e10338ea6"
+        },
+        {
+          "name": "task-eb58ff8c61d299ad0a1846d680710c03",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "50501873-035b-4624-a33b-97a1441a5e2e"
+        }
+      ],
+      "verificationEndpointCorrection": "private kubeconfig now uses surviving master IP after removal of original local DNS mapping",
+      "businessDeploymentReady": true
+    },
+    {
+      "kind": "add",
+      "ip": "172.16.131.208",
+      "role": null,
+      "operation": "4a57d7d1-f98c-4670-9980-000cae130256",
+      "phase": "Succeeded",
+      "reason": null,
+      "masters": 3,
+      "workers": 0,
+      "originalPackagePlanUnchanged": true,
+      "tasks": [
+        {
+          "name": "task-0848514c2790dfed94baa0f31d5cd9c6",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "d0266350-4101-4eef-95b0-be4a24d020f9"
+        },
+        {
+          "name": "task-1ac03a32f7149d43a1cae840c02e36c7",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "98096462-859d-4b18-9d35-675458e287e4"
+        },
+        {
+          "name": "task-2efbdba646333f31643d45b0de5a2560",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "4e9d2481-101b-445f-aa38-d155e67f60de"
+        },
+        {
+          "name": "task-63e8ce2682b97f98216e1321a6bf17e7",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "a3194b9e-da78-4a67-b41f-d6567d1584b6"
+        },
+        {
+          "name": "task-86ec55201ab719517fb6eedc2e05915a",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "396cdb26-1ba3-4b04-b2e4-f38e57768780"
+        },
+        {
+          "name": "task-892254aed55f9411ec6ddfec1ffa81d9",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "94f84999-3fe4-4638-b92f-12c5b0f11036"
+        },
+        {
+          "name": "task-903893579ae47f3ca65d1de57c8a0ca2",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "0dc5b7d9-2f46-4469-86f9-881134cf1440"
+        },
+        {
+          "name": "task-c0e978b0cfe8b423452a5867febf930f",
+          "phase": "Succeeded",
+          "reason": null,
+          "stepID": "5afeddca-791a-4435-949b-5a1b4f326ee3"
+        }
+      ],
+      "businessPDBMinAvailable": 1,
+      "businessDeploymentReady": true,
+      "etcdMembers": [
+        {
+          "name": "lixd-dev-3",
+          "peerURLs": [
+            "https://172.16.131.146:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-2",
+          "peerURLs": [
+            "https://172.16.131.208:2380"
+          ]
+        },
+        {
+          "name": "lixd-dev-4",
+          "peerURLs": [
+            "https://172.16.131.230:2380"
+          ]
+        }
+      ],
+      "etcdEndpointsHealth": [
+        {
+          "endpoint": "https://172.16.131.208:2379",
+          "health": true,
+          "took": "28.357501ms"
+        },
+        {
+          "endpoint": "https://172.16.131.230:2379",
+          "health": true,
+          "took": "66.935652ms"
+        },
+        {
+          "endpoint": "https://172.16.131.146:2379",
+          "health": true,
+          "took": "67.716967ms"
+        }
+      ]
+    }
+  ]
+}

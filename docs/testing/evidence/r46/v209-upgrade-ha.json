@@ -1,0 +1,76 @@
+{
+  "candidateRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "nativeUpgradeAllCompleted": true,
+  "doctorExit": 0,
+  "binaries": [
+    {
+      "host": "172.16.131.208",
+      "binary": "kcctl",
+      "expectedSHA256": "d3066f8842ae23272e5fb2c2e62f4f7ef21cef7fb6202f94e8576ece9f8946a2",
+      "actualSHA256": "d3066f8842ae23272e5fb2c2e62f4f7ef21cef7fb6202f94e8576ece9f8946a2",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.208",
+      "binary": "kubeclipper-server",
+      "expectedSHA256": "f631263421d890cf938a07fe3a5b68e3dd2ae7f3df3d6c4221a50d8346bcaa4d",
+      "actualSHA256": "f631263421d890cf938a07fe3a5b68e3dd2ae7f3df3d6c4221a50d8346bcaa4d",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.208",
+      "binary": "kubeclipper-agent",
+      "expectedSHA256": "697f4096632fee2dd9a5c22ed456a186e7832bd57afc182384595affd54d277d",
+      "actualSHA256": "697f4096632fee2dd9a5c22ed456a186e7832bd57afc182384595affd54d277d",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.146",
+      "binary": "kcctl",
+      "expectedSHA256": "d3066f8842ae23272e5fb2c2e62f4f7ef21cef7fb6202f94e8576ece9f8946a2",
+      "actualSHA256": "d3066f8842ae23272e5fb2c2e62f4f7ef21cef7fb6202f94e8576ece9f8946a2",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.146",
+      "binary": "kubeclipper-server",
+      "expectedSHA256": "f631263421d890cf938a07fe3a5b68e3dd2ae7f3df3d6c4221a50d8346bcaa4d",
+      "actualSHA256": "f631263421d890cf938a07fe3a5b68e3dd2ae7f3df3d6c4221a50d8346bcaa4d",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.146",
+      "binary": "kubeclipper-agent",
+      "expectedSHA256": "697f4096632fee2dd9a5c22ed456a186e7832bd57afc182384595affd54d277d",
+      "actualSHA256": "697f4096632fee2dd9a5c22ed456a186e7832bd57afc182384595affd54d277d",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.230",
+      "binary": "kcctl",
+      "expectedSHA256": "d3066f8842ae23272e5fb2c2e62f4f7ef21cef7fb6202f94e8576ece9f8946a2",
+      "actualSHA256": "d3066f8842ae23272e5fb2c2e62f4f7ef21cef7fb6202f94e8576ece9f8946a2",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.230",
+      "binary": "kubeclipper-server",
+      "expectedSHA256": "f631263421d890cf938a07fe3a5b68e3dd2ae7f3df3d6c4221a50d8346bcaa4d",
+      "actualSHA256": "f631263421d890cf938a07fe3a5b68e3dd2ae7f3df3d6c4221a50d8346bcaa4d",
+      "pass": true
+    },
+    {
+      "host": "172.16.131.230",
+      "binary": "kubeclipper-agent",
+      "expectedSHA256": "697f4096632fee2dd9a5c22ed456a186e7832bd57afc182384595affd54d277d",
+      "actualSHA256": "697f4096632fee2dd9a5c22ed456a186e7832bd57afc182384595affd54d277d",
+      "pass": true
+    }
+  ],
+  "localPrototypeReplacement": {
+    "host": "172.16.131.146",
+    "reason": "native upgrade correctly skips an Agent already on the same source revision; the temporary exact-source archive build was explicitly replaced with the digest-verified actual CI Agent before final acceptance",
+    "actualReplacement": "verified CI bootstrap layer binary, service stop/install/start"
+  },
+  "initialHarnessError": "post-upgrade strict SHA assertion detected the same-revision local build; final proof collected after actual prototype replacement, not by weakening the SHA check"
+}

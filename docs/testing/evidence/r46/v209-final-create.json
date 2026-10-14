@@ -1,0 +1,214 @@
+{
+  "candidateRevision": "0c37f1d761823b34511c21209cb0d7c42ee36bbe",
+  "cluster": "r46-v209-final-create",
+  "checks": [
+    {
+      "check": "real airgapped single-master zero-worker CreateCluster",
+      "pass": true,
+      "operation": "0c6e5c36-960c-44cd-b936-928fe4254eae",
+      "phase": "Succeeded",
+      "tasks": [
+        {
+          "name": "task-1e444795e2408e0cd5e132e70102f8b0",
+          "stepID": "9dcb2f31-6500-4439-af71-6de7d1511729",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-46c61d4545a2a8e2d528038a5ee92d87",
+          "stepID": "23eb35a9-7723-4a7f-8823-e27248155e46",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-4a58ae3ab13df9b992f4a1b815f8e22d",
+          "stepID": "100d3d22-ba3c-45f7-92ed-ebd9a186fb13",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-4e26f1878adfa1df448d028f209eb88e",
+          "stepID": "00be1cc6-3626-42c3-907d-18c99baa4f97",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-521dbeff25631aedc007129d1c4c290a",
+          "stepID": "775b64d7-827c-4a54-b427-c0980697e13c",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-74276e35906ff369807dfbc3115862f0",
+          "stepID": "6f3421a1-e118-4c7f-9317-418efdc3f1ee",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-7577a95a6b2b8ee8b02f5d5cae55079c",
+          "stepID": "8980a74b-f365-4583-91c4-602c38c61ec8",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-78fea621f39fbfd719c67b8070ff7824",
+          "stepID": "0783f8bf-84b2-47e5-b5ef-69a1c0f139d5",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-7cf4e57b26adb6b916ab0fccc904848c",
+          "stepID": "106003b5-4024-4a8c-9d94-e63e22ffeb6b",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-8e584aa87541b2eb83c8659a07281a42",
+          "stepID": "31496712-96ff-4dce-a0b0-04f4438df1b0",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-8f73e7e66c132145e97b38bed93e53bb",
+          "stepID": "0aed4953-786d-4ab9-a312-6d06545334ec",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-949afcffe9ad4211017db82bebacb9ec",
+          "stepID": "5af3303e-cce4-4abe-add8-ad814dce42ec",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-b01e398caf02e018bdca46007f3bdcca",
+          "stepID": "43b3d60c-2c09-406b-8a43-f9525181661c",
+          "phase": "Succeeded"
+        },
+        {
+          "name": "task-f1547b0fcc371bd9c893a05b66858f23",
+          "stepID": "9ad5c66f-277a-4065-a7d4-b1d0930fa4e4",
+          "phase": "Succeeded"
+        }
+      ]
+    },
+    {
+      "check": "public egress remains blocked 172.16.131.146",
+      "pass": true
+    },
+    {
+      "check": "single native Node Ready",
+      "pass": true
+    },
+    {
+      "check": "native Kubernetes real write read delete under public egress block",
+      "pass": true
+    },
+    {
+      "check": "actual one master zero workers topology",
+      "pass": true,
+      "packagePlan": {
+        "kubernetesVersion": "v1.37.0",
+        "os": "linux",
+        "arch": "amd64",
+        "components": [
+          {
+            "slot": "k8s",
+            "kind": "k8s",
+            "name": "k8s",
+            "version": "v1.37.0",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/packages/k8s/k8s:v1.37.0",
+              "digest": "sha256:ece6fdcd65a7213d5c6cbe0243c56aedcf3d2481eada5c5f84bb54132e77f816"
+            },
+            "contents": [
+              {
+                "name": "configs",
+                "file": "configs.tar.gz",
+                "digest": "sha256:8be3aabd4a0d567a16c1f9db4f0695340853e1ffeeafe5df93b8d6c4764f5bbd",
+                "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                "transport": {
+                  "type": "",
+                  "ref": "",
+                  "digest": ""
+                }
+              }
+            ]
+          },
+          {
+            "slot": "cri",
+            "kind": "cri",
+            "name": "containerd",
+            "version": "2.2.4",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/packages/cri/containerd:2.2.4",
+              "digest": "sha256:c5fdd9af4bfa9928ac6ba31da9c025aacc8974f629ba9fe815cf10578f54795c"
+            },
+            "contents": [
+              {
+                "name": "configs",
+                "file": "configs.tar.gz",
+                "digest": "sha256:9de384a7383dca19f3233ad96b4d17610a69bcdfc858e1e616800d2a0102138d",
+                "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                "transport": {
+                  "type": "",
+                  "ref": "",
+                  "digest": ""
+                }
+              }
+            ]
+          },
+          {
+            "slot": "cni",
+            "kind": "cni",
+            "name": "calico",
+            "version": "v3.31.5",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/charts/tigera-operator:v3.31.5",
+              "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+            },
+            "contents": [
+              {
+                "name": "charts",
+                "file": "charts.tgz",
+                "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                "transport": {
+                  "type": "helm-oci",
+                  "ref": "172.16.131.230:5248/r46-v208/kubeclipper/charts/tigera-operator",
+                  "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                }
+              }
+            ]
+          },
+          {
+            "slot": "k8s-extension",
+            "kind": "k8s-extension",
+            "name": "k8s-extension",
+            "version": "v1",
+            "os": "linux",
+            "arch": "amd64",
+            "required": true,
+            "transport": {
+              "type": "oci",
+              "ref": "172.16.131.230:5248/r46-v208/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+              "digest": "sha256:daa3e7c67e312c742163b7a903d3fa196ccc7506de2464644c196ed437f970b9"
+            },
+            "contents": [
+              {
+                "name": "configs",
+                "file": "configs.tar.gz",
+                "digest": "sha256:7246b185db126e2eda8a93f0b5cb3023a8d67069c1ef79f466bbc458855952cb",
+                "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                "transport": {
+                  "type": "",
+                  "ref": "",
+                  "digest": ""
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+candidate_sha: 0c37f1d761823b34511c21209cb0d7c42ee36bbe
+result: passed
+release_manifest_sha256: 81e130be5bc95d84e367c1951c96a72fa30513365c313b5281d51a35fcdc7398
+release_tag: v2.0.9
+round: R46
+notes: >-
+  Tier1 Ubuntu 24.04 amd64 acceptance on sh-dev-2/-3/-4. Exact-candidate
+  qualification 38529958987 and Go/AIO/offline-resource CI succeeded.
+  Nine live platform binaries match the actual CI amd64 artifact.
+  Offline master demotion/promotion/removal/addition succeeded with normal
+  PDB eviction, final three Ready nodes and healthy etcd. Fresh final-candidate
+  airgapped single-master creation and real API write/read/delete succeeded.
+  Evidence: docs/testing/evidence/r46/v209-upgrade-ha.json,
+  v209-master-lifecycle.json and v209-final-create.json. Verification kubeconfigs
+  use surviving node IPs with real certificate SANs. Native arm64 is untested
+  due to unavailable hardware; arm64 artifact integrity was verified. The 194-case
+  R46 ledger is cumulative across explicitly recorded repair revisions and is
+  not a claim that every case ran on this SHA. Stable release consumption and
+  environment restoration will be recorded in the final report.
