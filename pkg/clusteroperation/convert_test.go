@@ -20,6 +20,7 @@ package clusteroperation
 
 import (
 	"encoding/json"
+	"net"
 	"strings"
 	"testing"
 
@@ -211,5 +212,58 @@ func TestConvertOperationRoundTrip(t *testing.T) {
 	}
 	if back.Role != common.NodeRoleWorker || len(back.Nodes) != 1 || back.Nodes.GetNodeIDs()[0] != "master-2" {
 		t.Fatalf("round trip mismatch: %+v", back)
+	}
+}
+
+func TestPromoteDrainsExistingWorkerBeforeControlPlaneJoin(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:6443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	cluster := &corev1.Cluster{KubernetesVersion: "v1.37.0", ContainerRuntime: corev1.ContainerRuntime{Type: "containerd"}, Networking: corev1.Networking{IPFamily: corev1.IPFamilyIPv4, DNSDomain: "cluster.local"}}
+	cluster.Name = "promote"
+	extra := component.ExtraMetadata{ClusterName: "promote", KubeVersion: "v1.37.0", Masters: []component.Node{
+		{ID: "master-1", IPv4: "127.0.0.1", NodeIPv4: "127.0.0.1", Hostname: "master-1"},
+		{ID: "worker-1", IPv4: "127.0.0.2", NodeIPv4: "127.0.0.2", Hostname: "worker-1"},
+	}}
+	p := &PatchConvertNodes{Role: common.NodeRoleMaster, Nodes: corev1.WorkerNodeList{{ID: "worker-1"}}}
+	op, err := p.MakeOperation(extra, cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(op.Steps) == 0 || op.Steps[0].Name != "drainNode" {
+		t.Fatal("promotion must drain and delete the existing worker before joining")
+	}
+	drain := op.Steps[0]
+	if drain.ErrIgnore || len(drain.Nodes) != 1 || drain.Nodes[0].ID != "master-1" {
+		t.Fatalf("drain must fail on error and run on the existing master: %+v", drain)
+	}
+	var payload struct {
+		Hostname  string   `json:"hostname"`
+		ExtraArgs []string `json:"extraArgs"`
+	}
+	if err := json.Unmarshal(drain.Commands[0].CustomCommand, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Hostname != "worker-1" {
+		t.Fatalf("wrong drain target: %q", payload.Hostname)
+	}
+	for _, arg := range payload.ExtraArgs {
+		if arg == "--disable-eviction" {
+			t.Fatal("promotion must honor PDB eviction")
+		}
+	}
+	foundJoin := false
+	for i, step := range op.Steps {
+		if step.Name == "joinNode" {
+			foundJoin = true
+			if i == 0 {
+				t.Fatal("join precedes drain")
+			}
+		}
+	}
+	if !foundJoin {
+		t.Fatal("missing real control-plane join step")
 	}
 }

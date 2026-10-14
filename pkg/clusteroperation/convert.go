@@ -200,12 +200,28 @@ func (p *PatchConvertNodes) MakeOperation(extra component.ExtraMetadata, cluster
 }
 
 // makePromoteOperation joins an existing worker into the control plane. The
-// node already runs CRI, packages and extensions, so only the kubeadm
-// control-plane join chain is needed.
+// node already runs CRI, packages and extensions. Drain and delete its worker
+// Node first: kubeadm rejects a control-plane join with an existing Ready Node.
 func (p *PatchConvertNodes) makePromoteOperation(ctx context.Context, extra component.ExtraMetadata, cluster *corev1.Cluster, op *corev1.Operation) (*corev1.Operation, error) {
 	stepNodes, err := p.targetStepNodes(extra)
 	if err != nil {
 		return nil, err
+	}
+	available, err := extra.Masters.AvailableKubeMasters()
+	if err != nil {
+		return nil, err
+	}
+	remaining := k8s.UnwrapAvailableMasters(available, stepNodes)
+	if len(remaining) == 0 {
+		return nil, fmt.Errorf("no existing control-plane node to drain the promoted worker")
+	}
+	for _, node := range stepNodes {
+		drain := (&k8s.Drain{}).InitStepper(node.Hostname, []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"})
+		steps, err := drain.UninstallSteps([]corev1.StepNode{remaining[0]})
+		if err != nil {
+			return nil, err
+		}
+		op.Steps = append(op.Steps, steps...)
 	}
 
 	gen := k8s.GenNode{}
