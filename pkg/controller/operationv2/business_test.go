@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -130,5 +131,38 @@ func TestBusinessReconcileRetriesClusterUpdateConflict(t *testing.T) {
 	}
 	if _, err := reconciler.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: operation.Name}}); err != nil {
 		t.Fatalf("reconcile conflict: %v", err)
+	}
+}
+
+func TestBusinessReconcileDoesNotReplayHistoricalState(t *testing.T) {
+	for _, action := range []string{corev1.OperationUpgradeCluster, "R46Validation"} {
+		t.Run(action, func(t *testing.T) {
+			old := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "old", UID: "old", CreationTimestamp: metav1.NewTime(time.Unix(1, 0))}, Spec: operations.OperationSpec{Action: action, TargetRef: operations.ObjectReference{UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+			latest := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "latest", UID: "latest", CreationTimestamp: metav1.NewTime(time.Unix(2, 0))}, Spec: operations.OperationSpec{Action: corev1.OperationRemoveNodes, TargetRef: operations.ObjectReference{UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+			if err := indexer.Add(old); err != nil {
+				t.Fatal(err)
+			}
+			if err := indexer.Add(latest); err != nil {
+				t.Fatal(err)
+			}
+			clusters := clustermock.NewMockOperator(gomock.NewController(t))
+			r := &BusinessReconciler{Operations: operationslister.NewOperationLister(indexer), Clusters: clusters}
+			if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: old.Name}}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestBusinessReconcileRejectsMissingUpgradeVersion(t *testing.T) {
+	op := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "upgrade"}, Spec: operations.OperationSpec{Action: corev1.OperationUpgradeCluster}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	if err := indexer.Add(op); err != nil {
+		t.Fatal(err)
+	}
+	r := &BusinessReconciler{Operations: operationslister.NewOperationLister(indexer), Clusters: clustermock.NewMockOperator(gomock.NewController(t))}
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: op.Name}}); err == nil {
+		t.Fatal("missing upgrade version must fail before writing cluster")
 	}
 }

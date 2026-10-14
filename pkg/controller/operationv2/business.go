@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/util/retry"
 
 	"github.com/kubeclipper/kubeclipper/pkg/client/informers"
@@ -36,6 +37,21 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if !op.Status.Phase.IsTerminal() {
 		return ctrl.Result{}, nil
 	}
+	if !projectsClusterState(op.Spec.Action) {
+		return ctrl.Result{}, nil
+	}
+	all, err := r.Operations.List(labels.Everything())
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	for _, newer := range all {
+		if newer.Spec.TargetRef.UID == op.Spec.TargetRef.UID && projectsClusterState(newer.Spec.Action) && operationBefore(op, newer) {
+			return ctrl.Result{}, nil
+		}
+	}
+	if op.Spec.Action == corev1.OperationUpgradeCluster && op.Status.Phase == operations.OperationSucceeded && op.Labels[common.LabelUpgradeVersion] == "" {
+		return ctrl.Result{}, fmt.Errorf("operation %q has no upgrade version", op.Name)
+	}
 	clusterObject, err := r.Clusters.GetClusterEx(ctx, op.Spec.TargetRef.Name, "")
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -64,6 +80,17 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
+}
+
+func projectsClusterState(action string) bool {
+	switch action {
+	case corev1.OperationCreateCluster, corev1.OperationDeleteCluster, corev1.OperationUpgradeCluster,
+		corev1.OperationRecoverCluster, corev1.OperationAddNodes, corev1.OperationRemoveNodes,
+		corev1.OperationConvertNodes, corev1.OperationBackupCluster, corev1.OperationUpdateCertification:
+		return true
+	default:
+		return false
+	}
 }
 
 // updateCluster retries the complete read/modify/write cycle. A retry must
