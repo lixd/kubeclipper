@@ -19,6 +19,10 @@
 package upgrade
 
 import (
+	"crypto/sha256"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -295,5 +299,44 @@ func TestEvaluateVersionPolicySameRevisionLowerVersionRefused(t *testing.T) {
 	err := evaluateVersionPolicy("v2.0.3-rc.4", "rev-1", "v2.0.2", "rev-1")
 	if err == nil || !strings.Contains(err.Error(), "refusing implicit downgrade") {
 		t.Fatalf("expected downgrade refusal despite matching revision, got %v", err)
+	}
+}
+
+func TestLoadManifestReleaseBaseURL(t *testing.T) {
+	for _, validChecksum := range []bool{true, false} {
+		t.Run(fmt.Sprintf("validChecksum=%v", validChecksum), func(t *testing.T) {
+			var requested []string
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requested = append(requested, r.URL.Path)
+				switch r.URL.Path {
+				case "/v2.0.3/release-manifest-v2.0.3.yaml":
+					fmt.Fprint(w, testReleaseManifest)
+				case "/v2.0.3/release-manifest-v2.0.3.yaml.sha256":
+					data := testReleaseManifest
+					if !validChecksum {
+						data = "corrupt"
+					}
+					fmt.Fprintf(w, "%x  release-manifest-v2.0.3.yaml\n", sha256.Sum256([]byte(data)))
+				default:
+					http.NotFound(w, r)
+				}
+			}))
+			defer server.Close()
+			o := &UpgradeOptions{version: "v2.0.3", releaseBaseURL: server.URL + "/"}
+			err := o.loadManifest()
+			if !validChecksum {
+				if err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
+					t.Fatalf("expected checksum rejection, got %v", err)
+				}
+				if o.manifest != nil {
+					t.Fatal("invalid manifest must not be loaded")
+				}
+			} else if err != nil || o.manifest == nil || o.manifest.Metadata.SourceRevision != parseTestManifest(t).Metadata.SourceRevision {
+				t.Fatalf("load fork manifest: %v", err)
+			}
+			if len(requested) != 2 {
+				t.Fatalf("expected manifest and checksum requests, got %v", requested)
+			}
+		})
 	}
 }

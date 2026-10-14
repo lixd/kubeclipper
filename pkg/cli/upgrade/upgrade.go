@@ -80,6 +80,9 @@ const (
   # Upgrade server and agent of the whole platform to a released version
   kcctl upgrade all --version v2.0.4
 
+  # Upgrade from a fork Release with manifest and checksum assets
+  kcctl upgrade all --version v2.0.4 --release-base-url https://github.com/lixd/kubeclipper/releases/download
+
   # Upgrade only the server from a local release manifest (offline Registry)
   kcctl upgrade server --manifest release-manifest-v2.0.4.yaml
 
@@ -122,10 +125,11 @@ type UpgradeOptions struct {
 	SSHConfig    *sshutils.SSH
 	cmdoptions.IOStreams
 
-	component    string
-	version      string
-	manifestPath string
-	registryOpts deliveryregistry.FileOptions
+	component      string
+	version        string
+	manifestPath   string
+	releaseBaseURL string
+	registryOpts   deliveryregistry.FileOptions
 
 	manifest          *releasemanifest.Manifest
 	requiredArtifacts []*releasemanifest.Artifact
@@ -164,6 +168,7 @@ func NewCmdUpgrade(stream cmdoptions.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.version, "version", o.version, "Stable release version to upgrade to, e.g. v2.0.4; the release manifest is downloaded and checksum-verified")
+	cmd.Flags().StringVar(&o.releaseBaseURL, "release-base-url", o.releaseBaseURL, "Release download base URL for --version (default https://github.com/kubeclipper/kubeclipper/releases/download)")
 	cmd.Flags().StringVar(&o.manifestPath, "manifest", o.manifestPath, "Path to a local release manifest file; the supported path for offline Package Registries")
 	cmd.Flags().StringVar(&o.registryOpts.Scheme, "package-registry-scheme", o.registryOpts.Scheme,
 		"Package Registry transport scheme: https or http (default https)")
@@ -271,7 +276,7 @@ func (o *UpgradeOptions) loadManifest() error {
 	if !releasemanifest.IsStableVersion(o.version) {
 		return fmt.Errorf("--version %q is not a stable vX.Y.Z release; download the release manifest and use --manifest instead", o.version)
 	}
-	downloader := releasemanifest.Downloader{}
+	downloader := releasemanifest.Downloader{BaseURL: o.releaseBaseURL}
 	data, err := downloader.Download(context.Background(), o.version)
 	if err != nil {
 		return fmt.Errorf("download release manifest for %s: %w (offline environments must sync the release bundle and use --manifest)", o.version, err)
