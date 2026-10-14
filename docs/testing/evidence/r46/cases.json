@@ -486,14 +486,6 @@
     ]
   },
   {
-    "id": "2.1-32",
-    "name": "IPv4/IPv6 dual-stack 集群网络",
-    "status": "范围外",
-    "evidence": [
-      "本轮三机 ip -6 route show default 均为空；当前范围无可路由 IPv6。证据 sh-dev-2/3/4-baseline.log。"
-    ]
-  },
-  {
     "id": "2.1-33",
     "name": "离线建群缺省 `imageRegistry` 创建前拒绝",
     "status": "通过",
@@ -1159,14 +1151,6 @@
     "status": "通过",
     "evidence": [
       "BGP 模式插件真实安装 Succeeded；controller/speaker 全部 Ready。按既定范围检查安装，不以 OpenStack VIP 路由作为通过条件。证据 addon-bgp.json。"
-    ]
-  },
-  {
-    "id": "4-04",
-    "name": "Addon 同组件多实例",
-    "status": "范围外",
-    "evidence": [
-      "按用户确认范围：公共 CA 并入 GHCR；多 Addon 实例排除，本轮不独立搭建。"
     ]
   },
   {

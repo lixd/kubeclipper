@@ -2,7 +2,9 @@
 
 初始候选：`7250c886dcb28f46a7c59fc88c3407fe61be587d`；复验过程中逐项修复并构建新候选，证据分别记录实际 revision，不将全表声明为同一 SHA。当前修复候选为 fork v2.0.9（0c37f1d7），完整 qualification、真机验收与 fork 稳定发布已通过。每条结果来自本轮执行，历史结果不计入。
 
-当前汇总：通过 190、范围外 4、阻塞 0，总计 194。
+按用户要求从当前清单删除 `4-04`、`2.1-32`，保留其他用例编号；历史记录保留。
+
+当前汇总：通过 190、范围外 2、阻塞 0，总计 192。
 
 | Case | 功能 | R46 状态 | 本轮证据 |
 |---|---|---|---|
@@ -66,7 +68,6 @@
 | 2.1-29 | 端口、磁盘、时间同步、主机名等集群预检失败 | 通过 | 真实集群 6443 占用被 kubeadm preflight 拒绝；解除占用后 retry 成功。另有本轮真机磁盘/hostname/缺失与未同步 NTP/KVM 仅客机±60s 检查和恢复。证据 port-retry-create.json、preflight-live.json、preflight-vm.json。 |
 | 2.1-30 | 创建中断后的 retry 或安全删除 | 通过 | R46 正式 CreateCluster 运行中完成至少2个Task后合作式cancel，Operation Canceled；正式retry同Operation UID/PackagePlan成功，已完成Task时间戳未重放，Cluster Running，真实Node Ready。证据 lifecycle-failure-suite.json。 |
 | 2.1-31 | 创建成功后的固定健康验收 | 通过 | 本轮r46-minimal双节点Running/Ready，跨节点Pod ping、Service实际TCP、DNS r46.local解析全部通过；IPVS渲染、master去污点、SAN节点IP+域名、NumCPU忽略、自定义网段。HTTP镜像+TLS认证物料分离。resource/policy CLI11项通过并恢复策略。minimal-health.json、policy-cli.json。 |
-| 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | 范围外 | 本轮三机 ip -6 route show default 均为空；当前范围无可路由 IPv6。证据 sh-dev-2/3/4-baseline.log。 |
 | 2.1-33 | 离线建群缺省 `imageRegistry` 创建前拒绝 | 通过 | 本轮API负向：不支持K8s/CRI/CNI、缺省离线imageRegistry、非法/重叠CIDR/节点网段冲突均400；原dryrun fixture遗漏offline注解已纠正。Running集群packagePlan仅4组件OCI digest无凭据/blob/bootstrap；下载kubeconfig节点IP146:6443且kubectl真实访问成功。cluster-negative.json、minimal-plan-proof.json、kubeconfig-proof.json。 |
 | 2.2-01 | worker 添加（含 packagePlan 不变性） | 通过 | R46 当前d213 CI Agent冷缓存实际扩容：8 Task Succeeded，cache从空到9文件，dev4 v1.37.0/Ready，业务3副本Ready；期间TLS/auth Registry v1.37.0 tag改指v1.36.4，原packagePlan hash不变，实际仍安装137。worker-add-pinned.json，候选身份另由v205 live SHA校验。 |
 | 2.2-02 | worker 移除（含不可 drain 容错） | 通过 | R46 worker-remove-unready.json/agent-journal.log：实际stop kubelet→Ready Unknown，Agent active，RemoveNodes Succeeded；真实logger显示not ready skipping drain删除节点，K8s节点/Cluster worker移除，原packagePlan SHA不变。未绕过Ready节点PDB。 |
@@ -148,7 +149,6 @@
 | 4-01 | addons：nfs-csi 安装/动态供给读写/卸载 | 通过 | R46 Linux源码修复c001（dirty，待最终CI替换）真机复测：重复Master/Worker 400 duplicate；12页固定同一RV且无漏项/重复；NFS空配置卸载删除自定义SC和Addon记录。另已完成NFS动态供给读写与恢复、MetalLB L2实际LAN TCP访问及卸载无Pod/CRD残留。fixed-server-retest.json/metallb-l2.json/addons-install.json。 |
 | 4-02 | addons：metallb L2 安装/卸载 | 通过 | R46 Linux源码修复c001（dirty，待最终CI替换）真机复测：重复Master/Worker 400 duplicate；12页固定同一RV且无漏项/重复；NFS空配置卸载删除自定义SC和Addon记录。另已完成NFS动态供给读写与恢复、MetalLB L2实际LAN TCP访问及卸载无Pod/CRD残留。fixed-server-retest.json/metallb-l2.json/addons-install.json。 |
 | 4-03 | addons：metallb BGP | 通过 | BGP 模式插件真实安装 Succeeded；controller/speaker 全部 Ready。按既定范围检查安装，不以 OpenStack VIP 路由作为通过条件。证据 addon-bgp.json。 |
-| 4-04 | Addon 同组件多实例 | 范围外 | 按用户确认范围：公共 CA 并入 GHCR；多 Addon 实例排除，本轮不独立搭建。 |
 | 4-05 | addons：uninstall 容错（空 config / ErrIgnore 链） | 通过 | R46 空配置NFS卸载实际Succeeded但自定义SC及addon记录残留；c0018d6a修复复用唯一已安装配置，4种空配置回归先失败后通过，真实修复复验待执行。；R46 Linux源码修复c001（dirty，待最终CI替换）真机复测：重复Master/Worker 400 duplicate；12页固定同一RV且无漏项/重复；NFS空配置卸载删除自定义SC和Addon记录。另已完成NFS动态供给读写与恢复、MetalLB L2实际LAN TCP访问及卸载无Pod/CRD残留。fixed-server-retest.json/metallb-l2.json/addons-install.json。 |
 | 4-06 | 可观测：operation logs、失败原因展示（API 侧） | 通过 | FS BackupPoint非法类型400；真实缺共享目录失败日志可见UID/IP/步骤，补挂载后人工retry成功，备份可用/有size；恢复后ConfigMap marker从after回滚before，2节点Ready；有备份delete400。operation describe/logs/retry已实际使用。backup-fs.json、backup-retry.log。 |
 | 4-07 | **console UI 端到端（含任务失败展示）** | 通过 | 本轮真实Chrome登录/集群列表/详情可用，但操作日志页面仍请求旧core.kubeclipper.io/v1/operations返回404；当前console v1.6.0尚未适配Operation V2。实际API中有Succeeded操作，不能用API替代UI证明。ui-operation-responses.json、ui-operation-list.png。；本轮真实 Chrome 登录、列表/详情、V2 节点/IP/失败日志、UI 创建 1M2W 和预检失败/retry 后成功展示、UI 确认删除另一集群均通过。Console fork 982b1b6b/v1.6.0-r46.2；包装 1447d7cc CI 后仍需发布消费验收。证据 ui-create-full-config/submitted.png、ui-created-proof.txt/png、ui-compatible-failed-task.txt/png、ui-delete-started.png。 |

@@ -3,6 +3,8 @@
 本文档是平台核心功能的**长期测试基准**：每轮验证（E2E、回归、发布前）都应以此清单为
 起点圈定范围，测完回填状态。它不属于某一次测试计划，而是所有测试轮次共同维护的覆盖台账。
 
+当前 R46 清单共 **192 项：通过 190、范围外 2、部分/失败/阻塞/待执行均为 0**。2026-10-14 按用户要求删除同一 Addon 多实例 `4-04` 和 IPv4/IPv6 双栈 `2.1-32`，其他编号保持不变；历史报告保留原统计。
+
 功能基线为 **OCI 交付架构合并后的 KubeClipper**。OCI Registry、Delivery Policy、
 PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正常工作方式，不作为一套
 独立的“OCI 模式”重复列举。
@@ -311,8 +313,6 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-13 | Kubernetes feature-gates 透传 | ✅ | R1 验过 20 项。**R24（rc.21，§12.21）发现并修复产品缺陷**：kubeadm v1.37 拒绝 ClusterConfiguration 的 featureGates map（实测其自身 kubelet 认识的 alpha/beta gate 亦被判 "not a valid feature name"），任何 `--feature-gates` 建群都在 kubeadm init 失败回滚。修复：渲染为 apiServer/controllerManager/scheduler `extraArgs` + KubeletConfiguration.featureGates。真机复验：r24-1m（v1.37.0，`APIServingWithRoutine=true`）**Running**，三组件 static pod `--feature-gates=` 与 kubelet config 均实测命中 |
 | 2.1-15 | `--only-install-kubernetes-component` 跳过 CNI | ✅ | **R32 rc.29**：CreateCluster `14343b80-caea-46f1-9e83-0ff886d659a4` 与 SyncKubeConfig `sync-kubeconfig-5c45eb6e-e51b-44b5-9c8e-ca129ed13668` 成功；无 CNI 时节点 NotReady；安装内部 `tigera-operator-v3.31.5.tgz` 后三节点 Ready，Calico/CoreDNS Running；临时集群删除 |
 | 2.1-17 | kubeadm preflight ignore 定制 | ✅ | R24（rc.21，§12.21）：`--kubeadm-init-ignore-preflight-errors=Swap` → Cluster 注解 `kubeclipper.io/ignore-preflight-errors: Swap` 落库（2.1-27 同场建群实证） |
-| 2.1-32 | IPv4/IPv6 dual-stack 集群网络 | ➖ | **范围外（2026-10-10，用户确认）**：发布不承诺 IPv6/双栈支持——修复计划 §3.3-1 原文即"保留单双栈数据模型，**不扩大双栈支持承诺**"，故本项不作为发布门禁。技术现状（R34）：三台 `ens3` 只有 link-local IPv6；临时配置 ULA 后跨节点 ping 收到 Destination unreachable，测试地址已移除，现有 underlay 无可用跨节点 IPv6 路径。保留编号与记录：若后续承诺双栈，需先提供可路由 IPv6 环境再按本行条件验收 |
-| 4-04 | Addon 同组件多实例 | ➖ | **R39（2026-10-10，用户裁定）范围外/非缺口**：Addon 的语义定义即为"**同组件只能安装一次**"（组件级去重是设计行为，不是缺失）：API 按组件 `(name, version)` 去重，第二次安装同组件（即使 scName 不同）返回 400 `nfs-csi-v1 component has been installed in the current cluster`，且该行为与 `5-13`（相同业务请求重复提交）一致——是幂等保护而非能力缺口。原 R28（rc.25）"产品缺口"定性作废；"同组件多实例及实例隔离"按当前产品定义不成立，不列为发布门禁、不计入未通过项。若未来产品确需多实例，最小语义与实现边界见 [`product-gap-semantics.md`](product-gap-semantics.md) §3（实例名身份 + 组件模板参数化，工作量大、风险中），届时再立项 |
 
 ## 当前测试范围调整（2026-10-13，用户确认）
 
