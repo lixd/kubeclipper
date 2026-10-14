@@ -24,12 +24,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -38,6 +40,7 @@ import (
 	kuberuntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/util/rand"
+	yamlutil "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/kubernetes"
 	k8sversion "k8s.io/component-base/version"
 	"sigs.k8s.io/yaml"
@@ -755,126 +758,179 @@ func (r *Kubeadm) clusterAddon(ctx context.Context, action v1.StepAction) error 
 	return nil
 }
 
+const providerOwnerAnnotation = "kubeclipper.io/cloudprovider-uid"
+
 func (r *Kubeadm) clusterServiceAccount(ctx context.Context, action v1.StepAction) error {
 	w, err := r.ToWrapper()
 	if err != nil {
 		return err
 	}
-	sa := &corev1.ServiceAccount{}
-	sa.Name = "kc-server"
+	return syncProviderServiceAccount(ctx, w.KubeCli, string(r.Provider.UID), action)
+}
 
-	crb := &rbacv1.ClusterRoleBinding{}
-	crb.Name = "kc-server"
-	crb.RoleRef.Kind = "ClusterRole"
-	crb.RoleRef.Name = "cluster-admin"
-	crb.Subjects = []rbacv1.Subject{{Kind: "ServiceAccount", Name: "kc-server", Namespace: "kube-system"}}
-
-	switch action {
-	case v1.ActionInstall:
-		kcSa, err := w.KubeCli.CoreV1().ServiceAccounts("kube-system").Create(ctx, sa, metav1.CreateOptions{})
-		if err != nil && !strings.Contains(err.Error(), "already exists") {
-			return err
-		}
-		if kcSa.Secrets == nil {
-			logger.Debugf("need to actively create a service account secret token, start now")
-			srt := &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: fmt.Sprintf("kc-server-secret-%s", rand.String(4)),
-					Annotations: map[string]string{
-						"kubernetes.io/service-account.name": "kc-server",
-					},
+func syncProviderServiceAccount(ctx context.Context, client kubernetes.Interface, owner string, action v1.StepAction) error {
+	if owner == "" {
+		return fmt.Errorf("provider UID is required for cluster resource ownership")
+	}
+	if action == v1.ActionUninstall {
+		return deleteProviderAccess(ctx, client, owner, "kc-server", "kc-server")
+	}
+	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{
+		Name: "kc-server", Annotations: map[string]string{providerOwnerAnnotation: owner},
+	}}
+	kcSa, err := client.CoreV1().ServiceAccounts("kube-system").Create(ctx, sa, metav1.CreateOptions{})
+	if apimachineryErrors.IsAlreadyExists(err) {
+		kcSa, err = client.CoreV1().ServiceAccounts("kube-system").Get(ctx, sa.Name, metav1.GetOptions{})
+	}
+	if err != nil {
+		return err
+	}
+	// Existing credentials can belong to the source platform. Never mutate
+	// their secrets or claim them as resources of the importing provider.
+	if kcSa.Annotations[providerOwnerAnnotation] == owner && len(kcSa.Secrets) == 0 {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("kc-server-secret-%s", rand.String(4)),
+				Annotations: map[string]string{
+					"kubernetes.io/service-account.name": sa.Name,
+					providerOwnerAnnotation:              owner,
 				},
-				Type: "kubernetes.io/service-account-token",
-			}
-			kcSecret, err := w.KubeCli.CoreV1().Secrets("kube-system").Create(ctx, srt, metav1.CreateOptions{})
-			if err != nil && !strings.Contains(err.Error(), "already exists") {
-				return err
-			}
-			logger.Debugf("create kc-server secret")
-			kcSa.Secrets = []corev1.ObjectReference{
-				{
-					Kind:      kcSecret.Kind,
-					Namespace: kcSecret.Namespace,
-					Name:      kcSecret.Name,
-				},
-			}
-			_, err = w.KubeCli.CoreV1().ServiceAccounts("kube-system").Update(ctx, kcSa, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-			logger.Debugf("update the kc-server service-account")
+				OwnerReferences: []metav1.OwnerReference{{APIVersion: "v1", Kind: "ServiceAccount", Name: kcSa.Name, UID: kcSa.UID}},
+			},
+			Type: corev1.SecretTypeServiceAccountToken,
 		}
-		_, err = w.KubeCli.RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
-		if err != nil && !strings.Contains(err.Error(), "already exists") {
-			return err
+		created, createErr := client.CoreV1().Secrets("kube-system").Create(ctx, secret, metav1.CreateOptions{})
+		if createErr != nil {
+			return createErr
 		}
-	case v1.ActionUninstall:
-		err = w.KubeCli.CoreV1().ServiceAccounts("kube-system").Delete(ctx, sa.Name, metav1.DeleteOptions{})
-		if err != nil && !strings.Contains(err.Error(), "not found") {
-			return err
-		}
-
-		err = w.KubeCli.RbacV1().ClusterRoleBindings().Delete(ctx, crb.Name, metav1.DeleteOptions{})
-		if err != nil && !strings.Contains(err.Error(), "not found") {
+		kcSa.Secrets = []corev1.ObjectReference{{Name: created.Name, Namespace: "kube-system"}}
+		if _, err = client.CoreV1().ServiceAccounts("kube-system").Update(ctx, kcSa, metav1.UpdateOptions{}); err != nil {
 			return err
 		}
 	}
+	crb := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: "kc-server", Annotations: map[string]string{providerOwnerAnnotation: owner}},
+		RoleRef:    rbacv1.RoleRef{APIGroup: rbacv1.GroupName, Kind: "ClusterRole", Name: "cluster-admin"},
+		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: "kc-server", Namespace: "kube-system"}},
+	}
+	_, err = client.RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	if apimachineryErrors.IsAlreadyExists(err) {
+		return nil
+	}
+	return err
+}
 
+func deleteProviderAccess(ctx context.Context, client kubernetes.Interface, owner, saName, bindingName string) error {
+	sa, err := client.CoreV1().ServiceAccounts("kube-system").Get(ctx, saName, metav1.GetOptions{})
+	if err != nil && !apimachineryErrors.IsNotFound(err) {
+		return err
+	}
+	if err == nil && sa.Annotations[providerOwnerAnnotation] == owner {
+		if err = client.CoreV1().ServiceAccounts("kube-system").Delete(ctx, saName, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &sa.UID}}); err != nil && !apimachineryErrors.IsNotFound(err) {
+			return err
+		}
+	}
+	binding, err := client.RbacV1().ClusterRoleBindings().Get(ctx, bindingName, metav1.GetOptions{})
+	if err != nil && !apimachineryErrors.IsNotFound(err) {
+		return err
+	}
+	if err == nil && binding.Annotations[providerOwnerAnnotation] == owner {
+		if err = client.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &binding.UID}}); err != nil && !apimachineryErrors.IsNotFound(err) {
+			return err
+		}
+	}
 	return nil
 }
 
-func (r *Kubeadm) kubectlTerminal(ctx context.Context, node KubeNode, action v1.StepAction) error {
-	var cmdList []string
-	switch action {
-	case v1.ActionInstall:
-		dep, err := r.Clientset.AppsV1().Deployments("kube-system").Get(ctx, "kc-kubectl", metav1.GetOptions{})
-		if err != nil && !apimachineryErrors.IsNotFound(err) {
+func (r *Kubeadm) kubectlTerminal(ctx context.Context, _ KubeNode, action v1.StepAction) error {
+	owner := string(r.Provider.UID)
+	if owner == "" {
+		return fmt.Errorf("provider UID is required for terminal resource ownership")
+	}
+	if action == v1.ActionUninstall {
+		return deleteProviderTerminal(ctx, &r.Clientset, owner)
+	}
+	dep, err := r.Clientset.AppsV1().Deployments("kube-system").Get(ctx, "kc-kubectl", metav1.GetOptions{})
+	if err != nil && !apimachineryErrors.IsNotFound(err) {
+		return err
+	}
+	if err == nil && (dep.Annotations[providerOwnerAnnotation] != owner || dep.Status.AvailableReplicas >= 1) {
+		return nil
+	}
+	cluster, err := r.Operator.ClusterReader.GetCluster(ctx, r.Config.ClusterName)
+	if err != nil {
+		return err
+	}
+	if cluster.ResolvedImageRegistry == "" {
+		return fmt.Errorf("kubectl terminal extension requires cluster imageRegistry; image tarball loading has been removed")
+	}
+	manifest, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{ImageRegistryAddr: cluster.ResolvedImageRegistry})
+	if err != nil {
+		return err
+	}
+	return createProviderTerminal(ctx, &r.Clientset, owner, manifest)
+}
+
+func createProviderTerminal(ctx context.Context, client kubernetes.Interface, owner, manifest string) error {
+	decoder := yamlutil.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
+	for {
+		var object map[string]interface{}
+		if err := decoder.Decode(&object); err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			return err
 		}
-		// a missing deployment is expected on the first import; only an existing
-		// one that is already serving can short-circuit the install
-		if dep != nil && dep.Status.AvailableReplicas >= 1 {
-			return nil
+		if len(object) == 0 {
+			continue
 		}
-
-		cluster, err := r.Operator.ClusterReader.GetCluster(ctx, r.Config.ClusterName)
+		data, err := json.Marshal(object)
 		if err != nil {
 			return err
 		}
-		if cluster.ResolvedImageRegistry == "" {
-			return fmt.Errorf("kubectl terminal extension requires cluster imageRegistry; image tarball loading has been removed")
+		annotations := map[string]string{providerOwnerAnnotation: owner}
+		switch object["kind"] {
+		case "ServiceAccount":
+			var sa corev1.ServiceAccount
+			if err = json.Unmarshal(data, &sa); err != nil {
+				return err
+			}
+			sa.Annotations = annotations
+			_, err = client.CoreV1().ServiceAccounts("kube-system").Create(ctx, &sa, metav1.CreateOptions{})
+		case "ClusterRoleBinding":
+			var binding rbacv1.ClusterRoleBinding
+			if err = json.Unmarshal(data, &binding); err != nil {
+				return err
+			}
+			binding.Annotations = annotations
+			_, err = client.RbacV1().ClusterRoleBindings().Create(ctx, &binding, metav1.CreateOptions{})
+		case "Deployment":
+			var deployment appsv1.Deployment
+			if err = json.Unmarshal(data, &deployment); err != nil {
+				return err
+			}
+			deployment.Annotations = annotations
+			_, err = client.AppsV1().Deployments("kube-system").Create(ctx, &deployment, metav1.CreateOptions{})
+		default:
+			return fmt.Errorf("unsupported kubectl terminal resource kind %v", object["kind"])
 		}
-
-		terminalData, err := tmplutil.New().Render(k8s.KubectlPodTemplate, k8s.KubectlTerminal{ImageRegistryAddr: cluster.ResolvedImageRegistry})
-		if err != nil {
+		if err != nil && !apimachineryErrors.IsAlreadyExists(err) {
 			return err
-		}
-		yamlFile := filepath.Join(k8s.ManifestDir, "kc-kubectl.yaml")
-
-		cmdList = []string{
-			fmt.Sprintf("mkdir -p %s", k8s.ManifestDir),
-			sshutils.WrapEcho(terminalData, yamlFile),
-			fmt.Sprintf("kubectl apply -f %s", yamlFile),
-		}
-	case v1.ActionUninstall:
-		cmdList = []string{
-			"kubectl delete deploy kc-kubectl -n kube-system",
-			"kubectl delete sa kc-kubectl -n kube-system",
-			"kubectl delete ClusterRoleBinding kc-kubectl-rolebind -n kube-system",
 		}
 	}
+}
 
-	for _, cmd := range cmdList {
-		ret, err := sshutils.SSHCmdWithSudo(r.ssh(), node.ip, cmd)
-		if err != nil {
-			return errors.WithMessagef(err, "run cmd [%s] on node [%s]", cmd, node.ip)
-		}
-		if err = ret.Error(); err != nil {
-			return errors.WithMessage(err, ret.String())
+func deleteProviderTerminal(ctx context.Context, client kubernetes.Interface, owner string) error {
+	dep, err := client.AppsV1().Deployments("kube-system").Get(ctx, "kc-kubectl", metav1.GetOptions{})
+	if err != nil && !apimachineryErrors.IsNotFound(err) {
+		return err
+	}
+	if err == nil && dep.Annotations[providerOwnerAnnotation] == owner {
+		if err = client.AppsV1().Deployments("kube-system").Delete(ctx, dep.Name, metav1.DeleteOptions{Preconditions: &metav1.Preconditions{UID: &dep.UID}}); err != nil && !apimachineryErrors.IsNotFound(err) {
+			return err
 		}
 	}
-
-	return nil
+	return deleteProviderAccess(ctx, client, owner, "kc-kubectl", "kc-kubectl-rolebind")
 }
 
 const (
