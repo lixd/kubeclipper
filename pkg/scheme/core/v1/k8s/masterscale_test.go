@@ -220,6 +220,9 @@ func TestGenNodeMasterUninstallSteps(t *testing.T) {
 		t.Fatal(err)
 	}
 	steps := gen.GetSteps(v1.ActionUninstall)
+	if len(steps) == 0 || steps[0].Name != "drainNode" {
+		t.Fatal("master removal must drain before removing its local etcd member")
+	}
 	assertContainsStep(t, steps, "removeEtcdMember")
 	assertContainsStep(t, steps, "drainNode")
 	assertContainsStep(t, steps, "kubeadmReset")

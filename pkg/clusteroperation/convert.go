@@ -234,7 +234,7 @@ func (p *PatchConvertNodes) makePromoteOperation(ctx context.Context, extra comp
 
 // makeDemoteOperation removes the control-plane role from a master and rejoins
 // the node as a worker. kubeadm has no demotion, so the node is reset and
-// rejoined: etcd member remove → drain → kubeadm reset → data dirs → join.
+// rejoined: drain → etcd member remove → kubeadm reset → data dirs → join.
 func (p *PatchConvertNodes) makeDemoteOperation(ctx context.Context, extra component.ExtraMetadata, cluster *corev1.Cluster, op *corev1.Operation) (*corev1.Operation, error) {
 	stepNodes, err := p.targetStepNodes(extra)
 	if err != nil {
@@ -251,20 +251,21 @@ func (p *PatchConvertNodes) makeDemoteOperation(ctx context.Context, extra compo
 	if len(remaining) == 0 {
 		return nil, fmt.Errorf("no remaining control-plane node to serve the etcd and drain steps")
 	}
-	steps, err := k8s.EtcdMemberRemoveSteps(remaining[0], stepNodes)
-	if err != nil {
-		return nil, err
-	}
-	op.Steps = append(op.Steps, steps...)
-
 	for _, node := range stepNodes {
 		d := &k8s.Drain{}
-		steps, err = d.InitStepper(node.Hostname, []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"}).UninstallSteps([]corev1.StepNode{remaining[0]})
+		steps, err := d.InitStepper(node.Hostname, []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"}).UninstallSteps([]corev1.StepNode{remaining[0]})
 		if err != nil {
 			return nil, err
 		}
 		op.Steps = append(op.Steps, steps...)
 	}
+
+	// Keep the local API and kubelet alive until Pod eviction completes.
+	steps, err := k8s.EtcdMemberRemoveSteps(remaining[0], stepNodes)
+	if err != nil {
+		return nil, err
+	}
+	op.Steps = append(op.Steps, steps...)
 
 	steps, err = k8s.KubeadmReset(stepNodes)
 	if err != nil {

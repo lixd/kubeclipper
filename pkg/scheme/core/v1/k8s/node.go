@@ -258,15 +258,6 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 		return fmt.Errorf("no existing control-plane node available to serve the drain and etcd steps")
 	}
 	if len(stepper.uninstallSteps) == 0 {
-		if stepper.role == NodeRoleMaster {
-			// Remove the leaving nodes from the etcd membership while they are
-			// still alive; kubeadm reset alone never shrinks the membership.
-			steps, err := EtcdMemberRemoveSteps(masters[0], patchNodes)
-			if err != nil {
-				return err
-			}
-			stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
-		}
 		args := []string{"--ignore-daemonsets", "--delete-emptydir-data", "--force", "--timeout=5m"}
 		for _, node := range patchNodes {
 			d := &Drain{}
@@ -277,6 +268,15 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 			stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
 		}
 
+		if stepper.role == NodeRoleMaster {
+			// Drain first: removing local etcd shuts down the leaving API server
+			// and prevents its kubelet from finishing Pod termination.
+			steps, err := EtcdMemberRemoveSteps(masters[0], patchNodes)
+			if err != nil {
+				return err
+			}
+			stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
+		}
 		steps, err := KubeadmReset(patchNodes)
 		if err != nil {
 			return err

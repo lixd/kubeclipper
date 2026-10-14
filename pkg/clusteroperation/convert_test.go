@@ -267,3 +267,55 @@ func TestPromoteDrainsExistingWorkerBeforeControlPlaneJoin(t *testing.T) {
 		t.Fatal("missing real control-plane join step")
 	}
 }
+
+func TestDemoteDrainsBeforeRemovingLocalEtcd(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:6443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	cluster := &corev1.Cluster{KubernetesVersion: "v1.37.0", ContainerRuntime: corev1.ContainerRuntime{Type: "containerd"}, Networking: corev1.Networking{IPFamily: corev1.IPFamilyIPv4, DNSDomain: "cluster.local"}}
+	cluster.Name = "promote"
+	extra := component.ExtraMetadata{ClusterName: "promote", KubeVersion: "v1.37.0", Masters: []component.Node{
+		{ID: "master-1", IPv4: "127.0.0.1", NodeIPv4: "127.0.0.1", Hostname: "master-1"},
+	}, Workers: []component.Node{{ID: "worker-1", IPv4: "127.0.0.2", NodeIPv4: "127.0.0.2", Hostname: "worker-1"}}}
+	p := &PatchConvertNodes{Role: common.NodeRoleWorker, Nodes: corev1.WorkerNodeList{{ID: "worker-1"}}}
+	op, err := p.MakeOperation(extra, cluster)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(op.Steps) == 0 || op.Steps[0].Name != "drainNode" {
+		t.Fatal("demotion must drain before removing the local etcd member")
+	}
+	drain := op.Steps[0]
+	if drain.ErrIgnore || len(drain.Nodes) != 1 || drain.Nodes[0].ID != "master-1" {
+		t.Fatalf("drain must fail on error and run on the existing master: %+v", drain)
+	}
+	var payload struct {
+		Hostname  string   `json:"hostname"`
+		ExtraArgs []string `json:"extraArgs"`
+	}
+	if err := json.Unmarshal(drain.Commands[0].CustomCommand, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Hostname != "worker-1" {
+		t.Fatalf("wrong drain target: %q", payload.Hostname)
+	}
+	for _, arg := range payload.ExtraArgs {
+		if arg == "--disable-eviction" {
+			t.Fatal("promotion must honor PDB eviction")
+		}
+	}
+	foundJoin := false
+	for i, step := range op.Steps {
+		if step.Name == "joinNode" {
+			foundJoin = true
+			if i == 0 {
+				t.Fatal("join precedes drain")
+			}
+		}
+	}
+	if !foundJoin {
+		t.Fatal("missing real control-plane join step")
+	}
+}
