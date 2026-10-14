@@ -220,6 +220,13 @@ jobs:
         with:
           name: release-manifest-${{ github.run_id }}
           path: ${{ runner.temp }}/release
+      - name: Name manifest assets for version downloads
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release"
+          mv release-manifest.yaml "release-manifest-${GITHUB_REF_NAME}.yaml"
+          rm release-manifest.yaml.sha256
+          sha256sum "release-manifest-${GITHUB_REF_NAME}.yaml" > "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
