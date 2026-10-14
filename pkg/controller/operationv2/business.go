@@ -44,12 +44,23 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if err != nil {
 		return ctrl.Result{}, err
 	}
+	projectPhase := true
+	projectVersion := op.Spec.Action == corev1.OperationUpgradeCluster && op.Status.Phase == operations.OperationSucceeded
 	for _, newer := range all {
-		if newer.Spec.TargetRef.UID == op.Spec.TargetRef.UID && projectsClusterState(newer.Spec.Action) && operationBefore(op, newer) {
-			return ctrl.Result{}, nil
+		if newer.Spec.TargetRef.UID != op.Spec.TargetRef.UID || !operationBefore(op, newer) {
+			continue
+		}
+		if projectsClusterState(newer.Spec.Action) {
+			projectPhase = false
+		}
+		if newer.Spec.Action == corev1.OperationUpgradeCluster && newer.Status.Phase == operations.OperationSucceeded {
+			projectVersion = false
 		}
 	}
-	if op.Spec.Action == corev1.OperationUpgradeCluster && op.Status.Phase == operations.OperationSucceeded && op.Labels[common.LabelUpgradeVersion] == "" {
+	if !projectPhase && !projectVersion {
+		return ctrl.Result{}, nil
+	}
+	if projectVersion && op.Labels[common.LabelUpgradeVersion] == "" {
 		return ctrl.Result{}, fmt.Errorf("operation %q has no upgrade version", op.Name)
 	}
 	clusterObject, err := r.Clusters.GetClusterEx(ctx, op.Spec.TargetRef.Name, "")
@@ -62,21 +73,14 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if clusterObject.UID != op.Spec.TargetRef.UID {
 		return ctrl.Result{}, fmt.Errorf("operation %q target Cluster UID changed", op.Name)
 	}
-	if op.Spec.Action == corev1.OperationDeleteCluster && op.Status.Phase == operations.OperationSucceeded {
+	if projectPhase && op.Spec.Action == corev1.OperationDeleteCluster && op.Status.Phase == operations.OperationSucceeded {
 		return ctrl.Result{}, r.Clusters.DeleteCluster(ctx, clusterObject.Name)
 	}
 	desired := failedClusterPhase(op.Spec.Action)
 	if op.Status.Phase == operations.OperationSucceeded {
 		desired = corev1.ClusterRunning
 	}
-	if op.Spec.Action == corev1.OperationSyncKubeConfig {
-		return ctrl.Result{}, nil
-	}
-	if clusterObject.Status.Phase == desired &&
-		(op.Spec.Action != corev1.OperationUpgradeCluster || op.Status.Phase != operations.OperationSucceeded) {
-		return ctrl.Result{}, nil
-	}
-	if err := r.updateCluster(ctx, op, desired); err != nil {
+	if err := r.updateCluster(ctx, op, desired, projectPhase, projectVersion); err != nil {
 		return ctrl.Result{}, err
 	}
 	return ctrl.Result{}, nil
@@ -96,7 +100,7 @@ func projectsClusterState(action string) bool {
 // updateCluster retries the complete read/modify/write cycle. A retry must
 // re-read the object because the previous resourceVersion is no longer valid
 // after a concurrent controller update.
-func (r *BusinessReconciler) updateCluster(ctx context.Context, op *operations.Operation, desired corev1.ClusterPhase) error {
+func (r *BusinessReconciler) updateCluster(ctx context.Context, op *operations.Operation, desired corev1.ClusterPhase, projectPhase, projectVersion bool) error {
 	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
 		clusterObject, err := r.Clusters.GetClusterEx(ctx, op.Spec.TargetRef.Name, "")
 		if err != nil {
@@ -105,13 +109,15 @@ func (r *BusinessReconciler) updateCluster(ctx context.Context, op *operations.O
 		if clusterObject.UID != op.Spec.TargetRef.UID {
 			return fmt.Errorf("operation %q target Cluster UID changed", op.Name)
 		}
-		if clusterObject.Status.Phase == desired &&
-			(op.Spec.Action != corev1.OperationUpgradeCluster || op.Status.Phase != operations.OperationSucceeded) {
+		if (!projectPhase || clusterObject.Status.Phase == desired) &&
+			(!projectVersion || clusterObject.KubernetesVersion == op.Labels[common.LabelUpgradeVersion]) {
 			return nil
 		}
 		clusterObject = clusterObject.DeepCopy()
-		clusterObject.Status.Phase = desired
-		if op.Spec.Action == corev1.OperationUpgradeCluster && op.Status.Phase == operations.OperationSucceeded {
+		if projectPhase {
+			clusterObject.Status.Phase = desired
+		}
+		if projectVersion {
 			clusterObject.KubernetesVersion = op.Labels[common.LabelUpgradeVersion]
 		}
 		_, err = r.Clusters.UpdateCluster(ctx, clusterObject)

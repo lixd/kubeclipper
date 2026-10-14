@@ -31,6 +31,7 @@ import (
 	operationslister "github.com/kubeclipper/kubeclipper/pkg/client/lister/operations/v1alpha1"
 	ctrl "github.com/kubeclipper/kubeclipper/pkg/controller-runtime"
 	clustermock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
+	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 )
@@ -137,7 +138,7 @@ func TestBusinessReconcileRetriesClusterUpdateConflict(t *testing.T) {
 func TestBusinessReconcileDoesNotReplayHistoricalState(t *testing.T) {
 	for _, action := range []string{corev1.OperationUpgradeCluster, "R46Validation"} {
 		t.Run(action, func(t *testing.T) {
-			old := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "old", UID: "old", CreationTimestamp: metav1.NewTime(time.Unix(1, 0))}, Spec: operations.OperationSpec{Action: action, TargetRef: operations.ObjectReference{UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+			old := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "old", UID: "old", CreationTimestamp: metav1.NewTime(time.Unix(1, 0))}, Spec: operations.OperationSpec{Action: action, TargetRef: operations.ObjectReference{UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationFailed}}
 			latest := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "latest", UID: "latest", CreationTimestamp: metav1.NewTime(time.Unix(2, 0))}, Spec: operations.OperationSpec{Action: corev1.OperationRemoveNodes, TargetRef: operations.ObjectReference{UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
 			indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
 			if err := indexer.Add(old); err != nil {
@@ -164,5 +165,29 @@ func TestBusinessReconcileRejectsMissingUpgradeVersion(t *testing.T) {
 	r := &BusinessReconciler{Operations: operationslister.NewOperationLister(indexer), Clusters: clustermock.NewMockOperator(gomock.NewController(t))}
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: op.Name}}); err == nil {
 		t.Fatal("missing upgrade version must fail before writing cluster")
+	}
+}
+
+func TestBusinessReconcileRestoresUpgradeVersionWithoutReplayingPhase(t *testing.T) {
+	op := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "upgrade", UID: "upgrade", CreationTimestamp: metav1.NewTime(time.Unix(1, 0)), Labels: map[string]string{common.LabelUpgradeVersion: "v1.37.0"}}, Spec: operations.OperationSpec{Action: corev1.OperationUpgradeCluster, TargetRef: operations.ObjectReference{Name: "cluster", UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+	newer := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "newer", UID: "newer", CreationTimestamp: metav1.NewTime(time.Unix(2, 0))}, Spec: operations.OperationSpec{Action: corev1.OperationDeleteCluster, TargetRef: operations.ObjectReference{UID: "cluster"}}, Status: operations.OperationStatus{Phase: operations.OperationRunning}}
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	for _, item := range []*operations.Operation{op, newer} {
+		if err := indexer.Add(item); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := &corev1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster", UID: "cluster"}, Status: corev1.ClusterStatus{Phase: corev1.ClusterTerminating}}
+	clusters := clustermock.NewMockOperator(gomock.NewController(t))
+	clusters.EXPECT().GetClusterEx(gomock.Any(), "cluster", "").Return(c, nil).Times(2)
+	clusters.EXPECT().UpdateCluster(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, got *corev1.Cluster) (*corev1.Cluster, error) {
+		if got.KubernetesVersion != "v1.37.0" || got.Status.Phase != corev1.ClusterTerminating {
+			t.Fatalf("projection version=%q phase=%s", got.KubernetesVersion, got.Status.Phase)
+		}
+		return got, nil
+	})
+	r := &BusinessReconciler{Operations: operationslister.NewOperationLister(indexer), Clusters: clusters}
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: op.Name}}); err != nil {
+		t.Fatal(err)
 	}
 }
