@@ -20,6 +20,7 @@ package printer
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 
 	"sigs.k8s.io/yaml"
@@ -41,6 +42,9 @@ func (p *PrintFlags) AllowedFormats() []string {
 
 // Print renders the response in the format selected by the CLI flags.
 func (p *PrintFlags) Print(pr ResourcePrinter, w io.Writer) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
 	switch p.format {
 	case "json":
 		data, err := pr.JSONPrint()
@@ -72,6 +76,61 @@ func (p *PrintFlags) Print(pr ResourcePrinter, w io.Writer) error {
 		table.Render()
 		return nil
 	}
+}
+
+// Format returns the requested output format.
+func (p *PrintFlags) Format() string { return p.format }
+
+// Validate rejects unsupported formats before a command contacts the API.
+func (p *PrintFlags) Validate() error {
+	switch p.format {
+	case "json", "yaml", "table":
+		return nil
+	}
+	return fmt.Errorf("unsupported output format %q; choose json, yaml or table", p.format)
+}
+
+// PrintList preserves the list envelope even when it contains a single object.
+// Detail and create commands retain their single-object printers.
+func (p *PrintFlags) PrintList(pr ResourcePrinter, w io.Writer) error {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if p.format == "table" {
+		return p.Print(pr, w)
+	}
+	data, err := json.Marshal(pr)
+	if err != nil {
+		return err
+	}
+	var list map[string]json.RawMessage
+	if err := json.Unmarshal(data, &list); err != nil {
+		return err
+	}
+	if len(list["items"]) == 0 || string(list["items"]) == "null" {
+		list["items"] = json.RawMessage("[]")
+	}
+	return p.PrintData(list, w)
+}
+
+// PrintData writes a structured value without adding human-readable messages.
+func (p *PrintFlags) PrintData(value interface{}, w io.Writer) error {
+	var data []byte
+	var err error
+	switch p.format {
+	case "json":
+		data, err = JSONPrinter(value)
+		data = append(data, '\n')
+	case "yaml":
+		data, err = YAMLPrinter(value)
+	default:
+		return fmt.Errorf("structured output requires json or yaml")
+	}
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(data)
+	return err
 }
 
 func (p *PrintFlags) AddFlags(c *cobra.Command) {

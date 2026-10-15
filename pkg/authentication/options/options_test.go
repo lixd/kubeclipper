@@ -1,6 +1,7 @@
 package options
 
 import (
+	"crypto/rand"
 	"strings"
 	"testing"
 
@@ -31,5 +32,29 @@ func TestValidateReportsInvalidInitialPassword(t *testing.T) {
 		if strings.Contains(err.Error(), a.InitialPassword) {
 			t.Fatalf("validation error leaked the rejected password: %q", err)
 		}
+	}
+}
+
+func TestAuthenticationOptionsValidateJWTSecret(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		secret  string
+		wantErr bool
+	}{
+		{name: "missing", wantErr: true},
+		{name: "public default", secret: "kubeclipper", wantErr: true},
+		{name: "configured", secret: rand.Text()},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := NewAuthenticateOptions()
+			if opts.JwtSecret != "" {
+				t.Fatal("authentication options must not provide a default JWT secret")
+			}
+			opts.JwtSecret = tt.secret
+			errs := opts.Validate()
+			if (len(errs) > 0) != tt.wantErr {
+				t.Fatalf("Validate() errors = %v, want error = %v", errs, tt.wantErr)
+			}
+		})
 	}
 }

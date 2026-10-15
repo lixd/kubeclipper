@@ -39,7 +39,11 @@ const (
 	longDescription = `
   Delete kubeclipper resources.
 
-  Currently,only clusters, users and roles resources can be supported.`
+  Supported resources: cluster, user, role and registry.
+
+  Normal cluster deletion submits an asynchronous uninstall operation.
+  --force removes the platform record without uninstalling Kubernetes;
+  Kubernetes processes and data on the hosts must be cleaned up separately.`
 	deleteExample = `
   # Delete kubeclipper cluster
   kcctl delete cluster 'CLUSTER-NAME'
@@ -74,23 +78,27 @@ var (
 func NewCmdDelete(streams options.IOStreams) *cobra.Command {
 	o := NewDeleteOptions(streams)
 	cmd := &cobra.Command{
-		Use:                   "delete (<cluster> | <user> | <role>) [flags]",
+		Use:                   "delete TYPE NAME [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "Delete kubeclipper resource",
 		Long:                  longDescription,
 		Example:               deleteExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.ValidateArgs(cmd, args))
-			if !o.precheck() {
-				return
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := o.ValidateArgs(cmd, args); err != nil {
+				return err
 			}
-			utils.CheckErr(o.RunDelete())
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			if !o.precheck() {
+				return fmt.Errorf("deletion not confirmed")
+			}
+			return o.RunDelete()
 		},
 		ValidArgsFunction: ValidArgsFunction(o),
 	}
 	o.CliOpts.AddFlags(cmd.Flags())
-	cmd.Flags().BoolVarP(&o.force, "force", "F", o.force, "Force delete resource. Now is only support cluster.")
+	cmd.Flags().BoolVarP(&o.force, "force", "F", o.force, "Remove the cluster record without uninstalling Kubernetes; host cleanup is manual.")
 	return cmd
 }
 
@@ -120,6 +128,9 @@ func (l *DeleteOptions) ValidateArgs(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return utils.UsageErrorf(cmd, "You must specify the type of resource to delete,support %v now", allowedResource.List())
 	}
+	if len(args) > 2 {
+		return utils.UsageErrorf(cmd, "expected exactly TYPE NAME; multiple names are not supported")
+	}
 	l.resource = args[0]
 	if !allowedResource.Has(l.resource) {
 		return utils.UsageErrorf(cmd, "unsupported resource type,support %v now", allowedResource.List())
@@ -130,6 +141,9 @@ func (l *DeleteOptions) ValidateArgs(cmd *cobra.Command, args []string) error {
 	args = args[1:]
 	if len(args) > 0 {
 		l.name = args[0]
+	}
+	if l.force && l.resource != options.ResourceCluster {
+		return utils.UsageErrorf(cmd, "--force is only supported for cluster")
 	}
 	return nil
 }
@@ -165,6 +179,14 @@ func (l *DeleteOptions) RunDelete() error {
 		return fmt.Errorf("unsupported resource")
 	}
 
+	if l.resource == options.ResourceCluster {
+		if l.force {
+			_, err = fmt.Fprintf(l.Out, "cluster %s removal requested (uninstall skipped); clean up Kubernetes processes and data on the hosts manually\n", l.name)
+		} else {
+			_, err = fmt.Fprintf(l.Out, "cluster %s deletion requested; view progress with: kcctl operation list --cluster %s\n", l.name, l.name)
+		}
+		return err
+	}
 	_, err = fmt.Fprintf(l.Out, "%s %s deleted\n", l.resource, l.name)
 	return err
 }
@@ -174,8 +196,7 @@ func (l *DeleteOptions) precheck() bool {
 		if options.AssumeYes {
 			return true
 		}
-		_, _ = l.IOStreams.Out.Write([]byte("Force delete cluster which is in used maybe cause data inconsistency." +
-			" Are you sure this cluster are not in used or your really want to force delete?  Please input (yes/no)"))
+		_, _ = l.IOStreams.Out.Write([]byte("Remove the cluster record WITHOUT uninstalling Kubernetes? Host processes and data will remain and require manual cleanup. Input (yes/no): "))
 		return utils.AskForConfirmation()
 	}
 	return true
@@ -183,11 +204,13 @@ func (l *DeleteOptions) precheck() bool {
 
 func ValidArgsFunction(o *DeleteOptions) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		utils.CheckErr(o.Complete(o.CliOpts))
 		if len(args) == 0 {
 			return allowedResource.List(), cobra.ShellCompDirectiveNoFileComp
 		}
 
+		if err := o.Complete(o.CliOpts); err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
 		switch args[0] {
 		case options.ResourceUser:
 			return o.listUser(toComplete), cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp

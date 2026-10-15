@@ -84,10 +84,18 @@ func NewCmdCreateRegistry(streams options.IOStreams) *cobra.Command {
 		Short:                 "create kubeclipper registry resource",
 		Long:                  registryLongDescription,
 		Example:               createRegistryExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			utils.CheckErr(o.ValidateArgs(cmd))
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.RunCreate())
+		Args:                  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := o.PrintFlags.Validate(); err != nil {
+				return err
+			}
+			if err := o.ValidateArgs(cmd); err != nil {
+				return err
+			}
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			return o.RunCreate()
 		},
 	}
 	cmd.Flags().StringVar(&o.Name, "name", "", "registry name")

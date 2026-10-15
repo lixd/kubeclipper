@@ -53,6 +53,7 @@ func TestAuthenticationOptionsValidateRegistersOIDCProvider(t *testing.T) {
 
 	name := fmt.Sprintf("kcctl-oidc-test-%p", &server)
 	options := authoptions.NewAuthenticateOptions()
+	options.JwtSecret = "test-configured-secret"
 	options.OAuthOptions.IdentityProviders = []oauth.IdentityProviderOptions{{
 		Name:          name,
 		Type:          "OIDC",

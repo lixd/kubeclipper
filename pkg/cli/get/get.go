@@ -22,10 +22,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/signal"
+	"io"
 	"strings"
-	"syscall"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -51,11 +49,10 @@ const (
 	// get 命令示例
 	getExample = `
   # List operations for a specific cluster
-  kcctl get operation --selector kubeclipper.io/cluster=<CLUSTER-ID>
-  kcctl get operation --selector kubeclipper.io/cluster=cdf19a327aab247739c3f1a98
+  kcctl operation list --cluster my-cluster
 
   # View operation details
-  kcctl get operation <OPERATION_ID> -o yaml
+  kcctl operation describe <OPERATION_ID>
 
   # List all cluster
   kcctl get cluster
@@ -70,10 +67,10 @@ const (
   kcctl get user --selector foo=bar
 
   # List user with field-selector
-  kcctl get user --field-selector .metadata.name=foo
+  kcctl get user --field-selector metadata.name=foo
 
-  # List other resource
-  kcctl get [role,cluster,node]
+  # List roles
+  kcctl get role
 `
 )
 
@@ -108,15 +105,22 @@ func NewGetOptions(streams options.IOStreams) *GetOptions {
 func NewCmdGet(streams options.IOStreams) *cobra.Command {
 	o := NewGetOptions(streams)
 	cmd := &cobra.Command{
-		Use:                   "get [(-o|--output=)table|json|yaml] (TYPE [NAME | -l label] | TYPE/NAME ...) [flags]",
+		Use:                   "get TYPE [NAME] [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "Display one or multiple resources",
 		Long:                  longDescription,
 		Example:               getExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			utils.CheckErr(o.Complete(o.cliOpts))
-			utils.CheckErr(o.ValidateArgs(cmd, args))
-			utils.CheckErr(o.RunGet())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := o.ValidateArgs(cmd, args); err != nil {
+				return err
+			}
+			if err := o.PrintFlags.Validate(); err != nil {
+				return err
+			}
+			if err := o.Complete(o.cliOpts); err != nil {
+				return err
+			}
+			return o.runGet(cmd.Context())
 		},
 		ValidArgsFunction: ValidArgsFunction(o),
 	}
@@ -131,6 +135,9 @@ func NewCmdGet(streams options.IOStreams) *cobra.Command {
 func (l *GetOptions) ValidateArgs(cmd *cobra.Command, args []string) error {
 	if len(args) < 1 {
 		return utils.UsageErrorf(cmd, "You must specify the type of resource to get,support %v now", allowedResource.List())
+	}
+	if len(args) > 2 {
+		return utils.UsageErrorf(cmd, "expected TYPE and at most one NAME")
 	}
 	l.resource = args[0]
 	args = args[1:]
@@ -158,14 +165,16 @@ func (l *GetOptions) Complete(opts *options.CliOptions) error {
 	return nil
 }
 
-func (l *GetOptions) RunGet() error {
-	if l.name != "" {
-		return l.describe()
-	}
+func (l *GetOptions) RunGet() error { return l.runGet(context.Background()) }
+
+func (l *GetOptions) runGet(ctx context.Context) error {
 	if l.Watch {
-		return l.watch()
+		return l.watch(ctx)
 	}
-	return l.list()
+	if l.name != "" {
+		return l.describe(ctx)
+	}
+	return l.list(ctx)
 }
 
 // watchPathByResource maps get resources to their list/watch API paths.
@@ -182,25 +191,28 @@ var watchPathByResource = map[string]string{
 // (ADDED/MODIFIED/DELETED + object name) until interrupted. R4 found the
 // previous implementation exited after one shot; the server already serves
 // chunked WatchEvent streams, so consume them here.
-func (l *GetOptions) watch() error {
+func (l *GetOptions) watch(ctx context.Context) error {
 	path, ok := watchPathByResource[l.resource]
 	if !ok {
-		return fmt.Errorf("unsupported resource,support %s now", allowedResource.List())
+		return fmt.Errorf("unsupported watch resource %s", l.resource)
 	}
-	if err := l.list(); err != nil {
+	if l.name != "" {
+		if err := l.describe(ctx); err != nil {
+			return err
+		}
+	} else if err := l.list(ctx); err != nil {
 		return err
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	fmt.Fprintf(l.IOStreams.Out, "watching %s for changes (ctrl-c to exit)...\n", l.resource)
 	q := query.New()
 	q.LabelSelector = l.LabelSelector
 	q.FieldSelector = l.FieldSelector
+	if l.name != "" {
+		if q.FieldSelector != "" {
+			q.FieldSelector += ","
+		}
+		q.FieldSelector += "metadata.name=" + l.name
+	}
 	q.Watch = true
-	// The server closes the stream after its watch timeout; reconnect until
-	// the user interrupts.
 	for {
 		body, err := l.client.StreamList(ctx, path, kc.Queries(*q))
 		if err != nil {
@@ -209,47 +221,71 @@ func (l *GetOptions) watch() error {
 			}
 			return err
 		}
-		// The server streams concatenated JSON WatchEvent objects without
-		// newline separators, so decode continuously instead of scanning
-		// lines.
-		decoder := json.NewDecoder(body)
-		for {
-			var event struct {
-				Type   string `json:"type"`
-				Object struct {
-					Metadata struct {
-						Name string `json:"name"`
-					} `json:"metadata"`
-					Status struct {
-						Phase string `json:"phase"`
-					} `json:"status"`
-				} `json:"object"`
-			}
-			if err := decoder.Decode(&event); err != nil {
-				break // stream ended or malformed frame
-			}
-			if event.Type == "ERROR" {
-				break
-			}
-			if event.Object.Metadata.Name == "" {
-				continue
-			}
-			line := fmt.Sprintf("%-9s %s", event.Type, event.Object.Metadata.Name)
-			if event.Object.Status.Phase != "" {
-				line += "\t" + event.Object.Status.Phase
-			}
-			fmt.Fprintln(l.IOStreams.Out, line)
-		}
+		err = l.printWatchStream(ctx, body)
 		_ = body.Close()
 		if ctx.Err() != nil {
 			return nil
 		}
-		fmt.Fprintln(l.IOStreams.Out, "watch stream ended; reconnecting...")
-		time.Sleep(2 * time.Second)
+		if err != nil && err != io.EOF {
+			return err
+		}
+		fmt.Fprintln(l.ErrOut, "watch stream ended; reconnecting...")
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(2 * time.Second):
+		}
 	}
 }
 
-func (l *GetOptions) list() error {
+func (l *GetOptions) printWatchStream(ctx context.Context, body io.Reader) error {
+	decoder := json.NewDecoder(body)
+	for {
+		var event struct {
+			Type   string          `json:"type"`
+			Object json.RawMessage `json:"object"`
+		}
+		if err := decoder.Decode(&event); err != nil {
+			return err
+		}
+		if event.Type == "ERROR" {
+			return fmt.Errorf("watch server error: %s", event.Object)
+		}
+		var object struct {
+			Metadata struct {
+				Name string `json:"name"`
+			} `json:"metadata"`
+			Status struct {
+				Phase string `json:"phase"`
+			} `json:"status"`
+		}
+		if err := json.Unmarshal(event.Object, &object); err != nil {
+			return fmt.Errorf("decode watch object: %w", err)
+		}
+		if l.name != "" && object.Metadata.Name != l.name {
+			continue
+		}
+		if l.PrintFlags.Format() != "table" {
+			if l.PrintFlags.Format() == "yaml" {
+				if _, err := fmt.Fprintln(l.Out, "---"); err != nil {
+					return err
+				}
+			}
+			if err := l.PrintFlags.PrintData(event, l.Out); err != nil {
+				return err
+			}
+		} else if object.Metadata.Name != "" {
+			if _, err := fmt.Fprintf(l.Out, "%-9s %s\t%s\n", event.Type, object.Metadata.Name, object.Status.Phase); err != nil {
+				return err
+			}
+		}
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+	}
+}
+
+func (l *GetOptions) list(ctx context.Context) error {
 	q := query.New()
 	q.LabelSelector = l.LabelSelector
 	q.FieldSelector = l.FieldSelector
@@ -259,17 +295,17 @@ func (l *GetOptions) list() error {
 	)
 	switch l.resource {
 	case options.ResourceNode:
-		result, err = l.client.ListNodes(context.TODO(), kc.Queries(*q))
+		result, err = l.client.ListNodes(ctx, kc.Queries(*q))
 	case options.ResourceUser:
-		result, err = l.client.ListUsers(context.TODO(), kc.Queries(*q))
+		result, err = l.client.ListUsers(ctx, kc.Queries(*q))
 	case options.ResourceRole:
-		result, err = l.client.ListRoles(context.TODO(), kc.Queries(*q))
+		result, err = l.client.ListRoles(ctx, kc.Queries(*q))
 	case options.ResourceCluster:
-		result, err = l.client.ListClusters(context.TODO(), kc.Queries(*q))
+		result, err = l.client.ListClusters(ctx, kc.Queries(*q))
 	case options.ResourceConfigMap:
-		result, err = l.client.ListConfigMaps(context.TODO(), kc.Queries(*q))
+		result, err = l.client.ListConfigMaps(ctx, kc.Queries(*q))
 	case options.ResourceRegistry:
-		result, err = l.client.ListRegistries(context.TODO(), kc.Queries(*q))
+		result, err = l.client.ListRegistries(ctx, kc.Queries(*q))
 
 	default:
 		return fmt.Errorf("unsupported resource,support %s now", allowedResource.List())
@@ -278,27 +314,27 @@ func (l *GetOptions) list() error {
 	if err != nil {
 		return err
 	}
-	return l.PrintFlags.Print(result, l.IOStreams.Out)
+	return l.PrintFlags.PrintList(result, l.IOStreams.Out)
 }
 
-func (l *GetOptions) describe() error {
+func (l *GetOptions) describe(ctx context.Context) error {
 	var (
 		result printer.ResourcePrinter
 		err    error
 	)
 	switch l.resource {
 	case options.ResourceNode:
-		result, err = l.client.DescribeNode(context.TODO(), l.name)
+		result, err = l.client.DescribeNode(ctx, l.name)
 	case options.ResourceUser:
-		result, err = l.client.DescribeUser(context.TODO(), l.name)
+		result, err = l.client.DescribeUser(ctx, l.name)
 	case options.ResourceRole:
-		result, err = l.client.DescribeRole(context.TODO(), l.name)
+		result, err = l.client.DescribeRole(ctx, l.name)
 	case options.ResourceCluster:
-		result, err = l.client.DescribeCluster(context.TODO(), l.name)
+		result, err = l.client.DescribeCluster(ctx, l.name)
 	case options.ResourceConfigMap:
-		result, err = l.client.DescribeConfigMap(context.TODO(), l.name)
+		result, err = l.client.DescribeConfigMap(ctx, l.name)
 	case options.ResourceRegistry:
-		result, err = l.client.DescribeRegistries(context.TODO(), l.name)
+		result, err = l.client.DescribeRegistries(ctx, l.name)
 	default:
 		return fmt.Errorf("unsupported resource")
 	}
@@ -310,10 +346,11 @@ func (l *GetOptions) describe() error {
 
 func ValidArgsFunction(o *GetOptions) func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		utils.CheckErr(o.Complete(o.cliOpts))
-
 		if len(args) == 0 {
 			return allowedResource.List(), cobra.ShellCompDirectiveNoFileComp
+		}
+		if err := o.Complete(o.cliOpts); err != nil {
+			return nil, cobra.ShellCompDirectiveError
 		}
 		switch resource := args[0]; resource {
 		case options.ResourceUser:

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"sort"
-	"syscall"
 	"time"
 
 	"github.com/fatih/color"
@@ -17,7 +15,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/operation/tui"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
-	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	operationsv1alpha1 "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 )
@@ -77,13 +74,17 @@ func NewCmdLogs(streams options.IOStreams) *cobra.Command {
 		Long:                  logsLong,
 		Example:               logsExample,
 		Args:                  cobra.MaximumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				o.OperationID = args[0]
 			}
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.Validate())
-			utils.CheckErr(o.Run())
+			if err := o.Validate(); err != nil {
+				return err
+			}
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			return o.run(cmd.Context())
 		},
 	}
 	cmd.Flags().BoolVarP(&o.Follow, "follow", "f", false, "Follow log output in real time")
@@ -96,6 +97,9 @@ func NewCmdLogs(streams options.IOStreams) *cobra.Command {
 
 // Validate checks that the options are valid.
 func (o *LogsOptions) Validate() error {
+	if o.MaxLength < 0 {
+		return fmt.Errorf("--max-length must be non-negative")
+	}
 	if o.Cluster != "" && o.OperationID != "" {
 		return fmt.Errorf("cannot specify both OPERATION_ID and --cluster")
 	}
@@ -119,14 +123,16 @@ func (o *LogsOptions) Complete(opts *options.CliOptions) error {
 }
 
 // Run executes the logs command.
-func (o *LogsOptions) Run() error {
+func (o *LogsOptions) Run() error { return o.run(context.Background()) }
+
+func (o *LogsOptions) run(ctx context.Context) error {
 	// Cluster mode: launch TUI or show non-TTY fallback
 	if o.Cluster != "" {
 		return o.runClusterMode()
 	}
 
 	// Single operation mode: plain-text output
-	return o.runSingleOperation()
+	return o.runSingleOperation(ctx)
 }
 
 // runClusterMode handles the --cluster flag by launching TUI or falling back
@@ -166,23 +172,18 @@ func (o *LogsOptions) nonTTYClusterFallback() error {
 }
 
 // runSingleOperation handles the plain-text log output for a single operation ID.
-func (o *LogsOptions) runSingleOperation() error {
-	ctx := context.TODO()
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+func (o *LogsOptions) runSingleOperation(ctx context.Context) error {
 
 	offsets := make(map[string]int64)
 	seenTasks := make(map[string]bool)
 	for {
 		operation, err := o.Client.DescribeOperation(ctx, o.OperationID)
 		if err != nil {
-			printErrorLine(o.Out, "Failed to describe operation %s: %v\n", o.OperationID, err)
-			return nil
+			return fmt.Errorf("describe operation %s: %w", o.OperationID, err)
 		}
 		steps := operation.Spec.Steps
 		if len(steps) == 0 {
-			printErrorLine(o.Out, "No steps found in operation %s\n", o.OperationID)
-			return nil
+			return fmt.Errorf("no steps found in operation %s", o.OperationID)
 		}
 
 		taskList, err := o.Client.ListOperationTasks(ctx, string(operation.UID))
@@ -204,8 +205,7 @@ func (o *LogsOptions) runSingleOperation() error {
 				offset := offsets[task.Name]
 				taskLog, logErr := o.Client.GetOperationTaskLog(ctx, task.Name, offset)
 				if logErr != nil {
-					printErrorLine(o.ErrOut, "[task:%s] log fetch error: %v\n", task.Name, logErr)
-					continue
+					return fmt.Errorf("fetch log for task %s: %w", task.Name, logErr)
 				}
 				if taskLog.Content != "" {
 					for _, line := range splitLines(truncateLog(taskLog.Content, o.MaxLength)) {
@@ -226,7 +226,7 @@ func (o *LogsOptions) runSingleOperation() error {
 		}
 
 		select {
-		case <-interrupt:
+		case <-ctx.Done():
 			return nil
 		case <-time.After(pollInterval):
 		}

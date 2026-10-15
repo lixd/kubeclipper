@@ -166,6 +166,17 @@ func TestDeployOptionsCompleteGeneratesAuthenticationJWTSecret(t *testing.T) {
 	if d.deployConfig.AuthenticationOpts.JwtSecret == "" {
 		t.Fatal("Complete() did not generate authentication JWT secret")
 	}
+	if errs := d.deployConfig.AuthenticationOpts.Validate(); len(errs) != 0 {
+		t.Fatalf("generated authentication options are invalid: %v", errs)
+	}
+	content, err := d.deployConfig.GetKcServerConfigTemplateContent("192.0.2.10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(content, "jwtSecret: "+d.deployConfig.AuthenticationOpts.JwtSecret) {
+		t.Fatal("server config does not contain the generated JWT secret")
+	}
+
 }
 
 func TestDeployOptionsValidateTempDir(t *testing.T) {
@@ -184,6 +195,9 @@ func TestDeployOptionsValidateTempDir(t *testing.T) {
 			d.deployConfig.PackageRegistry = "registry.example.test/kubeclipper"
 			d.deployConfig.ServerIPs = []string{"192.0.2.10"}
 			d.deployConfig.TempDir = tt.tempDir
+			if err := d.Complete(); err != nil {
+				t.Fatal(err)
+			}
 
 			err := d.ValidateArgs()
 			if tt.wantErr == "" && err != nil {
@@ -384,6 +398,7 @@ func TestDeployOptions_nodeRole(t *testing.T) {
 
 func TestDeployOptionsValidateArgsDefaultsPackageRegistry(t *testing.T) {
 	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.AuthenticationOpts.JwtSecret = "test-configured-secret"
 	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
 	d.deployConfig.SSHConfig.Password = "secret"
 
@@ -401,6 +416,7 @@ func TestDeployOptionsValidateArgsDefaultsPackageRegistry(t *testing.T) {
 	}
 
 	explicit := NewDeployOptions(options.IOStreams{})
+	explicit.deployConfig.AuthenticationOpts.JwtSecret = "test-configured-secret"
 	explicit.deployConfig.ServerIPs = []string{"10.0.0.1"}
 	explicit.deployConfig.SSHConfig.Password = "secret"
 	explicit.deployConfig.PackageRegistry = "registry.local:5000"
@@ -430,6 +446,7 @@ func TestPrecheckPackageRegistryFailureGuidance(t *testing.T) {
 
 func TestDeployOptionsValidateArgsDoesNotRequirePackage(t *testing.T) {
 	d := NewDeployOptions(options.IOStreams{})
+	d.deployConfig.AuthenticationOpts.JwtSecret = "test-configured-secret"
 	d.deployConfig.ServerIPs = []string{"10.0.0.1"}
 	d.deployConfig.SSHConfig.Password = "secret"
 	d.deployConfig.PackageRegistry = "registry.local:5000"

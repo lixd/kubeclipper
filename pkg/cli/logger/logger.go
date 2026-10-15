@@ -125,7 +125,7 @@ func (l *loggingT) addHeader(buf *bytes.Buffer, s severity) {
 }
 
 func (l *loggingT) output(buf *bytes.Buffer, s severity) {
-	_, _ = color.Output.Write(buf.Bytes())
+	_, _ = color.Error.Write(buf.Bytes())
 	if s == fatalLog {
 		trace := stacks(false)
 		_, _ = color.Error.Write(trace)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
-	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	operationsv1alpha1 "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 )
@@ -49,10 +48,12 @@ func NewCmdTerminate(streams options.IOStreams) *cobra.Command {
 		Long:                  terminateLong,
 		Example:               terminateExample,
 		Args:                  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			o.OperationID = args[0]
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.RunTerminate())
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			return o.RunTerminate()
 		},
 	}
 	o.CliOpts.AddFlags(cmd.Flags())

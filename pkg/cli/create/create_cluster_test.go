@@ -2,9 +2,16 @@ package create
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
+	"github.com/spf13/cobra"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -157,5 +164,51 @@ func TestNewClusterDefaultTaintIsControlPlane(t *testing.T) {
 	cluster = untainted.newCluster()
 	if len(cluster.Masters[0].Taints) != 0 {
 		t.Fatalf("--untaint-master taints = %+v, want none", cluster.Masters[0].Taints)
+	}
+}
+
+func TestCreateClusterReportsSubmissionWithoutPollutingJSON(t *testing.T) {
+	for _, format := range []string{"table", "json", "yaml"} {
+		t.Run(format, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPost {
+					t.Errorf("unexpected method %s", r.Method)
+				}
+				fmt.Fprint(w, `{"metadata":{"name":"alpha"},"status":{"phase":"Installing"}}`)
+			}))
+			defer server.Close()
+			var out bytes.Buffer
+			o := NewCreateClusterOptions(options.IOStreams{Out: &out})
+			o.Name = "alpha"
+			var err error
+			o.Client, err = kc.NewClientWithOpts(kc.WithEndpoint(server.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.PrintFlags = printer.NewPrintFlags()
+			cmd := &cobra.Command{}
+			o.PrintFlags.AddFlags(cmd)
+			if err := cmd.Flags().Set("output", format); err != nil {
+				t.Fatal(err)
+			}
+			if err := o.RunCreate(); err != nil {
+				t.Fatal(err)
+			}
+			if format == "table" {
+				if !strings.Contains(out.String(), "creation requested") || !strings.Contains(out.String(), "operation list --cluster alpha") {
+					t.Fatalf("missing progress guidance: %s", out.String())
+				}
+			} else if format == "json" {
+				var object map[string]any
+				if err := json.Unmarshal(out.Bytes(), &object); err != nil {
+					t.Fatal(err)
+				}
+				if object["status"].(map[string]any)["phase"] != "Installing" {
+					t.Fatalf("lost asynchronous phase: %s", out.String())
+				}
+			} else if strings.Contains(out.String(), "creation requested") {
+				t.Fatalf("YAML polluted by progress guidance: %s", out.String())
+			}
+		})
 	}
 }

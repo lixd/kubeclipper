@@ -209,11 +209,20 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 		Long:                  clusterLongDescription,
 		Example:               createClusterExample,
 		Args:                  cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.PreRun())
-			utils.CheckErr(o.ValidateArgs(cmd))
-			utils.CheckErr(o.RunCreate())
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := o.PrintFlags.Validate(); err != nil {
+				return err
+			}
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			if err := o.PreRun(); err != nil {
+				return err
+			}
+			if err := o.ValidateArgs(cmd); err != nil {
+				return err
+			}
+			return o.RunCreate()
 		},
 	}
 	cmd.Flags().StringVar(&o.Name, "name", "", "k8s cluster name")
@@ -551,7 +560,13 @@ func (l *CreateClusterOptions) RunCreate() error {
 	if err != nil {
 		return err
 	}
-	return l.PrintFlags.Print(resp, l.IOStreams.Out)
+	if err := l.PrintFlags.Print(resp, l.IOStreams.Out); err != nil {
+		return err
+	}
+	if l.PrintFlags.Format() == "table" {
+		_, err = fmt.Fprintf(l.Out, "cluster %s creation requested; view progress with: kcctl operation list --cluster %s\n", l.Name, l.Name)
+	}
+	return err
 }
 
 func (l *CreateClusterOptions) transformNodeIP() error {

@@ -12,7 +12,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
-	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	operationsv1alpha1 "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 )
@@ -52,10 +51,12 @@ func NewCmdDescribe(streams options.IOStreams) *cobra.Command {
 		Long:                  describeLong,
 		Example:               describeExample,
 		Args:                  cobra.ExactArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			o.OperationID = args[0]
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.RunDescribe())
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			return o.RunDescribe()
 		},
 	}
 	o.CliOpts.AddFlags(cmd.Flags())

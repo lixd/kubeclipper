@@ -19,9 +19,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/logger"
@@ -29,7 +32,9 @@ import (
 
 func main() {
 	cmds := app.NewKubeClipperCommand(os.Stdin, os.Stdout, os.Stderr)
-	if err := cmds.Execute(); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := cmds.ExecuteContext(ctx); err != nil {
 		code := 1
 		var exitError interface{ ExitCode() int }
 		if errors.As(err, &exitError) {

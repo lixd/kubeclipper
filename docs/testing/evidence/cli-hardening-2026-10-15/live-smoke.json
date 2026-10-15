@@ -1,0 +1,27 @@
+{
+  "baseline": {
+    "status": "Healthy",
+    "clusters": 0,
+    "nodes": 3,
+    "operations": 0
+  },
+  "missing_operation_logs": {
+    "exit": 1,
+    "stdout_empty": true,
+    "stderr_present": true
+  },
+  "invalid_arguments": "rejected with nonzero exit and stderr",
+  "named_watch": {
+    "real_modified_event": true,
+    "complete_object": true,
+    "sigint_exit": 0,
+    "json_documents": 3
+  },
+  "cleanup": {
+    "owned_configmap_404": true,
+    "platform_healthy": true,
+    "cluster_and_node_counts_unchanged": true,
+    "installed_cli_hash_unchanged": true
+  },
+  "candidate_sha256": "92ed5b8c928c9a460f6f549d5c3e6cde19e91c9b464e2d0773bce80e289060ee"
+}

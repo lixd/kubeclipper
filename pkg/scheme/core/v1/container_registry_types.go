@@ -72,7 +72,7 @@ type RegistryList struct {
 	metav1.ListMeta
 
 	// Items is the list of registry.
-	Items []Registry
+	Items []Registry `json:"items"`
 }
 
 func (n *RegistryList) YAMLPrint() ([]byte, error) {

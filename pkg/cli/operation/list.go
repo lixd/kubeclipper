@@ -9,7 +9,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
-	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
@@ -56,9 +55,15 @@ func NewCmdList(streams options.IOStreams) *cobra.Command {
 		Short:                 "List operations",
 		Long:                  listLong,
 		Example:               listExample,
-		Run: func(cmd *cobra.Command, args []string) {
-			utils.CheckErr(o.Complete(o.CliOpts))
-			utils.CheckErr(o.RunList())
+		Args:                  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := o.PrintFlags.Validate(); err != nil {
+				return err
+			}
+			if err := o.Complete(o.CliOpts); err != nil {
+				return err
+			}
+			return o.RunList()
 		},
 	}
 	cmd.Flags().StringVarP(&o.Cluster, "cluster", "c", o.Cluster, "Filter operations by cluster name")
@@ -67,7 +72,9 @@ func NewCmdList(streams options.IOStreams) *cobra.Command {
 
 	// Shell completion for --cluster flag
 	cmd.RegisterFlagCompletionFunc("cluster", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		utils.CheckErr(o.Complete(o.CliOpts))
+		if err := o.Complete(o.CliOpts); err != nil {
+			return nil, cobra.ShellCompDirectiveError
+		}
 		return o.listClusterNames(toComplete), cobra.ShellCompDirectiveNoSpace | cobra.ShellCompDirectiveNoFileComp
 	})
 
@@ -98,7 +105,7 @@ func (o *ListOptions) RunList() error {
 	if err != nil {
 		return err
 	}
-	if len(result.Items) == 0 {
+	if len(result.Items) == 0 && o.PrintFlags.Format() == "table" {
 		if o.Cluster != "" {
 			fmt.Fprintf(o.Out, "No operations found for cluster %s\n", o.Cluster)
 		} else {
@@ -106,7 +113,7 @@ func (o *ListOptions) RunList() error {
 		}
 		return nil
 	}
-	return o.PrintFlags.Print(result, o.Out)
+	return o.PrintFlags.PrintList(result, o.Out)
 }
 
 // listClusterNames returns cluster names for shell completion.
