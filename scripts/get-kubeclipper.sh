@@ -1,195 +1,80 @@
-#!/bin/env bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Usage:
-#   curl ... | ENV_VAR=... bash -
-#       or
-#   ENV_VAR=... ./get-kubeclipper.sh
-#
-# Example:
-#   Installing the master branch kcctl:
-#     curl ... | KC_VERSION=master bash -
-#   Installing kcctl to the specified directory:
-#     curl ... | KC_BIN_DIR=/usr/local/bin bash -
-#
-# Environment variables:
-#   - KC_VERSION
-#     Version of kcctl to download.
-#
-#   - KC_DOWNLOAD_URL
-#     Base URL for kcctl-only release artifacts.
-#
-#   - KC_BIN_DIR
-#     Directory to install kcctl binary, or use /usr/local/bin as the default.
-#
-#   - KC_REGION
-#     Region of installing kcctl, Will attempt to set image repo mirror.
-#
-#   - KC_IMAGE_REPO_MIRROR
-#     Image repo mirror, or use registry.aliyuncs.com/google_containers as the default.
+# Usage: curl ... | KC_REGION=cn KC_VERSION=vX.Y.Z bash
+# KC_REGION=cn selects OSS; otherwise downloads come from GitHub Releases.
+# KC_DOWNLOAD_URL overrides either source (base URL before /VERSION/FILENAME).
+# KC_BIN_DIR selects the install directory; ARCH overrides architecture detection.
+# The release workflow stamps DEFAULT_VERSION before publishing this script.
+DEFAULT_VERSION="v2.0.9"
+KC_VERSION="${KC_VERSION:-$DEFAULT_VERSION}"
+BIN_DIR="${KC_BIN_DIR:-/usr/local/bin}"
 
-info() {
-  echo '[INFO] ' "$@"
-}
-warn() {
-  echo '[WARN] ' "$@" >&2
-}
-fatal() {
-  echo '[ERROR] ' "$@" >&2
-  exit 1
-}
+info() { echo "[INFO] $*"; }
+fatal() { echo "[ERROR] $*" >&2; exit 1; }
 
-SUDO=sudo
-if [ $(id -u) -eq 0 ]; then
-  SUDO=
+case "$(uname -s)" in
+  Linux) OS_TYPE=linux ;;
+  Darwin) OS_TYPE=darwin ;;
+  *) fatal 'Only Linux and macOS are supported' ;;
+esac
+case "${ARCH:-$(uname -m)}" in
+  amd64|x86_64) ARCH=amd64 ;;
+  arm64|aarch64) ARCH=arm64 ;;
+  *) fatal 'Only amd64 and arm64 are supported' ;;
+esac
+
+if [[ -n "${KC_DOWNLOAD_URL:-}" ]]; then
+  DOWNLOAD_URL="$KC_DOWNLOAD_URL"
+elif [[ "${KC_REGION:-}" == cn ]]; then
+  DOWNLOAD_URL="https://release.kubeclipper.io/kc"
+else
+  DOWNLOAD_URL="https://github.com/kubeclipper/kubeclipper/releases/download"
 fi
 
-OS_TYPE="linux"
-
-# default kcctl-only release endpoint
-DOWNLOAD_URL="${KC_DOWNLOAD_URL:-https://release.kubeclipper.io/kc}"
-# default directory for storing binary files
-BIN_DIR="/usr/local/bin"
-
-if [[ -z "${KC_VERSION}" ]]; then
-  KC_VERSION="v1.7.0"
+if command -v curl >/dev/null 2>&1; then
+  DOWNLOADER=curl
+elif command -v wget >/dev/null 2>&1; then
+  DOWNLOADER=wget
+else
+  fatal 'Please install curl or wget first'
 fi
-info "The ${KC_VERSION} version will be installed"
+if command -v sha256sum >/dev/null 2>&1; then
+  CHECKSUM=sha256sum
+elif command -v shasum >/dev/null 2>&1; then
+  CHECKSUM=shasum
+else
+  fatal 'Please install sha256sum or shasum first'
+fi
 
-verify_system() {
-  verify_os
-  verify_arch
-  verify_downloader curl || verify_downloader wget || fatal 'Please install curl or wget first!'
-}
-
-verify_os() {
-  os=$(uname)
-  if [[ $os == 'Darwin' ]]; then
-    OS_TYPE="darwin"
-  fi
-}
-
-verify_arch() {
-  if [[ -z "$ARCH" ]]; then
-    ARCH=$(uname -m)
-  fi
-  case $ARCH in
-  amd64)
-    ARCH=amd64
-    STRIP=0
-    ;;
-  x86_64)
-    ARCH=amd64
-    STRIP=0
-    ;;
-  arm64)
-    ARCH=arm64
-    STRIP=1
-    ;;
-  aarch64)
-    ARCH=arm64
-    STRIP=1
-    ;;
-  *)
-    fatal "Unsupported architecture $ARCH"
-    ;;
-  esac
-}
-
-verify_downloader() {
-  [ -x "$(command -v "$1")" ] || return 1
-  DOWNLOADER="$1"
-  return 0
-}
-
-set_env() {
-  if [ "x${KC_REGION}" == "xcn" ]; then
-    info "KC_REGION is assigned cn, kc.env file will be created"
-
-    mirror='registry.aliyuncs.com/google_containers'
-    if [[ -n ${KC_IMAGE_REPO_MIRROR} ]]; then
-      mirror=${KC_IMAGE_REPO_MIRROR}
-    fi
-    create_env_file "$mirror"
-  fi
-
-  if [ -n "${KC_BIN_DIR}" ]; then
-    BIN_DIR=${KC_BIN_DIR}
-  else
-    IFS=":" read -ra dirs <<<"$(echo "${PATH}")"
-    for dirx in "${dirs[@]}"; do
-      if [ "$dirx" == "/usr/local/bin" ] || [ "$dirx" == "/usr/bin" ]; then
-        BIN_DIR=$dirx
-        break
-      fi
-    done
-  fi
-}
-
-create_env_file() {
-  file_path="/etc/kc/kc.env"
-  info "env: Creating environment file $file_path}"
-  $SUDO mkdir -pv "$(dirname $file_path)"
-  $SUDO touch $file_path
-
-  echo "KC_IMAGE_REPO_MIRROR=\"$1\"" >$file_path
-}
-
-install_pkg() {
-  TMP_DIR=$(mktemp -d -t kcctl.XXXXXXXX)
-  if [ $? -ne 0 ] || [ -z "$TMP_DIR" ]; then
-    fatal 'Failed to create a temporary directory!'
-  fi
-  REMOTE=${DOWNLOAD_URL}/${KC_VERSION}/kcctl-${OS_TYPE}-${ARCH}
-  TARGET=${TMP_DIR}"/kcctl"
-  # download
-  download "${TARGET}" "${REMOTE}"
-  info "Installing kcctl to ${BIN_DIR}/kcctl"
-  # move binary file to BIN_DIR
-  chmod +x "${TARGET}"
-  $SUDO mv "${TARGET}" "${BIN_DIR}"/kcctl
-  rm -rf "${TMP_DIR}"
-}
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/kcctl.XXXXXXXX")
+trap 'rm -rf "$TMP_DIR"' EXIT
 
 download() {
-  [ $# -eq 2 ] || fatal 'download needs exactly 2 arguments'
-
-  info "Downloading package $2"
-  case $DOWNLOADER in
-  curl)
-    curl -o "$1" "$2"
-    ;;
-  wget)
-    wget -O "$1" "$2"
-    ;;
-  *)
-    fatal "Incorrect executable '$DOWNLOADER'"
-    ;;
-  esac
-
-  [ $? -eq 0 ] || fatal 'Download package failed'
+  info "Downloading $2"
+  case "$DOWNLOADER" in
+    curl) curl --fail --location --show-error --connect-timeout 15 -o "$1" "$2" ;;
+    wget) wget --timeout=30 -O "$1" "$2" ;;
+  esac || fatal "Download failed: $2"
 }
 
-verify_install() {
-  [ -x "$(command -v kcctl)" ] || fatal "Kcctl installation failed, please try again!"
+ASSET="kcctl-${OS_TYPE}-${ARCH}"
+BASE_URL="${DOWNLOAD_URL%/}/${KC_VERSION}"
+download "$TMP_DIR/$ASSET" "$BASE_URL/$ASSET"
+download "$TMP_DIR/kcctl-checksums.txt" "$BASE_URL/kcctl-checksums.txt"
+EXPECTED=$(awk -v asset="$ASSET" '$2 == asset {print $1}' "$TMP_DIR/kcctl-checksums.txt")
+[[ "$EXPECTED" =~ ^[a-fA-F0-9]{64}$ ]] || fatal "Missing or invalid SHA256 for $ASSET"
+if [[ "$CHECKSUM" == sha256sum ]]; then
+  ACTUAL=$(sha256sum "$TMP_DIR/$ASSET")
+else
+  ACTUAL=$(shasum -a 256 "$TMP_DIR/$ASSET")
+fi
+[[ "${ACTUAL%% *}" == "$EXPECTED" ]] || fatal "SHA256 mismatch for $ASSET"
 
-  printf "%40s\n" "$(tput setaf 4)
-  Kcctl has been installed successfully!
-    Run 'kcctl version' to view the version.
-    Run 'kcctl -h' for more help.
-
-        __ ______________________
-       / //_/ ____/ ____/_  __/ /
-      / ,< / /   / /     / / / /
-     / /| / /___/ /___  / / / /___
-    /_/ |_\____/\____/ /_/ /_____/
-    repository: github.com/kubeclipper
-  $(tput sgr0)"
-}
-
-{
-  verify_system
-  set_env
-  install_pkg
-  verify_install
-}
+info "Installing kcctl $KC_VERSION to $BIN_DIR/kcctl"
+if [[ "$(id -u)" == 0 || ( -d "$BIN_DIR" && -w "$BIN_DIR" ) ]]; then
+  install -m 0755 "$TMP_DIR/$ASSET" "$BIN_DIR/kcctl"
+else
+  sudo install -m 0755 "$TMP_DIR/$ASSET" "$BIN_DIR/kcctl"
+fi
+info "Installed $BIN_DIR/kcctl; run '$BIN_DIR/kcctl version' to check the version"

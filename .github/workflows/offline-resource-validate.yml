@@ -8,6 +8,9 @@ on:
     paths:
       - "packaging/**"
       - "scripts/open-packaging/**"
+      - "scripts/get-kubeclipper.sh"
+      - ".github/workflows/release.yml"
+      - ".github/workflows/sync-script.yml"
       - ".github/workflows/offline-resource-validate.yml"
       - ".github/workflows/*publish-*.yml"
       - "docs/superpowers/specs/*offline-package*"
@@ -32,11 +35,18 @@ jobs:
       - name: Bash syntax
         run: |
           find scripts/open-packaging -name "*.sh" -print0 | xargs -0 bash -n
+          bash -n scripts/get-kubeclipper.sh
 
       - name: Install validation dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y python3-yaml
+
+      - name: Installer download and integrity regressions
+        run: python3 scripts/open-packaging/tests/installer-test.py
+
+      - name: Stable release workflow regression
+        run: bash scripts/open-packaging/tests/release-workflow-test.sh
 
       - name: Python YAML dependency
         run: |

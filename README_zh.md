@@ -158,13 +158,23 @@ KubeClipper 本身并不会占用太多资源，但是为了后续更好的运�
 KubeClipper 提供了命令行工具🔧 kcctl 以简化运维工作，您可以直接使用以下命令下载最新版 kcctl：
 
 ```bash
-# 安装最新的 release 版本
-curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash -
-# 如果你在中国，可以在安装时使用 `KC_REGION=cn` 环境变量，此时我们会使用 `registry.aliyuncs.com/google_containers` 代替 `k8s.gcr.io`
-curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn bash -
-# 默认会下载最新版本，你也可以通过指定 KC_VERSION 下载所需版本，比如安装 master 开发版本
-curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=master bash -
+# 默认从 GitHub Release 下载 kcctl
+curl -fsSL https://github.com/kubeclipper/kubeclipper/releases/latest/download/get-kubeclipper.sh | bash
+# 国内从 OSS 获取脚本和 kcctl
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn bash
+# 下载指定的 OCI 发布版本
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=v2.0.9 bash
 ```
+
+安装脚本会校验 SHA256。`KC_DOWNLOAD_URL` 可覆盖下载源，地址格式为
+`<KC_DOWNLOAD_URL>/<KC_VERSION>/kcctl-<系统>-<架构>`，同目录须有 `kcctl-checksums.txt`。`KC_BIN_DIR`
+可指定安装目录。 `KC_REGION` 只选择 kcctl 下载源，不修改 OCI 仓库或 Kubernetes 镜像源。
+平台安装物料从 OCI 仓库获取；内网部署通过 `kcctl deploy --package-registry <仓库>` 指定物料源。
+
+OCI 版本之间的平台升级默认从 GitHub 下载发布清单，二进制物料从清单指定的 OCI 仓库获取。 国内可使用
+`kcctl upgrade all --version vX.Y.Z --release-base-url https://release.kubeclipper.io/kc` 从 OSS
+下载清单及校验文件；请将 `vX.Y.Z` 替换为已发布的目标版本。 `KC_REGION=cn` 不影响升级命令。详见
+[OCI 升级说明](docs/oci-delivery.md#44-platform-upgrade-kcctl-upgrade)。
 
 > 强烈建议您安装最新的发布版本，体验更多功能特性。\
 > 您也可以在 **[GitHub Release Page](https://github.com/kubeclipper/kubeclipper/releases)**
@@ -185,8 +195,6 @@ kcctl version
 ```bash
 # 安装默认版本
 kcctl deploy
-# 通过指定 KC_VERSION 的值，指定安装的版本，比如安装 master 分支
-KC_VERSION=master kcctl deploy
 ```
 
 如果想安装多节点环境，可以使用 `kcctl deploy -h` 获取更多帮助信息。

@@ -212,6 +212,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v7
         with:
           name: kcctl-release-${{ github.run_id }}
@@ -220,6 +221,10 @@ jobs:
         with:
           name: release-manifest-${{ github.run_id }}
           path: ${{ runner.temp }}/release
+      - name: Stamp installer version
+        run: |
+          sed "s/^DEFAULT_VERSION=.*/DEFAULT_VERSION=\"${GITHUB_REF_NAME}\"/" \
+            scripts/get-kubeclipper.sh > "$RUNNER_TEMP/release/get-kubeclipper.sh"
       - name: Name manifest assets for version downloads
         run: |
           set -euo pipefail
@@ -232,3 +237,44 @@ jobs:
         with:
           files: ${{ runner.temp }}/release/*
           generate_release_notes: true
+
+  oss-release:
+    needs: github-release
+    # Fork releases must not overwrite the official download channel.
+    if: github.repository == 'kubeclipper/kubeclipper'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download the published GitHub assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --dir "$RUNNER_TEMP/oss-release" \
+            --pattern 'kcctl-linux-amd64' --pattern 'kcctl-linux-arm64' \
+            --pattern 'kcctl-darwin-amd64' --pattern 'kcctl-darwin-arm64' \
+            --pattern 'kcctl-checksums.txt' --pattern 'get-kubeclipper.sh' \
+            --pattern "release-manifest-${GITHUB_REF_NAME}.yaml" \
+            --pattern "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"
+      - name: Verify release checksums
+        run: |
+          cd "$RUNNER_TEMP/oss-release"
+          sha256sum --check kcctl-checksums.txt
+          sha256sum --check "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"
+      - name: Setup ossutil
+        uses: manyuanrong/setup-ossutil@v3.0
+        with:
+          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          access-key-id: ${{ secrets.OSS_ACCESS_KEY }}
+          access-key-secret: ${{ secrets.OSS_ACCESS_SECRET }}
+      - name: Upload release files and publish installer last
+        env:
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/oss-release"
+          for asset in kcctl-linux-amd64 kcctl-linux-arm64 kcctl-darwin-amd64 kcctl-darwin-arm64 \
+            kcctl-checksums.txt "release-manifest-${GITHUB_REF_NAME}.yaml" \
+            "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"; do
+            ossutil cp -f "$asset" "oss://${OSS_BUCKET}/kc/${GITHUB_REF_NAME}/$asset"
+          done
+          ossutil cp -f get-kubeclipper.sh "oss://${OSS_BUCKET}/get-kubeclipper.sh"

@@ -168,13 +168,25 @@ KubeClipper provides command line tools 🔧 kcctl to simplify operations.
 You can download the latest version of `kcctl` directly with the following command:
 
 ```bash
-# Install latest release
-curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash -
-# In China, you can add env "KC_REGION=cn", we use registry.aliyuncs.com/google_containers instead of k8s.gcr.io
-curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn bash -
-# The latest release is downloaded by default. You can also install a specific version, for example the master development build.
-curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=master bash -
+# Download kcctl from GitHub Releases by default
+curl -fsSL https://github.com/kubeclipper/kubeclipper/releases/latest/download/get-kubeclipper.sh | bash
+# In China, download both the installer and kcctl from OSS
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn bash
+# Download a specific OCI release
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=v2.0.9 bash
 ```
+
+The installer verifies SHA256. Override the download source with `KC_DOWNLOAD_URL`; assets must be
+available at `<KC_DOWNLOAD_URL>/<KC_VERSION>/kcctl-<os>-<arch>`, with `kcctl-checksums.txt` in the
+same directory. Set `KC_BIN_DIR` to choose the install directory. `KC_REGION` only selects the kcctl
+download source; it does not change the OCI registry or Kubernetes image source. Platform materials
+are fetched from OCI; use `kcctl deploy --package-registry <registry>` for an internal registry.
+
+For platform upgrades between OCI releases, manifests are downloaded from GitHub by default; binary
+payloads come from the OCI registry named in the manifest. To download manifests and checksums from
+OSS, use `kcctl upgrade all --version vX.Y.Z --release-base-url https://release.kubeclipper.io/kc`,
+replacing `vX.Y.Z` with a published target version. `KC_REGION=cn` does not affect upgrades. See
+[OCI upgrade instructions](docs/oci-delivery.md#44-platform-upgrade-kcctl-upgrade).
 
 > It is highly recommended that you install the latest release to experience more features. You can
 > also download the specified version on the
@@ -195,8 +207,6 @@ If you want to install AIO mode
 ```bash
 # install default release
 kcctl deploy
-# you can use KC_VERSION to install the specified version, default is latest release
-KC_VERSION=master kcctl deploy
 ```
 
 If you want to install a multi-node environment, use `kcctl deploy -h` for more information.

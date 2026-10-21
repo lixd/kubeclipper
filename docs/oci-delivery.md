@@ -121,6 +121,33 @@ Helm addons are published as OCI charts (`oci://<registry>/kubeclipper/charts/..
 and their side-effect images are pinned via runtime image sets; install steps
 resolve charts from the same registry as everything else.
 
+### 4.4 Platform upgrade (`kcctl upgrade`)
+
+For upgrades between OCI releases, `--version` downloads `release-manifest-<version>.yaml` and its
+`.sha256` file from GitHub Releases by default. The OSS release mirror contains these same files
+under `kc/<version>/`, alongside the kcctl binaries and checksums. Both channels serve identical
+release files; the manifest is not rewritten for the mirror.
+
+```bash
+# Replace vX.Y.Z with the published target version.
+kcctl upgrade all --version vX.Y.Z
+# Download the manifest and its checksum from OSS instead of GitHub.
+kcctl upgrade all --version vX.Y.Z \
+  --release-base-url https://release.kubeclipper.io/kc
+```
+
+`--release-base-url` only selects the manifest download endpoint. Server, Agent, Console and kcctl
+payloads come from the OCI registry named in that manifest and are verified before rollout.
+`KC_REGION=cn` only affects the installation script; it is not an upgrade flag. For offline
+upgrades, sync the artifacts and use a local manifest pointing to the internal registry with
+`--manifest`.
+
+The stable release workflow verifies the kcctl and manifest checksums before uploading to OSS, then
+updates the root installer script after all versioned files have been uploaded. It reuses the
+existing `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET` repository secrets.
+The existing `release.kubeclipper.io/kc` download mapping must serve the bucket's `kc/` prefix;
+`oss.kubeclipper.io/get-kubeclipper.sh` must serve its root installer script.
+
 ## 5. Air-gapped and offline delivery
 
 Three supported shapes, from lightest to heaviest:
