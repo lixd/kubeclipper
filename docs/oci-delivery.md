@@ -107,6 +107,33 @@ Key properties:
   **write path** (put+delete roundtrip, retried) before uploading config — the
   cold-start race between `kc-server` boot and etcd readiness is handled here.
 
+### Image registry prefixes and mirrors
+
+Deploy seeds the `kc-package-registry` image Registry resource from the
+configured package Registry. For a package Registry such as
+`registry.example.com:5000/team/project`, the seeded resource stores
+`registry.example.com:5000` as its `host` and `team/project` as its
+`repositoryPrefix`. The optional prefix is used in image repository names;
+containerd connects to the host and port, without the prefix. TLS and
+credentials follow the package Registry configuration. Repeating deploy
+reuses an equivalent resource and replaces an outdated default resource.
+
+A Registry's `host` must not include a scheme or repository path. Set
+`repositoryPrefix` to the repository path only, without an image tag, digest,
+empty segment or `.` / `..` segment. An empty prefix means the registry root.
+
+The optional `imageProxy.kcImageRepoMirror` deploy setting is a separate
+image repository override. For example:
+
+```yaml
+imageProxy:
+  kcImageRepoMirror: registry.example.com:5000/team/project
+```
+
+The mirror is a host and optional path, without a scheme, image tag or digest.
+An empty value keeps the default image behavior. Deploy validates this value
+before touching remote nodes, and the agent applies the same validation.
+
 ### 4.2 Cluster create / upgrade
 
 The cluster handler resolves the plan (section 3), stores it on the cluster,
