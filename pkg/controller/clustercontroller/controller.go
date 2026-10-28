@@ -215,6 +215,21 @@ func (r *ClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		return ctrl.Result{}, nil
 	}
+	if clu.Annotations[operationv2builder.ComponentPlanAnnotation] != "" {
+		current, readErr := r.ClusterOperator.GetClusterEx(ctx, clu.Name, "")
+		if readErr != nil {
+			return ctrl.Result{}, readErr
+		}
+		if current.UID == clu.UID && current.Annotations[operationv2builder.ComponentPlanAnnotation] != "" {
+			publishErr := operationv2builder.PublishComponentPlan(ctx, current, r.OperationStore)
+			if recordErr := operationv2builder.RecordComponentPublication(ctx, r.ClusterOperator, current, publishErr); recordErr != nil {
+				return ctrl.Result{}, fmt.Errorf("record component publication result: %w", recordErr)
+			}
+			if publishErr != nil {
+				return ctrl.Result{}, publishErr
+			}
+		}
+	}
 	if err = r.updateClusterNode(ctx, clu); err != nil {
 		return ctrl.Result{}, err
 	}

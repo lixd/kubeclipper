@@ -148,9 +148,10 @@ func GetClusterCRIRegistriesForMode(ctx context.Context, c *v1.Cluster, offline 
 	if err != nil {
 		return nil, err
 	}
-	c.ResolvedImageRegistry = imageRegistry.Host
+	c.ResolvedImageRegistry = imageRegistry.ImageRepository()
 	registries := make([]v1.RegistrySpec, 0, len(c.ContainerRuntime.Registries)+1)
 	if imageRegistry.Host != "" {
+		imageRegistry.RepositoryPrefix = ""
 		registries = append(registries, imageRegistry)
 	}
 	explicitHosts := make(map[string]v1.RegistrySpec)
@@ -166,6 +167,7 @@ func GetClusterCRIRegistriesForMode(ctx context.Context, c *v1.Cluster, offline 
 		if err != nil {
 			return nil, fmt.Errorf("cri registry %s: %w", *ref.RegistryRef, err)
 		}
+		spec.RepositoryPrefix = ""
 		if existing, ok := explicitHosts[spec.Host]; ok {
 			if !reflect.DeepEqual(existing, spec) {
 				return nil, fmt.Errorf("cri registry %s: registry host %s has conflicting configuration", *ref.RegistryRef, spec.Host)
@@ -231,6 +233,9 @@ func normalizeRegistrySpec(item v1.RegistrySpec) (v1.RegistrySpec, error) {
 	}
 	if strings.Contains(item.Host, "://") || strings.Contains(item.Host, "/") {
 		return v1.RegistrySpec{}, fmt.Errorf("registry host %q must not include a scheme or path", item.Host)
+	}
+	if err := item.ValidateImageRepository(); err != nil {
+		return v1.RegistrySpec{}, err
 	}
 	return item, nil
 }

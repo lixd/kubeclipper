@@ -21,13 +21,17 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/reconcile"
+	operationbuilder "github.com/kubeclipper/kubeclipper/pkg/operationv2"
+	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 )
 
@@ -36,12 +40,18 @@ const (
 	conflictRequeue    = 200 * time.Millisecond
 )
 
+var errComponentRetryReservation = errors.New("component retry reservation rejected")
+
 // OperationReconciler is deliberately level driven. Every call derives the
 // next action from durable Operation, Task, and Lock objects and performs at
 // most one class of mutation before returning.
 type OperationReconciler struct {
-	Store Store
-	Now   func() time.Time
+	Store    Store
+	Now      func() time.Time
+	Clusters interface {
+		GetClusterEx(context.Context, string, string) (*corev1.Cluster, error)
+		UpdateCluster(context.Context, *corev1.Cluster) (*corev1.Cluster, error)
+	}
 }
 
 // Store is the narrow persistence contract needed by the reconciler. The
@@ -104,7 +114,13 @@ func (r *OperationReconciler) reconcileOperation(
 		return reconcile.Result{}, err
 	}
 	if retryRequested && !isLatestOperation(op, targetOperations.Items) {
-		return r.skipRetry(ctx, op)
+		reserved, reserveErr := r.componentRetryReserved(ctx, op)
+		if reserveErr != nil {
+			return reconcile.Result{}, reserveErr
+		}
+		if !reserved {
+			return r.skipRetry(ctx, op)
+		}
 	}
 	// Only operations that have not started yet wait for their turn. A running
 	// operation already holds the target lock, and gating it here would starve
@@ -132,6 +148,24 @@ func (r *OperationReconciler) reconcileOperation(
 	if !owned {
 		return reconcile.Result{RequeueAfter: defaultWaitRequeue}, nil
 	}
+	component := operationbuilder.IsComponentAction(op.Spec.Action) &&
+		op.Annotations[operationbuilder.ComponentOwnerAnnotation] == string(op.Spec.TargetRef.UID)
+	if component && !retryRequested && op.Status.Phase == operations.OperationPending {
+		if r.Clusters == nil {
+			return reconcile.Result{}, fmt.Errorf("cluster store is required for component execution")
+		}
+		clusterObject, readErr := r.Clusters.GetClusterEx(ctx, op.Spec.TargetRef.Name, "")
+		if readErr != nil {
+			return reconcile.Result{}, readErr
+		}
+		expectedOwner := operationbuilder.ComponentOwner(op.Name, op.Spec.RetryGeneration)
+		if clusterObject.UID != op.Spec.TargetRef.UID || !clusterObject.DeletionTimestamp.IsZero() ||
+			clusterObject.Status.Phase != corev1.ClusterUpdating ||
+			clusterObject.Annotations[operationbuilder.ComponentOwnerAnnotation] != expectedOwner {
+			return r.finish(ctx, op, lock, operations.OperationFailed, operations.OperationReasonInvalidExecutionFacts,
+				"component operation no longer owns the Cluster update")
+		}
+	}
 	if retryRequested {
 		latest, latestErr := r.retryStillLatest(ctx, op, lock)
 		if latestErr != nil {
@@ -140,8 +174,89 @@ func (r *OperationReconciler) reconcileOperation(
 		if !latest {
 			return r.skipRetry(ctx, op)
 		}
+		if component {
+			if err := r.reserveComponentRetry(ctx, op); err != nil {
+				if errors.Is(err, errComponentRetryReservation) {
+					if releaseErr := r.Store.ReleaseLock(ctx, lock.Name, lock.UID, op.UID); releaseErr != nil {
+						return reconcile.Result{}, releaseErr
+					}
+					status := op.Status
+					status.ObservedRetryGeneration = op.Spec.RetryGeneration
+					status.Message = fmt.Sprintf("retry rejected: %v; original result: %s", err, op.Status.Message)
+					if len(status.Message) > operations.MaxMessageSize {
+						status.Message = status.Message[:operations.MaxMessageSize]
+						for !utf8.ValidString(status.Message) {
+							status.Message = status.Message[:len(status.Message)-1]
+						}
+					}
+					_, updateErr := r.Store.UpdateOperationStatus(ctx, op.Name, op.UID, op.ResourceVersion, &status)
+					return resultForConflict(updateErr)
+				}
+				return reconcile.Result{}, err
+			}
+		}
 	}
 	return r.reconcileLockedOperation(ctx, op, lock, tasks, retryRequested)
+}
+
+// A retry that already reserved this generation has started, even if the
+// following Operation status write was interrupted. A later queued operation
+// must not make that durable reservation orphaned.
+func (r *OperationReconciler) componentRetryReserved(ctx context.Context, op *operations.Operation) (bool, error) {
+	if !operationbuilder.IsComponentAction(op.Spec.Action) ||
+		op.Annotations[operationbuilder.ComponentOwnerAnnotation] != string(op.Spec.TargetRef.UID) {
+		return false, nil
+	}
+	if r.Clusters == nil {
+		return false, fmt.Errorf("cluster store is required for component retry")
+	}
+	clusterObject, err := r.Clusters.GetClusterEx(ctx, op.Spec.TargetRef.Name, "")
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return clusterObject.UID == op.Spec.TargetRef.UID && clusterObject.DeletionTimestamp.IsZero() &&
+		clusterObject.Status.Phase == corev1.ClusterUpdating &&
+		clusterObject.Annotations[operationbuilder.ComponentOwnerAnnotation] ==
+			operationbuilder.ComponentOwner(op.Name, op.Spec.RetryGeneration), nil
+}
+
+func (r *OperationReconciler) reserveComponentRetry(ctx context.Context, op *operations.Operation) error {
+	if r.Clusters == nil {
+		return fmt.Errorf("cluster store is required for component retry")
+	}
+	return retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+		clusterObject, err := r.Clusters.GetClusterEx(ctx, op.Spec.TargetRef.Name, "")
+		if err != nil {
+			return err
+		}
+		if clusterObject.UID != op.Spec.TargetRef.UID || !clusterObject.DeletionTimestamp.IsZero() {
+			return fmt.Errorf("%w: target Cluster identity changed", errComponentRetryReservation)
+		}
+		owner := clusterObject.Annotations[operationbuilder.ComponentOwnerAnnotation]
+		newOwner := operationbuilder.ComponentOwner(op.Name, op.Spec.RetryGeneration)
+		if clusterObject.Status.Phase == corev1.ClusterUpdating && owner == newOwner {
+			return nil
+		}
+		previousOwner := operationbuilder.ComponentOwner(op.Name, op.Status.ObservedRetryGeneration)
+		failedUnowned := clusterObject.Status.Phase == corev1.ClusterUpdateFailed && owner == ""
+		updatingPrevious := clusterObject.Status.Phase == corev1.ClusterUpdating && owner == previousOwner
+		if !failedUnowned && !updatingPrevious {
+			return fmt.Errorf("%w: Cluster %q is %s or has another owner",
+				errComponentRetryReservation, clusterObject.Name, clusterObject.Status.Phase)
+		}
+		clusterObject = clusterObject.DeepCopy()
+		if clusterObject.Annotations == nil {
+			clusterObject.Annotations = map[string]string{}
+		}
+		clusterObject.Annotations[operationbuilder.ComponentOwnerAnnotation] = newOwner
+		delete(clusterObject.Annotations, operationbuilder.ComponentPlanAnnotation)
+		clusterObject.Status.Phase = corev1.ClusterUpdating
+		_, err = r.Clusters.UpdateCluster(ctx, clusterObject)
+		return err
+	})
 }
 
 func operationCanceledBeforeStart(op *operations.Operation, tasks []operations.OperationTask) bool {
@@ -159,6 +274,13 @@ func (r *OperationReconciler) retryStillLatest(
 		return false, err
 	}
 	if isLatestOperation(op, latest.Items) {
+		return true, nil
+	}
+	reserved, reserveErr := r.componentRetryReserved(ctx, op)
+	if reserveErr != nil {
+		return false, reserveErr
+	}
+	if reserved {
 		return true, nil
 	}
 	if err := r.Store.ReleaseLock(ctx, lock.Name, lock.UID, op.UID); err != nil {

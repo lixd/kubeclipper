@@ -48,6 +48,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/auditing"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/auth"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/mfa"
+
 	// MFA providers register themselves through init(); without this import
 	// the registry stays empty, a deploy that enables mfaOptions fails at
 	// startup with "mfa provider <type> is not supported" and crash-loops
@@ -492,12 +493,12 @@ func (s *APIServer) SetupController(
 	iamOperator := iam.NewOperator(storageFactory.Users(), storageFactory.GlobalRoles(), storageFactory.GlobalRoleBindings(),
 		storageFactory.Tokens(), storageFactory.LoginRecords())
 	if setupErr := (&operationv2controller.OperationReconciler{
-		Store: s.operationV2Store,
+		Store: s.operationV2Store, Clusters: clusterOperator,
 	}).SetupWithManager(mgr, informerFactory); setupErr != nil {
 		return setupErr
 	}
 	if setupErr := (&operationv2controller.BusinessReconciler{
-		Operations: informerFactory.Operations().V1alpha1().Operations().Lister(), Clusters: clusterOperator,
+		Operations: informerFactory.Operations().V1alpha1().Operations().Lister(), Clusters: clusterOperator, Store: s.operationV2Store,
 	}).SetupWithManager(mgr, informerFactory); setupErr != nil {
 		return setupErr
 	}
@@ -509,11 +510,12 @@ func (s *APIServer) SetupController(
 		return err
 	}
 	if err = (&backupcontroller.BackupReconciler{
-		ClusterLister:   informerFactory.Core().V1().Clusters().Lister(),
-		BackupLister:    informerFactory.Core().V1().Backups().Lister(),
-		OperationLister: informerFactory.Operations().V1alpha1().Operations().Lister(),
-		OperationStore:  s.operationV2Store,
-		BackupWriter:    clusterOperator,
+		AdmissionClusters: clusterOperator,
+		ClusterLister:     informerFactory.Core().V1().Clusters().Lister(),
+		BackupLister:      informerFactory.Core().V1().Backups().Lister(),
+		OperationLister:   informerFactory.Operations().V1alpha1().Operations().Lister(),
+		OperationStore:    s.operationV2Store,
+		BackupWriter:      clusterOperator,
 	}).SetupWithManager(mgr, informerFactory); err != nil {
 		return err
 	}

@@ -20,7 +20,6 @@ package cluster
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -252,20 +251,15 @@ func (c *clusterOperator) CreateBackup(ctx context.Context, backup *v1.Backup) (
 
 // TODO: refactor needed
 func (c *clusterOperator) GetBackup(ctx context.Context, cluster string, name string) (*v1.Backup, error) {
-	q := query.New()
-	q.LabelSelector = fmt.Sprintf("%s=%s", common.LabelClusterName, cluster)
-
-	backups, err := c.ListBackups(ctx, q)
+	obj, err := c.backupStorage.Get(ctx, name, &metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}
-	for _, val := range backups.Items {
-		if val.Name == name {
-			return &val, nil
-		}
+	b := obj.(*v1.Backup) //nolint:errcheck // Backup storage returns registered Backup objects.
+	if b.Labels[common.LabelClusterName] != cluster {
+		return nil, apimachineryErrors.NewNotFound(v1.Resource("backup"), name)
 	}
-
-	return nil, apimachineryErrors.NewNotFound(v1.Resource("backup"), name)
+	return b, nil
 }
 
 func (c *clusterOperator) GetBackupEx(ctx context.Context, cluster string, name string) (*v1.Backup, error) {

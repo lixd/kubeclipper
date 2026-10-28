@@ -33,7 +33,7 @@ func (r *ClusterReconciler) assembleClusterExtraMetadata(ctx context.Context, c 
 	if err != nil {
 		return nil, err
 	}
-	c.ResolvedImageRegistry = registry.Host
+	c.ResolvedImageRegistry = registry.ImageRepository()
 	meta := &component.ExtraMetadata{
 		ClusterName:        c.Name,
 		ClusterStatus:      c.Status.Phase,

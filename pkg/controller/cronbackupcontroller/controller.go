@@ -401,7 +401,10 @@ func (r *CronBackupReconciler) createBackup(log logger.Logging, cronBackup *v1.C
 		return err
 	}
 
-	// update cluster status to backing_up
+	// A scheduled backup starts a new ownership lifecycle. Its existing
+	// publication path has no manual admission owner.
+	c = c.DeepCopy()
+	delete(c.Annotations, operationv2builder.BackupOwnerAnnotation)
 	c.Status.Phase = v1.ClusterBackingUp
 
 	actBackupStep := actBackup.GetStep(v1.ActionInstall)

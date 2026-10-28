@@ -20,8 +20,12 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -29,6 +33,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	mock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
@@ -38,6 +43,92 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 )
+
+func TestDescribeBackupPoint(t *testing.T) {
+	notFound := apimachineryErrors.NewNotFound(v1.Resource("backuppoints"), "fixture")
+	point := &v1.BackupPoint{
+		ObjectMeta:  metav1.ObjectMeta{Name: "fixture", ResourceVersion: "42"},
+		StorageType: "FS",
+		Description: "backup point fixture",
+		FsConfig:    &v1.FsConfig{BackupRootDir: "/backup"},
+	}
+	tests := []struct {
+		name    string
+		version string
+		point   *v1.BackupPoint
+		err     error
+		status  int
+	}{
+		{name: "missing", err: notFound, status: http.StatusNotFound},
+		{name: "wrapped missing", version: "17", err: fmt.Errorf("lookup: %w", notFound), status: http.StatusNotFound},
+		{name: "existing", point: point, status: http.StatusOK},
+		{name: "existing explicit version", version: "42", point: point, status: http.StatusOK},
+		{name: "storage failure", err: errors.New("storage unavailable"), status: http.StatusInternalServerError},
+		{name: "timeout", err: context.DeadlineExceeded, status: http.StatusInternalServerError},
+		{name: "untyped not found", err: errors.New("storage endpoint not found"), status: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			operator := mock.NewMockOperator(ctrl)
+			version := tt.version
+			if version == "" {
+				version = "0"
+			}
+			operator.EXPECT().GetBackupPointEx(gomock.Any(), "fixture", version).Return(tt.point, tt.err)
+			container := restful.NewContainer()
+			container.Add(SetupWebService(newHandler(nil, operator, nil, nil, nil, nil, nil)))
+			path := "/api/core.kubeclipper.io/v1/backuppoints/fixture"
+			if tt.version != "" {
+				path += "?resourceVersion=" + tt.version
+			}
+			request := httptest.NewRequest(http.MethodGet, path, nil)
+			request.Header.Set("Accept", "application/json")
+			response := httptest.NewRecorder()
+			container.ServeHTTP(response, request)
+			if response.Code != tt.status {
+				t.Fatalf("status = %d, want %d; body: %s", response.Code, tt.status, response.Body.String())
+			}
+			if tt.err == nil {
+				var got v1.BackupPoint
+				if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+					t.Fatal(err)
+				}
+				if !reflect.DeepEqual(&got, tt.point) {
+					t.Fatalf("object = %#v, want %#v", &got, tt.point)
+				}
+				return
+			}
+			var got struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+				Reason  string `json:"reason"`
+			}
+			if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+				t.Fatal(err)
+			}
+			message := "Internal server error"
+			if tt.status == http.StatusNotFound {
+				message = "Object not found"
+			}
+			if got.Code != tt.status || got.Message != message || got.Reason != tt.err.Error() {
+				t.Fatalf("unexpected error response: %+v", got)
+			}
+		})
+	}
+}
+
+func TestDescribeBackupPointDeclaresNotFound(t *testing.T) {
+	for _, route := range SetupWebService(newHandler(nil, nil, nil, nil, nil, nil, nil)).Routes() {
+		if route.Method == http.MethodGet && route.Path == "/api/core.kubeclipper.io/v1/backuppoints/{name}" {
+			if _, ok := route.ResponseErrors[http.StatusNotFound]; !ok {
+				t.Fatal("backup point GET does not declare its 404 response")
+			}
+			return
+		}
+	}
+	t.Fatal("backup point GET route not found")
+}
 
 func TestTemplateMissingEndpointsReturnNotFound(t *testing.T) {
 	notFound := apimachineryErrors.NewNotFound(v1.Resource("templates"), "missing")
@@ -596,6 +687,70 @@ func TestUpgradeClusterRejectsSameVersionAndDowngradeThroughAPI(t *testing.T) {
 			container.ServeHTTP(response, request)
 			if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), tt.want) {
 				t.Fatalf("upgrade API response = HTTP %d %s, want 400 containing %q", response.Code, response.Body.String(), tt.want)
+			}
+		})
+	}
+}
+
+func TestClusterMetadataPreservesRegistryPrefix(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	op := mock.NewMockOperator(ctrl)
+	op.EXPECT().GetRegistry(gomock.Any(), "default").Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Host: "registry.example.com:5251", RepositoryPrefix: "qualified/team", Scheme: "https"}}, nil)
+	h := &handler{clusterOperator: op}
+	c := &v1.Cluster{ImageRegistry: "default"}
+	meta, err := h.getClusterMetadata(context.Background(), c, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meta.ImageRegistry != "registry.example.com:5251/qualified/team" || c.CNI.ImageRegistry != meta.ImageRegistry {
+		t.Fatalf("metadata or CNI prefix lost: %s %s", meta.ImageRegistry, c.CNI.ImageRegistry)
+	}
+}
+
+func TestRegistryValidateRejectsInvalidRepository(t *testing.T) {
+	h := &handler{}
+	for _, r := range []v1.RegistrySpec{{Scheme: "https", Host: "registry.example.com/path"}, {Scheme: "https", Host: "registry.example.com", RepositoryPrefix: "a//b"}, {Scheme: "https", Host: "registry.example.com", RepositoryPrefix: "a:tag"}} {
+		if err := h.registryValidate(context.Background(), &v1.Registry{RegistrySpec: r}); err == nil {
+			t.Fatal("invalid repository accepted")
+		}
+	}
+	if err := h.registryValidate(context.Background(), &v1.Registry{RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "registry.example.com", RepositoryPrefix: "team"}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRegistryUpdateInvalidatesSeedDigestOnSpecChange(t *testing.T) {
+	for _, tt := range []struct {
+		name, password string
+		wantDigest     bool
+	}{{"unchanged masked password", "******", true}, {"password changed", "outside-password", false}} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctrl := gomock.NewController(t)
+			op := mock.NewMockOperator(ctrl)
+			old := &v1.Registry{RegistrySpec: v1.RegistrySpec{Host: "registry.example.com", Scheme: "https", RegistryAuth: &v1.RegistryAuth{Username: "user", Password: "seed-password"}}}
+			old.Name = "kc-package-registry"
+			old.Annotations = map[string]string{"kubeclipper.io/package-registry-config-digest": "seed-digest"}
+			op.EXPECT().GetRegistryEx(gomock.Any(), old.Name, "0").Return(old, nil)
+			op.EXPECT().UpdateRegistry(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, r *v1.Registry) (*v1.Registry, error) {
+				digest := r.Annotations["kubeclipper.io/package-registry-config-digest"]
+				if (digest != "") != tt.wantDigest {
+					t.Errorf("stale seed digest retained after password change: %v", digest != "")
+				}
+				return r, nil
+			})
+			h := &handler{clusterOperator: op}
+			ws := new(restful.WebService)
+			ws.Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+			ws.Route(ws.PUT("/registries/{name}").To(h.UpdateRegistry))
+			container := restful.NewContainer()
+			container.Add(ws)
+			body := `{"metadata":{"name":"kc-package-registry","annotations":{"kubeclipper.io/package-registry-config-digest":"seed-digest"}},"host":"registry.example.com","scheme":"https","auth":{"username":"user","password":"` + tt.password + `"}}`
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/registries/kc-package-registry", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp := httptest.NewRecorder()
+			container.ServeHTTP(resp, req)
+			if resp.Code != http.StatusOK {
+				t.Fatalf("update status %d", resp.Code)
 			}
 		})
 	}

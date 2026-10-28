@@ -19,13 +19,20 @@
 package v1
 
 import (
+	"fmt"
 	"strconv"
+	"strings"
+
+	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const DefaultImageRegistry = "registry.k8s.io"
+
+// RegistrySeedConfigDigestAnnotation identifies the last deployed registry configuration.
+const RegistrySeedConfigDigestAnnotation = "kubeclipper.io/package-registry-config-digest"
 
 // +genclient
 // +genclient:nonNamespaced
@@ -41,11 +48,40 @@ type Registry struct {
 }
 
 type RegistrySpec struct {
-	Scheme       string        `json:"scheme,omitempty"`
-	Host         string        `json:"host,omitempty"`
-	SkipVerify   bool          `json:"skipVerify,omitempty"`
-	CA           string        `json:"ca,omitempty"`
-	RegistryAuth *RegistryAuth `json:"auth,omitempty"`
+	// RepositoryPrefix is the optional image repository path beneath Host.
+	RepositoryPrefix string        `json:"repositoryPrefix,omitempty"`
+	Scheme           string        `json:"scheme,omitempty"`
+	Host             string        `json:"host,omitempty"`
+	SkipVerify       bool          `json:"skipVerify,omitempty"`
+	CA               string        `json:"ca,omitempty"`
+	RegistryAuth     *RegistryAuth `json:"auth,omitempty"`
+}
+
+// ImageRepository returns the image namespace, independently of the CRI endpoint.
+func (r *RegistrySpec) ImageRepository() string {
+	if r.RepositoryPrefix == "" {
+		return r.Host
+	}
+	return r.Host + "/" + r.RepositoryPrefix
+}
+
+// ValidateImageRepository checks the endpoint and optional repository path without rewriting them.
+func (r *RegistrySpec) ValidateImageRepository() error {
+	if _, err := name.NewRegistry(r.Host, name.StrictValidation); err != nil {
+		return fmt.Errorf("invalid registry host %q: %w", r.Host, err)
+	}
+	if r.RepositoryPrefix == "" {
+		return nil
+	}
+	for part := range strings.SplitSeq(r.RepositoryPrefix, "/") {
+		if part == "" || part == "." || part == ".." {
+			return fmt.Errorf("invalid registry repository prefix %q", r.RepositoryPrefix)
+		}
+	}
+	if _, err := name.NewRepository("registry.invalid/" + r.RepositoryPrefix + "/kc-validation"); err != nil {
+		return fmt.Errorf("invalid registry repository prefix %q: %w", r.RepositoryPrefix, err)
+	}
+	return nil
 }
 
 // RegistryAuth holds credentials for authenticating with a container registry.

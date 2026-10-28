@@ -20,7 +20,9 @@ package imageproxy
 
 import (
 	"fmt"
-	"net/url"
+	"strings"
+
+	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/spf13/pflag"
 )
@@ -36,16 +38,23 @@ func NewOptions() *Options {
 }
 
 func (s *Options) Validate() []error {
-	var errs []error
-	uri, err := url.Parse(s.KcImageRepoMirror)
-	if err != nil {
-		errs = append(errs, err)
-		return errs
+	mirror := s.KcImageRepoMirror
+	if mirror == "" {
+		return nil
 	}
-	if uri.Scheme != "" {
-		errs = append(errs, fmt.Errorf("kc image repo mirror is not support incoming protcol: %s", uri.Scheme))
+	// Validate a complete repository below the prefix, so a host-only
+	// mirror (including host:port) is interpreted as a registry authority.
+	if _, err := name.NewRepository(mirror + "/kc-image-mirror-validation"); err != nil {
+		return []error{fmt.Errorf("invalid kc image repo mirror: %w", err)}
 	}
-	return errs
+	// NewRepository validates characters but allows empty and dot segments.
+	// They are not valid repository namespaces and must not be normalized.
+	for part := range strings.SplitSeq(mirror, "/") {
+		if part == "" || part == "." || part == ".." {
+			return []error{fmt.Errorf("invalid kc image repo mirror: empty or dot path segment")}
+		}
+	}
+	return nil
 }
 
 func (s *Options) AddFlags(fs *pflag.FlagSet) {

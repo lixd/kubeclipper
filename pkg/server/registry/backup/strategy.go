@@ -31,6 +31,7 @@ import (
 	"k8s.io/apiserver/pkg/storage"
 	"k8s.io/apiserver/pkg/storage/names"
 
+	operationbuilder "github.com/kubeclipper/kubeclipper/pkg/operationv2"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
@@ -103,5 +104,13 @@ func (BackupStrategy) Canonicalize(obj runtime.Object) {
 }
 
 func (BackupStrategy) ValidateUpdate(ctx context.Context, obj, old runtime.Object) field.ErrorList {
-	return field.ErrorList{}
+	next, previous := obj.(*v1.Backup), old.(*v1.Backup) //nolint:errcheck // REST strategy receives registered Backup objects.
+	var errs field.ErrorList
+	for _, key := range []string{operationbuilder.BackupPlanAnnotation, operationbuilder.BackupRequestAnnotation} {
+		if next.Annotations[key] != previous.Annotations[key] {
+			errs = append(errs, field.Forbidden(field.NewPath("metadata", "annotations").Key(key),
+				"backup admission identity and plan are immutable"))
+		}
+	}
+	return errs
 }

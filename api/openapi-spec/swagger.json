@@ -1350,6 +1350,13 @@
         "operationId": "CreateBackup",
         "parameters": [
           {
+            "type": "string",
+            "name": "Idempotency-Key",
+            "in": "header",
+            "description": "Stable request ID; reuse for retries with identical parameters",
+            "required": false
+          },
+          {
             "name": "body",
             "in": "body",
             "required": true,
@@ -7064,6 +7071,10 @@
         },
         "skipVerify": {
           "type": "boolean"
+        },
+        "repositoryPrefix": {
+          "description": "Optional image repository path beneath host.",
+          "type": "string"
         }
       }
     },
@@ -7093,6 +7104,10 @@
         },
         "skipVerify": {
           "type": "boolean"
+        },
+        "repositoryPrefix": {
+          "description": "Optional image repository path beneath host.",
+          "type": "string"
         }
       }
     },

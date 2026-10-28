@@ -26,6 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
@@ -311,13 +312,13 @@ func TestKubeadmConfig_renderTo(t *testing.T) {
 func TestKubeadmConfigRendersNativeImageRepository(t *testing.T) {
 	stepper := &KubeadmConfig{
 		ClusterConfigAPIVersion: "v1beta4",
-		ImageRegistry:           "127.0.0.1:5000",
+		ImageRegistry:           "127.0.0.1:5000/qualified/team",
 	}
 	output := &bytes.Buffer{}
 	if err := stepper.renderTo(output); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(output.String(), "imageRepository: 127.0.0.1:5000") {
+	if !strings.Contains(output.String(), "imageRepository: 127.0.0.1:5000/qualified/team") {
 		t.Fatalf("kubeadm image repository was not rendered:\n%s", output.String())
 	}
 	if strings.Contains(output.String(), "imageRegistry:") {
@@ -557,4 +558,14 @@ func componentSection(rendered, key string) string {
 		}
 	}
 	return strings.Join(lines[:end], "\n")
+}
+
+func TestUpgradePreservesRepositoryPrefix(t *testing.T) {
+	repo := "registry.example.com:5251/qualified/team"
+	c := &v1.Cluster{ResolvedImageRegistry: repo}
+	stepper := &Upgrade{}
+	stepper.InitStepper(&component.ExtraMetadata{ImageRegistry: repo}, c)
+	if stepper.ImageRegistry != repo || stepper.Kubeadm.ImageRegistry != repo {
+		t.Fatal("upgrade image prefix lost")
+	}
 }

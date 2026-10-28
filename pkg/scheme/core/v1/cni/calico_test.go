@@ -293,3 +293,15 @@ func TestCalicoRoutingModesRequireBGP(t *testing.T) {
 		}
 	}
 }
+
+func TestCalicoPreservesRepositoryPrefix(t *testing.T) {
+	repo := "registry.example.com:5251/qualified/team"
+	r := CalicoRunnable{BaseCni: BaseCni{ResolvedImageRegistry: repo, CNI: v1.CNI{ImageRegistry: repo, Version: "v3.31.5", Calico: &v1.Calico{Mode: "Overlay-Vxlan-All"}}}}
+	var out bytes.Buffer
+	if err := r.renderCalicoTo(&out); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "registry: "+repo) {
+		t.Fatal("Calico registry prefix lost")
+	}
+}

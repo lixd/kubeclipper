@@ -24,10 +24,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand"
 	"net"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -145,6 +147,48 @@ func (h *handler) createOperationV2(
 	}
 	_, err = h.operationV2Store.CreateOperation(ctx, converted)
 	return err
+}
+
+func (h *handler) admitComponentOperation(ctx context.Context, clusterObject *v1.Cluster, plan *v1.Operation) (*v1.Cluster, error) {
+	op, err := operationv2builder.FromCoreOperation(ctx, plan, clusterObject, h.clusterOperator)
+	if err != nil {
+		return nil, err
+	}
+	if attachErr := operationv2builder.AttachComponentPlan(clusterObject, op); attachErr != nil {
+		return nil, attachErr
+	}
+	updated, err := h.clusterOperator.UpdateCluster(ctx, clusterObject)
+	if err == nil {
+		return updated, nil
+	}
+	return h.readComponentAdmission(clusterObject, op, err)
+}
+
+func (h *handler) readComponentAdmission(clusterObject *v1.Cluster, op *operations.Operation, updateErr error) (*v1.Cluster, error) {
+	// The write may have committed even if the request was canceled or its
+	// response was lost. Check the stable reservation using a fresh context.
+	const readbackTimeout = 5 * time.Second
+	readCtx, cancel := context.WithTimeout(context.Background(), readbackTimeout)
+	defer cancel()
+	current, readErr := h.clusterOperator.GetClusterEx(readCtx, clusterObject.Name, "")
+	if readErr == nil && current.UID == clusterObject.UID &&
+		current.Annotations[operationv2builder.ComponentOwnerAnnotation] == op.Name &&
+		current.Annotations[operationv2builder.ComponentPlanAnnotation] == clusterObject.Annotations[operationv2builder.ComponentPlanAnnotation] {
+		return current, nil
+	}
+	if readErr == nil && current.UID == clusterObject.UID {
+		published, opErr := h.operationV2Store.GetOperation(readCtx, op.Name, "")
+		if opErr == nil && operationv2builder.SameComponentPlan(published, op) {
+			return current, nil
+		}
+		if opErr != nil && !apimachineryErrors.IsNotFound(opErr) {
+			return nil, fmt.Errorf("component admission result unknown: update: %w; operation readback: %w", updateErr, opErr)
+		}
+	}
+	if readErr != nil {
+		return nil, fmt.Errorf("component admission result unknown: update: %w; readback: %w", updateErr, readErr)
+	}
+	return nil, updateErr
 }
 
 func (h *handler) ListClusters(request *restful.Request, response *restful.Response) {
@@ -591,6 +635,7 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
+	c.Annotations = componentReservedAnnotations(nil, c.Annotations)
 
 	if c.Labels[common.LabelBackupPoint] != "" {
 		_, err := h.clusterOperator.GetBackupPointEx(request.Request.Context(), c.Labels[common.LabelBackupPoint], "0")
@@ -755,7 +800,7 @@ func (h *handler) UpdateClusters(request *restful.Request, response *restful.Res
 
 		// update fields
 		clu.Labels = c.Labels
-		clu.Annotations = c.Annotations
+		clu.Annotations = componentReservedAnnotations(clu.Annotations, c.Annotations)
 		clu.ImageRegistry = c.ImageRegistry
 		clu.ContainerRuntime.Registries = c.ContainerRuntime.Registries
 		if _, err = utils.GetClusterCRIRegistriesWithContext(request.Request.Context(), clu, h.clusterOperator); err != nil {
@@ -770,6 +815,19 @@ func (h *handler) UpdateClusters(request *restful.Request, response *restful.Res
 	}
 
 	response.WriteHeader(http.StatusOK)
+}
+
+func componentReservedAnnotations(existing, requested map[string]string) map[string]string {
+	result := make(map[string]string, len(requested)+2)
+	maps.Copy(result, requested)
+	for _, key := range []string{operationv2builder.ComponentOwnerAnnotation, operationv2builder.ComponentPlanAnnotation,
+		operationv2builder.ComponentErrorAnnotation} {
+		delete(result, key)
+		if value, ok := existing[key]; ok {
+			result[key] = value
+		}
+	}
+	return result
 }
 
 func (h *handler) UpdateClusterCertification(request *restful.Request, response *restful.Response) {
@@ -829,7 +887,7 @@ func (h *handler) UpdateClusterCertification(request *restful.Request, response 
 func (h *handler) UpgradeClusterExtension(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter(query.ParameterName)
 	ctx := request.Request.Context()
-	clu, err := h.clusterOperator.GetClusterEx(ctx, name, "0")
+	clu, err := h.clusterOperator.GetClusterEx(ctx, name, "")
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			restplus.HandleNotFound(response, request, err)
@@ -886,12 +944,7 @@ func (h *handler) UpgradeClusterExtension(request *restful.Request, response *re
 		Steps: steps,
 	}
 
-	clu.Status.Phase = v1.ClusterUpdating
-	if _, err := h.clusterOperator.UpdateCluster(context.TODO(), clu); err != nil {
-		restplus.HandleInternalError(response, request, err)
-		return
-	}
-	if err := h.createOperationV2(context.TODO(), clu, op); err != nil {
+	if _, err := h.admitComponentOperation(ctx, clu.DeepCopy(), op); err != nil {
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
@@ -1268,7 +1321,7 @@ func (h *handler) getClusterMetadata(ctx context.Context, c *v1.Cluster, skipNod
 	if err != nil {
 		return nil, err
 	}
-	c.ResolvedImageRegistry = registry.Host
+	c.ResolvedImageRegistry = registry.ImageRepository()
 	c.Complete()
 	meta := utils.NewMetadata(c)
 
@@ -1612,7 +1665,7 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 	// cluster name in path
 	clusterName := request.PathParameter("name")
 	ctx := request.Request.Context()
-	c, err := h.clusterOperator.GetClusterEx(ctx, clusterName, "0")
+	c, err := h.clusterOperator.GetClusterEx(ctx, clusterName, "")
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			restplus.HandleNotFound(response, request, err)
@@ -1622,19 +1675,29 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	if c.Status.Phase != v1.ClusterRunning {
-		restplus.HandleInternalError(response, request, fmt.Errorf("cluster %s current is %s, can't back up",
-			c.Name, c.Status.Phase))
+	stableName, digest, err := backupRequestIdentity(c.UID, request.Request.Header.Get(backupIdempotencyHeader), backup)
+	if err != nil {
+		restplus.HandleBadRequest(response, request, err)
 		return
+	}
+	if stableName != "" && !dryRun {
+		existing, replayErr := h.replayBackup(ctx, clusterName, stableName, digest, c.UID)
+		if replayErr != nil {
+			restplus.HandleError(response, request, replayErr)
+			return
+		}
+		if existing != nil {
+			response.Header().Set("X-Operation-Name", existing.Labels[common.LabelOperationName])
+			if err = response.WriteHeaderAndEntity(http.StatusOK, existing); err != nil {
+				logger.Errorf("write backup replay response: %v", err)
+			}
+			return
+		}
 	}
 
-	b, err := h.clusterOperator.GetBackup(ctx, clusterName, fmt.Sprintf("%s-%s", backup.Name, clusterName))
-	if err != nil && !apimachineryErrors.IsNotFound(err) {
-		restplus.HandleInternalError(response, request, err)
-		return
-	}
-	if b != nil {
-		restplus.HandleInternalError(response, request, fmt.Errorf("backup %s already exists", backup.Name))
+	if c.Status.Phase != v1.ClusterRunning {
+		restplus.HandleConflict(response, request, fmt.Errorf("cluster %s current is %s, can't back up",
+			c.Name, c.Status.Phase))
 		return
 	}
 
@@ -1644,7 +1707,7 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 		return
 	}
 
-	_, err = h.clusterOperator.GetBackupPoint(ctx, c.Labels[common.LabelBackupPoint], "0")
+	point, err := h.clusterOperator.GetBackupPoint(ctx, c.Labels[common.LabelBackupPoint], "0")
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			restplus.HandleBadRequest(response, request, fmt.Errorf("backup point not found"))
@@ -1654,16 +1717,29 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 		return
 	}
 
+	if err = validateBackupPoint(point); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
+
 	randNum := r.String(6)
 	backup.Name = fmt.Sprintf("%s-%s-%s", c.Name, backup.Name, randNum)
-	backup.Status.KubernetesVersion = c.KubernetesVersion
-	backup.Status.FileName = backup.Name
+	if stableName != "" {
+		backup.Name = stableName
+	}
+	backup.Status = v1.BackupStatus{KubernetesVersion: c.KubernetesVersion, FileName: backup.Name}
 	backup.BackupPointName = c.Labels[common.LabelBackupPoint]
-	if backup.Annotations == nil {
-		backup.Annotations = map[string]string{}
+	backup.Annotations = map[string]string{
+		common.AnnotationDescription:               backup.Annotations[common.AnnotationDescription],
+		operationv2builder.BackupRequestAnnotation: digest,
 	}
 	if _, ok := backup.Annotations[common.AnnotationDescription]; !ok {
 		backup.Annotations[common.AnnotationDescription] = ""
+	}
+
+	if len(c.Masters) == 0 {
+		restplus.HandleBadRequest(response, request, fmt.Errorf("cluster has no master nodes"))
+		return
 	}
 
 	// check preferred node in cluster
@@ -1695,6 +1771,9 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 	// create operation
 	op := &v1.Operation{}
 	op.Name = uuid.New().String()
+	if stableName != "" {
+		op.Name = stableName
+	}
 	op.Labels = make(map[string]string)
 	op.Labels[common.LabelOperationAction] = v1.OperationBackupCluster
 	op.Labels[common.LabelOperationSponsor] = buildOperationSponsor(h.genericConfig)
@@ -1712,28 +1791,32 @@ func (h *handler) CreateBackup(request *restful.Request, response *restful.Respo
 		backup.ClusterNodes[node.Status.Ipv4DefaultIP] = node.Status.NodeInfo.Hostname
 	}
 
+	op.Steps, err = h.parseActBackupSteps(c, backup, v1.ActionInstall)
+	if err != nil {
+		if errors.Is(err, component.ErrNoReachableMaster) {
+			restplus.HandleError(response, request, apimachineryErrors.NewServiceUnavailable(err.Error()))
+		} else {
+			restplus.HandleInternalError(response, request, err)
+		}
+		return
+	}
+	converted, err := operationv2builder.FromCoreOperation(ctx, op, c, h.clusterOperator)
+	if err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if err = operationv2builder.AttachBackupPlan(backup, converted); err != nil {
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
 	if !dryRun {
-		op.Steps, err = h.parseActBackupSteps(c, backup, v1.ActionInstall)
+		backup, err = h.persistBackupAdmission(ctx, backup)
 		if err != nil {
-			logger.Errorf("parse create backup step failed: %s", err.Error())
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
-		if err = h.createOperationV2(context.TODO(), c, op); err != nil {
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
-		if backup, err = h.clusterOperator.CreateBackup(context.TODO(), backup); err != nil {
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
-		// update cluster status to backing_up
-		c.Status.Phase = v1.ClusterBackingUp
-		if _, err = h.clusterOperator.UpdateCluster(context.TODO(), c); err != nil {
-			restplus.HandleInternalError(response, request, err)
+			restplus.HandleError(response, request, err)
 			return
 		}
 	}
+	response.Header().Set("X-Operation-Name", op.Name)
 	_ = response.WriteHeaderAndEntity(http.StatusOK, backup)
 }
 
@@ -2029,7 +2112,7 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 	}
 
 	ctx := request.Request.Context()
-	clu, err := h.clusterOperator.GetClusterEx(ctx, clusterName, "0")
+	clu, err := h.clusterOperator.GetClusterEx(ctx, clusterName, "")
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
 			restplus.HandleNotFound(response, request, err)
@@ -2038,6 +2121,12 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
+	if !dryRun && clu.Status.Phase != v1.ClusterRunning {
+		restplus.HandleBadRequest(response, request, fmt.Errorf(
+			"cluster %q is %s; components can only be changed on a running cluster", clusterName, clu.Status.Phase))
+		return
+	}
+	clu = clu.DeepCopy()
 
 	// We need IP addresses of all master nodes later.
 	extraMeta, err := h.getClusterMetadata(ctx, clu, false)
@@ -2102,18 +2191,12 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
-		clu.Status.Phase = v1.ClusterUpdating
-		_, err = h.clusterOperator.UpdateCluster(context.TODO(), clu)
+		clu, err = h.admitComponentOperation(ctx, clu, op)
 		if err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
-
-		err = h.createOperationV2(context.TODO(), clu, op)
-		if err != nil {
-			restplus.HandleInternalError(response, request, err)
-			return
-		}
+		response.Header().Set("X-Operation-Name", op.Name)
 
 	}
 
@@ -2167,10 +2250,10 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
-	clu.ResolvedImageRegistry = registry.Host
+	clu.ResolvedImageRegistry = registry.ImageRepository()
 	clu.Complete()
 	extraMeta.Offline = body.Offline
-	extraMeta.ImageRegistry = registry.Host
+	extraMeta.ImageRegistry = registry.ImageRepository()
 	extraMeta.KubeVersion = body.Version
 	upgradeComp := &k8s.Upgrade{}
 	upgradeComp.InitStepper(extraMeta, clu)
@@ -3212,6 +3295,10 @@ func (h *handler) DescribeBackupPoint(request *restful.Request, response *restfu
 	resourceVersion := strutil.StringDefaultIfEmpty("0", request.QueryParameter(query.ParameterResourceVersion))
 	result, err := h.clusterOperator.GetBackupPointEx(request.Request.Context(), name, resourceVersion)
 	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
@@ -4018,6 +4105,12 @@ func (h *handler) UpdateRegistry(req *restful.Request, resp *restful.Response) {
 		// if not,use new password in request
 	}
 
+	// A changed spec invalidates the deploy digest, including password-only edits
+	// that subsequent API reads will hide.
+	if !reflect.DeepEqual(reg.RegistrySpec, oldReg.RegistrySpec) {
+		delete(reg.Annotations, v1.RegistrySeedConfigDigestAnnotation)
+	}
+
 	if !dryRun {
 		reg, err = h.clusterOperator.UpdateRegistry(req.Request.Context(), reg)
 		if err != nil {
@@ -4103,6 +4196,9 @@ func (h *handler) DeleteRegistry(req *restful.Request, resp *restful.Response) {
 }
 
 func (h *handler) registryValidate(_ context.Context, cp *v1.Registry) error {
+	if err := cp.ValidateImageRepository(); err != nil {
+		return err
+	}
 	if cp.Scheme == "" {
 		return fmt.Errorf("scheme cannot be empty")
 	}

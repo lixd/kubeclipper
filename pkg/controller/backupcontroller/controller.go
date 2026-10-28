@@ -22,6 +22,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -41,6 +42,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
 	operationv2store "github.com/kubeclipper/kubeclipper/pkg/models/operationv2"
+	operationbuilder "github.com/kubeclipper/kubeclipper/pkg/operationv2"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/k8s"
@@ -48,11 +50,12 @@ import (
 )
 
 type BackupReconciler struct {
-	ClusterLister   listerv1.ClusterLister
-	BackupLister    listerv1.BackupLister
-	OperationLister operationslister.OperationLister
-	OperationStore  operationv2store.Store
-	BackupWriter    cluster.BackupWriter
+	AdmissionClusters operationbuilder.BackupClusters
+	ClusterLister     listerv1.ClusterLister
+	BackupLister      listerv1.BackupLister
+	OperationLister   operationslister.OperationLister
+	OperationStore    operationv2store.Store
+	BackupWriter      cluster.BackupWriter
 }
 
 func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -69,7 +72,13 @@ func (r *BackupReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, r.updateBackupStatus(ctx, log, b)
+	// Informer objects are shared. Never mutate them while reconciling.
+	b = b.DeepCopy()
+	err = r.updateBackupStatus(ctx, log, b)
+	if b.Annotations[operationbuilder.BackupPlanAnnotation] != "" && b.Status.ClusterBackupStatus == v1.ClusterBackupCreating {
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, err
+	}
+	return ctrl.Result{}, err
 }
 
 func (r *BackupReconciler) SetupWithManager(mgr manager.Manager, informerCache informers.InformerCache) error {
@@ -116,111 +125,117 @@ func (r *BackupReconciler) updateBackupStatus(ctx context.Context, log logger.Lo
 		return r.reconcileDeletion(ctx, log, b)
 	}
 
-	c, cErr := r.ClusterLister.Get(b.Labels[common.LabelClusterName])
-	if cErr != nil && !errors.IsNotFound(cErr) {
-		log.Warn("unexpected error, backup should always has a cluster name label")
-		return cErr
-	}
-
-	o, oErr := r.OperationLister.Get(b.Labels[common.LabelOperationName])
-	if oErr != nil && !errors.IsNotFound(oErr) {
-		log.Warn("unexpected error, backup should always has a operation name label", zap.String("operation err", oErr.Error()))
-		return oErr
-	}
-
-	// if cluster not exist, backup will be deleted, operation-informer will delete this operation
-	if errors.IsNotFound(cErr) {
-		err := r.BackupWriter.DeleteBackup(context.TODO(), b.Name)
-		if err != nil {
-			log.Warnf("backup(%s) delete failed: %s", b.Name, err.Error())
-		}
+	before := b.Status
+	if err := r.projectBackupStatus(ctx, b); err != nil {
 		return err
 	}
+	if b.Status == before {
+		return nil
+	}
+	_, err := r.BackupWriter.UpdateBackup(ctx, b)
+	return err
+}
 
-	// if operation not exist, backup change to error
-	if oErr != nil && errors.IsNotFound(oErr) {
+func (r *BackupReconciler) projectBackupStatus(ctx context.Context, b *v1.Backup) error {
+	_, clusterErr := r.ClusterLister.Get(b.Labels[common.LabelClusterName])
+	admitted := b.Annotations[operationbuilder.BackupPlanAnnotation] != "" && b.Status.ClusterBackupStatus == v1.ClusterBackupCreating
+	if admitted {
+		_, clusterErr = r.AdmissionClusters.GetClusterEx(ctx, b.Labels[common.LabelClusterName], "")
+	}
+	if clusterErr != nil {
+		if !errors.IsNotFound(clusterErr) {
+			return clusterErr
+		}
+		if admitted {
+			b.Status.ClusterBackupStatus = v1.ClusterBackupError
+			b.Annotations["kubeclipper.io/backup-admission-error"] = "target Cluster no longer exists"
+			return nil
+		}
+		return r.BackupWriter.DeleteBackup(ctx, b.Name)
+	}
+	op, operationErr := r.backupOperation(ctx, b)
+	if operationErr != nil {
+		if !errors.IsNotFound(operationErr) && !errors.IsGone(operationErr) {
+			return operationErr
+		}
 		b.Status.ClusterBackupStatus = v1.ClusterBackupError
-		_, err := r.BackupWriter.UpdateBackup(context.TODO(), b)
-		if err != nil {
-			log.Warnf("backup(%s) sync status failed: %s", b.Name, err.Error())
-			return err
+		if admitted {
+			b.Annotations["kubeclipper.io/backup-admission-error"] = operationErr.Error()
 		}
 		return nil
 	}
+	if op == nil {
+		return nil
+	} // another operation owns Cluster; retry the durable admission
+	return r.applyBackupOperationStatus(ctx, b, op)
+}
 
-	// when the operation status is running and the action is backup cluster, set the backup status to creating
-	if o != nil && o.Status.Phase == operations.OperationRunning && o.Spec.Action == v1.OperationBackupCluster {
-		b.Status.ClusterBackupStatus = v1.ClusterBackupCreating
-		_, err := r.BackupWriter.UpdateBackup(context.TODO(), b)
-		if err != nil {
-			log.Warnf("backup(%s) sync operation(%s) status failed: %s", b.Name, o.Name, err.Error())
+func (r *BackupReconciler) backupOperation(ctx context.Context, b *v1.Backup) (*operations.Operation, error) {
+	raw := b.Annotations[operationbuilder.BackupPlanAnnotation]
+	if raw != "" && b.Status.ClusterBackupStatus == v1.ClusterBackupCreating {
+		var plan operations.Operation
+		if err := json.Unmarshal([]byte(raw), &plan); err != nil {
+			return nil, fmt.Errorf("decode backup admission: %w", err)
+		}
+		// Restore replaces the operation association. Never republish the old
+		// creation plan after another lifecycle operation takes over the Backup.
+		if plan.Name == b.Labels[common.LabelOperationName] {
+			return operationbuilder.EnsureBackupOperation(ctx, b, r.AdmissionClusters, r.OperationStore)
 		}
 	}
+	return r.OperationLister.Get(b.Labels[common.LabelOperationName])
+}
 
-	// when the operation status is running and the action is recovery cluster, set the backup status to restoring
-	if o != nil && o.Status.Phase == operations.OperationRunning && o.Spec.Action == v1.OperationRecoverCluster {
-		b.Status.ClusterBackupStatus = v1.ClusterBackupRestoring
-		_, err := r.BackupWriter.UpdateBackup(context.TODO(), b)
-		if err != nil {
-			log.Warnf("backup(%s) sync operation(%s) status failed: %s", b.Name, o.Name, err.Error())
+func (r *BackupReconciler) applyBackupOperationStatus(ctx context.Context, b *v1.Backup, op *operations.Operation) error {
+	switch op.Status.Phase {
+	case operations.OperationRunning:
+		switch op.Spec.Action {
+		case v1.OperationBackupCluster:
+			b.Status.ClusterBackupStatus = v1.ClusterBackupCreating
+		case v1.OperationRecoverCluster:
+			b.Status.ClusterBackupStatus = v1.ClusterBackupRestoring
 		}
-	}
-
-	// when the backup is creating and operation is successful, set the backup status to available
-	if b.Status.ClusterBackupStatus == v1.ClusterBackupCreating && o != nil && o.Status.Phase == operations.OperationSucceeded &&
-		o.Spec.Action == v1.OperationBackupCluster {
-		checkFile := k8s.CheckFile{}
-		tasks, err := r.OperationStore.ListTasksByOperationUID(ctx, o.UID, "")
-		if err != nil {
-			return err
+	case operations.OperationSucceeded:
+		if op.Spec.Action == v1.OperationBackupCluster && b.Status.ClusterBackupStatus == v1.ClusterBackupCreating {
+			return r.completeBackup(ctx, b, op)
 		}
-		for i := range tasks.Items {
-			if tasks.Items[i].Status.Result == nil {
-				continue
-			}
-			response := tasks.Items[i].Status.Result.Outputs["response"]
-			if response != "" && json.Unmarshal([]byte(response), &checkFile) == nil && checkFile.BackupFileMD5 != "" {
-				break
-			}
-		}
-		if checkFile.BackupFileSize != int64(0) && checkFile.BackupFileMD5 != "" {
-			b.Status.BackupFileSize = checkFile.BackupFileSize
-			b.Status.BackupFileMD5 = checkFile.BackupFileMD5
-		} else {
-			log.Warnf("backup file size is %s, and backup md5 is %s, reconcile again", checkFile.BackupFileSize, checkFile.BackupFileMD5)
-			return fmt.Errorf("backup file size is %d, and backup md5 is %s", checkFile.BackupFileSize, checkFile.BackupFileMD5)
-		}
-		b.Status.ClusterBackupStatus = v1.ClusterBackupAvailable
-		_, err = r.BackupWriter.UpdateBackup(context.TODO(), b)
-		if err != nil {
-			log.Warnf("backup(%s) sync status failed: %s", b.Name, err.Error())
-		}
-	}
-
-	// when the backup is restoring and operation is successful, set the backup status to available
-	if b.Status.ClusterBackupStatus == v1.ClusterBackupRestoring && o != nil && o.Status.Phase == operations.OperationSucceeded &&
-		o.Spec.Action == v1.OperationRecoverCluster {
-		b.Status.ClusterBackupStatus = v1.ClusterBackupAvailable
-		_, err := r.BackupWriter.UpdateBackup(context.TODO(), b)
-		if err != nil {
-			log.Warnf("backup(%s) sync status failed: %s", b.Name, err.Error())
-		}
-	}
-
-	// when the operation status is failed, set the backup status to error
-	if o != nil && o.Status.Phase.IsTerminal() && o.Status.Phase != operations.OperationSucceeded {
-		if c.Status.Phase == v1.ClusterRestoreFailed {
+		if op.Spec.Action == v1.OperationRecoverCluster && b.Status.ClusterBackupStatus == v1.ClusterBackupRestoring {
 			b.Status.ClusterBackupStatus = v1.ClusterBackupAvailable
-		} else {
-			b.Status.ClusterBackupStatus = v1.ClusterBackupError
 		}
-
-		_, err := r.BackupWriter.UpdateBackup(context.TODO(), b)
-		if err != nil {
-			log.Warnf("backup(%s) sync status failed: %s", b.Name, err.Error())
+	default:
+		if op.Status.Phase.IsTerminal() {
+			// A failed restore leaves its existing snapshot usable. A failed backup
+			// cannot become available based on another operation's Cluster phase.
+			b.Status.ClusterBackupStatus = v1.ClusterBackupError
+			if op.Spec.Action == v1.OperationRecoverCluster {
+				b.Status.ClusterBackupStatus = v1.ClusterBackupAvailable
+			}
 		}
 	}
+	return nil
+}
 
+func (r *BackupReconciler) completeBackup(ctx context.Context, b *v1.Backup, op *operations.Operation) error {
+	tasks, err := r.OperationStore.ListTasksByOperationUID(ctx, op.UID, "")
+	if err != nil {
+		return err
+	}
+	checkFile := k8s.CheckFile{}
+	for i := range tasks.Items {
+		if tasks.Items[i].Status.Result == nil {
+			continue
+		}
+		response := tasks.Items[i].Status.Result.Outputs["response"]
+		if response != "" && json.Unmarshal([]byte(response), &checkFile) == nil && checkFile.BackupFileMD5 != "" {
+			break
+		}
+	}
+	if checkFile.BackupFileSize <= 0 || checkFile.BackupFileMD5 == "" {
+		return fmt.Errorf("backup result incomplete: size=%d md5-present=%t", checkFile.BackupFileSize, checkFile.BackupFileMD5 != "")
+	}
+	b.Status.BackupFileSize = checkFile.BackupFileSize
+	b.Status.BackupFileMD5 = checkFile.BackupFileMD5
+	b.Status.ClusterBackupStatus = v1.ClusterBackupAvailable
 	return nil
 }
 

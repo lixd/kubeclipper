@@ -20,6 +20,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -163,5 +164,43 @@ func TestLoadImage(t *testing.T) {
 				t.Errorf("LoadImage() error = %v", err)
 			}
 		})
+	}
+}
+
+func TestRegistryRepositoryPrefix(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	op := mockcluster.NewMockOperator(ctrl)
+	var registry v1.Registry
+	if err := json.Unmarshal([]byte(`{"host":"registry.example.com:5251","repositoryPrefix":"qualified/team","scheme":"https","auth":{"username":"u","password":"p"}}`), &registry); err != nil {
+		t.Fatal(err)
+	}
+	op.EXPECT().GetRegistry(gomock.Any(), "default").Return(&registry, nil)
+	c := &v1.Cluster{ImageRegistry: "default"}
+	regs, err := GetClusterCRIRegistriesWithContext(context.Background(), c, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.ResolvedImageRegistry != "registry.example.com:5251/qualified/team" {
+		t.Fatalf("image repository = %q, prefix lost", c.ResolvedImageRegistry)
+	}
+	if len(regs) != 1 || regs[0].Host != "registry.example.com:5251" {
+		t.Fatalf("CRI host must not contain prefix: %#v", regs)
+	}
+}
+
+func TestCRIRegistriesIgnoreImagePrefixes(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	op := mockcluster.NewMockOperator(ctrl)
+	for _, entry := range []struct{ name, prefix string }{{"one", "team"}, {"two", "other"}, {"image", "images"}} {
+		op.EXPECT().GetRegistry(gomock.Any(), entry.name).Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Host: "registry.example.com", RepositoryPrefix: entry.prefix, Scheme: "https"}}, nil)
+	}
+	one, two := "one", "two"
+	c := &v1.Cluster{ImageRegistry: "image", ContainerRuntime: v1.ContainerRuntime{Registries: []v1.CRIRegistry{{RegistryRef: &one}, {RegistryRef: &two}}}}
+	regs, err := GetClusterCRIRegistriesWithContext(context.Background(), c, op)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(regs) != 1 || regs[0].RepositoryPrefix != "" || c.ResolvedImageRegistry != "registry.example.com/images" {
+		t.Fatalf("unexpected registry separation: %#v %s", regs, c.ResolvedImageRegistry)
 	}
 }

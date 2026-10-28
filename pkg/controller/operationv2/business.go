@@ -16,6 +16,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/manager"
 	"github.com/kubeclipper/kubeclipper/pkg/controller-runtime/source"
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
+	operationbuilder "github.com/kubeclipper/kubeclipper/pkg/operationv2"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
@@ -24,6 +25,9 @@ import (
 type BusinessReconciler struct {
 	Operations operationslister.OperationLister
 	Clusters   cluster.Operator
+	Store      interface {
+		GetOperation(context.Context, string, string) (*operations.Operation, error)
+	}
 }
 
 func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request) (ctrl.Result, error) {
@@ -37,7 +41,9 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	if !op.Status.Phase.IsTerminal() {
 		return ctrl.Result{}, nil
 	}
-	if !projectsClusterState(op.Spec.Action) {
+	component := operationbuilder.IsComponentAction(op.Spec.Action) &&
+		op.Annotations[operationbuilder.ComponentOwnerAnnotation] == string(op.Spec.TargetRef.UID)
+	if !projectsClusterState(op.Spec.Action) && !component {
 		return ctrl.Result{}, nil
 	}
 	all, err := r.Operations.List(labels.Everything())
@@ -50,7 +56,8 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 		if newer.Spec.TargetRef.UID != op.Spec.TargetRef.UID || !operationBefore(op, newer) {
 			continue
 		}
-		if projectsClusterState(newer.Spec.Action) {
+		if !component && (projectsClusterState(newer.Spec.Action) || (operationbuilder.IsComponentAction(newer.Spec.Action) &&
+			newer.Annotations[operationbuilder.ComponentOwnerAnnotation] != "")) {
 			projectPhase = false
 		}
 		if newer.Spec.Action == corev1.OperationUpgradeCluster && newer.Status.Phase == operations.OperationSucceeded {
@@ -72,6 +79,11 @@ func (r *BusinessReconciler) Reconcile(ctx context.Context, request ctrl.Request
 	}
 	if clusterObject.UID != op.Spec.TargetRef.UID {
 		return ctrl.Result{}, fmt.Errorf("operation %q target Cluster UID changed", op.Name)
+	}
+	owner := clusterObject.Annotations[operationbuilder.ComponentOwnerAnnotation]
+	if clusterObject.Status.Phase == corev1.ClusterUpdating && owner != "" &&
+		owner != operationbuilder.ComponentOwner(op.Name, op.Spec.RetryGeneration) {
+		return ctrl.Result{}, nil
 	}
 	if projectPhase && op.Spec.Action == corev1.OperationDeleteCluster && op.Status.Phase == operations.OperationSucceeded {
 		return ctrl.Result{}, r.Clusters.DeleteCluster(ctx, clusterObject.Name)
@@ -109,6 +121,47 @@ func (r *BusinessReconciler) updateCluster(ctx context.Context, op *operations.O
 		if clusterObject.UID != op.Spec.TargetRef.UID {
 			return fmt.Errorf("operation %q target Cluster UID changed", op.Name)
 		}
+		owner := clusterObject.Annotations[operationbuilder.ComponentOwnerAnnotation]
+		component := operationbuilder.IsComponentAction(op.Spec.Action) &&
+			op.Annotations[operationbuilder.ComponentOwnerAnnotation] == string(clusterObject.UID)
+		expectedOwner := operationbuilder.ComponentOwner(op.Name, op.Spec.RetryGeneration)
+		if owner != "" && clusterObject.Status.Phase == corev1.ClusterUpdating && (!component || owner != expectedOwner) {
+			return nil
+		}
+		if component {
+			if owner != expectedOwner || clusterObject.Status.Phase != corev1.ClusterUpdating {
+				return nil
+			}
+			if r.Store == nil {
+				return fmt.Errorf("operation store is required for component projection")
+			}
+			current, readErr := r.Store.GetOperation(ctx, op.Name, "")
+			if readErr != nil {
+				return readErr
+			}
+			if current.UID != op.UID || current.Spec.RetryGeneration != op.Spec.RetryGeneration ||
+				current.Status.ObservedRetryGeneration != op.Status.ObservedRetryGeneration ||
+				current.Spec.RetryGeneration != current.Status.ObservedRetryGeneration || current.Status.Phase != op.Status.Phase {
+				return nil
+			}
+		}
+		// A durable Backup can reserve the phase before its Operation exists.
+		// Historical terminal events must respect that reservation even when
+		// the operation cache cannot yet see a newer Operation.
+		backupOwner := clusterObject.Annotations[operationbuilder.BackupOwnerAnnotation]
+		if clusterObject.Status.Phase == corev1.ClusterBackingUp && backupOwner != "" &&
+			(op.Spec.Action != corev1.OperationBackupCluster || op.Annotations[operationbuilder.BackupOwnerAnnotation] != backupOwner) {
+			return nil
+		}
+		if op.Spec.Action == corev1.OperationBackupCluster && op.Annotations[operationbuilder.BackupOwnerAnnotation] != "" {
+			// Only the admission owning BackingUp may finish it. This check is
+			// repeated inside CAS retries, after each fresh Cluster read.
+			if clusterObject.Annotations[operationbuilder.BackupOwnerAnnotation] != op.Annotations[operationbuilder.BackupOwnerAnnotation] ||
+				clusterObject.Status.Phase != corev1.ClusterBackingUp {
+				return nil
+			}
+		}
+
 		if (!projectPhase || clusterObject.Status.Phase == desired) &&
 			(!projectVersion || clusterObject.KubernetesVersion == op.Labels[common.LabelUpgradeVersion]) {
 			return nil
@@ -116,6 +169,11 @@ func (r *BusinessReconciler) updateCluster(ctx context.Context, op *operations.O
 		clusterObject = clusterObject.DeepCopy()
 		if projectPhase {
 			clusterObject.Status.Phase = desired
+			if component {
+				delete(clusterObject.Annotations, operationbuilder.ComponentOwnerAnnotation)
+				delete(clusterObject.Annotations, operationbuilder.ComponentPlanAnnotation)
+				delete(clusterObject.Annotations, operationbuilder.ComponentErrorAnnotation)
+			}
 		}
 		if projectVersion {
 			clusterObject.KubernetesVersion = op.Labels[common.LabelUpgradeVersion]

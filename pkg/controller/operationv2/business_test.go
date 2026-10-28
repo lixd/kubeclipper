@@ -31,6 +31,7 @@ import (
 	operationslister "github.com/kubeclipper/kubeclipper/pkg/client/lister/operations/v1alpha1"
 	ctrl "github.com/kubeclipper/kubeclipper/pkg/controller-runtime"
 	clustermock "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
+	operationbuilder "github.com/kubeclipper/kubeclipper/pkg/operationv2"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
@@ -189,5 +190,78 @@ func TestBusinessReconcileRestoresUpgradeVersionWithoutReplayingPhase(t *testing
 	r := &BusinessReconciler{Operations: operationslister.NewOperationLister(indexer), Clusters: clusters}
 	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: op.Name}}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestAdmittedBackupTerminalProjectionOnlyTouchesItsReservation(t *testing.T) {
+	for _, phase := range []operations.OperationPhase{operations.OperationSucceeded, operations.OperationFailed, operations.OperationTimedOut, operations.OperationCancelled} {
+		for _, state := range []string{"owned", "new-backup", "new-action", "already-finished"} {
+			t.Run(string(phase)+"/"+state, func(t *testing.T) {
+				op := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "backup-op", Annotations: map[string]string{operationbuilder.BackupOwnerAnnotation: "backup-uid"}}, Spec: operations.OperationSpec{Action: corev1.OperationBackupCluster, TargetRef: operations.ObjectReference{Name: "cluster", UID: "cluster-uid"}}, Status: operations.OperationStatus{Phase: phase}}
+				c := &corev1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster", UID: "cluster-uid", Annotations: map[string]string{operationbuilder.BackupOwnerAnnotation: "backup-uid"}}, Status: corev1.ClusterStatus{Phase: corev1.ClusterBackingUp}}
+				switch state {
+				case "new-backup":
+					c.Annotations[operationbuilder.BackupOwnerAnnotation] = "new-backup-uid"
+				case "new-action":
+					c.Status.Phase = corev1.ClusterUpdating
+				case "already-finished":
+					c.Status.Phase = corev1.ClusterRunning
+				}
+				clusters := clustermock.NewMockOperator(gomock.NewController(t))
+				clusters.EXPECT().GetClusterEx(gomock.Any(), "cluster", "").Return(c, nil).AnyTimes()
+				if state == "owned" {
+					clusters.EXPECT().UpdateCluster(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, next *corev1.Cluster) (*corev1.Cluster, error) {
+						if next.Status.Phase != corev1.ClusterRunning {
+							t.Fatalf("terminal backup did not restore Running: %s", next.Status.Phase)
+						}
+						return next, nil
+					})
+				}
+				r := &BusinessReconciler{Clusters: clusters}
+				if err := r.updateCluster(context.Background(), op, corev1.ClusterRunning, true, false); err != nil {
+					t.Fatal(err)
+				}
+			})
+		}
+	}
+}
+
+func TestHistoricalCreateCannotOverwriteUnpublishedBackupReservation(t *testing.T) {
+	old := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "old-create", UID: "old-create", CreationTimestamp: metav1.NewTime(time.Unix(1, 0))}, Spec: operations.OperationSpec{Action: corev1.OperationCreateCluster, TargetRef: operations.ObjectReference{Name: "cluster", UID: "cluster-uid"}}, Status: operations.OperationStatus{Phase: operations.OperationSucceeded}}
+	indexer := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{})
+	if err := indexer.Add(old); err != nil {
+		t.Fatal(err)
+	}
+	c := &corev1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster", UID: "cluster-uid", Annotations: map[string]string{operationbuilder.BackupOwnerAnnotation: "new-durable-backup-uid"}}, Status: corev1.ClusterStatus{Phase: corev1.ClusterBackingUp}}
+	clusters := clustermock.NewMockOperator(gomock.NewController(t))
+	clusters.EXPECT().GetClusterEx(gomock.Any(), "cluster", "").DoAndReturn(func(context.Context, string, string) (*corev1.Cluster, error) { return c.DeepCopy(), nil }).AnyTimes()
+	clusters.EXPECT().UpdateCluster(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, next *corev1.Cluster) (*corev1.Cluster, error) {
+		c = next.DeepCopy()
+		return c.DeepCopy(), nil
+	}).AnyTimes()
+	r := &BusinessReconciler{Operations: operationslister.NewOperationLister(indexer), Clusters: clusters}
+	if _, err := r.Reconcile(context.Background(), ctrl.Request{NamespacedName: types.NamespacedName{Name: old.Name}}); err != nil {
+		t.Fatal(err)
+	}
+	if c.Status.Phase != corev1.ClusterBackingUp {
+		t.Fatalf("historical create overwrote a new durable backup reservation: phase=%s owner=%s", c.Status.Phase, c.Annotations[operationbuilder.BackupOwnerAnnotation])
+	}
+}
+
+func TestBackupReservationGuardRechecksAfterConflict(t *testing.T) {
+	old := &operations.Operation{ObjectMeta: metav1.ObjectMeta{Name: "old-create"}, Spec: operations.OperationSpec{Action: corev1.OperationCreateCluster, TargetRef: operations.ObjectReference{Name: "cluster", UID: "cluster-uid"}}}
+	c := &corev1.Cluster{ObjectMeta: metav1.ObjectMeta{Name: "cluster", UID: "cluster-uid"}, Status: corev1.ClusterStatus{Phase: corev1.ClusterUpdating}}
+	clusters := clustermock.NewMockOperator(gomock.NewController(t))
+	clusters.EXPECT().GetClusterEx(gomock.Any(), "cluster", "").DoAndReturn(func(context.Context, string, string) (*corev1.Cluster, error) { return c.DeepCopy(), nil }).Times(2)
+	clusters.EXPECT().UpdateCluster(gomock.Any(), gomock.Any()).DoAndReturn(func(context.Context, *corev1.Cluster) (*corev1.Cluster, error) {
+		c.Status.Phase = corev1.ClusterBackingUp
+		c.Annotations = map[string]string{operationbuilder.BackupOwnerAnnotation: "new-backup-uid"}
+		return nil, apierrors.NewConflict(corev1.Resource("clusters"), c.Name, fmt.Errorf("new backup reserved concurrently"))
+	}).Times(1)
+	if err := (&BusinessReconciler{Clusters: clusters}).updateCluster(context.Background(), old, corev1.ClusterRunning, true, false); err != nil {
+		t.Fatal(err)
+	}
+	if c.Status.Phase != corev1.ClusterBackingUp {
+		t.Fatal("retry overwrote backup reservation")
 	}
 }

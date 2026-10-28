@@ -813,3 +813,25 @@ func TestRegistryAuthConfigRestrictsFilePermissions(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0600), info.Mode().Perm(), "registry credentials must be readable only by the owner")
 }
+
+func TestContainerdSeparatesRepositoryPrefixFromEndpoint(t *testing.T) {
+	host := "registry.example.com:5251"
+	repo := host + "/qualified/team"
+	reg := v1.RegistrySpec{Host: host, RepositoryPrefix: "qualified/team", Scheme: "https", CA: "test-ca", RegistryAuth: &v1.RegistryAuth{Username: "test-user", Password: "test-password"}}
+	for _, version := range []string{"1.7.29", "2.2.4"} {
+		r := &ContainerdRunnable{Base: Base{Version: version, RegistryWithAuth: []v1.RegistrySpec{reg}}, ImageRegistry: repo, PauseVersion: "3.10"}
+		var out bytes.Buffer
+		require.NoError(t, r.renderTo(&out))
+		assert.Contains(t, out.String(), repo+"/pause:3.10")
+		assert.Contains(t, out.String(), `registry.configs."`+host+`"`)
+		assert.NotContains(t, out.String(), `registry.configs."`+repo+`"`)
+	}
+	cfg := ToContainerdRegistryConfig([]v1.RegistrySpec{reg})[host]
+	require.NotNil(t, cfg)
+	dir := t.TempDir()
+	require.NoError(t, cfg.renderConfigs(dir))
+	data, err := os.ReadFile(filepath.Join(dir, host, "hosts.toml"))
+	require.NoError(t, err)
+	assert.Contains(t, string(data), `server = "https://`+host+`"`)
+	assert.NotContains(t, string(data), "qualified")
+}

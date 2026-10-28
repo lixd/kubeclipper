@@ -233,6 +233,7 @@ func SetupWebService(h *handler) *restful.WebService {
 
 	webservice.Route(webservice.POST("/clusters/{name}/backups").
 		To(h.CreateBackup).
+		Param(webservice.HeaderParameter("Idempotency-Key", "Stable request ID; reuse for retries with identical parameters").Required(false)).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreClusterTag}).
 		Doc("Create backups.").
 		Reads(corev1.Backup{}).
@@ -802,6 +803,7 @@ func SetupWebService(h *handler) *restful.WebService {
 			DataType("string")).
 		To(h.DescribeBackupPoint).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.BackupPoint{}).
+		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), errors.HTTPError{}).
 		Returns(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), errors.HTTPError{}))
 
 	webservice.Route(webservice.POST("/backuppoints").

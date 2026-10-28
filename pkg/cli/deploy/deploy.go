@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"crypto"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
@@ -34,6 +35,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -62,6 +64,10 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/utils/preflight"
 
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/wait"
+
+	"github.com/kubeclipper/kubeclipper/pkg/query"
+	"github.com/kubeclipper/kubeclipper/pkg/simple/imageproxy"
 
 	"github.com/sethvargo/go-password/password"
 	"sigs.k8s.io/yaml"
@@ -289,6 +295,11 @@ func (d *DeployOptions) generateAuthenticationJWTSecret() error {
 }
 
 func (d *DeployOptions) ValidateArgs() error {
+	if d.deployConfig.ImageProxy != nil {
+		if errs := (&imageproxy.Options{KcImageRepoMirror: d.deployConfig.ImageProxy.KcImageRepoMirror}).Validate(); len(errs) != 0 {
+			return fmt.Errorf("invalid imageProxy.kcImageRepoMirror: %v", errs)
+		}
+	}
 	if !d.deployConfig.TLS {
 		return fmt.Errorf("operation v2 requires TLS because kc-agent communicates with kc-server over mTLS")
 	}
@@ -722,6 +733,7 @@ func (d *DeployOptions) RunDeploy() error {
 	logger.Infof("------ Install kc-server ------")
 	d.deployKcServer()
 	logger.Infof("------ Install kc-agent ------")
+	agentsStartedAt := time.Now()
 	d.deployKcAgent()
 	logger.Infof("------ Install kc-console ------")
 	d.deployKcConsole()
@@ -733,7 +745,12 @@ func (d *DeployOptions) RunDeploy() error {
 	if err := d.waitEtcdReady(); err != nil {
 		return err
 	}
-	d.uploadConfig()
+	client := d.uploadConfig()
+	ctx, cancel := context.WithTimeout(context.Background(), d.deployConfig.KCServerHealthCheckTimeout)
+	defer cancel()
+	if err := d.waitAgentsReady(ctx, client, agentsStartedAt, d.agentServiceRunning); err != nil {
+		return err
+	}
 	if err := writeLocalDeployConfig(d.deployConfig); err != nil {
 		return fmt.Errorf("sync local deploy config: %w", err)
 	}
@@ -1283,6 +1300,77 @@ func (d *DeployOptions) deployKcAgent() {
 	}
 }
 
+// waitAgentsReady requires a heartbeat from this deployment, rather than a
+// stale Ready condition left by a previous Agent process. Allow the 5s clock
+// skew accepted by precheckTimeLag and the API timestamp second precision.
+func (d *DeployOptions) waitAgentsReady(
+	ctx context.Context,
+	client *kc.Client,
+	startedAt time.Time,
+	checkRunning func(context.Context, string) error,
+) error {
+	if len(d.deployConfig.Agents) == 0 {
+		return nil
+	}
+	var lastErr error
+	err := wait.PollImmediateUntilWithContext(ctx, 3*time.Second, func(ctx context.Context) (bool, error) {
+		nodes, err := client.ListNodes(ctx, kc.Queries(*query.New()))
+		if err != nil {
+			lastErr = fmt.Errorf("read kc-agent readiness: %w", err)
+			return false, nil
+		}
+		lastErr = agentsReady(d.deployConfig.Agents, nodes.Items, startedAt)
+		if lastErr != nil {
+			return false, nil
+		}
+		// Ready can remain true during the server's lost-heartbeat grace
+		// period. Confirm the process is still running at completion.
+		for host := range d.deployConfig.Agents {
+			if err := checkRunning(ctx, host); err != nil {
+				lastErr = fmt.Errorf("kc-agent on %s is not running: %w", host, err)
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("kc-agent readiness failed: %w: %w", err, lastErr)
+	}
+	return nil
+}
+
+func (d *DeployOptions) agentServiceRunning(ctx context.Context, host string) error {
+	result, err := sshutils.SSHCmdWithSudoContext(ctx, d.deployConfig.SSHConfig, host,
+		"systemctl is-active --quiet kc-agent.service")
+	if err != nil {
+		return err
+	}
+	return result.Error()
+}
+
+func agentsReady(agents options.Agents, nodes []v1.Node, startedAt time.Time) error {
+	for ip, metadata := range agents {
+		ready := false
+		for i := range nodes {
+			node := &nodes[i]
+			if metadata.AgentID != "" && node.Name != metadata.AgentID ||
+				metadata.AgentID == "" && node.Status.Ipv4DefaultIP != ip {
+				continue
+			}
+			for _, condition := range node.Status.Conditions {
+				if condition.Type == v1.NodeReady && condition.Status == v1.ConditionTrue &&
+					!condition.LastHeartbeatTime.Time.Before(startedAt.Add(-5*time.Second).Truncate(time.Second)) {
+					ready = true
+				}
+			}
+		}
+		if !ready {
+			return fmt.Errorf("kc-agent on %s (id %s) has no fresh Ready heartbeat", ip, metadata.AgentID)
+		}
+	}
+	return nil
+}
+
 func (d *DeployOptions) sendAgentIdentity(agentIP string, cert, ca *certutils.Config) error {
 	destination := filepath.Join(options.DefaultKcAgentConfigPath, options.DefaultAgentPKIPath)
 	sources := []string{
@@ -1372,7 +1460,7 @@ func (d *DeployOptions) sendConsoleCert(contents []certutils.Config, pki string)
 	return nil
 }
 
-func (d *DeployOptions) uploadConfig() {
+func (d *DeployOptions) uploadConfig() *kc.Client {
 	scheme := "http"
 	if d.deployConfig.TLS {
 		scheme = "https"
@@ -1425,6 +1513,7 @@ func (d *DeployOptions) uploadConfig() {
 	if err = d.sendDefaultAdminConf(); err != nil {
 		logger.Fatal(err)
 	}
+	return c
 }
 
 func (d *DeployOptions) sendDefaultAdminConf() error {
@@ -1532,15 +1621,7 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 		return
 	}
 	scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
-	if existing, err := client.DescribeRegistries(context.TODO(), constatns.DefaultImageRegistryName); err == nil &&
-		len(existing.Items) > 0 && existing.Items[0].Name == constatns.DefaultImageRegistryName {
-		if existing.Items[0].Host == reg.Registry && existing.Items[0].Scheme == scheme {
-			return
-		}
-		if err := client.DeleteRegistry(context.TODO(), constatns.DefaultImageRegistryName); err != nil {
-			logger.Fatalf("delete outdated default image registry failed: %v", err)
-		}
-	}
+	host, prefix := deliveryregistry.SplitPrefix(reg.Registry)
 	registry := &v1.Registry{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v1.KindRegistry,
@@ -1550,16 +1631,40 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 			Name: constatns.DefaultImageRegistryName,
 		},
 		RegistrySpec: v1.RegistrySpec{
-			Scheme:     scheme,
-			Host:       reg.Registry,
-			SkipVerify: skipVerify,
-			CA:         ca,
+			Scheme:           scheme,
+			Host:             host,
+			RepositoryPrefix: prefix,
+			SkipVerify:       skipVerify,
+			CA:               ca,
 		},
 	}
 	if reg.Username != "" {
 		registry.RegistryAuth = &v1.RegistryAuth{
 			Username: reg.Username,
 			Password: reg.Password,
+		}
+	}
+	// The API masks registry passwords; compare a configuration digest as well as
+	// the visible fields so credential changes and unchanged deploys are distinguished.
+	specJSON, marshalErr := json.Marshal(registry.RegistrySpec)
+	if marshalErr != nil {
+		logger.Fatal(marshalErr)
+	}
+	registry.Annotations = map[string]string{v1.RegistrySeedConfigDigestAnnotation: fmt.Sprintf("%x", sha256.Sum256(specJSON))}
+	visibleSpec := registry.RegistrySpec
+	if visibleSpec.RegistryAuth != nil {
+		visibleAuth := *visibleSpec.RegistryAuth
+		visibleAuth.Password = "******"
+		visibleSpec.RegistryAuth = &visibleAuth
+	}
+	if existing, describeErr := client.DescribeRegistries(context.TODO(), constatns.DefaultImageRegistryName); describeErr == nil &&
+		len(existing.Items) > 0 && existing.Items[0].Name == constatns.DefaultImageRegistryName {
+		if existing.Items[0].Annotations[v1.RegistrySeedConfigDigestAnnotation] == registry.Annotations[v1.RegistrySeedConfigDigestAnnotation] &&
+			reflect.DeepEqual(existing.Items[0].RegistrySpec, visibleSpec) {
+			return
+		}
+		if err := client.DeleteRegistry(context.TODO(), constatns.DefaultImageRegistryName); err != nil {
+			logger.Fatalf("delete outdated default image registry failed: %v", err)
 		}
 	}
 	// The first etcd writes race the leader election the same way the

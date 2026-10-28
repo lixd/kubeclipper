@@ -19,8 +19,12 @@
 package deploy
 
 import (
+"github.com/kubeclipper/kubeclipper/pkg/constatns"
+"github.com/stretchr/testify/assert"
+"github.com/stretchr/testify/require"
 	"context"
 	"crypto/x509"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -29,17 +33,24 @@ import (
 	"testing"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
+
 	"github.com/google/uuid"
 	clientv3 "go.etcd.io/etcd/client/v3"
+
+	"net"
+	"net/http"
+	"net/http/httptest"
+
+	yamlv2 "gopkg.in/yaml.v2"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/oauth"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
-	yamlv2 "gopkg.in/yaml.v2"
-	"net"
-	"net/http"
-	"net/http/httptest"
 )
 
 type fakeEtcdHealthClient struct {
@@ -667,4 +678,188 @@ func TestLiveTimeLagPrecheck(t *testing.T) {
 		t.Fatalf("want %q, got %v", want, err)
 	}
 	t.Logf("production TIME-LAG precheck: %v", err)
+}
+
+func TestDeployValidatesImageMirrorBeforeRemoteWork(t *testing.T) {
+	for _, tt := range []struct {
+		mirror string
+		valid  bool
+	}{
+		{"172.16.131.146:5249/qualified", true},
+		{"", true},
+		{"https://registry.example.com/team", false},
+		{"registry.example.com/team:latest", false},
+	} {
+		t.Run(tt.mirror, func(t *testing.T) {
+			d := NewDeployOptions(options.IOStreams{})
+			d.aio = true
+			d.deployConfig.ServerIPs = []string{"192.0.2.10"}
+			d.deployConfig.ImageProxy.KcImageRepoMirror = tt.mirror
+			if err := d.Complete(); err != nil {
+				t.Fatal(err)
+			}
+			err := d.ValidateArgs()
+			if tt.valid && err != nil {
+				t.Fatal(err)
+			}
+			if !tt.valid && (err == nil || !strings.Contains(err.Error(), "imageProxy.kcImageRepoMirror")) {
+				t.Fatalf("ValidateArgs() = %v, want mirror validation failure", err)
+			}
+		})
+	}
+}
+
+func TestWaitAgentsReady(t *testing.T) {
+	started := time.Now().UTC().Truncate(time.Second)
+	readyNode := func(id, ip string, status v1.ConditionStatus, heartbeat time.Time) v1.Node {
+		return v1.Node{ObjectMeta: metav1.ObjectMeta{Name: id}, Status: v1.NodeStatus{
+			Ipv4DefaultIP: ip,
+			Conditions:    []v1.NodeCondition{{Type: v1.NodeReady, Status: status, LastHeartbeatTime: metav1.NewTime(heartbeat)}},
+		}}
+	}
+	first := readyNode("agent-a", "192.0.2.10", v1.ConditionTrue, started.Add(time.Second))
+	second := readyNode("agent-b", "192.0.2.11", v1.ConditionTrue, started.Add(time.Second))
+	for _, tt := range []struct {
+		name         string
+		nodes        []v1.Node
+		apiStatus    int
+		processErr   error
+		blockProcess bool
+		wantErr      string
+	}{
+		{name: "all agents ready", nodes: []v1.Node{first, second}},
+		{name: "heartbeat then process exit", nodes: []v1.Node{first, second}, processErr: errors.New("process exited after heartbeat"), wantErr: "192.0.2.11"},
+		{name: "process probe canceled", nodes: []v1.Node{first, second}, blockProcess: true, wantErr: "context deadline exceeded"},
+		{name: "allowed node clock skew", nodes: []v1.Node{first, readyNode("agent-b", "192.0.2.11", v1.ConditionTrue, started.Add(-5*time.Second))}},
+		{name: "missing agent", nodes: []v1.Node{first}, wantErr: "192.0.2.11"},
+		{name: "stale readiness after process exit", nodes: []v1.Node{first, readyNode("agent-b", "192.0.2.11", v1.ConditionTrue, started.Add(-time.Minute))}, wantErr: "192.0.2.11"},
+		{name: "agent not ready", nodes: []v1.Node{first, readyNode("agent-b", "192.0.2.11", v1.ConditionFalse, started.Add(time.Second))}, wantErr: "192.0.2.11"},
+		{name: "wrong agent identity", nodes: []v1.Node{first, readyNode("old-agent-b", "192.0.2.11", v1.ConditionTrue, started.Add(time.Second))}, wantErr: "agent-b"},
+		{name: "API unavailable", apiStatus: http.StatusServiceUnavailable, wantErr: "read kc-agent readiness"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if !strings.HasPrefix(r.URL.Query().Get("paging"), "limit=-1,") {
+					t.Errorf("readiness must request all nodes, got %s", r.URL.RawQuery)
+				}
+				if r.URL.Path != kc.ListNodesPath {
+					t.Errorf("unexpected readiness path %s", r.URL.Path)
+				}
+				if tt.apiStatus != 0 {
+					w.WriteHeader(tt.apiStatus)
+					return
+				}
+				if err := json.NewEncoder(w).Encode(kc.NodesList{Items: tt.nodes}); err != nil {
+					t.Error(err)
+				}
+			}))
+			defer server.Close()
+			client, err := kc.NewClientWithOpts(kc.WithEndpoint(server.URL))
+			if err != nil {
+				t.Fatal(err)
+			}
+			d := NewDeployOptions(options.IOStreams{})
+			d.deployConfig.Agents = options.Agents{"192.0.2.10": {AgentID: "agent-a"}, "192.0.2.11": {AgentID: "agent-b"}}
+			ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			defer cancel()
+			checked := make(map[string]bool)
+			err = d.waitAgentsReady(ctx, client, started, func(ctx context.Context, host string) error {
+				checked[host] = true
+				if host == "192.0.2.11" {
+					if tt.blockProcess {
+						<-ctx.Done()
+						return ctx.Err()
+					}
+					return tt.processErr
+				}
+				return nil
+			})
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(checked) != len(d.deployConfig.Agents) {
+					t.Fatalf("only checked processes %v", checked)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) || !strings.Contains(err.Error(), "timed out") {
+				t.Fatalf("waitAgentsReady = %v, want timeout with %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestUploadDefaultRegistryPrefixAndReconcile(t *testing.T) {
+	for _, prefix := range []string{"", "qualified/team"} {
+		t.Run(prefix, func(t *testing.T) {
+			registryServer := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusUnauthorized) }))
+			defer registryServer.Close()
+			host := strings.TrimPrefix(registryServer.URL, "https://")
+			address := strings.TrimSuffix(host+"/"+prefix, "/")
+			cfg := &deliveryregistry.Config{Registry: address, Scheme: "https", CA: "test-ca", Username: "test-user", Password: "test-password", SkipTLSVerify: true}
+			current := v1.Registry{}
+			creates, deletes := 0, 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.Method {
+				case http.MethodGet:
+					visible := current.DeepCopy()
+					if visible.RegistryAuth != nil {
+						visible.RegistryAuth.Password = "******"
+					}
+					assert.NoError(t, json.NewEncoder(w).Encode(visible))
+				case http.MethodDelete:
+					deletes++
+					current = v1.Registry{}
+					w.WriteHeader(http.StatusOK)
+				case http.MethodPost:
+					creates++
+					assert.NoError(t, json.NewDecoder(r.Body).Decode(&current))
+					visible := current.DeepCopy()
+					if visible.RegistryAuth != nil {
+						visible.RegistryAuth.Password = "******"
+					}
+					assert.NoError(t, json.NewEncoder(w).Encode(visible))
+				default:
+					t.Errorf("unexpected method %s", r.Method)
+				}
+			}))
+			defer server.Close()
+			client, err := kc.NewClientWithOpts(kc.WithEndpoint(server.URL))
+			require.NoError(t, err)
+			uploadDefaultRegistry(client, cfg)
+			expected := v1.RegistrySpec{Host: host, RepositoryPrefix: prefix, Scheme: "https", CA: "test-ca", SkipVerify: true, RegistryAuth: &v1.RegistryAuth{Username: "test-user", Password: "test-password"}}
+			require.Equal(t, constatns.DefaultImageRegistryName, current.Name)
+			require.Equal(t, expected, current.RegistrySpec)
+			uploadDefaultRegistry(client, cfg)
+			if creates != 1 || deletes != 0 {
+				t.Fatal("identical deploy changed registry")
+			}
+			current.Host = address + "/old"
+			uploadDefaultRegistry(client, cfg)
+			if creates != 2 || deletes != 1 || !reflect.DeepEqual(current.RegistrySpec, expected) {
+				t.Fatal("old host path not corrected")
+			}
+			// The server clears this marker when an API edit changes only the password.
+			current.RegistryAuth.Password = "out-of-band-password"
+			delete(current.Annotations, v1.RegistrySeedConfigDigestAnnotation)
+			uploadDefaultRegistry(client, cfg)
+			require.Equal(t, 3, creates)
+			require.Equal(t, 2, deletes)
+			require.Equal(t, expected, current.RegistrySpec)
+			cfg.Password = "new-test-password"
+			expected.RegistryAuth.Password = cfg.Password
+			uploadDefaultRegistry(client, cfg)
+			require.Equal(t, 4, creates)
+			require.Equal(t, 3, deletes)
+			require.Equal(t, expected, current.RegistrySpec)
+			current.CA = "old-ca"
+			current.RegistryAuth.Password = "old-password"
+			uploadDefaultRegistry(client, cfg)
+			if creates != 5 || deletes != 4 || !reflect.DeepEqual(current.RegistrySpec, expected) {
+				t.Fatal("stale TLS/auth configuration not corrected")
+			}
+		})
+	}
 }
