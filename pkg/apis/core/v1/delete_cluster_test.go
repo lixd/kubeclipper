@@ -353,7 +353,7 @@ func TestSubmitClusterDeletionRejectsConcurrentTransition(t *testing.T) {
 
 func TestClusterDeleteTimeoutBoundaries(t *testing.T) {
 	for _, raw := range []string{"60", "86400", corev1.DefaultOperationTimeoutSecs} {
-		if err := validateClusterDeleteTimeout(raw); err != nil {
+		if err := validateOperationTimeout(raw); err != nil {
 			t.Fatalf("valid timeout %s rejected: %v", raw, err)
 		}
 	}

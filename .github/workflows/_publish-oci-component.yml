@@ -115,12 +115,57 @@ jobs:
             exit 1
           }
 
+          if [[ "$component" == bootstrap-console ]]; then
+            console_revision="$(python3 - "$version" <<'PY'
+          import re, sys, yaml
+          with open('packaging/resources.yaml', encoding='utf-8') as stream:
+              bootstrap = yaml.safe_load(stream)['bootstrap']
+          if sys.argv[1] != bootstrap['consoleVersion']:
+              raise SystemExit('console version must match packaging/resources.yaml')
+          revision = bootstrap.get('consoleSourceRevision', '')
+          if not re.fullmatch(r'[0-9a-f]{40}', revision):
+              raise SystemExit('consoleSourceRevision must be a full Git commit')
+          print(revision)
+          PY
+            )"
+            echo "console_revision=$console_revision" >> "$GITHUB_OUTPUT"
+          fi
+
           {
             echo "component=$component"
             echo "version=$version"
             echo "architectures=$architectures"
             echo "registry_prefix=${registry_prefix%/}"
           } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout pinned Console source
+        if: inputs.component == 'bootstrap-console'
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.KC_CONSOLE_RELEASE_REPOSITORY || 'kubeclipper/console' }}
+          ref: ${{ steps.settings.outputs.console_revision }}
+          path: .console-source
+          fetch-depth: 1
+
+      - name: Set up Node for Console
+        if: inputs.component == 'bootstrap-console'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.8'
+
+      - name: Build pinned Console archive
+        if: inputs.component == 'bootstrap-console'
+        env:
+          EXPECTED_REVISION: ${{ steps.settings.outputs.console_revision }}
+        run: |
+          set -euo pipefail
+          cd .console-source
+          test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+          corepack enable
+          yarn install --frozen-lockfile
+          bash -e build.sh true
+          tar -czf "$RUNNER_TEMP/kc-console.tar.gz" -C dist .
+          echo "KC_CONSOLE_ARCHIVE=$RUNNER_TEMP/kc-console.tar.gz" >> "$GITHUB_ENV"
 
       - name: Log in to GHCR
         uses: docker/login-action@v4

@@ -39,6 +39,26 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# The configured qualification version must always match its pinned frontend.
+# Custom versions may provide their own expected revision explicitly.
+configured_revision="$(python3 - "$ROOT/packaging/resources.yaml" "$version" <<'PY'
+import sys, yaml
+with open(sys.argv[1], encoding="utf-8") as stream:
+    bootstrap = (yaml.safe_load(stream) or {}).get("bootstrap") or {}
+if bootstrap.get("consoleVersion") == sys.argv[2]:
+    revision = bootstrap.get("consoleSourceRevision")
+    if not revision:
+        raise SystemExit("configured console version has no source revision")
+    print(revision)
+PY
+)"
+if [[ -n "$configured_revision" ]]; then
+  if [[ -n "${KC_CONSOLE_EXPECTED_REVISION:-}" && "$KC_CONSOLE_EXPECTED_REVISION" != "$configured_revision" ]]; then
+    die "console revision differs from packaging/resources.yaml"
+  fi
+  export KC_CONSOLE_EXPECTED_REVISION="$configured_revision"
+fi
+
 init_bootstrap_publish_workspace
 
 caddy_version="2.10.2"

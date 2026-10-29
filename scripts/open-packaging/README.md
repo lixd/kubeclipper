@@ -644,4 +644,4 @@ that implements `/v2/_catalog` because GHCR does not expose that API.
 
 ### Console fork 制品
 
-当前 R46 fork 候选使用 `lixd/console` 的 `v1.6.0-r46.1`，包含 Operation V2 与组件版本数据适配。发布 bootstrap console 前设置 `KC_CONSOLE_RELEASE_REPOSITORY=lixd/console`；GitHub Actions 从同名仓库变量读取。未设置时下载仓库为 `kubeclipper/console`。`packaging/resources.yaml` 中的 console 版本必须在所选仓库存在，并纳入同 revision 的 qualification。
+当前 fork 候选的 Console 版本和前端提交固定在 `packaging/resources.yaml` 的 `bootstrap.consoleVersion` 和 `bootstrap.consoleSourceRevision`。GitHub Actions 从 `KC_CONSOLE_RELEASE_REPOSITORY` 指定的仓库检出该提交并构建；fork 设置为 `lixd/console`。发布脚本校验归档中 `version.json` 的前端提交与配置一致，不一致或缺失时拒绝发布。手动发布可通过 `KC_CONSOLE_ARCHIVE` 指定已构建归档；未设置时下载对应版本的 GitHub release，并执行相同校验。新版本仍需实际发布并完成 qualification 后才能作为制品使用。

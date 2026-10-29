@@ -118,6 +118,69 @@ func TestDescribeBackupPoint(t *testing.T) {
 	}
 }
 
+func TestDescribeCronBackup(t *testing.T) {
+	tests := []struct {
+		name   string
+		err    error
+		status int
+	}{
+		{"missing", apimachineryErrors.NewNotFound(v1.Resource("cronbackups"), "fixture"), http.StatusNotFound},
+		{"wrapped missing", fmt.Errorf("lookup: %w", apimachineryErrors.NewNotFound(v1.Resource("cronbackups"), "fixture")), http.StatusNotFound},
+		{"storage failure", errors.New("storage unavailable"), http.StatusInternalServerError},
+		{"untyped not found", errors.New("storage endpoint not found"), http.StatusInternalServerError},
+		{"existing", nil, http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			operator := mock.NewMockOperator(gomock.NewController(t))
+			cron := &v1.CronBackup{ObjectMeta: metav1.ObjectMeta{Name: "fixture"}}
+			operator.EXPECT().GetCronBackupEx(gomock.Any(), "fixture", "0").Return(cron, tt.err)
+			container := restful.NewContainer()
+			container.Add(SetupWebService(newHandler(nil, operator, nil, nil, nil, nil, nil)))
+			response := httptest.NewRecorder()
+			container.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/core.kubeclipper.io/v1/cronbackups/fixture", nil))
+			if response.Code != tt.status {
+				t.Fatalf("status = %d, want %d; body: %s", response.Code, tt.status, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestPluginRejectsInvalidTimeoutBeforeMutation(t *testing.T) {
+	for _, timeout := range []string{"abc", "0", "-1", "45", "86401", "9223372036854775807"} {
+		t.Run(timeout, func(t *testing.T) {
+			operator := mock.NewMockOperator(gomock.NewController(t))
+			container := restful.NewContainer()
+			container.Add(SetupWebService(newHandler(nil, operator, nil, nil, nil, nil, nil)))
+			request := httptest.NewRequest(http.MethodPatch, "/api/core.kubeclipper.io/v1/clusters/demo/plugins?timeout="+timeout, strings.NewReader(`{}`))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			container.ServeHTTP(response, request)
+			if response.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want 400; body: %s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
+func TestPluginAcceptsValidTimeout(t *testing.T) {
+	for _, timeout := range []string{"", "60", "86400"} {
+		t.Run(timeout, func(t *testing.T) {
+			operator := mock.NewMockOperator(gomock.NewController(t))
+			operator.EXPECT().GetClusterEx(gomock.Any(), "demo", "").Return(nil, apimachineryErrors.NewNotFound(v1.Resource("clusters"), "demo"))
+			container := restful.NewContainer()
+			container.Add(SetupWebService(newHandler(nil, operator, nil, nil, nil, nil, nil)))
+			request := httptest.NewRequest(http.MethodPatch, "/api/core.kubeclipper.io/v1/clusters/demo/plugins?timeout="+timeout, strings.NewReader(`{}`))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			container.ServeHTTP(response, request)
+			if response.Code != http.StatusNotFound {
+				t.Fatalf("status = %d, want 404; body: %s", response.Code, response.Body.String())
+			}
+		})
+	}
+}
+
 func TestDescribeBackupPointDeclaresNotFound(t *testing.T) {
 	for _, route := range SetupWebService(newHandler(nil, nil, nil, nil, nil, nil, nil)).Routes() {
 		if route.Method == http.MethodGet && route.Path == "/api/core.kubeclipper.io/v1/backuppoints/{name}" {

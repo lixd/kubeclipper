@@ -520,7 +520,7 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 	} else {
 		timeoutSecs = v1.DefaultOperationTimeoutSecs
 	}
-	if err := validateClusterDeleteTimeout(timeoutSecs); err != nil {
+	if err := validateOperationTimeout(timeoutSecs); err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
@@ -2112,6 +2112,10 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 	}
 
 	ctx := request.Request.Context()
+	if err := validateOperationTimeout(timeoutSecs); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
+	}
 	clu, err := h.clusterOperator.GetClusterEx(ctx, clusterName, "")
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) {
@@ -3461,6 +3465,10 @@ func (h *handler) DescribeCronBackup(request *restful.Request, response *restful
 	resourceVersion := strutil.StringDefaultIfEmpty("0", request.QueryParameter(query.ParameterResourceVersion))
 	result, err := h.clusterOperator.GetCronBackupEx(request.Request.Context(), name, resourceVersion)
 	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
+			return
+		}
 		restplus.HandleInternalError(response, request, err)
 		return
 	}

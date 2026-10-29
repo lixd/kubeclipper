@@ -39,7 +39,7 @@ const (
 	clusterDeleteReservationAnnotation = "kubeclipper.io/delete-reservation"
 )
 
-func validateClusterDeleteTimeout(raw string) error {
+func validateOperationTimeout(raw string) error {
 	seconds, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || seconds < int64(operations.MinOperationTimeout/time.Second) || seconds > int64(operations.MaxOperationTimeout/time.Second) {
 		return fmt.Errorf("invalid operation timeout %q: must be between %d and %d seconds", raw,

@@ -305,20 +305,44 @@ prepare_console_archive() {
     local archive="$workdir/kc-console.tar"
     rm -rf "$extract_dir" "$normalize_dir"
     mkdir -p "$extract_dir" "$normalize_dir/kc-console"
-    tar -xf "$source" -C "$extract_dir"
+    tar -xf "$source" -C "$extract_dir" || return 1
     if [[ -d "$extract_dir/kc-console" ]]; then
-      cp -R "$extract_dir/kc-console"/. "$normalize_dir/kc-console/"
+      cp -R "$extract_dir/kc-console"/. "$normalize_dir/kc-console/" || return 1
     else
-      cp -R "$extract_dir"/. "$normalize_dir/kc-console/"
+      cp -R "$extract_dir"/. "$normalize_dir/kc-console/" || return 1
     fi
-    tar -C "$normalize_dir" -cf "$archive" kc-console
+    tar -C "$normalize_dir" -cf "$archive" kc-console || return 1
     echo "$archive"
   }
 
   local downloaded="$workdir/kc-console-release.tar.gz"
   local repository="${KC_CONSOLE_RELEASE_REPOSITORY:-kubeclipper/console}"
-  local url="https://github.com/$repository/releases/download/$version/kc-console.tar.gz"
-  echo "downloading kc-console $version" >&2
-  download "$url" "$downloaded"
-  normalize_console_archive "$downloaded"
+  if [[ -n "${KC_CONSOLE_ARCHIVE:-}" ]]; then
+    [[ -f "$KC_CONSOLE_ARCHIVE" ]] || die "console archive not found: $KC_CONSOLE_ARCHIVE"
+    downloaded="$KC_CONSOLE_ARCHIVE"
+  else
+    local url="https://github.com/$repository/releases/download/$version/kc-console.tar.gz"
+    echo "downloading kc-console $version" >&2
+    download "$url" "$downloaded"
+  fi
+  local archive
+  archive="$(normalize_console_archive "$downloaded")" || return 1
+  if [[ -n "${KC_CONSOLE_EXPECTED_REVISION:-}" ]]; then
+    python3 - "$workdir/kc-console-normalized/kc-console/version.json" "$KC_CONSOLE_EXPECTED_REVISION" <<'PY' || return 1
+import json, re, sys
+
+path, expected = sys.argv[1:]
+if not re.fullmatch(r"[0-9a-f]{40}", expected):
+    raise SystemExit("expected console revision must be a full Git commit")
+try:
+    with open(path, encoding="utf-8") as stream:
+        metadata = json.load(stream)
+except (OSError, ValueError) as error:
+    raise SystemExit(f"cannot read console version metadata: {error}")
+actual = metadata.get("sourceRevision") or metadata.get("commit_ref")
+if actual != expected:
+    raise SystemExit(f"console revision mismatch: expected {expected}, got {actual}")
+PY
+  fi
+  echo "$archive"
 }

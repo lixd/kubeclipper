@@ -26,6 +26,9 @@ jobs:
       - name: Build
         run: KUBE_BUILD_PLATFORMS="linux/amd64" make build
 
+      - name: Install packaging dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+
       - name: Start local OCI Registry
         run: |
           docker run --detach --name kc-e2e-registry --publish 5000:5000 registry:2
