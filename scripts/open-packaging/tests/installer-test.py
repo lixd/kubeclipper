@@ -28,8 +28,8 @@ class InstallerTest(unittest.TestCase):
                     if not k.startswith('KC_') and k != 'ARCH'}
         self.env.update(KC_BIN_DIR=str(self.bin), KC_VERSION='v9.8.7', ARCH='amd64')
 
-    def run_installer(self):
-        return subprocess.run(['bash', str(SCRIPT)], env=self.env,
+    def run_installer(self, *args):
+        return subprocess.run(['bash', str(SCRIPT), *args], env=self.env,
                               capture_output=True, text=True)
 
     def serve(self, bad_checksum=False, missing_binary=False):
@@ -59,7 +59,13 @@ class InstallerTest(unittest.TestCase):
         worker.start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
-        self.env['KC_DOWNLOAD_URL'] = f'http://127.0.0.1:{server.server_port}'
+        tools = self.root / 'http-tools'
+        tools.mkdir()
+        curl = tools / 'curl'
+        curl.write_text('#!/usr/bin/env bash\nargs=("$@")\nlast=$((${#args[@]}-1))\nurl=${args[$last]}\nargs[$last]="$TEST_HTTP_ROOT/${url##*/v9.8.7/}"\nexec /usr/bin/curl "${args[@]}"\n')
+        curl.chmod(0o755)
+        self.env.update(PATH=f'{tools}:{self.env["PATH"]}',
+                        TEST_HTTP_ROOT=f'http://127.0.0.1:{server.server_port}/v9.8.7')
         return requests
 
     def test_install_verifies_and_replaces_binary(self):
@@ -111,20 +117,26 @@ esac
         curl.chmod(0o755)
         self.env.update(PATH=f'{stub}:{self.env["PATH"]}', TEST_URL_LOG=str(log),
                         TEST_CHECKSUMS=str(checksums), TEST_PAYLOAD=str(fixture))
-        for region, override, expected in (
-            ('', '', 'https://github.com/kubeclipper/kubeclipper/releases/download'),
-            ('cn', '', 'https://release.kubeclipper.io/kc'),
-            ('cn', 'https://mirror.example/kc/', 'https://mirror.example/kc'),
+        for args, expected in (
+            ((), 'https://github.com/kubeclipper/kubeclipper/releases/download'),
+            (('--mirror', 'cn'), 'https://release.kubeclipper.io/kc'),
         ):
-            with self.subTest(region=region, override=override):
-                self.env.update(KC_REGION=region, KC_DOWNLOAD_URL=override, ARCH='aarch64')
+            with self.subTest(args=args):
+                self.env.update(ARCH='aarch64')
                 log.write_text('')
-                result = self.run_installer()
+                result = self.run_installer(*args)
                 self.assertEqual(result.returncode, 0, result.stderr)
                 urls = log.read_text().splitlines()
                 self.assertEqual(len(urls), 2)
                 self.assertTrue(all(u.startswith(expected + '/v9.8.7/') for u in urls))
                 self.assertTrue(urls[0].endswith('-arm64'))
+
+    def test_invalid_mirror_is_rejected_without_replacing_binary(self):
+        result = self.run_installer('--mirror', 'unknown')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('--mirror requires cn', result.stderr)
+        self.assertEqual(self.existing.read_bytes(), b'existing-install')
+
 
 
 if __name__ == '__main__':

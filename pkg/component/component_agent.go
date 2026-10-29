@@ -32,8 +32,6 @@ var (
 	ErrStepKeyFormat = errors.New("component key must be name/version")
 )
 
-const OfflinePackagesKeyFormat = "%s-%s-%s"
-
 type agentStep struct {
 	steps map[string]StepRunnable
 }

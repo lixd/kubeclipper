@@ -21,7 +21,7 @@ func TestF07LiveSeed(t *testing.T) {
  var cfg deliveryregistry.Config;if err=json.Unmarshal(data,&cfg);err!=nil {t.Fatal(err)}
  conf,err:=config.TryLoadFromFile("/root/.kc/config");if err!=nil {t.Fatal(err)}
  client,err:=kc.FromConfig(*conf);if err!=nil {t.Fatal(err)}
- uploadDefaultRegistry(client,&cfg)
+ if err:=uploadDefaultRegistry(client,&cfg);err!=nil {t.Fatal(err)}
  result,err:=client.DescribeRegistries(context.Background(),constatns.DefaultImageRegistryName);if err!=nil {t.Fatal(err)}
  host,prefix:=deliveryregistry.SplitPrefix(cfg.Registry)
  expected:=v1.RegistrySpec{Host:host,RepositoryPrefix:prefix,Scheme:cfg.Scheme,CA:cfg.CA,SkipVerify:cfg.SkipTLSVerify,RegistryAuth:&v1.RegistryAuth{Username:cfg.Username,Password:cfg.Password}}

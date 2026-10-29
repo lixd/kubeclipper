@@ -108,23 +108,7 @@ type Interface interface {
 	GetInstallSteps() []v1.Step
 	GetUninstallSteps() []v1.Step
 	GetUpgradeSteps() []v1.Step
-	GetImageRepoMirror() string
 }
-
-type OfflineArtifactRequest struct {
-	Kind    string
-	Name    string
-	Version string
-}
-
-type OfflineArtifactAware interface {
-	GetOfflineArtifactRequests() []OfflineArtifactRequest
-}
-
-// OfflinePackages key must format as version-osVendor-osArch
-// value is packages
-// eg for docker 19.03, docker-19.03-centos7-x86_64
-type OfflinePackages map[string][]string
 
 type Options struct {
 	DryRun bool

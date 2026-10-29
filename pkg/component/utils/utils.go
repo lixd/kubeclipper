@@ -34,33 +34,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
-	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 )
-
-// LoadImage decompress and load image
-func LoadImage(ctx context.Context, dryRun bool, file, criType string) error {
-	//_, err := cmdutil.RunCmdWithContext(ctx, dryRun, "gzip", "-df", file)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//file = strings.ReplaceAll(file, ".gz", "")
-
-	switch criType {
-	case "containerd":
-		// ctr --namespace k8s.io image import --all-platforms xxx/images.tar
-		// Why need set `--all-platforms` flag?
-		// This prevents unexpected errors due to the incorrect schema type declaration of the mirroring system that cannot be imported normally.
-		_, err := cmdutil.RunCmdWithContext(ctx, dryRun, "nerdctl", "-n", "k8s.io", "load", "-i", file)
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err := cmdutil.RunCmdWithContext(ctx, dryRun, "rm", "-rf", file)
-
-	return err
-}
 
 func RetryFunc(ctx context.Context, opts component.Options, intervalTime time.Duration, funcName string, fn func(ctx context.Context, opts component.Options) error) error {
 	for {
@@ -123,7 +97,6 @@ func NewMetadata(c *v1.Cluster) *component.ExtraMetadata {
 	return &component.ExtraMetadata{
 		ClusterName:        c.Name,
 		ClusterStatus:      c.Status.Phase,
-		Offline:            c.Offline(),
 		ImageRegistry:      imageRegistry,
 		CRI:                c.ContainerRuntime.Type,
 		KubeVersion:        c.KubernetesVersion,
@@ -139,12 +112,7 @@ func GetClusterCRIRegistries(c *v1.Cluster, op cluster.Operator) ([]v1.RegistryS
 }
 
 func GetClusterCRIRegistriesWithContext(ctx context.Context, c *v1.Cluster, op cluster.Operator) ([]v1.RegistrySpec, error) {
-	return GetClusterCRIRegistriesForMode(ctx, c, c.Offline(), op)
-}
-
-// GetClusterCRIRegistriesForMode returns the CRI registry configuration for an image source mode.
-func GetClusterCRIRegistriesForMode(ctx context.Context, c *v1.Cluster, offline bool, op cluster.Operator) ([]v1.RegistrySpec, error) {
-	imageRegistry, err := ResolveImageRegistryForMode(ctx, offline, c.ImageRegistry, op)
+	imageRegistry, err := ResolveImageRegistry(ctx, c.ImageRegistry, op)
 	if err != nil {
 		return nil, err
 	}
@@ -190,26 +158,15 @@ func GetClusterCRIRegistriesForMode(ctx context.Context, c *v1.Cluster, offline 
 	return registries, nil
 }
 
-// ResolveClusterImageRegistry resolves only an explicitly selected registry.
-// Component-specific defaults are applied later when the cluster steps render.
+// ResolveClusterImageRegistry resolves the cluster's saved image registry.
 func ResolveClusterImageRegistry(ctx context.Context, c *v1.Cluster, op cluster.Operator) (v1.RegistrySpec, error) {
-	return ResolveImageRegistryForMode(ctx, c.Offline(), c.ImageRegistry, op)
-}
-
-// ResolveImageRegistryForMode returns an empty registry when no registry resource
-// is explicitly selected. Online components apply their own defaults, including
-// the configured agent-side image repository mirror.
-func ResolveImageRegistryForMode(ctx context.Context, _ bool, name string, op cluster.Operator) (v1.RegistrySpec, error) {
-	if strings.TrimSpace(name) == "" {
-		return v1.RegistrySpec{}, nil
-	}
-	return ResolveImageRegistry(ctx, name, op)
+	return ResolveImageRegistry(ctx, c.ImageRegistry, op)
 }
 
 func ResolveImageRegistry(ctx context.Context, name string, op cluster.Operator) (v1.RegistrySpec, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return v1.RegistrySpec{Scheme: "https", Host: v1.DefaultImageRegistry}, nil
+		return v1.RegistrySpec{}, fmt.Errorf("imageRegistry must reference a Registry object")
 	}
 	registry, err := op.GetRegistry(ctx, name)
 	if err != nil {

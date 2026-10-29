@@ -25,7 +25,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/common"
@@ -97,7 +96,6 @@ func (runnable *CalicoRunnable) InitStep(metadata *component.ExtraMetadata, cni 
 	stepper.BaseCni.Type = "calico"
 	stepper.Version = cni.Version
 	stepper.CriType = metadata.CRI
-	stepper.Offline = cni.Offline
 	stepper.Namespace = cni.Namespace
 	stepper.DualStack = networking.IPFamily == v1.IPFamilyDualStack
 	stepper.PodIPv4CIDR = networking.Pods.CIDRBlocks[0]
@@ -139,28 +137,6 @@ func defaultCalico(calico *v1.Calico) *v1.Calico {
 	return &filled
 }
 
-func (runnable *CalicoRunnable) LoadImage(nodes []v1.StepNode) ([]v1.Step, error) {
-	var steps []v1.Step
-	bytes, err := json.Marshal(runnable)
-	if err != nil {
-		return nil, err
-	}
-
-	if runnable.Offline && runnable.ResolvedImageRegistry == "" {
-		return []v1.Step{LoadImage("calico", bytes, nodes)}, nil
-	}
-
-	return steps, nil
-}
-
-func (runnable *CalicoRunnable) PrepareImages(ctx context.Context, nodes []v1.StepNode) ([]v1.Step, error) {
-	applyResolvedCNI(ctx, &runnable.BaseCni, "calico")
-	if runnable.Offline && strings.TrimSpace(runnable.ResolvedImageRegistry) == "" {
-		return runnable.LoadImage(nodes)
-	}
-	return nil, nil
-}
-
 func (runnable *CalicoRunnable) InstallSteps(nodes []v1.StepNode, kubernetesVersion string) ([]v1.Step, error) {
 	return runnable.InstallStepsWithContext(context.TODO(), nodes, kubernetesVersion)
 }
@@ -179,7 +155,6 @@ func (runnable *CalicoRunnable) InstallStepsWithContext(ctx context.Context, nod
 		chart := &common.Chart{
 			PkgName: "calico",
 			Version: runnable.Version,
-			Offline: runnable.Offline,
 		}
 		if resolved, ok := common.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), "cni", "calico", runnable.Version); ok {
 			if err := common.ApplyResolvedComponent(chart, resolved); err != nil {
@@ -210,14 +185,7 @@ func (runnable *CalicoRunnable) Uninstall(ctx context.Context, opts component.Op
 }
 
 func (runnable *CalicoRunnable) UninstallSteps(nodes []v1.StepNode) (steps []v1.Step, err error) {
-	bytes, err := json.Marshal(runnable)
-	if err != nil {
-		return nil, err
-	}
-	if runnable.Offline && runnable.ResolvedImageRegistry == "" {
-		steps = append(steps, RemoveImage("calico", bytes, nodes))
-	}
-	return
+	return nil, nil
 }
 
 // CmdList cni kubectl cmd list

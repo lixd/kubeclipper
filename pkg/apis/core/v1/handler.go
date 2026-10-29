@@ -21,6 +21,7 @@ package v1
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -50,7 +51,6 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/json"
 	r "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/client-go/tools/clientcmd"
@@ -587,7 +587,7 @@ func (h *handler) DeleteCluster(request *restful.Request, response *restful.Resp
 		return
 	}
 
-	extraMeta, err := h.getClusterMetadata(request.Request.Context(), c, false)
+	extraMeta, err := h.getClusterNodeMetadata(request.Request.Context(), c, false)
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) || err == ErrNodesRegionDifferent {
 			restplus.HandleBadRequest(response, request, err)
@@ -653,6 +653,10 @@ func (h *handler) CreateClusters(request *restful.Request, response *restful.Res
 	timeoutSecs := v1.DefaultOperationTimeoutSecs
 	if v := request.QueryParameter("timeout"); v != "" {
 		timeoutSecs = v
+	}
+	if err := utils.CompleteClusterImageRegistry(request.Request.Context(), &c, h.coreOperator, h.clusterOperator); err != nil {
+		restplus.HandleBadRequest(response, request, err)
+		return
 	}
 	c.Complete()
 	// validate node exist
@@ -786,22 +790,24 @@ func (h *handler) UpdateClusters(request *restful.Request, response *restful.Res
 		}
 	}
 
-	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
-	if !dryRun {
-		clu, err := h.clusterOperator.GetCluster(context.TODO(), name)
-		if err != nil {
-			if apimachineryErrors.IsNotFound(err) {
-				restplus.HandleNotFound(response, request, err)
-				return
-			}
-			restplus.HandleInternalError(response, request, err)
+	clu, err := h.clusterOperator.GetCluster(request.Request.Context(), name)
+	if err != nil {
+		if apimachineryErrors.IsNotFound(err) {
+			restplus.HandleNotFound(response, request, err)
 			return
 		}
-
+		restplus.HandleInternalError(response, request, err)
+		return
+	}
+	if c.ImageRegistry != clu.ImageRegistry {
+		restplus.HandleBadRequest(response, request, fmt.Errorf("cluster imageRegistry cannot be changed"))
+		return
+	}
+	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
+	if !dryRun {
 		// update fields
 		clu.Labels = c.Labels
 		clu.Annotations = componentReservedAnnotations(clu.Annotations, c.Annotations)
-		clu.ImageRegistry = c.ImageRegistry
 		clu.ContainerRuntime.Registries = c.ContainerRuntime.Registries
 		if _, err = utils.GetClusterCRIRegistriesWithContext(request.Request.Context(), clu, h.clusterOperator); err != nil {
 			restplus.HandleBadRequest(response, request, err)
@@ -1322,6 +1328,11 @@ func (h *handler) getClusterMetadata(ctx context.Context, c *v1.Cluster, skipNod
 		return nil, err
 	}
 	c.ResolvedImageRegistry = registry.ImageRepository()
+	return h.getClusterNodeMetadata(ctx, c, skipNodeNotFound)
+}
+
+// Deletion needs node metadata, but must remain possible after a registry is removed.
+func (h *handler) getClusterNodeMetadata(ctx context.Context, c *v1.Cluster, skipNodeNotFound bool) (*component.ExtraMetadata, error) {
 	c.Complete()
 	meta := utils.NewMetadata(c)
 
@@ -1488,13 +1499,8 @@ func (h *handler) createClusterCheck(ctx context.Context, c *v1.Cluster) error {
 		return fmt.Errorf("unsupported cri type %q, support %v now", c.ContainerRuntime.Type, v1.AllowedCRIType.List())
 	}
 
-	// R17: an offline cluster whose payload omits imageRegistry renders kubeadm.yaml
-	// without imageRepository (kubeadm defaults to registry.k8s.io); kubeadm init then
-	// pulls the control-plane images over the public internet and dies after
-	// ~18-minute i/o timeouts with no pre-creation signal. Fail fast instead.
-	if c.Offline() && c.ImageRegistry == "" {
-		return fmt.Errorf("offline cluster requires an explicit imageRegistry (a Registry object name); " +
-			"otherwise kubeadm pulls control-plane images from registry.k8s.io which is unreachable offline")
+	if c.ImageRegistry == "" {
+		return fmt.Errorf("imageRegistry must reference a Registry object")
 	}
 
 	cluInfo, err := h.clusterOperator.GetClusterEx(ctx, c.Name, "0")
@@ -2210,7 +2216,9 @@ func (h *handler) InstallOrUninstallPlugins(request *restful.Request, response *
 func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Response) {
 	name := request.PathParameter(query.ParameterName)
 	body := &ClusterUpgrade{}
-	if err := request.ReadEntity(body); err != nil {
+	decoder := json.NewDecoder(request.Request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(body); err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
@@ -2234,12 +2242,6 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 	if v := request.QueryParameter("timeout"); v != "" {
 		timeoutSecs = v
 	}
-	// An upgrade that does not name a different image registry keeps the
-	// cluster's current one; clearing it would push the plan onto the legacy
-	// offline image-archive path, which OCI delivery rejects at run time.
-	if body.ImageRegistry != "" {
-		clu.ImageRegistry = body.ImageRegistry
-	}
 	extraMeta, err := h.getClusterMetadata(request.Request.Context(), clu, false)
 	if err != nil {
 		if apimachineryErrors.IsNotFound(err) || err == ErrNodesRegionDifferent {
@@ -2249,14 +2251,13 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	registry, err := utils.ResolveImageRegistryForMode(request.Request.Context(), body.Offline, clu.ImageRegistry, h.clusterOperator)
+	registry, err := utils.ResolveImageRegistry(request.Request.Context(), clu.ImageRegistry, h.clusterOperator)
 	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return
 	}
 	clu.ResolvedImageRegistry = registry.ImageRepository()
 	clu.Complete()
-	extraMeta.Offline = body.Offline
 	extraMeta.ImageRegistry = registry.ImageRepository()
 	extraMeta.KubeVersion = body.Version
 	upgradeComp := &k8s.Upgrade{}
@@ -2285,7 +2286,7 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		common.LabelTopologyRegion: extraMeta.Masters[0].Region,
 	}
 	op.Steps = upgradeComp.GetInstallSteps()
-	statusRegistries, err := utils.GetClusterCRIRegistriesForMode(request.Request.Context(), clu, body.Offline, h.clusterOperator)
+	statusRegistries, err := utils.GetClusterCRIRegistriesWithContext(request.Request.Context(), clu, h.clusterOperator)
 	if err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return

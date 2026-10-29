@@ -24,8 +24,7 @@ type CommandStepPayload struct {
 // CommandStepExecutor runs the existing versioned KubeClipper Step model. It
 // is registered only by kc-agent; clients cannot use it as an online shell API.
 type CommandStepExecutor struct {
-	OpLog      component.OperationLogFile
-	RepoMirror string
+	OpLog component.OperationLogFile
 }
 
 func (e CommandStepExecutor) Reconcile(ctx context.Context, task *operations.OperationTask, log io.Writer) (operations.TaskResult, error) {
@@ -38,7 +37,6 @@ func (e CommandStepExecutor) Reconcile(ctx context.Context, task *operations.Ope
 	ctx = component.WithOperationID(ctx, string(task.UID))
 	ctx = component.WithStepID(ctx, "task")
 	ctx = component.WithOplog(ctx, e.OpLog)
-	ctx = component.WithRepoMirror(ctx, e.RepoMirror)
 	if payload.LastTaskReply != "" {
 		ctx = component.WithExtraData(ctx, []byte(payload.LastTaskReply))
 	}

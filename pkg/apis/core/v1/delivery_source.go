@@ -108,7 +108,7 @@ type DeliverySource struct {
 
 func resolveDeliverySource(ctx context.Context, platformOperator platform.Operator, coreOperator modelscore.Operator, cluster *corev1.Cluster, indexer RegistryPackageInventoryIndexer) (deliverySource, error) {
 	source := deliverySource{policyStore: newConfigMapPolicyStore(coreOperator)}
-	if registry := resolveOfflineRegistry(ctx, platformOperator, coreOperator, cluster); registry != "" {
+	if registry := resolveDeployConfigPackageRegistry(ctx, coreOperator); registry != "" {
 		if indexer == nil {
 			indexer = defaultRegistryPackageInventoryIndexer
 		}
@@ -132,12 +132,6 @@ func ResolveDeliverySourceForConfig(ctx context.Context, platformOperator platfo
 		PolicyStore:    source.policyStore,
 		Registry:       source.registry,
 	}, nil
-}
-
-func resolveOfflineRegistry(ctx context.Context, platformOperator platform.Operator, coreOperator modelscore.Operator, cluster *corev1.Cluster) string {
-	// Package artifacts are independent from Kubernetes and CRI image registries.
-	// The deploy configuration is the single source of truth for package delivery.
-	return resolveDeployConfigPackageRegistry(ctx, coreOperator)
 }
 
 func resolveDeployConfigPackageRegistry(ctx context.Context, coreOperator modelscore.Operator) string {

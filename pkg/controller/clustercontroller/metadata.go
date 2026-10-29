@@ -37,7 +37,6 @@ func (r *ClusterReconciler) assembleClusterExtraMetadata(ctx context.Context, c 
 	meta := &component.ExtraMetadata{
 		ClusterName:        c.Name,
 		ClusterStatus:      c.Status.Phase,
-		Offline:            c.Offline(),
 		ImageRegistry:      c.ResolvedImageRegistry,
 		CRI:                c.ContainerRuntime.Type,
 		KubeVersion:        c.KubernetesVersion,

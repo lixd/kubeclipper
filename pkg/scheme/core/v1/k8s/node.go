@@ -35,7 +35,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
-	"github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1/cni"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
@@ -133,43 +132,6 @@ func (stepper *GenNode) MakeInstallSteps(metadata *component.ExtraMetadata, patc
 			return err
 		}
 		stepper.installSteps = append(stepper.installSteps, steps...)
-
-		if metadata.Offline {
-			cf, err := cni.Load(stepper.Cluster.CNI.Type)
-			if err != nil {
-				return err
-			}
-			cniStepper := cf.Create().InitStep(metadata, &stepper.Cluster.CNI, &stepper.Cluster.Networking)
-			steps, err = cniStepper.LoadImage(patchNodes)
-			if err != nil {
-				return err
-			}
-			stepper.installSteps = append(stepper.installSteps, steps...)
-
-			for _, addon := range metadata.Addons {
-				ad, ok := component.Load(fmt.Sprintf(component.RegisterFormat, addon.Name, addon.Version))
-				if !ok {
-					continue
-				}
-				compMeta := ad.NewInstance()
-				if err := json.Unmarshal(addon.Config.Raw, compMeta); err != nil {
-					return err
-				}
-				newComp, _ := compMeta.(component.Interface)
-				if err := newComp.InitSteps(component.WithExtraMetadata(context.TODO(), *metadata)); err != nil {
-					return err
-				}
-				stepList := newComp.GetInstallSteps()
-				for _, st := range stepList {
-					// TODO: Temporarily use hardcode to adjust, and subsequently optimize the step code for image download and load
-					if strings.Contains(st.Name, "imageLoad") {
-						st.Nodes = patchNodes
-						stepper.installSteps = append(stepper.installSteps, st)
-						break
-					}
-				}
-			}
-		}
 
 		joinCmd := JoinCmd{ControlPlane: isControlPlane}
 		steps, err = joinCmd.InitStepper(stepper.Cluster.ContainerRuntime.Type).InstallSteps([]v1.StepNode{masters[0]})

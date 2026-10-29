@@ -37,7 +37,6 @@ type (
 	stepKey      struct{}
 	oplogKey     struct{}
 	retryKey     struct{}
-	repoMirror   struct{}
 	resolvePlan  struct{}
 )
 
@@ -45,7 +44,6 @@ type ExtraMetadata struct {
 	Masters                   NodeList
 	Workers                   NodeList
 	ClusterStatus             v1.ClusterPhase
-	Offline                   bool
 	ImageRegistry             string
 	CRI                       string
 	ClusterName               string
@@ -292,15 +290,4 @@ func GetRetry(ctx context.Context) bool {
 		return v.(bool)
 	}
 	return false
-}
-
-func WithRepoMirror(ctx context.Context, mirror string) context.Context {
-	return context.WithValue(ctx, repoMirror{}, mirror)
-}
-
-func GetRepoMirror(ctx context.Context) string {
-	if v := ctx.Value(repoMirror{}); v != nil {
-		return v.(string)
-	}
-	return ""
 }

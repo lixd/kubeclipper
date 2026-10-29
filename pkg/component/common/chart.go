@@ -68,7 +68,6 @@ type Chart struct {
 	PkgName   string                         `json:"pkgName"`
 	Version   string                         `json:"version"`
 	Arch      string                         `json:"arch,omitempty"`
-	Offline   bool                           `json:"offline"`
 	Transport deliveryapis.TransportRef      `json:"transport,omitempty"`
 	Contents  []deliveryapis.ArtifactContent `json:"contents,omitempty"`
 }
@@ -83,7 +82,7 @@ func (i *Chart) Install(ctx context.Context, opts component.Options) ([]byte, er
 	if _, err := i.downloadResolvedChart(ctx, opts); err != nil {
 		return nil, fmt.Errorf("download %s-%s resolved chart packages failed: %v", i.PkgName, i.Version, err)
 	}
-	logger.Infof("%s-%s chart packages offline install successfully", i.PkgName, i.Version)
+	logger.Infof("%s-%s chart packages installed successfully", i.PkgName, i.Version)
 	return nil, nil
 }
 

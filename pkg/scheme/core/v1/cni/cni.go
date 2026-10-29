@@ -84,7 +84,6 @@ func archOrRuntime(arch string) string {
 
 type Stepper interface {
 	InitStep(metadata *component.ExtraMetadata, cni *v1.CNI, networking *v1.Networking) Stepper
-	LoadImage(nodes []v1.StepNode) ([]v1.Step, error)
 	InstallSteps(nodes []v1.StepNode, kubeVersion string) ([]v1.Step, error)
 	UninstallSteps(nodes []v1.StepNode) ([]v1.Step, error)
 	CmdList(namespace string) map[string]string

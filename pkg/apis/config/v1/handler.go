@@ -30,6 +30,7 @@ import (
 	"k8s.io/component-base/version"
 
 	deliverycore "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
+	componentutils "github.com/kubeclipper/kubeclipper/pkg/component/utils"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/models/core"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
@@ -79,7 +80,7 @@ func (h *handler) GetPlatformStatus(request *restful.Request, response *restful.
 	}
 }
 
-func (h *handler) ListOfflineResource(request *restful.Request, response *restful.Response) {
+func (h *handler) ListComponentMetadata(request *restful.Request, response *restful.Response) {
 	source, err := deliverycore.ResolveDeliverySourceForConfig(
 		request.Request.Context(), h.platformOperator, h.coreOperator, h.deliveryIndexer,
 	)
@@ -109,7 +110,12 @@ func (h *handler) ListOfflineResource(request *restful.Request, response *restfu
 		restplus.HandleInternalError(response, request, err)
 		return
 	}
-	result := kc.ComponentMeta{Rules: projection.Rules, Addons: projection.Addons, Unavailable: projection.Unavailable, Registry: source.Registry}
+	defaultRegistry, err := componentutils.DefaultImageRegistryName(request.Request.Context(), h.coreOperator)
+	defaultError := ""
+	if err != nil {
+		defaultError = err.Error()
+	}
+	result := kc.ComponentMeta{DefaultImageRegistry: defaultRegistry, DefaultImageRegistryError: defaultError, Rules: projection.Rules, Addons: projection.Addons, Unavailable: projection.Unavailable, Registry: source.Registry}
 	_ = response.WriteHeaderAndEntity(http.StatusOK, result)
 }
 

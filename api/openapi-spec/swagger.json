@@ -126,17 +126,8 @@
         "tags": [
           "Core-Config"
         ],
-        "summary": "List offline resource metadata info.",
-        "operationId": "ListOfflineResource",
-        "parameters": [
-          {
-            "type": "string",
-            "default": false,
-            "description": "online or offline resource",
-            "name": "online",
-            "in": "query"
-          }
-        ],
+        "summary": "List available component metadata.",
+        "operationId": "ListComponentMetadata",
         "responses": {
           "200": {
             "description": "OK",
@@ -5482,6 +5473,7 @@
     },
     "kc.ComponentMeta": {
       "required": [
+        "defaultImageRegistry",
         "rules",
         "addons"
       ],
@@ -5492,10 +5484,25 @@
             "$ref": "#/definitions/scheme.MetaResource"
           }
         },
+        "defaultImageRegistry": {
+          "type": "string"
+        },
+        "defaultImageRegistryError": {
+          "type": "string"
+        },
+        "registry": {
+          "type": "string"
+        },
         "rules": {
           "type": "array",
           "items": {
             "$ref": "#/definitions/kc.ComponentMeta.rules"
+          }
+        },
+        "unavailable": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apis.ComponentAvailability"
           }
         }
       }
@@ -5779,7 +5786,6 @@
         "type",
         "version",
         "criType",
-        "offline",
         "namespace"
       ],
       "properties": {
@@ -5791,9 +5797,6 @@
         },
         "namespace": {
           "type": "string"
-        },
-        "offline": {
-          "type": "boolean"
         },
         "type": {
           "type": "string",
@@ -6080,17 +6083,9 @@
     },
     "v1.ClusterUpgrade": {
       "required": [
-        "version",
-        "offline",
-        "imageRegistry"
+        "version"
       ],
       "properties": {
-        "imageRegistry": {
-          "type": "string"
-        },
-        "offline": {
-          "type": "boolean"
-        },
         "version": {
           "type": "string"
         }

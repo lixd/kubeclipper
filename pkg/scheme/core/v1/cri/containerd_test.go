@@ -55,7 +55,6 @@ func TestContainerdRunnable_renderTo(t *testing.T) {
 			fields: fields{
 				Base: Base{
 					Version:     "1.6.4",
-					Offline:     true,
 					DataRootDir: "/var/lib/containerd",
 					Registies: []v1.RegistrySpec{
 						{
@@ -92,7 +91,6 @@ func TestContainerdRunnable_renderTo(t *testing.T) {
 			fields: fields{
 				Base: Base{
 					Version:     "1.6.4",
-					Offline:     true,
 					DataRootDir: "/var/lib/containerd",
 					Registies: []v1.RegistrySpec{
 						{
@@ -602,7 +600,6 @@ func TestContainerdRunnable_renderTo_V3(t *testing.T) {
 	runnable := &ContainerdRunnable{
 		Base: Base{
 			Version:     "2.2.4",
-			Offline:     true,
 			DataRootDir: "/var/lib/containerd",
 			Registies: []v1.RegistrySpec{
 				{
@@ -679,7 +676,6 @@ func TestContainerdRunnable_renderTo_V2_BackwardCompat(t *testing.T) {
 	runnable := &ContainerdRunnable{
 		Base: Base{
 			Version:     "1.7.29",
-			Offline:     true,
 			DataRootDir: "/var/lib/containerd",
 		},
 		PauseVersion:        "3.9",

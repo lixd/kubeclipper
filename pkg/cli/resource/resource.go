@@ -42,13 +42,13 @@ const (
 	longDescription = `
   OCI resource operation.
 
-  Currently, you can list and inspect offline resource packs discovered from OCI Registry.
+  Currently, you can list and inspect installation resource packages discovered from OCI Registry.
   Uploading and deleting packages are native Registry operations; KubeClipper derives inventory by scanning kubeclipper/packages/.`
 	resourceExample = `
-  # List offline resource packs
+  # List installation resource packages
   kcctl resource list --registry registry.local:5000
 
-  # Inspect a specific offline resource package
+  # Inspect a specific installation resource package
   kcctl resource inspect --name containerd --version 2.1.0 --registry registry.local:5000
 
   # Force refresh registry-derived inventory
@@ -56,32 +56,32 @@ const (
 
   Please read 'kcctl resource -h' get more resource flags.`
 	listLongDescription = `
-  List offline resource packs
+  List installation resource packages
 
-  You can list OCI-published offline resource packs.`
+  You can list OCI-published installation resource packages.`
 	resourceListExample = `
-  # List offline resource
+  # List installation resource
   kcctl resource list --registry registry.local:5000
 
-  # List offline resource use specified output format
+  # List installation resource use specified output format
   kcctl resource list --registry registry.local:5000 --output 'YAML|TABLE|JSON'
 
   Please read 'kcctl resource list -h' get more resource list flags`
 	inspectLongDescription = `
-  Inspect offline resource packs
+  Inspect installation resource packages
 
-  You can inspect OCI-published offline resource packs directly from registry-derived inventory.`
+  You can inspect OCI-published installation resource packages directly from registry-derived inventory.`
 	resourceInspectExample = `
-  # Inspect a specific offline resource package
+  # Inspect a specific installation resource package
   kcctl resource inspect --name containerd --version 2.1.0 --registry registry.local:5000
 
   # Inspect a specific arch
   kcctl resource inspect --name k8s --version v1.36.0 --arch amd64 --registry registry.local:5000 -o yaml
 `
 	refreshLongDescription = `
-  Refresh offline resource inventory
+  Refresh installation resource inventory
 
-  You can force-refresh registry-derived OCI offline resource inventory.`
+  You can force-refresh registry-derived OCI installation resource inventory.`
 	resourceRefreshExample = `
   # Force refresh registry-derived inventory
   kcctl resource refresh --registry registry.local:5000
@@ -133,7 +133,7 @@ func NewCmdResource(streams options.IOStreams) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "resource",
 		DisableFlagsInUseLine: true,
-		Short:                 "OCI offline resource inventory",
+		Short:                 "OCI installation resource inventory",
 		Long:                  longDescription,
 		Example:               resourceExample,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -154,7 +154,7 @@ func NewCmdResourceList(o *ResourceOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "list  [flags]",
 		DisableFlagsInUseLine: true,
-		Short:                 "offline resource list",
+		Short:                 "installation resource list",
 		Long:                  listLongDescription,
 		Example:               resourceListExample,
 		Args:                  cobra.NoArgs,
@@ -167,12 +167,12 @@ func NewCmdResourceList(o *ResourceOptions) *cobra.Command {
 
 	o.PrintFlags.AddFlags(cmd)
 	o.cliOpts.AddFlags(cmd.Flags())
-	cmd.Flags().StringVar(&o.Type, "type", o.Type, "offline resource type.")
-	cmd.Flags().StringVar(&o.Name, "name", o.Name, "offline resource name.")
-	cmd.Flags().StringVar(&o.Version, "version", o.Version, "offline resource version.")
-	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "offline resource arch.")
-	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for offline packages")
-	cmd.Flags().BoolVar(&o.Refresh, "refresh", o.Refresh, "refresh registry-derived offline package inventory")
+	cmd.Flags().StringVar(&o.Type, "type", o.Type, "installation resource type.")
+	cmd.Flags().StringVar(&o.Name, "name", o.Name, "installation resource name.")
+	cmd.Flags().StringVar(&o.Version, "version", o.Version, "installation resource version.")
+	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "installation resource arch.")
+	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for installation packages")
+	cmd.Flags().BoolVar(&o.Refresh, "refresh", o.Refresh, "refresh registry-derived installation package inventory")
 
 	utils.CheckErr(cmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return o.listType(toComplete), cobra.ShellCompDirectiveNoFileComp
@@ -194,7 +194,7 @@ func NewCmdResourceInspect(o *ResourceOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "inspect (--name <pkg-name>) (--version <pkg-version>) [flags]",
 		DisableFlagsInUseLine: true,
-		Short:                 "offline resource inspect",
+		Short:                 "installation resource inspect",
 		Long:                  inspectLongDescription,
 		Example:               resourceInspectExample,
 		Args:                  cobra.NoArgs,
@@ -207,12 +207,12 @@ func NewCmdResourceInspect(o *ResourceOptions) *cobra.Command {
 
 	o.cliOpts.AddFlags(cmd.Flags())
 	o.PrintFlags.AddFlags(cmd)
-	cmd.Flags().StringVar(&o.Type, "type", o.Type, "offline resource type.")
-	cmd.Flags().StringVar(&o.Name, "name", o.Name, "offline resource name.")
-	cmd.Flags().StringVar(&o.Version, "version", o.Version, "offline resource version.")
-	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "offline resource arch.")
-	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for offline packages")
-	cmd.Flags().BoolVar(&o.Refresh, "refresh", o.Refresh, "refresh registry-derived offline package inventory")
+	cmd.Flags().StringVar(&o.Type, "type", o.Type, "installation resource type.")
+	cmd.Flags().StringVar(&o.Name, "name", o.Name, "installation resource name.")
+	cmd.Flags().StringVar(&o.Version, "version", o.Version, "installation resource version.")
+	cmd.Flags().StringVar(&o.Arch, "arch", o.Arch, "installation resource arch.")
+	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for installation packages")
+	cmd.Flags().BoolVar(&o.Refresh, "refresh", o.Refresh, "refresh registry-derived installation package inventory")
 
 	utils.CheckErr(cmd.MarkFlagRequired("name"))
 	utils.CheckErr(cmd.MarkFlagRequired("version"))
@@ -223,7 +223,7 @@ func NewCmdResourceRefresh(o *ResourceOptions) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                   "refresh [flags]",
 		DisableFlagsInUseLine: true,
-		Short:                 "offline resource refresh",
+		Short:                 "installation resource refresh",
 		Long:                  refreshLongDescription,
 		Example:               resourceRefreshExample,
 		Args:                  cobra.NoArgs,
@@ -235,7 +235,7 @@ func NewCmdResourceRefresh(o *ResourceOptions) *cobra.Command {
 	}
 
 	o.cliOpts.AddFlags(cmd.Flags())
-	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for offline packages")
+	cmd.Flags().StringVar(&o.Registry, "registry", o.Registry, "OCI registry host:port for installation packages")
 	return cmd
 }
 
@@ -273,7 +273,7 @@ func (o *ResourceOptions) ValidateArgsRefresh(cmd *cobra.Command) error {
 }
 
 func (o *ResourceOptions) ResourcePkgRules() error {
-	logger.Info(">>> offline resources are discovered from OCI Registry under kubeclipper/packages/")
+	logger.Info(">>> installation resources are discovered from OCI Registry under kubeclipper/packages/")
 	logger.Info(">>> use 'kcctl resource list --registry <registry>', 'kcctl resource inspect --registry <registry> --name <name> --version <version>', or 'kcctl resource refresh --registry <registry>'")
 	return nil
 }

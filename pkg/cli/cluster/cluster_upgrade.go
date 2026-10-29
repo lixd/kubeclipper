@@ -23,7 +23,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 
@@ -43,24 +42,19 @@ const (
 	Upgrade cluster version
 `
 	clusterUpgradeExample = `
-	# offline upgrade cluster 
-	kcctl cluster upgrade --cluster-name clu-1 --version v1.21.3 --image-registry image-repo
-	# online upgrade cluster 
-	kcctl cluster upgrade --cluster-name clu-1 --version v1.21.3 --online
+	# Upgrade cluster using its saved image registry
+	kcctl cluster upgrade --cluster-name clu-1 --version v1.21.3
 `
 )
 
 const (
 	versionRule = "^[v]([1-9]\\d|[1-9])(.([1-9]\\d|\\d)){2}$"
-	addonType   = "k8s"
 )
 
 type ClusterUpgradeOpts struct {
 	BaseOptions
-	ClusterName   string
-	Version       string
-	Online        bool
-	ImageRegistry string
+	ClusterName string
+	Version     string
 }
 
 func NewClusterUpgradeOpts(streams options.IOStreams) *ClusterUpgradeOpts {
@@ -89,37 +83,11 @@ func NewCmdClusterUpgrade(streams options.IOStreams) *cobra.Command {
 
 	cmd.Flags().StringVarP(&c.ClusterName, "cluster-name", "c", c.ClusterName, "cluster name")
 	cmd.Flags().StringVarP(&c.Version, "version", "v", c.Version, "target version")
-	cmd.Flags().BoolVar(&c.Online, "online", c.Online, "The way to upgrade")
-	cmd.Flags().StringVarP(
-		&c.ImageRegistry, "image-registry", "r", c.ImageRegistry,
-		"Choose a Registry resource to pull Kubernetes images from")
-	imageRegistryCompletion := func(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		return c.listImageRegistry(toComplete), cobra.ShellCompDirectiveNoFileComp
-	}
-	utils.CheckErr(cmd.RegisterFlagCompletionFunc("image-registry", imageRegistryCompletion))
 
 	utils.CheckErr(cmd.MarkFlagRequired("cluster-name"))
 	utils.CheckErr(cmd.MarkFlagRequired("version"))
 
 	return cmd
-}
-
-func (c *ClusterUpgradeOpts) listImageRegistry(toComplete string) []string {
-	if err := c.Complete(); err != nil {
-		return nil
-	}
-	registries, err := c.Client.ListRegistries(context.Background(), kc.Queries{})
-	if err != nil {
-		return nil
-	}
-	completions := make([]string, 0, len(registries.Items))
-	for i := range registries.Items {
-		registry := &registries.Items[i]
-		if strings.HasPrefix(registry.Name, toComplete) {
-			completions = append(completions, fmt.Sprintf("%s\t%s://%s", registry.Name, registry.Scheme, registry.Host))
-		}
-	}
-	return completions
 }
 
 func (c *ClusterUpgradeOpts) Complete() error {
@@ -135,9 +103,6 @@ func (c *ClusterUpgradeOpts) Complete() error {
 }
 
 func (c *ClusterUpgradeOpts) Validates() error {
-	if err := c.checkImageRegistry(); err != nil {
-		return err
-	}
 	if err := c.checkVersionFormat(); err != nil {
 		return err
 	}
@@ -153,28 +118,9 @@ func (c *ClusterUpgradeOpts) Validates() error {
 	return corevalidation.ValidateKubernetesUpgradeVersion(clu.Name, clu.KubernetesVersion, c.Version)
 }
 
-func (c *ClusterUpgradeOpts) checkImageRegistry() error {
-	if c.ImageRegistry == "" {
-		return nil
-	}
-	registries, err := c.Client.ListRegistries(context.Background(), kc.Queries{})
-	if err != nil {
-		return err
-	}
-	for i := range registries.Items {
-		registry := &registries.Items[i]
-		if registry.Name == c.ImageRegistry {
-			return nil
-		}
-	}
-	return fmt.Errorf("image registry [%s] not found,use [kcctl get registry] to show", c.ImageRegistry)
-}
-
 func (c *ClusterUpgradeOpts) Run() error {
 	clusterUpgrade := &v1.ClusterUpgrade{
-		Version:       c.Version,
-		Offline:       !c.Online,
-		ImageRegistry: c.ImageRegistry,
+		Version: c.Version,
 	}
 
 	return c.Client.UpgradeCluster(context.TODO(), c.ClusterName, clusterUpgrade)
@@ -202,20 +148,14 @@ func (c *ClusterUpgradeOpts) checkVersionFormat() error {
 }
 
 func (c *ClusterUpgradeOpts) checkVersionExist() error {
-	var err error
-	var componentMeta *kc.ComponentMeta
-	if c.Online {
-		componentMeta, err = c.Client.GetComponentMeta(context.TODO(), map[string][]string{"online": {"true"}})
-	} else {
-		componentMeta, err = c.Client.GetComponentMeta(context.TODO(), map[string][]string{"online": {"false"}})
-	}
+	componentMeta, err := c.Client.GetComponentMeta(context.TODO(), nil)
 	if err != nil {
 		return err
 	}
 	versions := sets.NewString()
-	for _, addon := range componentMeta.Addons {
-		if addon.Type == addonType {
-			versions.Insert(addon.Version)
+	for _, rule := range componentMeta.Rules {
+		if version, ok := rule["version"].(string); ok {
+			versions.Insert(version)
 		}
 	}
 	if !versions.Has(c.Version) {

@@ -266,19 +266,7 @@ func (runnable *Runnable) makeInstallSteps(ctx context.Context, metadata *compon
 		return nil, err
 	}
 	cniStepper := cf.Create().InitStep(metadata, &c.CNI, &c.Networking)
-	if metadata.Offline {
-		if stepper, ok := cniStepper.(interface {
-			PrepareImages(context.Context, []v1.StepNode) ([]v1.Step, error)
-		}); ok {
-			steps, err = stepper.PrepareImages(ctx, nodes)
-		} else {
-			steps, err = cniStepper.LoadImage(nodes)
-		}
-		if err != nil {
-			return nil, err
-		}
-		installSteps = append(installSteps, steps...)
-	}
+
 	if stepper, ok := cniStepper.(interface {
 		InstallStepsWithContext(context.Context, []v1.StepNode, string) ([]v1.Step, error)
 	}); ok {
@@ -406,7 +394,6 @@ func (runnable *Runnable) makeUninstallSteps(metadata *component.ExtraMetadata) 
 }
 
 func (stepper *Package) InitStepper(c *v1.Cluster) *Package {
-	stepper.Offline = c.Offline()
 	stepper.Version = c.KubernetesVersion
 	stepper.CriType = c.ContainerRuntime.Type
 	stepper.ImageRegistry = c.ResolvedImageRegistry
@@ -485,7 +472,6 @@ func (stepper *KubeadmConfig) InitStepper(c *v1.Cluster, metadata *component.Ext
 	stepper.ControlPlaneEndpoint = cpEndpoint
 	stepper.CertSANs = c.GetAllCertSANs()
 	stepper.ImageRegistry = c.ResolvedImageRegistry
-	stepper.Offline = metadata.Offline
 	stepper.FeatureGates = c.FeatureGates
 	// TODO: No vip is currently introduced as controlPlaneEndpoint
 	stepper.AdvertiseAddress = metadata.Masters[0].NodeIPv4

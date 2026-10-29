@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: curl ... | KC_REGION=cn KC_VERSION=vX.Y.Z bash
-# KC_REGION=cn selects OSS; otherwise downloads come from GitHub Releases.
-# KC_DOWNLOAD_URL overrides either source (base URL before /VERSION/FILENAME).
+# Usage: curl ... | bash -s -- --mirror cn
+# --mirror cn selects the domestic download site for this invocation only.
 # KC_BIN_DIR selects the install directory; ARCH overrides architecture detection.
 # The release workflow stamps DEFAULT_VERSION before publishing this script.
 DEFAULT_VERSION="v2.0.9"
@@ -24,13 +23,21 @@ case "${ARCH:-$(uname -m)}" in
   *) fatal 'Only amd64 and arm64 are supported' ;;
 esac
 
-if [[ -n "${KC_DOWNLOAD_URL:-}" ]]; then
-  DOWNLOAD_URL="$KC_DOWNLOAD_URL"
-elif [[ "${KC_REGION:-}" == cn ]]; then
-  DOWNLOAD_URL="https://release.kubeclipper.io/kc"
-else
-  DOWNLOAD_URL="https://github.com/kubeclipper/kubeclipper/releases/download"
-fi
+DOWNLOAD_URL="https://github.com/kubeclipper/kubeclipper/releases/download"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mirror)
+      [[ $# -ge 2 && "$2" == cn ]] || fatal '--mirror requires cn'
+      DOWNLOAD_URL="https://release.kubeclipper.io/kc"
+      shift 2
+      ;;
+    -h|--help)
+      echo 'Usage: bash get-kubeclipper.sh [--mirror cn]'
+      exit 0
+      ;;
+    *) fatal "Unknown argument: $1" ;;
+  esac
+done
 
 if command -v curl >/dev/null 2>&1; then
   DOWNLOADER=curl

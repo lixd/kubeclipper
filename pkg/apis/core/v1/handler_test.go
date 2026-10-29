@@ -508,6 +508,7 @@ func TestDefaultWatchTimeout(t *testing.T) {
 func checkClusterFixture(pods, svcs []string, nodeIDs ...string) *v1.Cluster {
 	c := &v1.Cluster{}
 	c.Name = "r9-check"
+	c.ImageRegistry = "kc-package-registry"
 	c.ContainerRuntime.Type = v1.CRIContainerd
 	c.Networking.Pods.CIDRBlocks = pods
 	c.Networking.Services.CIDRBlocks = svcs
@@ -604,19 +605,19 @@ func TestCreateClusterCheckSkipsIPLessNodes(t *testing.T) {
 // Regression for R17: an offline cluster whose payload omits imageRegistry used
 // to be accepted and die ~18 minutes into kubeadm init pulling from
 // registry.k8s.io; it must be rejected before any object is created.
-func TestCreateClusterCheckOfflineRequiresImageRegistry(t *testing.T) {
+func TestCreateClusterCheckRequiresImageRegistry(t *testing.T) {
 	h, _ := newCheckHandler(t, nil)
 	c := checkClusterFixture([]string{"172.20.0.0/16"}, []string{"10.96.0.0/12"}, "node-1")
-	c.Annotations = map[string]string{common.AnnotationOffline: ""}
+	c.ImageRegistry = ""
 	err := h.createClusterCheck(context.Background(), c)
 	if err == nil || !strings.Contains(err.Error(), "imageRegistry") {
-		t.Fatalf("expected offline imageRegistry rejection, got %v", err)
+		t.Fatalf("expected imageRegistry rejection, got %v", err)
 	}
 
 	c.ImageRegistry = "kc-package-registry"
 	h, _ = newCheckHandler(t, []v1.Node{checkNodeFixture("node-1", "172.16.131.208")})
 	if err := h.createClusterCheck(context.Background(), c); err != nil {
-		t.Fatalf("expected offline cluster with imageRegistry to pass, got %v", err)
+		t.Fatalf("expected cluster with imageRegistry to pass, got %v", err)
 	}
 }
 
@@ -636,16 +637,6 @@ func TestCreateClusterCheckRejectsDockerCRI(t *testing.T) {
 	err = h.createClusterCheck(context.Background(), c)
 	if err == nil || !strings.Contains(err.Error(), "unsupported cri type") {
 		t.Fatalf("expected unknown CRI rejection, got %v", err)
-	}
-}
-
-// An online cluster may still omit imageRegistry (public registries are
-// reachable); the check must not fire for it.
-func TestCreateClusterCheckOnlineAllowsEmptyImageRegistry(t *testing.T) {
-	h, _ := newCheckHandler(t, []v1.Node{checkNodeFixture("node-1", "172.16.131.208")})
-	c := checkClusterFixture([]string{"172.20.0.0/16"}, []string{"10.96.0.0/12"}, "node-1")
-	if err := h.createClusterCheck(context.Background(), c); err != nil {
-		t.Fatalf("expected online cluster without imageRegistry to pass, got %v", err)
 	}
 }
 
@@ -816,5 +807,55 @@ func TestRegistryUpdateInvalidatesSeedDigestOnSpecChange(t *testing.T) {
 				t.Fatalf("update status %d", resp.Code)
 			}
 		})
+	}
+}
+
+func TestUpgradeClusterRejectsRegistryOverride(t *testing.T) {
+	container := restful.NewContainer()
+	ws := new(restful.WebService)
+	ws.Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	ws.Route(ws.POST("/clusters/{name}/upgrade").To((&handler{}).UpgradeCluster))
+	container.Add(ws)
+	req := httptest.NewRequest(http.MethodPost, "/clusters/cluster/upgrade?dryRun=true", strings.NewReader(`{"version":"v1.37.0","imageRegistry":"other"}`))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+	container.ServeHTTP(resp, req)
+	if resp.Code != http.StatusBadRequest || !strings.Contains(resp.Body.String(), `unknown field`) {
+		t.Fatalf("registry override response = %d %s", resp.Code, resp.Body.String())
+	}
+}
+
+func TestUpdateClusterRegistryIsImmutable(t *testing.T) {
+	for _, dryRun := range []bool{false, true} {
+		for _, target := range []string{"saved", "other", ""} {
+			t.Run(fmt.Sprintf("dryRun=%t/registry=%s", dryRun, target), func(t *testing.T) {
+				ctrl := gomock.NewController(t)
+				op := mock.NewMockOperator(ctrl)
+				clu := &v1.Cluster{ImageRegistry: "saved"}
+				clu.Name = "cluster"
+				op.EXPECT().GetCluster(gomock.Any(), "cluster").Return(clu, nil)
+				if target == "saved" && !dryRun {
+					op.EXPECT().GetRegistry(gomock.Any(), "saved").Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "registry.example.com"}}, nil)
+					op.EXPECT().UpdateCluster(gomock.Any(), gomock.Any()).Return(clu, nil)
+				}
+				container := restful.NewContainer()
+				ws := new(restful.WebService)
+				ws.Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+				ws.Route(ws.PUT("/clusters/{name}").To((&handler{clusterOperator: op}).UpdateClusters))
+				container.Add(ws)
+				body := fmt.Sprintf(`{"imageRegistry":%q}`, target)
+				req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/clusters/cluster?dryRun=%t", dryRun), strings.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				resp := httptest.NewRecorder()
+				container.ServeHTTP(resp, req)
+				want := http.StatusBadRequest
+				if target == "saved" {
+					want = http.StatusOK
+				}
+				if resp.Code != want {
+					t.Fatalf("status = %d %s, want %d", resp.Code, resp.Body.String(), want)
+				}
+			})
+		}
 	}
 }

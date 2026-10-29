@@ -130,7 +130,7 @@ func (s *Server) PrepareRun(stopCh <-chan struct{}) error {
 		return registerErr
 	}
 	if registerErr := registry.Register(operationv2.CommandStepExecutorName, operationv2.CommandStepExecutor{
-		OpLog: opLog, RepoMirror: s.Config.ImageProxyOptions.KcImageRepoMirror,
+		OpLog: opLog,
 	}); registerErr != nil {
 		return registerErr
 	}

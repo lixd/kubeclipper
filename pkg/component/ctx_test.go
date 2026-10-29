@@ -61,7 +61,6 @@ func TestExtraMetadata_GetAllNodeIDs(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -114,7 +113,6 @@ func TestExtraMetadata_GetAllNodeIDs(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -139,7 +137,6 @@ func TestExtraMetadata_GetAllNodes(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -211,7 +208,6 @@ func TestExtraMetadata_GetAllNodes(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -236,7 +232,6 @@ func TestExtraMetadata_GetMasterHostname(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -303,7 +298,6 @@ func TestExtraMetadata_GetMasterHostname(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -328,7 +322,6 @@ func TestExtraMetadata_GetWorkerHostname(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -395,7 +388,6 @@ func TestExtraMetadata_GetWorkerHostname(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -420,7 +412,6 @@ func TestExtraMetadata_GetMasterNodeIP(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -464,7 +455,6 @@ func TestExtraMetadata_GetMasterNodeIP(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -489,7 +479,6 @@ func TestExtraMetadata_GetWorkerNodeIP(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -533,7 +522,6 @@ func TestExtraMetadata_GetWorkerNodeIP(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -558,7 +546,6 @@ func TestExtraMetadata_GetMasterNodeClusterIP(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -602,7 +589,6 @@ func TestExtraMetadata_GetMasterNodeClusterIP(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -627,7 +613,6 @@ func TestExtraMetadata_GetWorkerNodeClusterIP(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -671,7 +656,6 @@ func TestExtraMetadata_GetWorkerNodeClusterIP(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -696,7 +680,6 @@ func TestExtraMetadata_GetAvailableMasterNodes(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -741,7 +724,6 @@ func TestExtraMetadata_GetAvailableMasterNodes(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,
@@ -766,7 +748,6 @@ func TestExtraMetadata_IsAllMasterAvailable(t *testing.T) {
 		Masters            NodeList
 		Workers            NodeList
 		ClusterStatus      v1.ClusterPhase
-		Offline            bool
 		ImageRegistry      string
 		CRI                string
 		ClusterName        string
@@ -831,7 +812,6 @@ func TestExtraMetadata_IsAllMasterAvailable(t *testing.T) {
 				Masters:            tt.fields.Masters,
 				Workers:            tt.fields.Workers,
 				ClusterStatus:      tt.fields.ClusterStatus,
-				Offline:            tt.fields.Offline,
 				ImageRegistry:      tt.fields.ImageRegistry,
 				CRI:                tt.fields.CRI,
 				ClusterName:        tt.fields.ClusterName,

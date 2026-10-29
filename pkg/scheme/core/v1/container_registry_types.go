@@ -20,6 +20,7 @@ package v1
 
 import (
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -28,8 +29,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
-
-const DefaultImageRegistry = "registry.k8s.io"
 
 // RegistrySeedConfigDigestAnnotation identifies the last deployed registry configuration.
 const RegistrySeedConfigDigestAnnotation = "kubeclipper.io/package-registry-config-digest"
@@ -55,6 +54,22 @@ type RegistrySpec struct {
 	SkipVerify       bool          `json:"skipVerify,omitempty"`
 	CA               string        `json:"ca,omitempty"`
 	RegistryAuth     *RegistryAuth `json:"auth,omitempty"`
+}
+
+// ParseRegistryAddress separates the OCI endpoint from its repository namespace.
+func ParseRegistryAddress(address string) (RegistrySpec, error) {
+	u, err := url.Parse(strings.TrimSpace(address))
+	if err != nil {
+		return RegistrySpec{}, fmt.Errorf("invalid registry address: %w", err)
+	}
+	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || u.RawPath != "" {
+		return RegistrySpec{}, fmt.Errorf("registry address must be http(s)://host[:port][/repository-prefix], without credentials, query or fragment")
+	}
+	spec := RegistrySpec{Scheme: u.Scheme, Host: u.Host, RepositoryPrefix: strings.TrimPrefix(u.Path, "/")}
+	if err := spec.ValidateImageRepository(); err != nil {
+		return RegistrySpec{}, err
+	}
+	return spec, nil
 }
 
 // ImageRepository returns the image namespace, independently of the CRI endpoint.
@@ -119,12 +134,11 @@ func (n *RegistryList) YAMLPrint() ([]byte, error) {
 }
 
 func (n *RegistryList) TablePrint() ([]string, [][]string) {
-	headers := []string{"name", "scheme", "host", "skip-tls-verify", "ca", "auth"}
+	headers := []string{"name", "address", "skip-tls-verify", "ca", "auth"}
 	var data [][]string
 	for _, registry := range n.Items {
 		data = append(data, []string{registry.Name,
-			registry.Scheme,
-			registry.Host,
+			registry.Scheme + "://" + registry.ImageRepository(),
 			strconv.FormatBool(registry.SkipVerify),
 			strconv.FormatBool(registry.CA != ""),
 			strconv.FormatBool(registry.RegistryAuth != nil),

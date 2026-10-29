@@ -37,10 +37,5 @@ func initI18nForComponentMeta() error {
 			English: "IPAddressPool",
 			Chinese: "IP 地址池",
 		},
-		{
-			ID:      "metallb.imageRepoMirror",
-			English: "metallb Image Repository Mirror",
-			Chinese: "metallb 镜像仓库代理",
-		},
 	})
 }

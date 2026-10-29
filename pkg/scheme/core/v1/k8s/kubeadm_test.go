@@ -392,7 +392,6 @@ func TestKubeadmConfig_renderJoin(t *testing.T) {
 		ControlPlaneEndpoint    string
 		CertSANs                []string
 		ImageRegistry           string
-		Offline                 bool
 		IsControlPlane          bool
 		CACertHashes            string
 		BootstrapToken          string
@@ -425,7 +424,6 @@ func TestKubeadmConfig_renderJoin(t *testing.T) {
 				ControlPlaneEndpoint: "apiserver.cluster.local:6443",
 				CertSANs:             []string{"127.0.0.1"},
 				ImageRegistry:        "127.0.0.1:5000",
-				Offline:              true,
 				IsControlPlane:       true,
 				CACertHashes:         "hash1",
 				BootstrapToken:       "BootstrapToken",
@@ -453,7 +451,6 @@ func TestKubeadmConfig_renderJoin(t *testing.T) {
 				ControlPlaneEndpoint: "apiserver.cluster.local:6443",
 				CertSANs:             []string{"127.0.0.1"},
 				ImageRegistry:        "127.0.0.1:5000",
-				Offline:              true,
 				IsControlPlane:       true,
 				CACertHashes:         "hash1",
 				BootstrapToken:       "BootstrapToken",
@@ -475,7 +472,6 @@ func TestKubeadmConfig_renderJoin(t *testing.T) {
 				ControlPlaneEndpoint:    tt.fields.ControlPlaneEndpoint,
 				CertSANs:                tt.fields.CertSANs,
 				ImageRegistry:           tt.fields.ImageRegistry,
-				Offline:                 tt.fields.Offline,
 				IsControlPlane:          tt.fields.IsControlPlane,
 				CACertHashes:            tt.fields.CACertHashes,
 				BootstrapToken:          tt.fields.BootstrapToken,
@@ -565,7 +561,7 @@ func TestUpgradePreservesRepositoryPrefix(t *testing.T) {
 	c := &v1.Cluster{ResolvedImageRegistry: repo}
 	stepper := &Upgrade{}
 	stepper.InitStepper(&component.ExtraMetadata{ImageRegistry: repo}, c)
-	if stepper.ImageRegistry != repo || stepper.Kubeadm.ImageRegistry != repo {
+	if stepper.Kubeadm.ImageRegistry != repo {
 		t.Fatal("upgrade image prefix lost")
 	}
 }

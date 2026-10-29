@@ -74,16 +74,13 @@ func init() {
 }
 
 type Upgrade struct {
-	Kubeadm       *KubeadmConfig `json:"kubeadm"`
-	Offline       bool           `json:"offline"`
-	Version       string         `json:"version"`
-	ImageRegistry string         `json:"imageRegistry"`
-	installSteps  []v1.Step
+	Kubeadm      *KubeadmConfig `json:"kubeadm"`
+	Version      string         `json:"version"`
+	installSteps []v1.Step
 }
 
 type UpgradePackage struct {
 	*Package
-	DownloadImage bool `json:"downloadImage"`
 }
 
 type ActBackup struct {
@@ -155,9 +152,7 @@ func (stepper *Upgrade) InitStepper(metadata *component.ExtraMetadata, c *v1.Clu
 		FeatureGates:                c.FeatureGates,
 		IgnorePreflightErrors:       parseIgnorePreflightErrors(c.Annotations[common.AnnotationOnlyIgnorePreflightErrors]),
 	}
-	stepper.Offline = metadata.Offline
 	stepper.Version = metadata.KubeVersion
-	stepper.ImageRegistry = metadata.ImageRegistry
 	stepper.Kubeadm.ImageRegistry = metadata.ImageRegistry
 }
 
@@ -205,24 +200,12 @@ fi
 		Package: &Package{
 			Version: stepper.Version,
 			CriType: stepper.Kubeadm.ContainerRuntime,
-			Offline: extraMetadata.Offline,
 		},
-		DownloadImage: false,
 	}
 	if resolved, ok := componentcommon.FindResolvedComponent(component.GetResolvedArtifactPlan(ctx), K8s, K8s, stepper.Version); ok {
 		packageDownload.Arch = resolved.Arch
 		packageDownload.Transport = resolved.Transport
 		packageDownload.Contents = resolved.Contents
-	}
-	// master node only in this case will the image package be pulled
-	if extraMetadata.Offline && stepper.Kubeadm.ImageRegistry == "" && stepper.ImageRegistry == "" {
-		packageDownload.DownloadImage = true
-	}
-	// When the mirror repository used for the upgrade is valid and not equal to the one used for the cluster creation,
-	// the kubeadm configuration file is rendered with the new mirror repository.
-	// TODO: During the upgrade, if the image repository changes, synchronize the changes to the docker and containerd configurations
-	if stepper.ImageRegistry != "" && stepper.Kubeadm.ImageRegistry != stepper.ImageRegistry {
-		stepper.Kubeadm.ImageRegistry = stepper.ImageRegistry
 	}
 	download, err := json.Marshal(packageDownload)
 	if err != nil {
@@ -422,9 +405,7 @@ func (stepper *UpgradePackage) Install(ctx context.Context, opts component.Optio
 			return nil, fmt.Errorf("upgrade Kubernetes %s requires resolved OCI artifact transport", stepper.Version)
 		}
 	}
-	if stepper.DownloadImage {
-		return nil, fmt.Errorf("upgrade Kubernetes image archives are not supported with OCI package delivery")
-	}
+
 	return nil, nil
 }
 

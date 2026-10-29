@@ -64,9 +64,9 @@ const (
 	RoleAnnotation             = "iam.kubeclipper.io/role"
 	// AnnotationTemplateRef records the cluster template a cluster was created
 	// from; the template cannot be deleted while a reference exists (R29).
-	AnnotationTemplateRef      = "kubeclipper.io/templateRef"
-	AnnotationInternal         = "kubeclipper.io/internal"
-	AnnotationHidden           = "kubeclipper.io/hidden"
+	AnnotationTemplateRef = "kubeclipper.io/templateRef"
+	AnnotationInternal    = "kubeclipper.io/internal"
+	AnnotationHidden      = "kubeclipper.io/hidden"
 
 	AnnotationMetadataFloatIP = "metadata.kubeclipper.io/floatIP"
 
@@ -102,7 +102,6 @@ const (
 	AnnotationActualName  = "kubeclipper.io/actual-name"
 	AnnotationDisplayName = "kubeclipper.io/display-name"
 	AnnotationDescription = "kubeclipper.io/description"
-	AnnotationOffline     = "kubeclipper.io/offline"
 
 	AnnotationProviderSyncTime  = "kubeclipper.io/providerSyncTime"
 	AnnotationProviderNodeID    = "kubeclipper.io/providerNodeID"    // provider's nodeID,just mark

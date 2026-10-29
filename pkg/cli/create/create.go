@@ -39,7 +39,7 @@ const (
 
   Using the create command to create cluster, user, role, or registry resources.`
 	createExample = `
-  # Create cluster offline. The default value of offline is true, so it can be omitted.
+  # Create a cluster using the platform default image registry.
   kcctl create cluster --name demo --master 192.168.10.123
 
   # Create role has permission to view cluster
@@ -49,7 +49,7 @@ const (
   kcctl create user --name simple-user --role=platform-view --password 123456 --phone 10086 --email simple@example.com
 
   # Create registry
-  kcctl create registry --name myregistry --host 1.1.1.1:5000
+  kcctl create registry --name myregistry --address http://1.1.1.1:5000/kubeclipper
 
   Please read 'kcctl create -h' get more create flags.`
 )

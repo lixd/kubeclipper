@@ -109,12 +109,9 @@ func AddToContainer(
 		}).Returns(http.StatusOK, StatusOK, []component.Meta{}))
 
 	webservice.Route(webservice.GET("/componentmeta").
-		To(h.ListOfflineResource).
+		To(h.ListComponentMetadata).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
-		Doc("List offline resource metadata info.").
-		Param(webservice.QueryParameter("online", "online or offline resource").
-			Required(false).
-			DefaultValue("false")).
+		Doc("List available component metadata.").
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), kc.ComponentMeta{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
 

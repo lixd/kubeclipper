@@ -36,14 +36,13 @@ func TestUpgradeStepsPropagateCommandFailures(t *testing.T) {
 	metadata := component.ExtraMetadata{
 		Masters:       component.NodeList{{ID: "master-id", Hostname: "master"}},
 		Workers:       component.NodeList{{ID: "worker-id", Hostname: "worker"}},
-		Offline:       true,
 		ImageRegistry: "registry.example:5000",
 		ClusterName:   "test-cluster",
 		KubeVersion:   "v1.37.0",
 	}
 	cluster := &v1.Cluster{}
 	cluster.ContainerRuntime.Type = "containerd"
-	stepper := &Upgrade{Version: "v1.37.0", ImageRegistry: metadata.ImageRegistry}
+	stepper := &Upgrade{Version: "v1.37.0"}
 	stepper.InitStepper(&metadata, cluster)
 	if err := stepper.InitSteps(component.WithExtraMetadata(context.Background(), metadata)); err != nil {
 		t.Fatal(err)

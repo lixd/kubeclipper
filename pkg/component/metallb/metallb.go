@@ -32,8 +32,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 
-	"github.com/kubeclipper/kubeclipper/pkg/component/common"
-
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
@@ -157,24 +155,8 @@ func (n *MetalLB) Validate() error {
 
 func (n *MetalLB) InitSteps(ctx context.Context) error {
 	metadata := component.GetExtraMetadata(ctx)
-	// when the component does not specify an ImageRepoMirror, the cluster ImageRegistry is inherited
-	if n.ImageRepoMirror == "" {
-		n.ImageRepoMirror = metadata.ImageRegistry
-	}
-	if metadata.Offline && n.ImageRepoMirror == "" {
-		// TODO: arch is unnecessary, version can be configured
-		imager := &common.Imager{
-			PkgName: metallb,
-			Version: defaultVersion,
-			CriName: metadata.CRI,
-			Offline: metadata.Offline,
-		}
-		steps, err := imager.InstallSteps(metadata.GetAllNodes())
-		if err != nil {
-			return err
-		}
-		n.installSteps = append(n.installSteps, steps...)
-	}
+	// Platform components use the cluster image registry.
+	n.ImageRepoMirror = metadata.ImageRegistry
 
 	master := utils.UnwrapNodeList(metadata.Masters[:1])
 	if len(metadata.Masters) > 1 && metadata.ClusterStatus == v1.ClusterRunning {
@@ -367,15 +349,6 @@ func (n *MetalLB) GetComponentMeta(lang component.Lang) component.Meta {
 			Priority:     3,
 			Dependencies: []string{"enabled"},
 		},
-		"imageRepoMirror": {
-			Title:        loc.MustLocalize(&i18n.LocalizeConfig{MessageID: "metallb.imageRepoMirror"}),
-			Properties:   nil,
-			Type:         component.JSONSchemaTypeString,
-			Default:      nil,
-			Description:  "metallb image repository mirror, the component official repository is used by default",
-			Priority:     4,
-			Dependencies: []string{"enabled"},
-		},
 	}
 
 	return component.Meta{
@@ -471,9 +444,4 @@ func (n *MetalLB) Render(ctx context.Context, opts component.Options) error {
 	manifestsFile := filepath.Join(n.ManifestsDir, filename)
 	return fileutil.WriteFileWithContext(ctx, manifestsFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644,
 		n.renderTo, opts.DryRun)
-}
-
-// GetImageRepoMirror return ImageRepoMirror
-func (n *MetalLB) GetImageRepoMirror() string {
-	return n.ImageRepoMirror
 }

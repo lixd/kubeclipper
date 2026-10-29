@@ -107,32 +107,33 @@ Key properties:
   **write path** (put+delete roundtrip, retried) before uploading config — the
   cold-start race between `kc-server` boot and etcd readiness is handled here.
 
-### Image registry prefixes and mirrors
+### Default cluster image registry
 
-Deploy seeds the `kc-package-registry` image Registry resource from the
-configured package Registry. For a package Registry such as
-`registry.example.com:5000/team/project`, the seeded resource stores
-`registry.example.com:5000` as its `host` and `team/project` as its
-`repositoryPrefix`. The optional prefix is used in image repository names;
-containerd connects to the host and port, without the prefix. TLS and
-credentials follow the package Registry configuration. Repeating deploy
-reuses an equivalent resource and replaces an outdated default resource.
+Deploy uses `ghcr.io/kubeclipper/kubeclipper` unless `--package-registry` is
+provided. It creates the `kc-package-registry` Registry with the configured
+host, repository prefix, authentication and TLS settings, and records its name
+as `defaultImageRegistry` in the deploy configuration. An identical Registry
+is reused; a conflicting resource is rejected without deleting or replacing it.
 
-A Registry's `host` must not include a scheme or repository path. Set
-`repositoryPrefix` to the repository path only, without an image tag, digest,
-empty segment or `.` / `..` segment. An empty prefix means the registry root.
+New clusters use the platform default unless an explicit `--image-registry`
+Registry name is given. The resolved reference is saved on the cluster.
+Kubernetes, pause, Calico and platform addons use that one registry. Upgrade
+and scale use the cluster's saved reference; changing the platform default
+does not move existing clusters. Upgrade accepts only the target version, and
+ordinary edits cannot change or clear the saved registry. Installation packages and Charts continue to
+come from the deployment's package registry.
 
-The optional `imageProxy.kcImageRepoMirror` deploy setting is a separate
-image repository override. For example:
+Use a complete address when creating an image Registry:
 
-```yaml
-imageProxy:
-  kcImageRepoMirror: registry.example.com:5000/team/project
+```bash
+kcctl create registry --name internal --address https://harbor.example.com/kubeclipper
 ```
 
-The mirror is a host and optional path, without a scheme, image tag or digest.
-An empty value keeps the default image behavior. Deploy validates this value
-before touching remote nodes, and the agent applies the same validation.
+The API stores the endpoint in `host` and its namespace in `repositoryPrefix`.
+The creation UI shows one required image Registry; it does not expose package
+source configuration. A Registry resource describes configuration, not a
+verified complete mirror. Sync the release manifest and required versions and
+architectures before selecting an internal registry.
 
 ### 4.2 Cluster create / upgrade
 
@@ -165,7 +166,7 @@ kcctl upgrade all --version vX.Y.Z \
 
 `--release-base-url` only selects the manifest download endpoint. Server, Agent, Console and kcctl
 payloads come from the OCI registry named in that manifest and are verified before rollout.
-`KC_REGION=cn` only affects the installation script; it is not an upgrade flag. For offline
+`--mirror cn` only affects the installation script; it is not an upgrade flag. For offline
 upgrades, sync the artifacts and use a local manifest pointing to the internal registry with
 `--manifest`.
 

@@ -442,11 +442,7 @@ func (h *handler) parseAddonStep(ctx context.Context, clu *v1.Cluster, addons []
 				return []v1.Step{}, err
 			}
 		}
-		resolvedCtx, err := h.withResolvedAddonArtifacts(ctx, clu, newComp, action)
-		if err != nil {
-			return []v1.Step{}, err
-		}
-		if err := newComp.InitSteps(resolvedCtx); err != nil {
+		if err := newComp.InitSteps(ctx); err != nil {
 			return []v1.Step{}, err
 		}
 		s, err := getSteps(newComp, action)

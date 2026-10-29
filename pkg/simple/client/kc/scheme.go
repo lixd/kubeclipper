@@ -237,8 +237,10 @@ func (n *ComponentMetas) TablePrint() ([]string, [][]string) {
 }
 
 type ComponentMeta struct {
-	Rules  []map[string]interface{} `json:"rules"`
-	Addons []scheme.MetaResource    `json:"addons"`
+	DefaultImageRegistryError string                   `json:"defaultImageRegistryError,omitempty"`
+	DefaultImageRegistry      string                   `json:"defaultImageRegistry"`
+	Rules                     []map[string]interface{} `json:"rules"`
+	Addons                    []scheme.MetaResource    `json:"addons"`
 	// Unavailable lists required components without a publishable package for
 	// the matching Kubernetes version, so version lists stay explainable when
 	// the OCI registry is only partially populated.

@@ -174,28 +174,8 @@ kcctl  kubeclipper-agent  kubeclipper-server
 
 Deploy kcctl
 
-```console
-# curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_REGION=cn KC_VERSION=release-1.4 bash -
-[INFO]  The release-1.4 version will be installed
-[INFO]  KC_REGION is assigned cn, kc.env file will be created
-[INFO]  env: Creating environment file /etc/kc/kc.env}
-mkdir: created directory '/etc/kc'
-[INFO]  Downloading package https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc/release-1.4/kc-linux-amd64.tar.gz
-kubeclipper-server
-kubeclipper-agent
-kcctl
-[INFO]  Installing kcctl to /usr/local/bin/kcctl
-
-  kcctl has been installed successfully!
-    Run 'kcctl version' to view the version.
-    Run 'kcctl -h' for more help.
-
-        __ ______________________
-       / //_/ ____/ ____/_  __/ /
-      / ,< / /   / /     / / / /
-     / /| / /___/ /___  / / / /___
-    /_/ |_\____/\____/ /_/ /_____/
-    repository: github.com/kubeclipper
+```bash
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | bash -s -- --mirror cn
 ```
 
 Deploy KC with AIO mode

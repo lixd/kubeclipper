@@ -168,15 +168,6 @@ func (n NFS) GetComponentMeta(lang component.Lang) component.Meta {
 			Priority:     8,
 			Dependencies: []string{"enabled"},
 		},
-		"imageRepoMirror": {
-			Title:        loc.MustLocalize(&i18n.LocalizeConfig{MessageID: "nfs.imageRepoMirror"}),
-			Properties:   nil,
-			Type:         component.JSONSchemaTypeString,
-			Default:      nil,
-			Description:  "nfs image repository mirror, the component official repository is used by default",
-			Priority:     9,
-			Dependencies: []string{"enabled"},
-		},
 	}
 
 	return component.Meta{
@@ -284,24 +275,9 @@ func (n *NFS) InitSteps(ctx context.Context) error {
 	metadata := component.GetExtraMetadata(ctx)
 	n.Replicas = len(metadata.Masters.GetNodeIDs())
 	n.KubeletRootDir = metadata.KubeletDataDir
-	// when the component does not specify an ImageRepoMirror, the cluster ImageRegistry is inherited
-	if n.ImageRepoMirror == "" {
-		n.ImageRepoMirror = metadata.ImageRegistry
-	}
-	if metadata.Offline && n.ImageRepoMirror == "" {
-		// TODO: arch is unnecessary, version can be configured
-		imager := &common.Imager{
-			PkgName: nfs,
-			Version: "v4.1.0",
-			CriName: metadata.CRI,
-			Offline: metadata.Offline,
-		}
-		steps, err := imager.InstallSteps(metadata.GetAllNodes())
-		if err != nil {
-			return err
-		}
-		n.installSteps = append(n.installSteps, steps...)
-	}
+	// Platform components use the cluster image registry.
+	n.ImageRepoMirror = metadata.ImageRegistry
+
 	bytes, err := json.Marshal(n)
 	if err != nil {
 		return err
@@ -403,11 +379,6 @@ func (n *NFS) UnInstall(ctx context.Context) error {
 	return nil
 }
 
-// GetImageRepoMirror return ImageRepoMirror
-func (n *NFS) GetImageRepoMirror() string {
-	return n.ImageRepoMirror
-}
-
 func initI18nForComponentMeta() error {
 	return component.AddI18nMessages(component.I18nMessages{
 		{
@@ -459,11 +430,6 @@ func initI18nForComponentMeta() error {
 			ID:      "nfs.replicas",
 			English: "Replicas",
 			Chinese: "副本数",
-		},
-		{
-			ID:      "nfs.imageRepoMirror",
-			English: "NFS Image Repository Mirror",
-			Chinese: "NFS 镜像仓库代理",
 		},
 	})
 }

@@ -59,11 +59,9 @@ const (
 	clusterLongDescription = `
   Create cluster using command line`
 	createClusterExample = `
-  # Create cluster offline. The default value of offline is true, so it can be omitted.
+  # Create cluster using the platform default image registry.
   kcctl create cluster --name demo --master 192.168.10.123
 
-  # Create cluster online
-  kcctl create cluster --name demo --master 192.168.10.123 --offline false
 
   # Create cluster with taint manage
   kcctl create cluster --name demo --master 192.168.10.123 --untaint-master
@@ -146,7 +144,6 @@ type CreateClusterOptions struct {
 	Masters                          []string
 	Workers                          []string
 	UntaintMaster                    bool
-	Offline                          bool
 	ImageRegistry                    string
 	CRIRegistries                    []string
 	CRI                              string
@@ -187,7 +184,6 @@ func NewCreateClusterOptions(streams options.IOStreams) *CreateClusterOptions {
 			IOStreams:  streams,
 		},
 		UntaintMaster:     false,
-		Offline:           true,
 		CRI:               "containerd",
 		CNI:               "calico",
 		createdByIP:       false,
@@ -203,7 +199,7 @@ func NewCreateClusterOptions(streams options.IOStreams) *CreateClusterOptions {
 func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	o := NewCreateClusterOptions(streams)
 	cmd := &cobra.Command{
-		Use:                   "cluster (--name) <name> (-m|--master) <id or ip> [(--offline <false> | <true>)] [(--cri <containerd>)] [(--cni <calico> | <others> )] [flags]",
+		Use:                   "cluster (--name) <name> (-m|--master) <id or ip> [(--cri <containerd>)] [(--cni <calico> | <others> )] [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "create kubeclipper cluster resource",
 		Long:                  clusterLongDescription,
@@ -229,10 +225,9 @@ func NewCmdCreateCluster(streams options.IOStreams) *cobra.Command {
 	cmd.Flags().StringSliceVarP(&o.Masters, "master", "m", o.Masters, "k8s master node id or ip")
 	cmd.Flags().StringSliceVar(&o.Workers, "worker", o.Workers, "k8s worker node id or ip")
 	cmd.Flags().BoolVar(&o.UntaintMaster, "untaint-master", o.UntaintMaster, "untaint master node after cluster create")
-	cmd.Flags().BoolVar(&o.Offline, "offline", o.Offline, "create cluster online(false) or offline(true)")
 	cmd.Flags().StringVar(
 		&o.ImageRegistry, "image-registry", o.ImageRegistry,
-		"Choose a Registry resource to pull Kubernetes images from")
+		"Registry resource for Kubernetes, Calico and other component images (defaults to the platform registry)")
 	cmd.Flags().StringSliceVar(&o.CRIRegistries, "cri-registry", o.CRIRegistries, "specify internal cri registry name to add registry config to containerd,run command [kcctl get registry] to show internal cri registry")
 	cmd.Flags().StringVar(&o.CRI, "cri", o.CRI, "k8s cri type, containerd")
 	cmd.Flags().StringVar(&o.CRIVersion, "cri-version", o.CRIVersion, "k8s cri version")
@@ -353,12 +348,7 @@ func (l *CreateClusterOptions) componentMeta() *kc.ComponentMeta {
 	return metas
 }
 
-func (l *CreateClusterOptions) metaQuery() url.Values {
-	if l.Offline {
-		return url.Values{"online": {"false"}}
-	}
-	return url.Values{"online": {"true"}}
-}
+func (l *CreateClusterOptions) metaQuery() url.Values { return nil }
 
 // policySlotVersions returns the versions of the given slot component that
 // the delivery policy allows for the Kubernetes version, policy defaults
@@ -443,23 +433,15 @@ func (l *CreateClusterOptions) ValidateArgs(cmd *cobra.Command) error {
 		return utils.UsageErrorf(cmd, "%v", err)
 	}
 
-	criRegistries := l.listCRIRegistry()
-	if l.ImageRegistry == "" && l.Offline {
-		// deploy seeds constatns.DefaultImageRegistryName mirroring the
-		// Package Registry; without an explicit --image-registry an offline
-		// cluster would otherwise render kubeadm configs with registry.k8s.io
-		// and hang pulling on air-gapped hosts (R7 finding).
-		switch {
-		case sliceutil.HasString(criRegistries, constatns.DefaultImageRegistryName):
-			l.ImageRegistry = constatns.DefaultImageRegistryName
-			logger.Infof("use default image registry %s", l.ImageRegistry)
-		case len(criRegistries) == 1:
-			l.ImageRegistry = criRegistries[0]
-			logger.Infof("use image registry %s", l.ImageRegistry)
-		case len(criRegistries) == 0:
-			return utils.UsageErrorf(cmd, "offline cluster requires an image registry resource but none exists; create one with 'kcctl create registry --name myregistry --host <host:port>' or pass --offline=false")
+	if l.ImageRegistry == "" {
+		meta := l.componentMeta()
+		if meta == nil || meta.DefaultImageRegistry == "" {
+			return utils.UsageErrorf(cmd, "platform default image registry is not configured; specify --image-registry")
 		}
+		l.ImageRegistry = meta.DefaultImageRegistry
 	}
+	criRegistries := l.listCRIRegistry()
+
 	if l.ImageRegistry != "" && !sliceutil.HasString(criRegistries, l.ImageRegistry) {
 		return utils.UsageErrorf(cmd, "image registry [%s] not found,has %v now,use [kcctl get registry] to show", l.ImageRegistry, criRegistries)
 	}
@@ -607,9 +589,7 @@ func (l *CreateClusterOptions) transformNodeIP() error {
 
 func (l *CreateClusterOptions) newCluster() *v1.Cluster {
 	var annotations = map[string]string{}
-	if l.Offline {
-		annotations[common.AnnotationOffline] = annotationValTrue
-	}
+
 	if l.OnlyInstallKubernetesComp {
 		annotations[common.AnnotationOnlyInstallKubernetesComp] = annotationValTrue
 	}
@@ -797,20 +777,14 @@ func (l *CreateClusterOptions) listImageRegistry(toComplete string) []string {
 	for i := range registries.Items {
 		registry := &registries.Items[i]
 		if strings.HasPrefix(registry.Name, toComplete) {
-			completions = append(completions, fmt.Sprintf("%s\t%s://%s", registry.Name, registry.Scheme, registry.Host))
+			completions = append(completions, fmt.Sprintf("%s\t%s://%s", registry.Name, registry.Scheme, registry.ImageRepository()))
 		}
 	}
 	return completions
 }
 
 func (l *CreateClusterOptions) componentVersions(component, toComplete string) []string {
-	var metas *kc.ComponentMeta
-	var err error
-	if l.Offline {
-		metas, err = l.Client.GetComponentMeta(context.TODO(), map[string][]string{"online": {"false"}})
-	} else {
-		metas, err = l.Client.GetComponentMeta(context.TODO(), map[string][]string{"online": {"true"}})
-	}
+	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
 	if err != nil {
 		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
 		return nil
@@ -844,11 +818,7 @@ func (l *CreateClusterOptions) componentVersions(component, toComplete string) [
 // from the configured OCI package registry. Returns "" when the server did
 // not report version-specific missing packages.
 func (l *CreateClusterOptions) missingPackagesMessage() string {
-	query := map[string][]string{"online": {"false"}}
-	if !l.Offline {
-		query = map[string][]string{"online": {"true"}}
-	}
-	metas, err := l.Client.GetComponentMeta(context.TODO(), query)
+	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
 	if err != nil {
 		return ""
 	}

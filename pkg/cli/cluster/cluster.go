@@ -32,7 +32,7 @@ const (
 `
 	clusterExample = `
 	# upgrade k8s cluster version 
-	cluster upgrade --cluster-name clu-1 --version v1.23.9 --offline
+	cluster upgrade --cluster-name clu-1 --version v1.23.9
 `
 )
 

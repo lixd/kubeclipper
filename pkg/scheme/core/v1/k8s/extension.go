@@ -56,7 +56,6 @@ const (
 
 // Extension is a step to install k8s extension,which include some useful tools
 type Extension struct {
-	Offline       bool                           `json:"offline"`
 	Version       string                         `json:"version"`
 	Arch          string                         `json:"arch,omitempty"`
 	CriType       string                         `json:"criType"`
@@ -120,7 +119,6 @@ func (stepper *Extension) Uninstall(ctx context.Context, opts component.Options)
 }
 
 func (stepper *Extension) InitStepper(c *v1.Cluster) *Extension {
-	stepper.Offline = c.Offline()
 	stepper.Version = extensionVersion
 	stepper.CriType = c.ContainerRuntime.Type
 	stepper.ImageRegistry = c.ResolvedImageRegistry

@@ -52,7 +52,6 @@ const (
 	ParamReverse                  = "reverse"
 	ParamDryRun                   = "dryRun"
 	ParamRole                     = "role"
-	ParamOffline                  = "offline"
 	ParameterSubDomain            = "subdomain"
 	ParameterFuzzySearch          = "fuzzy"
 	ParameterForce                = "force"

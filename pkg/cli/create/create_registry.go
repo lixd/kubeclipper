@@ -38,25 +38,23 @@ const (
   Create registry using command line`
 	createRegistryExample = `
   # Create registry with required parameters
-  kcctl create registry --name myregistry --host 1.1.1.1:5000
+  kcctl create registry --name myregistry --address http://1.1.1.1:5000/kubeclipper
 
   # Create registry with all parameters
-  kcctl create registry --name myregistry --host 1.1.1.1:5000 \
-    --scheme http --skip-tls-verify true --ca xxxxx \
+  kcctl create registry --name myregistry --address https://registry.example.com/kubeclipper \
+    --ca xxxxx \
     --auth-username myuser --auth-password mypassword \
     --description 'a full info registry'
 
   Please read 'kcctl create registry -h' get more create registry flags.`
 )
 
-var SupportRegistrySchemes = []string{"http", "https"}
-
 type CreateRegistryOptions struct {
 	BaseOptions
 	Description   string
 	Name          string // registry name
-	Host          string // registry host
-	Scheme        string // http or https
+	Address       string
+	Registry      v1.RegistrySpec
 	SkipTLSVerify bool   // is skip tls verify
 	CA            string // ca
 	// Registry Auth Info
@@ -71,15 +69,13 @@ func NewCreateRegistryOptions(streams options.IOStreams) *CreateRegistryOptions 
 			CliOpts:    options.NewCliOptions(),
 			IOStreams:  streams,
 		},
-		Scheme:        "http",
-		SkipTLSVerify: true,
 	}
 }
 
 func NewCmdCreateRegistry(streams options.IOStreams) *cobra.Command {
 	o := NewCreateRegistryOptions(streams)
 	cmd := &cobra.Command{
-		Use:                   "registry (--host) (--scheme) (--ca) (--skip-tls-verify) (--auth-username) (--auth-password) [flag]",
+		Use:                   "registry --name <name> --address <http(s)://host[:port][/path]> [flags]",
 		DisableFlagsInUseLine: true,
 		Short:                 "create kubeclipper registry resource",
 		Long:                  registryLongDescription,
@@ -99,8 +95,7 @@ func NewCmdCreateRegistry(streams options.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.Name, "name", "", "registry name")
-	cmd.Flags().StringVar(&o.Scheme, "scheme", o.Scheme, "registry scheme")
-	cmd.Flags().StringVar(&o.Host, "host", "", "registry host")
+	cmd.Flags().StringVar(&o.Address, "address", "", "complete registry address, e.g. https://harbor.example.com/kubeclipper")
 	cmd.Flags().BoolVar(&o.SkipTLSVerify, "skip-tls-verify", o.SkipTLSVerify, "skip TLS certificate verification")
 	cmd.Flags().StringVar(&o.Description, "description", "", "registry description")
 	cmd.Flags().StringVar(&o.CA, "ca", "", "registry ca")
@@ -110,7 +105,7 @@ func NewCmdCreateRegistry(streams options.IOStreams) *cobra.Command {
 	o.PrintFlags.AddFlags(cmd)
 
 	_ = cmd.MarkFlagRequired("name")
-	_ = cmd.MarkFlagRequired("host")
+	_ = cmd.MarkFlagRequired("address")
 	return cmd
 }
 
@@ -130,12 +125,11 @@ func (l *CreateRegistryOptions) ValidateArgs(cmd *cobra.Command) error {
 	if l.Name == "" {
 		return utils.UsageErrorf(cmd, "registry name must be specified")
 	}
-	if l.Scheme == "" {
-		return utils.UsageErrorf(cmd, "registry scheme must be one of %v", SupportRegistrySchemes)
+	spec, err := v1.ParseRegistryAddress(l.Address)
+	if err != nil {
+		return utils.UsageErrorf(cmd, "%v", err)
 	}
-	if l.Host == "" {
-		return utils.UsageErrorf(cmd, "registry host cannot be empty")
-	}
+	l.Registry = spec
 
 	userEmpty := l.Username == ""
 	passwordEmpty := l.Password == ""
@@ -167,10 +161,11 @@ func (l *CreateRegistryOptions) newRegistry() *v1.Registry {
 			},
 		},
 		RegistrySpec: v1.RegistrySpec{
-			Scheme:     l.Scheme,
-			Host:       l.Host,
-			SkipVerify: l.SkipTLSVerify,
-			CA:         l.CA,
+			Scheme:           l.Registry.Scheme,
+			Host:             l.Registry.Host,
+			RepositoryPrefix: l.Registry.RepositoryPrefix,
+			SkipVerify:       l.SkipTLSVerify,
+			CA:               l.CA,
 		},
 	}
 	if l.Username != "" && l.Password != "" {

@@ -85,7 +85,6 @@ var _ component.StepRunnable = (*ContainerdRunnable)(nil)
 type Base struct {
 	Version          string                         `json:"version,omitempty"`
 	Arch             string                         `json:"arch,omitempty"`
-	Offline          bool                           `json:"offline"`
 	DataRootDir      string                         `json:"rootDir"`
 	Registies        []v1.RegistrySpec              `json:"registry,omitempty"`
 	RegistryWithAuth []v1.RegistrySpec              `json:"registryWithAUth,omitempty"`

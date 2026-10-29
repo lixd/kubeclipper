@@ -121,7 +121,6 @@ var (
 )
 
 type Package struct {
-	Offline       bool                           `json:"offline"`
 	Version       string                         `json:"version"`
 	Arch          string                         `json:"arch,omitempty"`
 	CriType       string                         `json:"criType"`
@@ -145,7 +144,6 @@ type KubeadmConfig struct {
 	ControlPlaneEndpoint        string          `json:"controlPlaneEndpoint"`
 	CertSANs                    []string        `json:"certSANs"`
 	ImageRegistry               string          `json:"imageRegistry"`
-	Offline                     bool            `json:"offline"`
 	IsControlPlane              bool            `json:"isControlPlane,omitempty"`
 	CACertHashes                string          `json:"caCertHashes,omitempty"`
 	BootstrapToken              string          `json:"bootstrapToken,omitempty"`
@@ -455,12 +453,7 @@ func (stepper KubeadmConfig) Render(ctx context.Context, opts component.Options)
 	if stepper.Kubelet.RootDir == "" {
 		stepper.Kubelet.RootDir = KubeletDefaultDataDir
 	}
-	// Use the configured online mirror when no image repository is provided.
-	if !stepper.Offline && stepper.ImageRegistry == "" {
-		stepper.ImageRegistry = component.GetRepoMirror(ctx)
-		logger.Info("render kubernetes config, the default repo mirror proxy will be used",
-			zap.String("image_repository", stepper.ImageRegistry))
-	}
+
 	agentIP, err := stepper.getAgentNodeIP()
 	if err != nil {
 		logger.Errorf("get node ip failed: %s", err.Error())

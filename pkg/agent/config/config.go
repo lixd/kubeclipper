@@ -30,8 +30,6 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 
-	"github.com/kubeclipper/kubeclipper/pkg/simple/imageproxy"
-
 	"github.com/spf13/viper"
 	"sigs.k8s.io/yaml"
 
@@ -49,16 +47,15 @@ const (
 
 // Config defines everything needed for apiserver to deal with external services
 type Config struct {
-	AgentID                   string              `json:"agentID,omitempty" yaml:"agentID"`
-	Metadata                  options.Metadata    `json:"metadata,omitempty" yaml:"metadata"`
-	IPDetect                  string              `json:"ipDetect,omitempty" yaml:"ipDetect"`
-	NodeIPDetect              string              `json:"nodeIPDetect,omitempty" yaml:"nodeIPDetect"`
-	RegisterNode              bool                `json:"registerNode,omitempty" yaml:"registerNode"`
-	NodeStatusUpdateFrequency time.Duration       `json:"nodeStatusUpdateFrequency,omitempty" yaml:"nodeStatusUpdateFrequency"`
-	LogOptions                *logger.Options     `json:"log,omitempty" yaml:"log,omitempty" mapstructure:"log"`
-	APIServer                 *APIServerOptions   `json:"apiServer" yaml:"apiServer" mapstructure:"apiServer"`
-	OpLogOptions              *oplog.Options      `json:"oplog,omitempty" yaml:"oplog,omitempty" mapstructure:"oplog"`
-	ImageProxyOptions         *imageproxy.Options `json:"imageProxy,omitempty" yaml:"imageProxy,omitempty" mapstructure:"imageProxy"`
+	AgentID                   string            `json:"agentID,omitempty" yaml:"agentID"`
+	Metadata                  options.Metadata  `json:"metadata,omitempty" yaml:"metadata"`
+	IPDetect                  string            `json:"ipDetect,omitempty" yaml:"ipDetect"`
+	NodeIPDetect              string            `json:"nodeIPDetect,omitempty" yaml:"nodeIPDetect"`
+	RegisterNode              bool              `json:"registerNode,omitempty" yaml:"registerNode"`
+	NodeStatusUpdateFrequency time.Duration     `json:"nodeStatusUpdateFrequency,omitempty" yaml:"nodeStatusUpdateFrequency"`
+	LogOptions                *logger.Options   `json:"log,omitempty" yaml:"log,omitempty" mapstructure:"log"`
+	APIServer                 *APIServerOptions `json:"apiServer" yaml:"apiServer" mapstructure:"apiServer"`
+	OpLogOptions              *oplog.Options    `json:"oplog,omitempty" yaml:"oplog,omitempty" mapstructure:"oplog"`
 }
 
 type APIServerOptions struct {
@@ -83,7 +80,6 @@ func New() *Config {
 		LogOptions:                logger.NewLogOptions(),
 		APIServer:                 &APIServerOptions{LogAddress: ":10260"},
 		OpLogOptions:              oplog.NewOptions(),
-		ImageProxyOptions:         imageproxy.NewOptions(),
 	}
 }
 

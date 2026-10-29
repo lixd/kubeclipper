@@ -46,7 +46,6 @@ func (s *AgentOptions) Validate() []error {
 	errors = append(errors, s.GenericServerRunOptions.Validate()...)
 	errors = append(errors, s.LogOptions.Validate()...)
 	errors = append(errors, s.OpLogOptions.Validate()...)
-	errors = append(errors, s.ImageProxyOptions.Validate()...)
 	if s.APIServer == nil || s.APIServer.Endpoint == "" {
 		errors = append(errors, fmt.Errorf("apiServer.endpoint is required"))
 	} else {
@@ -71,7 +70,6 @@ func (s *AgentOptions) Flags() (fss cliflag.NamedFlagSets) {
 	s.GenericServerRunOptions.AddFlags(fs, s.GenericServerRunOptions)
 	s.LogOptions.AddFlags(fss.FlagSet("log"))
 	s.OpLogOptions.AddFlags(fss.FlagSet("oplog"))
-	s.ImageProxyOptions.AddFlags(fss.FlagSet("imageProxy"))
 
 	return fss
 }

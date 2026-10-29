@@ -19,13 +19,13 @@
 package deploy
 
 import (
-"github.com/kubeclipper/kubeclipper/pkg/constatns"
-"github.com/stretchr/testify/assert"
-"github.com/stretchr/testify/require"
 	"context"
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -581,50 +581,6 @@ authentication:
 // mismatch fails every cluster image pull with "server gave HTTP response to
 // HTTPS client" (observed live while the configured scheme defaulted to
 // https against a plain-HTTP registry).
-func TestResolveSeedRegistryScheme(t *testing.T) {
-	t.Run("plain http registry wins over configured https", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path != "/v2/" {
-				t.Errorf("probe path = %s, want /v2/", r.URL.Path)
-			}
-			w.WriteHeader(http.StatusOK)
-		}))
-		defer srv.Close()
-		reg := &deliveryregistry.Config{
-			Registry: strings.TrimPrefix(srv.URL, "http://"),
-			Scheme:   deliveryregistry.SchemeHTTPS,
-		}
-		scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
-		if scheme != deliveryregistry.SchemeHTTP || skipVerify || ca != "" {
-			t.Fatalf("resolved (%s, %v, %q), want (http, false, \"\")", scheme, skipVerify, ca)
-		}
-	})
-
-	t.Run("https registry keeps configured scheme", func(t *testing.T) {
-		srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusUnauthorized) // auth-required registry
-		}))
-		defer srv.Close()
-		reg := &deliveryregistry.Config{
-			Registry:      strings.TrimPrefix(srv.URL, "https://"),
-			Scheme:        deliveryregistry.SchemeHTTPS,
-			SkipTLSVerify: true,
-			CA:            "test-ca",
-		}
-		scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
-		if scheme != deliveryregistry.SchemeHTTPS || !skipVerify || ca != "test-ca" {
-			t.Fatalf("resolved (%s, %v, %q), want (https, true, test-ca)", scheme, skipVerify, ca)
-		}
-	})
-
-	t.Run("unreachable registry keeps configured scheme", func(t *testing.T) {
-		reg := &deliveryregistry.Config{Registry: "127.0.0.1:1", Scheme: deliveryregistry.SchemeHTTPS, SkipTLSVerify: true}
-		scheme, skipVerify, _ := resolveSeedRegistryScheme(reg)
-		if scheme != deliveryregistry.SchemeHTTPS || !skipVerify {
-			t.Fatalf("resolved (%s, %v), want the configured (https, true)", scheme, skipVerify)
-		}
-	})
-}
 
 func TestDialDirectIgnoresProxyEnvironment(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:1")
@@ -678,35 +634,6 @@ func TestLiveTimeLagPrecheck(t *testing.T) {
 		t.Fatalf("want %q, got %v", want, err)
 	}
 	t.Logf("production TIME-LAG precheck: %v", err)
-}
-
-func TestDeployValidatesImageMirrorBeforeRemoteWork(t *testing.T) {
-	for _, tt := range []struct {
-		mirror string
-		valid  bool
-	}{
-		{"172.16.131.146:5249/qualified", true},
-		{"", true},
-		{"https://registry.example.com/team", false},
-		{"registry.example.com/team:latest", false},
-	} {
-		t.Run(tt.mirror, func(t *testing.T) {
-			d := NewDeployOptions(options.IOStreams{})
-			d.aio = true
-			d.deployConfig.ServerIPs = []string{"192.0.2.10"}
-			d.deployConfig.ImageProxy.KcImageRepoMirror = tt.mirror
-			if err := d.Complete(); err != nil {
-				t.Fatal(err)
-			}
-			err := d.ValidateArgs()
-			if tt.valid && err != nil {
-				t.Fatal(err)
-			}
-			if !tt.valid && (err == nil || !strings.Contains(err.Error(), "imageProxy.kcImageRepoMirror")) {
-				t.Fatalf("ValidateArgs() = %v, want mirror validation failure", err)
-			}
-		})
-	}
 }
 
 func TestWaitAgentsReady(t *testing.T) {
@@ -804,6 +731,11 @@ func TestUploadDefaultRegistryPrefixAndReconcile(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				switch r.Method {
 				case http.MethodGet:
+					if current.Name == "" {
+						w.WriteHeader(http.StatusNotFound)
+						assert.NoError(t, json.NewEncoder(w).Encode(map[string]any{"code": 404, "reason": "NotFound", "message": "registry not found"}))
+						return
+					}
 					visible := current.DeepCopy()
 					if visible.RegistryAuth != nil {
 						visible.RegistryAuth.Password = "******"
@@ -828,38 +760,41 @@ func TestUploadDefaultRegistryPrefixAndReconcile(t *testing.T) {
 			defer server.Close()
 			client, err := kc.NewClientWithOpts(kc.WithEndpoint(server.URL))
 			require.NoError(t, err)
-			uploadDefaultRegistry(client, cfg)
+			require.NoError(t, uploadDefaultRegistry(client, cfg))
 			expected := v1.RegistrySpec{Host: host, RepositoryPrefix: prefix, Scheme: "https", CA: "test-ca", SkipVerify: true, RegistryAuth: &v1.RegistryAuth{Username: "test-user", Password: "test-password"}}
 			require.Equal(t, constatns.DefaultImageRegistryName, current.Name)
 			require.Equal(t, expected, current.RegistrySpec)
-			uploadDefaultRegistry(client, cfg)
+			require.NoError(t, uploadDefaultRegistry(client, cfg))
 			if creates != 1 || deletes != 0 {
 				t.Fatal("identical deploy changed registry")
 			}
 			current.Host = address + "/old"
-			uploadDefaultRegistry(client, cfg)
-			if creates != 2 || deletes != 1 || !reflect.DeepEqual(current.RegistrySpec, expected) {
-				t.Fatal("old host path not corrected")
-			}
-			// The server clears this marker when an API edit changes only the password.
-			current.RegistryAuth.Password = "out-of-band-password"
+			err = uploadDefaultRegistry(client, cfg)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "different configuration")
+			require.Equal(t, 1, creates)
+			require.Equal(t, 0, deletes)
+			// Explicit edits and credential changes are also conflicts, never replacements.
 			delete(current.Annotations, v1.RegistrySeedConfigDigestAnnotation)
-			uploadDefaultRegistry(client, cfg)
-			require.Equal(t, 3, creates)
-			require.Equal(t, 2, deletes)
-			require.Equal(t, expected, current.RegistrySpec)
+			require.Error(t, uploadDefaultRegistry(client, cfg))
 			cfg.Password = "new-test-password"
-			expected.RegistryAuth.Password = cfg.Password
-			uploadDefaultRegistry(client, cfg)
-			require.Equal(t, 4, creates)
-			require.Equal(t, 3, deletes)
-			require.Equal(t, expected, current.RegistrySpec)
+			require.Error(t, uploadDefaultRegistry(client, cfg))
 			current.CA = "old-ca"
-			current.RegistryAuth.Password = "old-password"
-			uploadDefaultRegistry(client, cfg)
-			if creates != 5 || deletes != 4 || !reflect.DeepEqual(current.RegistrySpec, expected) {
-				t.Fatal("stale TLS/auth configuration not corrected")
-			}
+			require.Error(t, uploadDefaultRegistry(client, cfg))
+			require.Equal(t, 1, creates)
+			require.Equal(t, 0, deletes)
+
 		})
 	}
+}
+
+func TestExplicitPackageRegistryOverridesDeployConfig(t *testing.T) {
+ d := NewDeployOptions(options.IOStreams{})
+ path := filepath.Join(t.TempDir(), "deploy.yaml")
+ require.NoError(t, os.WriteFile(path, []byte("packageRegistry: file.example.com/team\nserverIPs: [192.0.2.10]\n"), 0600))
+ d.deployConfig.Config = path
+ d.packageRegistryFlag = "flag.example.com/team"
+ require.NoError(t, d.Complete())
+ require.Equal(t, "flag.example.com/team", d.deployConfig.PackageRegistry)
+ require.Equal(t, "flag", d.packageRegistrySource())
 }

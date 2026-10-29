@@ -67,7 +67,6 @@ type ContainerdRunnable struct {
 func (runnable *ContainerdRunnable) InitStep(ctx context.Context, cluster *v1.Cluster, nodes []v1.StepNode, registries []v1.RegistrySpec) error {
 	metadata := component.GetExtraMetadata(ctx)
 	runnable.Version = cluster.ContainerRuntime.Version
-	runnable.Offline = metadata.Offline
 	runnable.DataRootDir = strutil.StringDefaultIfEmpty(containerdDefaultConfigDir, cluster.ContainerRuntime.DataRootDir)
 	applyResolvedRuntime(ctx, &runnable.Base, criContainerd)
 	runnable.ImageRegistry = metadata.ImageRegistry
@@ -181,7 +180,7 @@ func (runnable ContainerdRunnable) Install(ctx context.Context, opts component.O
 	if err != nil {
 		return nil, err
 	}
-	logger.Debugf("install containerd successfully, online: %b", !runnable.Offline)
+	logger.Debug("install containerd successfully")
 	return nil, nil
 }
 
@@ -215,14 +214,6 @@ func (runnable ContainerdRunnable) Uninstall(ctx context.Context, opts component
 	}
 	logger.Debug("uninstall containerd successfully")
 	return nil, nil
-}
-
-func (runnable *ContainerdRunnable) OfflineUpgrade(ctx context.Context, dryRun bool) ([]byte, error) {
-	return nil, fmt.Errorf("ContainerdRunnable does not support offlineUpgrade")
-}
-
-func (runnable *ContainerdRunnable) OnlineUpgrade(ctx context.Context, dryRun bool) ([]byte, error) {
-	return nil, fmt.Errorf("ContainerdRunnable not supported onlineUpgrade")
 }
 
 func (runnable *ContainerdRunnable) matchPauseVersion(kubeVersion string) (string, string) {
@@ -270,12 +261,7 @@ func containerdConfigVersion(configPath string) int {
 }
 
 func (runnable *ContainerdRunnable) setupContainerdConfig(ctx context.Context, dryRun bool) error {
-	// Use the configured online mirror when no image repository is provided.
-	if !runnable.Offline && runnable.ImageRegistry == "" {
-		runnable.ImageRegistry = component.GetRepoMirror(ctx)
-		logger.Info("render containerd config, the default repo mirror proxy will be used",
-			zap.String("image_repository", runnable.ImageRegistry))
-	}
+
 	if runnable.RegistryConfigDir == "" {
 		runnable.RegistryConfigDir = ContainerdDefaultRegistryConfigDir
 	}

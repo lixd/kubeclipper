@@ -28,64 +28,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	mockcluster "github.com/kubeclipper/kubeclipper/pkg/models/cluster/mock"
-	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
-func TestResolveClusterImageRegistry(t *testing.T) {
-	t.Run("online cluster without registry uses component defaults", func(t *testing.T) {
-		registry, err := ResolveClusterImageRegistry(context.Background(), &v1.Cluster{}, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if registry.Host != "" {
-			t.Fatalf("registry host = %q, want empty", registry.Host)
-		}
-	})
-
-	t.Run("offline cluster without registry uses local images", func(t *testing.T) {
-		cluster := &v1.Cluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{common.AnnotationOffline: "true"}}}
-		registry, err := ResolveClusterImageRegistry(context.Background(), cluster, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if registry.Host != "" {
-			t.Fatalf("registry host = %q, want empty", registry.Host)
-		}
-	})
-}
-
-func TestResolveImageRegistryDefaultsToKubernetesRegistry(t *testing.T) {
-	registry, err := ResolveImageRegistry(context.Background(), "", nil)
-	if err != nil {
-		t.Fatal(err)
+func TestMissingClusterImageRegistryIsRejected(t *testing.T) {
+	if _, err := ResolveClusterImageRegistry(context.Background(), &v1.Cluster{}, nil); err == nil {
+		t.Fatal("expected missing registry error")
 	}
-	if registry.Host != v1.DefaultImageRegistry {
-		t.Fatalf("registry host = %q, want %q", registry.Host, v1.DefaultImageRegistry)
-	}
-}
-
-func TestGetClusterCRIRegistriesUsesLocalImagesForOfflineClusterWithoutRegistry(t *testing.T) {
-	cluster := &v1.Cluster{ObjectMeta: metav1.ObjectMeta{Annotations: map[string]string{common.AnnotationOffline: "true"}}}
-	registries, err := GetClusterCRIRegistriesWithContext(context.Background(), cluster, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(registries) != 0 {
-		t.Fatalf("registries = %#v, want none", registries)
-	}
-	if cluster.ResolvedImageRegistry != "" {
-		t.Fatalf("resolved image registry = %q, want empty", cluster.ResolvedImageRegistry)
-	}
-}
-
-func TestGetClusterCRIRegistriesLeavesOnlineDefaultToComponent(t *testing.T) {
-	registries, err := GetClusterCRIRegistriesWithContext(context.Background(), &v1.Cluster{}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(registries) != 0 {
-		t.Fatalf("registries = %#v, want none", registries)
+	if _, err := GetClusterCRIRegistriesWithContext(context.Background(), &v1.Cluster{}, nil); err == nil {
+		t.Fatal("expected missing registry error")
 	}
 }
 
@@ -127,43 +78,12 @@ func TestGetClusterCRIRegistries(t *testing.T) {
 func TestGetClusterCRIRegistriesRejectsConflictingResources(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	op := mockcluster.NewMockOperator(ctrl)
-	op.EXPECT().GetRegistry(gomock.Any(), "first").Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "registry.example.com"}}, nil)
+	op.EXPECT().GetRegistry(gomock.Any(), "first").Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Scheme: "https", Host: "registry.example.com"}}, nil).Times(2)
 	op.EXPECT().GetRegistry(gomock.Any(), "second").Return(&v1.Registry{RegistrySpec: v1.RegistrySpec{Scheme: "http", Host: "registry.example.com"}}, nil)
 	first, second := "first", "second"
-	cluster := &v1.Cluster{ContainerRuntime: v1.ContainerRuntime{Registries: []v1.CRIRegistry{{RegistryRef: &first}, {RegistryRef: &second}}}}
+	cluster := &v1.Cluster{ImageRegistry: "first", ContainerRuntime: v1.ContainerRuntime{Registries: []v1.CRIRegistry{{RegistryRef: &first}, {RegistryRef: &second}}}}
 	if _, err := GetClusterCRIRegistriesWithContext(context.Background(), cluster, op); err == nil {
 		t.Fatal("expected conflicting registry configuration error")
-	}
-}
-
-func TestLoadImage(t *testing.T) {
-
-	type args struct {
-		ctx     context.Context
-		dryRun  bool
-		file    string
-		criType string
-	}
-	tests := []struct {
-		name string
-		args args
-	}{
-		{
-			name: "load a containerd image",
-			args: args{
-				ctx:     context.TODO(),
-				dryRun:  true,
-				file:    "/demoPath",
-				criType: "containerd",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := LoadImage(tt.args.ctx, tt.args.dryRun, tt.args.file, tt.args.criType); err != nil {
-				t.Errorf("LoadImage() error = %v", err)
-			}
-		})
 	}
 }
 

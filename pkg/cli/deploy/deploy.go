@@ -67,7 +67,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 
 	"github.com/kubeclipper/kubeclipper/pkg/query"
-	"github.com/kubeclipper/kubeclipper/pkg/simple/imageproxy"
 
 	"github.com/sethvargo/go-password/password"
 	"sigs.k8s.io/yaml"
@@ -80,6 +79,7 @@ import (
 
 	"github.com/kubeclipper/kubeclipper/pkg/cli/logger"
 
+	apierrors "github.com/kubeclipper/kubeclipper/pkg/errors"
 	"github.com/spf13/cobra"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
@@ -125,6 +125,7 @@ type DeployOptions struct {
 	// default password came back even with the flag set). Complete
 	// re-applies the flag after the config load.
 	initialPasswordFlag string
+	packageRegistryFlag string
 
 	packageRegistryFiles     deliveryregistry.FileOptions
 	packageRegistryConfig    *deliveryregistry.Config
@@ -196,6 +197,7 @@ func NewCmdDeploy(streams options.IOStreams) *cobra.Command {
 	// given explicitly.
 	flags.StringVar(&o.initialPasswordFlag, "initial-password", "", "admin user password (default: the built-in admin default password, or authentication.initialPassword from the deploy config)")
 	o.deployConfig.AddFlags(cmd.Flags())
+	cmd.Flags().StringVar(&o.packageRegistryFlag, "package-registry", "", "OCI registry for KubeClipper packages and the default cluster image registry")
 	addPackageRegistryClientFlags(cmd, &o.packageRegistryFiles)
 	o.deployConfig.AuditOpts.AddFlags(cmd.Flags())
 
@@ -211,6 +213,9 @@ func (d *DeployOptions) Complete() error {
 	// Re-apply the explicit --initial-password flag after the config load:
 	// the file's authentication section (or its absence resetting the struct)
 	// must not discard an explicitly requested initial password.
+	if d.packageRegistryFlag != "" {
+		d.deployConfig.PackageRegistry = d.packageRegistryFlag
+	}
 	if d.initialPasswordFlag != "" {
 		d.deployConfig.AuthenticationOpts.InitialPassword = d.initialPasswordFlag
 	}
@@ -295,11 +300,6 @@ func (d *DeployOptions) generateAuthenticationJWTSecret() error {
 }
 
 func (d *DeployOptions) ValidateArgs() error {
-	if d.deployConfig.ImageProxy != nil {
-		if errs := (&imageproxy.Options{KcImageRepoMirror: d.deployConfig.ImageProxy.KcImageRepoMirror}).Validate(); len(errs) != 0 {
-			return fmt.Errorf("invalid imageProxy.kcImageRepoMirror: %v", errs)
-		}
-	}
 	if !d.deployConfig.TLS {
 		return fmt.Errorf("operation v2 requires TLS because kc-agent communicates with kc-server over mTLS")
 	}
@@ -1503,9 +1503,12 @@ func (d *DeployOptions) uploadConfig() *kc.Client {
 	if err != nil {
 		logger.Fatal(err)
 	}
+	if err := uploadDefaultRegistry(c, d.packageRegistryConfig); err != nil {
+		logger.Fatal(err)
+	}
+	d.deployConfig.DefaultImageRegistry = constatns.DefaultImageRegistryName
 	uploadDeployConfig(c, d.deployConfig)
 	uploadDeliveryPolicy(c)
-	uploadDefaultRegistry(c, d.packageRegistryConfig)
 	uploadCerts(c)
 	if err = cfg.Dump(); err != nil {
 		logger.Fatal(err)
@@ -1613,14 +1616,12 @@ func uploadDeployConfig(client *kc.Client, deployConfig *options.DeployConfig) {
 
 // uploadDefaultRegistry seeds the cluster image Registry resource named
 // constatns.DefaultImageRegistryName, mirroring the Package Registry endpoint
-// so offline cluster creation resolves images without a hand-created registry
-// (a fresh deploy otherwise renders kubeadm configs with registry.k8s.io and
-// hangs).
-func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
+// for the explicit platform default.
+func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) error {
 	if reg == nil || reg.Registry == "" {
-		return
+		return nil
 	}
-	scheme, skipVerify, ca := resolveSeedRegistryScheme(reg)
+	scheme, skipVerify, ca := reg.Scheme, reg.SkipTLSVerify, reg.CA
 	host, prefix := deliveryregistry.SplitPrefix(reg.Registry)
 	registry := &v1.Registry{
 		TypeMeta: metav1.TypeMeta{
@@ -1648,7 +1649,7 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 	// the visible fields so credential changes and unchanged deploys are distinguished.
 	specJSON, marshalErr := json.Marshal(registry.RegistrySpec)
 	if marshalErr != nil {
-		logger.Fatal(marshalErr)
+		return marshalErr
 	}
 	registry.Annotations = map[string]string{v1.RegistrySeedConfigDigestAnnotation: fmt.Sprintf("%x", sha256.Sum256(specJSON))}
 	visibleSpec := registry.RegistrySpec
@@ -1657,15 +1658,17 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 		visibleAuth.Password = "******"
 		visibleSpec.RegistryAuth = &visibleAuth
 	}
-	if existing, describeErr := client.DescribeRegistries(context.TODO(), constatns.DefaultImageRegistryName); describeErr == nil &&
+	existing, describeErr := client.DescribeRegistries(context.TODO(), constatns.DefaultImageRegistryName)
+	if describeErr != nil && !apierrors.IsNotFound(describeErr) {
+		return fmt.Errorf("read default image registry failed: %w", describeErr)
+	}
+	if describeErr == nil &&
 		len(existing.Items) > 0 && existing.Items[0].Name == constatns.DefaultImageRegistryName {
 		if existing.Items[0].Annotations[v1.RegistrySeedConfigDigestAnnotation] == registry.Annotations[v1.RegistrySeedConfigDigestAnnotation] &&
 			reflect.DeepEqual(existing.Items[0].RegistrySpec, visibleSpec) {
-			return
+			return nil
 		}
-		if err := client.DeleteRegistry(context.TODO(), constatns.DefaultImageRegistryName); err != nil {
-			logger.Fatalf("delete outdated default image registry failed: %v", err)
-		}
+		return fmt.Errorf("default image registry %q already exists with different configuration; update it explicitly before deploying", constatns.DefaultImageRegistryName)
 	}
 	// The first etcd writes race the leader election the same way the
 	// configmap uploads do; reuse the same retry policy.
@@ -1674,9 +1677,10 @@ func uploadDefaultRegistry(client *kc.Client, reg *deliveryregistry.Config) {
 		return createErr
 	})
 	if err != nil {
-		logger.Fatalf("create default image registry failed: %v", err)
+		return fmt.Errorf("create default image registry failed: %w", err)
 	}
 	logger.Infof("default image registry %q (%s %s) initialized", constatns.DefaultImageRegistryName, scheme, reg.Registry)
+	return nil
 }
 
 func uploadDeliveryPolicy(client *kc.Client) {
@@ -1886,7 +1890,7 @@ func (d *DeployOptions) packageRegistrySource() string {
 	switch {
 	case d.packageRegistryDefaulted:
 		return "default"
-	case d.packageRegistryFiles.Specified():
+	case d.packageRegistryFlag != "" || d.packageRegistryFiles.Specified():
 		return "flag"
 	default:
 		return "deploy-config"
@@ -1918,48 +1922,4 @@ func (d *DeployOptions) precheckPackageRegistry() error {
 func (d *DeployOptions) packageRegistryPrecheckError(cause error) error {
 	return fmt.Errorf("PACKAGE-REGISTRY PRECHECK FAILED: package registry %q (%s) is unreachable or missing the bootstrap catalog: %w; for offline or mirror deployments run 'kcctl registry sync' to mirror the release into a local registry and pass --package-registry <that registry>",
 		d.deployConfig.PackageRegistry, d.packageRegistrySource(), cause)
-}
-
-// resolveSeedRegistryScheme picks the scheme recorded in the default image
-// Registry resource. The configured scheme defaults to https, but the resource
-// feeds containerd's hosts.toml for cluster image pulls and a mismatch there
-// fails every pull with "server gave HTTP response to HTTPS client" (observed
-// live: the shared registry answers plain HTTP while the seeded resource said
-// https). The kcctl/agent package path tolerates the mismatch, the resource
-// does not, so probe the registry and fall back to the scheme that answers.
-func resolveSeedRegistryScheme(reg *deliveryregistry.Config) (scheme string, skipVerify bool, ca string) {
-	if reg == nil {
-		return "", false, ""
-	}
-	if registryReachable(reg.Scheme, reg.Registry, reg.SkipTLSVerify) {
-		return reg.Scheme, reg.SkipTLSVerify, reg.CA
-	}
-	if reg.Scheme != deliveryregistry.SchemeHTTP && registryReachable(deliveryregistry.SchemeHTTP, reg.Registry, false) {
-		logger.Warnf("registry %s answers plain HTTP while scheme %q is configured; seeding the default image registry resource with http so cluster image pulls keep working",
-			reg.Registry, reg.Scheme)
-		// plain HTTP cannot carry a CA or skip-verify setting
-		return deliveryregistry.SchemeHTTP, false, ""
-	}
-	return reg.Scheme, reg.SkipTLSVerify, reg.CA
-}
-
-// registryReachable reports whether the registry answers on this scheme: a
-// registry responds 200 (open) or 401 (auth required) on /v2/.
-func registryReachable(scheme, host string, skipVerify bool) bool {
-	if host == "" {
-		return false
-	}
-	client := &http.Client{Timeout: 3 * time.Second}
-	if scheme == deliveryregistry.SchemeHTTPS {
-		client.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: skipVerify}, //nolint:gosec // scheme probe only
-		}
-	}
-	resp, err := client.Get(fmt.Sprintf("%s://%s/v2/", scheme, host))
-	if err != nil {
-		return false
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
-	return resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusUnauthorized
 }

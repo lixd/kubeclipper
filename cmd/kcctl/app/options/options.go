@@ -28,7 +28,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/subosito/gotenv"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/kubeclipper/kubeclipper/pkg/auditing/option"
@@ -203,10 +202,6 @@ type OpLog struct {
 	Threshold int    `json:"threshold" yaml:"threshold,omitempty"`
 }
 
-type ImageProxy struct {
-	KcImageRepoMirror string `json:"kcImageRepoMirror" yaml:"kcImageRepoMirror,omitempty"`
-}
-
 type Agents map[string]Metadata // key:ip
 
 func (a Agents) ListIP() []string {
@@ -271,6 +266,7 @@ func (m Metadata) LogPort() (int, error) {
 }
 
 type DeployConfig struct {
+	DefaultImageRegistry       string                         `json:"defaultImageRegistry" yaml:"defaultImageRegistry"`
 	Config                     string                         `json:"-" yaml:"-"`
 	SSHConfig                  *sshutils.SSH                  `json:"ssh" yaml:"ssh,omitempty"`
 	EtcdConfig                 *Etcd                          `json:"etcd" yaml:"etcd,omitempty"`
@@ -287,7 +283,6 @@ type DeployConfig struct {
 	ConsolePort                int                            `json:"consolePort" yaml:"consolePort,omitempty"`
 	AuditOpts                  *option.AuditOptions           `json:"audit" yaml:"audit,omitempty"`
 	OpLog                      *OpLog                         `json:"opLog" yaml:"opLog,omitempty"`
-	ImageProxy                 *ImageProxy                    `json:"imageProxy" yaml:"imageProxy,omitempty"`
 	AuthenticationOpts         *options.AuthenticationOptions `json:"authentication" yaml:"authentication,omitempty"`
 	KCServerHealthCheckTimeout time.Duration                  `json:"kcServerHealthCheckTimeout" yaml:"kcServerHealthCheckTimeout,omitempty"`
 }
@@ -350,9 +345,6 @@ func NewDeployOptions() *DeployConfig {
 		OpLog: &OpLog{
 			Dir:       "/var/log/kc-agent",
 			Threshold: 1048576,
-		},
-		ImageProxy: &ImageProxy{
-			KcImageRepoMirror: getRepoMirror(),
 		},
 		AuthenticationOpts:         options.NewAuthenticateOptions(),
 		Agents:                     make(Agents),
@@ -455,22 +447,12 @@ func (c *DeployConfig) Write() error {
 	return nil
 }
 
-// getRepoMirror env variables have a higher priority than .env file
-func getRepoMirror() string {
-	if mirror := os.Getenv("KC_IMAGE_REPO_MIRROR"); mirror != "" {
-		return mirror
-	}
-	_ = gotenv.Load("/etc/kc/kc.env")
-	return os.Getenv("KC_IMAGE_REPO_MIRROR")
-}
-
 func (c *DeployConfig) AddFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&c.Config, "deploy-config", "c", c.Config, "Path to the config file to use for Deploy.")
 	flags.StringVar(&c.IPDetect, "ip-detect", c.IPDetect, fmt.Sprintf("Kc agent node ip detect method. Used to route between nodes. \n%s", IPDetectDescription))
 	flags.StringVar(&c.NodeIPDetect, "node-ip-detect", c.NodeIPDetect, fmt.Sprintf("Kc agent node ip detect method. Used for routing between nodes in the kubernetes cluster. If not specified, ip-detect is inherited. \n%s", IPDetectDescription))
 	flags.BoolVar(&c.Debug, "debug", c.Debug, "Deploy kc use debug mode")
 	flags.StringVarP(&c.DefaultRegion, "region", "r", c.DefaultRegion, "Kc agent default region")
-	flags.StringVar(&c.PackageRegistry, "package-registry", c.PackageRegistry, "OCI registry for KubeClipper packages")
 	flags.BoolVar(&c.TLS, "tls", c.TLS, "Kc api server  use tls mode")
 	flags.IntVar(&c.ServerPort, "server-port", c.ServerPort, "Kc server port")
 	flags.StringVar(&c.TempDir, "temp-dir", c.TempDir, "Temporary directory used for deployment files (absolute path)")
@@ -482,7 +464,6 @@ func (c *DeployConfig) AddFlags(flags *pflag.FlagSet) {
 	flags.IntVar(&c.ConsolePort, "console-port", c.ConsolePort, "kc console port")
 	flags.StringVar(&c.OpLog.Dir, "oplog-dir", c.OpLog.Dir, "kc agent operation log dir")
 	flags.IntVar(&c.OpLog.Threshold, "oplog-threshold", c.OpLog.Threshold, "kc agent operation log single threshold")
-	flags.StringVar(&c.ImageProxy.KcImageRepoMirror, "kc-image-repo-mirror", c.ImageProxy.KcImageRepoMirror, "K8s image repository mirror")
 	flags.DurationVar(&c.KCServerHealthCheckTimeout, "kc-server-health-check-timeout", c.KCServerHealthCheckTimeout, "kc server health check timeout, default is 30s")
 
 	AddFlagsToSSH(c.SSHConfig, flags)
@@ -571,7 +552,6 @@ func (c *DeployConfig) GetKcAgentConfigTemplateContent(metadata Metadata) (strin
 	}
 	data["OpLogDir"] = c.OpLog.Dir
 	data["OpLogThreshold"] = c.OpLog.Threshold
-	data["KcImageRepoMirror"] = c.ImageProxy.KcImageRepoMirror
 	var buffer bytes.Buffer
 	if err = tmpl.Execute(&buffer, data); err != nil {
 		return "", fmt.Errorf("template execute failed: %s", err.Error())

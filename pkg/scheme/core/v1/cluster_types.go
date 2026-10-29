@@ -36,8 +36,6 @@ type Cluster struct {
 	// Standard object's metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// move offline to metadata annotation
-	// Offline           bool   `json:"offline" optional:"true"`
 	// ImageRegistry references the Registry resource used for Kubernetes and CNI images.
 	ImageRegistry         string         `json:"imageRegistry,omitempty" optional:"true"`
 	ResolvedImageRegistry string         `json:"-"`
@@ -152,13 +150,6 @@ type ControlPlaneHealth struct {
 	Status   ComponentStatus `json:"status,omitempty"`
 }
 
-func (c *Cluster) Offline() bool {
-	if _, ok := c.Annotations[common.AnnotationOffline]; ok {
-		return true
-	}
-	return false
-}
-
 // GetAllCertSANs if api server set externalIP,use it as certSans
 func (c *Cluster) GetAllCertSANs() []string {
 	list := c.CertSANs
@@ -185,7 +176,6 @@ func (c *Cluster) Complete() {
 	}
 	c.CNI.ImageRegistry = c.ResolvedImageRegistry
 	c.CNI.CriType = c.ContainerRuntime.Type
-	c.CNI.Offline = c.Offline()
 	if common.IsKubeVersionGreater(c.KubernetesVersion, 126) {
 		c.CNI.Namespace = "calico-system"
 	} else {
@@ -269,7 +259,6 @@ type CNI struct {
 	Type      string  `json:"type" enum:"calico"`
 	Version   string  `json:"version"`
 	CriType   string  `json:"criType"`
-	Offline   bool    `json:"offline"`
 	Namespace string  `json:"namespace"`
 	Calico    *Calico `json:"calico" optional:"true"`
 }

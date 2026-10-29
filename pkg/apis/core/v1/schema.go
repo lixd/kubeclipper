@@ -153,7 +153,5 @@ type StepLog struct {
 }
 
 type ClusterUpgrade struct {
-	Version       string `json:"version"`
-	Offline       bool   `json:"offline"`
-	ImageRegistry string `json:"imageRegistry"`
+	Version string `json:"version"`
 }

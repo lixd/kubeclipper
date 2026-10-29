@@ -349,7 +349,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		beforeEachCreateCluster(f, clu)()
 
 		ginkgo.By("upgrade cluster")
-		err := f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(false, newVersion))
+		err := f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
 		framework.ExpectNoError(err)
 
 		ginkgo.By("wait cluster upgrade")
@@ -358,8 +358,8 @@ var _ = SIGDescribe("[Serial]", func() {
 	})
 
 	// TODO: make version be parameter
-	ginkgo.It("[Slow] [AIO] [Upgrade] [Offline] should upgrade cluster version", func() {
-		clusterName = "e2e-aio-upgrade-offline"
+	ginkgo.It("[Slow] [AIO] [Upgrade] should upgrade cluster version", func() {
+		clusterName = "e2e-aio-upgrade-registry"
 		clu := baseCluster.DeepCopy()
 		version := "v1.23.6"
 		newVersion := "v1.23.9"
@@ -372,7 +372,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		beforeEachCreateCluster(f, clu)()
 
 		ginkgo.By("upgrade cluster")
-		err := f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(false, newVersion))
+		err := f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
 		framework.ExpectNoError(err)
 
 		ginkgo.By("wait cluster upgrade")
@@ -415,9 +415,8 @@ func initPatchNode(operation clusteroperation.NodesPatchOperation, node string) 
 	}
 }
 
-func initUpgradeCluster(offLine bool, version string) *apiv1.ClusterUpgrade {
+func initUpgradeCluster(version string) *apiv1.ClusterUpgrade {
 	return &apiv1.ClusterUpgrade{
-		Offline: offLine,
 		Version: version,
 	}
 }
