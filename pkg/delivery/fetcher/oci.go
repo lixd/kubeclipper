@@ -19,12 +19,7 @@
 package fetcher
 
 import (
-	"archive/tar"
-	"bytes"
-	"compress/gzip"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,14 +27,18 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strings"
+
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	containerv1 "github.com/google/go-containerregistry/pkg/v1"
 
+	digest "github.com/opencontainers/go-digest"
+
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
+	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 )
 
@@ -63,133 +62,141 @@ func (f *OCIArtifactFetcher) Fetch(ctx context.Context, plan *deliveryapis.Resol
 	if err := validatePlan(plan); err != nil {
 		return nil, err
 	}
-	result := &FetchResult{}
-	for _, component := range plan.Components {
-		componentResult, err := f.fetchComponent(ctx, plan.OS, plan.Arch, component)
+	if f.RegistryConfig != nil {
+		for _, c := range plan.Components {
+			ref, err := ociReference(c.Transport)
+			if err != nil {
+				return nil, err
+			}
+			cfg := *f.RegistryConfig
+			if err = cfg.ValidateReference(ref); err != nil {
+				return nil, err
+			}
+		}
+	}
+	protected := planCachePaths(plan)
+	if !f.DryRun {
+		if err := downloader.PruneCache(ctx, protected); err != nil {
+			logger.Warnf("OCI cache maintenance failed: %v", err)
+		}
+	}
+	for repair := 0; repair < 2; repair++ {
+		var lock *downloader.CacheLock
+		var err error
+		if !f.DryRun {
+			lock, err = downloader.LockCache(ctx, "lifecycle", false, false)
+			if err != nil {
+				return nil, err
+			}
+		}
+		result := &FetchResult{}
+		for _, c := range plan.Components {
+			var r ComponentFetchResult
+			r, err = f.fetchComponent(ctx, plan.OS, plan.Arch, c)
+			if err != nil {
+				break
+			}
+			result.Components = append(result.Components, r)
+		}
 		if err != nil {
+			if lock != nil {
+				_ = lock.Release()
+			}
+			var corrupt *corruptCache
+			if repair == 0 && errors.As(err, &corrupt) {
+				logger.Warnf("invalid OCI cache detected; rebuilding %s", corrupt.path)
+				exclusive, e := downloader.LockCache(ctx, "lifecycle", true, false)
+				if e != nil {
+					return nil, e
+				}
+				// Other consumers may have rebuilt it while we waited: invalidate only if still corrupt.
+				stillBad := true
+				if filepath.Base(corrupt.path) != "receipt.json" {
+					for _, c := range plan.Components {
+						r, contents, e := snapshotResult(plan.OS, plan.Arch, c)
+						if e == nil && r.BaseDir == corrupt.path && validateSnapshot(ctx, r, contents) == nil {
+							stillBad = false
+						}
+					}
+				}
+
+				if strings.Contains(corrupt.path, string(filepath.Separator)+"blobs"+string(filepath.Separator)) {
+					d := digest.Digest(filepath.Base(filepath.Dir(corrupt.path)) + ":" + filepath.Base(corrupt.path))
+					if info, statErr := os.Stat(corrupt.path); statErr == nil {
+						if store, openErr := openContent(); openErr == nil {
+							if ok, verifyErr := store.verified(ctx, ocispec.Descriptor{Digest: d, Size: info.Size()}); verifyErr == nil && ok {
+								stillBad = false
+							}
+						}
+					}
+				}
+				if stillBad {
+					e = os.RemoveAll(corrupt.path)
+				}
+
+				releaseErr := exclusive.Release()
+				if e != nil {
+					return nil, e
+				}
+				if releaseErr != nil {
+					return nil, releaseErr
+				}
+				continue
+			}
 			return nil, err
 		}
-		result.Components = append(result.Components, componentResult)
-	}
-	return result, nil
-}
-
-func (f *OCIArtifactFetcher) fetchComponent(ctx context.Context, osName, arch string, component deliveryapis.ResolvedComponent) (result ComponentFetchResult, err error) {
-	if component.Transport.Type != deliveryapis.TransportOCI {
-		return ComponentFetchResult{}, fmt.Errorf("unsupported transport %q for oci fetcher", component.Transport.Type)
-	}
-	ref, err := ociReference(component.Transport)
-	if err != nil {
-		return ComponentFetchResult{}, fmt.Errorf("invalid oci transport for %s/%s:%s: %w", component.Kind, component.Name, component.Version, err)
-	}
-	fetchContents := packageLayerContents(component.Contents)
-	componentResult := ComponentFetchResult{
-		Slot:      component.Slot,
-		Kind:      component.Kind,
-		Name:      component.Name,
-		Version:   component.Version,
-		OS:        osName,
-		Arch:      arch,
-		BaseDir:   downloader.PackageDir(component.Kind, component.Name, component.Version, platformDir(osName, arch)),
-		Transport: component.Transport,
-		Files:     make(map[string]string, len(fetchContents)),
-	}
-	componentResult.ManifestPath = downloader.PackageManifestPath(component.Kind, component.Name, component.Version, platformDir(osName, arch))
-	if f.DryRun {
-		for _, content := range fetchContents {
-			if err := ctx.Err(); err != nil {
-				return ComponentFetchResult{}, err
+		objects := planCachePaths(plan)
+		result.lease = &resultLease{release: func() error {
+			if lock == nil {
+				return nil
 			}
-			componentResult.Files[content.Name] = filepath.Join(downloader.PackageContentsDir(component.Kind, component.Name, component.Version, platformDir(osName, arch)), contentFile(content))
+			for _, p := range objects {
+				if err := downloader.TouchCache(p); err != nil {
+					logger.Warnf("OCI cache access record failed: %v", err)
+				}
+			}
+			err := lock.Release()
+			if e := downloader.PruneCache(context.Background(), nil); e != nil {
+				logger.Warnf("OCI cache maintenance failed: %v", e)
+			}
+			return err
+		}}
+		for i := range result.Components {
+			result.Components[i].lease = result.lease
 		}
-		if err := writeFetchedManifest(componentResult, fetchContents, true); err != nil {
-			return ComponentFetchResult{}, err
-		}
-		return componentResult, nil
+		return result, nil
 	}
-	lock, err := downloader.AcquirePackageLock(component.Kind, component.Name, component.Version, platformDir(osName, arch))
-	if err != nil {
-		return ComponentFetchResult{}, err
-	}
-	defer func() {
-		err = errors.Join(err, lock.Unlock())
-	}()
-	if cached, ok := loadCachedComponent(componentResult, fetchContents); ok {
-		return cached, nil
-	}
-	image, err := f.pullImage(ctx, ref)
-	if err != nil {
-		return ComponentFetchResult{}, err
-	}
-	if err = validatePulledImageDigest(image, component.Transport.Digest); err != nil {
-		return ComponentFetchResult{}, fmt.Errorf("validate pulled artifact %s: %w", ref, err)
-	}
-	manifest, err := readPackageManifest(image)
-	if err != nil {
-		return ComponentFetchResult{}, fmt.Errorf("read package manifest from %s: %w", ref, err)
-	}
-	layerComponent := component
-	layerComponent.Contents = fetchContents
-	if err = validateFetchedManifest(manifest, layerComponent, osName, arch); err != nil {
-		return ComponentFetchResult{}, fmt.Errorf("validate package manifest from %s: %w", ref, err)
-	}
-	layers, err := image.Layers()
-	if err != nil {
-		return ComponentFetchResult{}, err
-	}
-	for _, content := range fetchContents {
-		if err = ctx.Err(); err != nil {
-			return ComponentFetchResult{}, err
-		}
-		path := filepath.Join(downloader.PackageContentsDir(component.Kind, component.Name, component.Version, platformDir(osName, arch)), contentFile(content))
-		if err = writePackageFile(layers, path, content); err != nil {
-			return ComponentFetchResult{}, err
-		}
-		componentResult.Files[content.Name] = path
-	}
-	if err = writeFetchedManifest(componentResult, fetchContents, false); err != nil {
-		return ComponentFetchResult{}, err
-	}
-	return componentResult, nil
+	return nil, fmt.Errorf("cache repair exhausted")
 }
 
-func loadCachedComponent(result ComponentFetchResult, contents []deliveryapis.ArtifactContent) (ComponentFetchResult, bool) {
-	data, err := os.ReadFile(result.ManifestPath)
-	if err != nil {
-		return ComponentFetchResult{}, false
-	}
-	var cached fetchedComponentManifest
-	if err = json.Unmarshal(data, &cached); err != nil {
-		return ComponentFetchResult{}, false
-	}
-	// Slot identifies the resolver choice, not the artifact. Runtime component
-	// commands intentionally reconstruct the resolved component without it, so
-	// a slot difference must not invalidate otherwise identical digest-pinned
-	// content.
-	if cached.Kind != result.Kind || cached.Name != result.Name ||
-		cached.Version != result.Version || cached.OS != result.OS || cached.Arch != result.Arch ||
-		!reflect.DeepEqual(cached.Transport, result.Transport) || !reflect.DeepEqual(cached.Contents, contents) {
-		return ComponentFetchResult{}, false
-	}
-	expectedDir := downloader.PackageContentsDir(result.Kind, result.Name, result.Version, platformDir(result.OS, result.Arch))
-	files := make(map[string]string, len(contents))
-	for _, content := range contents {
-		expectedPath := filepath.Join(expectedDir, contentFile(content))
-		if filepath.Clean(cached.Files[content.Name]) != filepath.Clean(expectedPath) {
-			return ComponentFetchResult{}, false
+func planCachePaths(plan *deliveryapis.ResolvedArtifactPlan) []string {
+	var paths []string
+	for _, c := range plan.Components {
+		r, _, err := snapshotResult(plan.OS, plan.Arch, c)
+		if err != nil {
+			continue
 		}
-		payload, readErr := os.ReadFile(expectedPath)
-		if readErr != nil {
-			return ComponentFetchResult{}, false
+		paths = append(paths, r.BaseDir)
+		dgst := digest.Digest(c.Transport.Digest)
+		p := filepath.Join(downloader.CacheDir(), "content", "blobs", dgst.Algorithm().String(), dgst.Encoded())
+		paths = append(paths, p)
+		f, err := os.Open(p)
+		if err != nil {
+			continue
 		}
-		digest, digestErr := packageFilePayloadDigest(payload, content.Name)
-		if digestErr != nil || digest != content.Digest {
-			return ComponentFetchResult{}, false
+		data, err := io.ReadAll(io.LimitReader(f, maxManifestSize+1))
+		_ = f.Close()
+		if err != nil || int64(len(data)) > maxManifestSize {
+			continue
 		}
-		files[content.Name] = expectedPath
+		var m containerv1.Manifest
+		if json.Unmarshal(data, &m) == nil {
+			for _, l := range m.Layers {
+				paths = append(paths, filepath.Join(downloader.CacheDir(), "content", "blobs", l.Digest.Algorithm, l.Digest.Hex))
+			}
+		}
 	}
-	result.Files = files
-	return result, true
+	return paths
 }
 
 func packageLayerContents(contents []deliveryapis.ArtifactContent) []deliveryapis.ArtifactContent {
@@ -208,6 +215,10 @@ func (f *OCIArtifactFetcher) pullImage(ctx context.Context, ref string) (contain
 		return f.PullImage(ref)
 	}
 	config := f.RegistryConfig
+	if config != nil {
+		value := *config
+		config = &value
+	}
 	if config == nil {
 		var err error
 		config, err = deliveryregistry.ResolveReference(ref)
@@ -223,17 +234,6 @@ func (f *OCIArtifactFetcher) pullImage(ctx context.Context, ref string) (contain
 		return nil, err
 	}
 	return crane.Pull(ref, opts...)
-}
-
-func validatePulledImageDigest(image containerv1.Image, expectedDigest string) error {
-	digest, err := image.Digest()
-	if err != nil {
-		return err
-	}
-	if digest.String() != expectedDigest {
-		return fmt.Errorf("platform manifest digest mismatch: expected %s, got %s", expectedDigest, digest.String())
-	}
-	return nil
 }
 
 func ociReference(transport deliveryapis.TransportRef) (string, error) {
@@ -263,49 +263,6 @@ func platformDir(osName, arch string) string {
 	return osName + "-" + arch
 }
 
-func readPackageManifest(img containerv1.Image) (deliveryapis.PackageManifest, error) {
-	layers, err := img.Layers()
-	if err != nil {
-		return deliveryapis.PackageManifest{}, err
-	}
-	for _, layer := range layers {
-		manifest, err := readPackageManifestLayer(layer)
-		if err == nil {
-			return manifest, nil
-		}
-		if !os.IsNotExist(err) {
-			return deliveryapis.PackageManifest{}, err
-		}
-	}
-	return deliveryapis.PackageManifest{}, fmt.Errorf("%s not found in package image", packageManifestPath())
-}
-
-func readPackageManifestLayer(layer containerv1.Layer) (deliveryapis.PackageManifest, error) {
-	reader, err := layer.Uncompressed()
-	if err != nil {
-		return deliveryapis.PackageManifest{}, err
-	}
-	defer reader.Close()
-	tr := tar.NewReader(reader)
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			return deliveryapis.PackageManifest{}, os.ErrNotExist
-		}
-		if err != nil {
-			return deliveryapis.PackageManifest{}, err
-		}
-		if header.Typeflag != tar.TypeReg || path.Clean(header.Name) != packageManifestPath() {
-			continue
-		}
-		var manifest deliveryapis.PackageManifest
-		if err = json.NewDecoder(tr).Decode(&manifest); err != nil {
-			return deliveryapis.PackageManifest{}, err
-		}
-		return manifest, nil
-	}
-}
-
 func packageManifestPath() string {
 	return path.Join("opt/kubeclipper/resource", "kc-package-manifest.json")
 }
@@ -324,7 +281,25 @@ func validateFetchedManifest(manifest deliveryapis.PackageManifest, component de
 		return fmt.Errorf("manifest arch %q does not match resolved arch %q", manifest.Platform.Arch, arch)
 	}
 	manifestContents := make(map[string]deliveryapis.PackageManifestFile, len(manifest.Contents))
+	manifestTargets := map[string]bool{}
 	for _, content := range manifest.Contents {
+		if _, exists := manifestContents[content.Name]; exists {
+			return fmt.Errorf("duplicate package manifest content")
+		}
+		if content.Transport.Type != "" {
+			manifestContents[content.Name] = content
+			continue
+		}
+		if manifestTargets[content.File] {
+			return fmt.Errorf("duplicate package manifest file")
+		}
+		if err := deliveryapis.ValidateContentFileName(content.File); err != nil {
+			return err
+		}
+		if err := digest.Digest(content.Digest).Validate(); err != nil {
+			return fmt.Errorf("invalid manifest payload digest")
+		}
+		manifestTargets[content.File] = true
 		if content.Name == "" {
 			continue
 		}
@@ -362,79 +337,6 @@ func contentFile(content deliveryapis.ArtifactContent) string {
 	}
 }
 
-func writePackageFile(layers []containerv1.Layer, target string, content deliveryapis.ArtifactContent) error {
-	data, err := readPackageFile(layers, contentFile(content))
-	if err != nil {
-		return fmt.Errorf("read package content %q: %w", content.Name, err)
-	}
-	if content.Digest != "" {
-		actual, err := packageFilePayloadDigest(data, content.Name)
-		if err != nil {
-			return err
-		}
-		if actual != content.Digest {
-			return fmt.Errorf("payload digest mismatch: expected %s, got %s", content.Digest, actual)
-		}
-	}
-	return downloader.AtomicWriteFile(target, data, fetchedFileMode)
-}
-
-func readPackageFile(layers []containerv1.Layer, file string) ([]byte, error) {
-	if file == "" {
-		return nil, fmt.Errorf("package content file is required")
-	}
-	target := path.Join("opt/kubeclipper/resource", file)
-	for _, layer := range layers {
-		reader, err := layer.Uncompressed()
-		if err != nil {
-			return nil, err
-		}
-		data, err := readFileFromRootFS(reader, target)
-		reader.Close()
-		if err == nil {
-			return data, nil
-		}
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-	}
-	return nil, fmt.Errorf("%s not found in package image", target)
-}
-
-func readFileFromRootFS(reader io.Reader, target string) ([]byte, error) {
-	tr := tar.NewReader(reader)
-	for {
-		header, err := tr.Next()
-		if err == io.EOF {
-			return nil, os.ErrNotExist
-		}
-		if err != nil {
-			return nil, err
-		}
-		if header.Typeflag != tar.TypeReg || path.Clean(header.Name) != target {
-			continue
-		}
-		return io.ReadAll(tr)
-	}
-}
-
-func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
-	if isPlainFileContent(contentName) {
-		sum := sha256.Sum256(data)
-		return "sha256:" + hex.EncodeToString(sum[:]), nil
-	}
-	gzr, err := gzip.NewReader(bytes.NewReader(data))
-	if err != nil {
-		return "", err
-	}
-	defer gzr.Close()
-	hash := sha256.New()
-	if _, err = io.Copy(hash, gzr); err != nil {
-		return "", err
-	}
-	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
-}
-
 func isPlainFileContent(contentName string) bool {
 	switch contentName {
 	case deliveryapis.ContentConfigs, deliveryapis.ContentCharts:
@@ -454,9 +356,10 @@ type fetchedComponentManifest struct {
 	Transport deliveryapis.TransportRef      `json:"transport"`
 	Files     map[string]string              `json:"files"`
 	Contents  []deliveryapis.ArtifactContent `json:"contents,omitempty"`
+	Package   deliveryapis.PackageManifest   `json:"package"`
 }
 
-func writeFetchedManifest(result ComponentFetchResult, contents []deliveryapis.ArtifactContent, dryRun bool) error {
+func writeFetchedManifest(result ComponentFetchResult, contents []deliveryapis.ArtifactContent, manifest deliveryapis.PackageManifest, dryRun bool) error {
 	if result.ManifestPath == "" {
 		return nil
 	}
@@ -467,6 +370,7 @@ func writeFetchedManifest(result ComponentFetchResult, contents []deliveryapis.A
 		return err
 	}
 	data, err := json.MarshalIndent(fetchedComponentManifest{
+		Package:   manifest,
 		Slot:      result.Slot,
 		Kind:      result.Kind,
 		Name:      result.Name,

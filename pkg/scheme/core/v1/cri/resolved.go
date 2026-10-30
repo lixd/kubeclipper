@@ -40,6 +40,7 @@ func downloadAndUnpackResolvedRuntimeConfigs(ctx context.Context, base Base, nam
 	if err != nil {
 		return err
 	}
+	defer result.Release()
 	configs := result.Files[deliveryapis.ContentConfigs]
 	if configs == "" {
 		return fmt.Errorf("resolved %s configs content is missing", name)

@@ -372,11 +372,23 @@ type rolloutPlan struct {
 }
 
 type archArtifacts struct {
+	leases     []*deliveryfetcher.FetchResult
 	serverPath string
 	agentPath  string
 	kcctlPath  string
 	caddyPath  string
 	distPath   string
+}
+
+func (a archArtifacts) release() {
+	for _, r := range a.leases {
+		_ = r.Release()
+	}
+}
+func releaseArtifacts(all map[string]archArtifacts) {
+	for _, a := range all {
+		a.release()
+	}
 }
 
 func (o *UpgradeOptions) targetRoles() []string {
@@ -417,6 +429,7 @@ func (o *UpgradeOptions) RunUpgrade() error {
 	if err != nil {
 		return err
 	}
+	defer releaseArtifacts(fetched)
 	if err = o.runRollout(plan, fetched); err != nil {
 		return err
 	}
@@ -615,7 +628,7 @@ func nodeRevisionLabel(rev string) string {
 
 // preflight resolves and verifies every artifact for every target
 // architecture and checks node connectivity before any service is stopped.
-func (o *UpgradeOptions) preflight(plan *rolloutPlan) (map[string]archArtifacts, error) {
+func (o *UpgradeOptions) preflight(plan *rolloutPlan) (_ map[string]archArtifacts, err error) {
 	ctx := context.Background()
 	if err := o.verifyTagBinding(ctx); err != nil {
 		return nil, err
@@ -625,6 +638,11 @@ func (o *UpgradeOptions) preflight(plan *rolloutPlan) (map[string]archArtifacts,
 		arches.Insert(plan.nodes[i].arch)
 	}
 	fetched := make(map[string]archArtifacts, arches.Len())
+	defer func() {
+		if err != nil {
+			releaseArtifacts(fetched)
+		}
+	}()
 	for _, arch := range arches.List() {
 		artifacts, err := o.fetchPlatformPackage(ctx, arch)
 		if err != nil {
@@ -676,13 +694,20 @@ func (o *UpgradeOptions) verifyTagBinding(ctx context.Context) error {
 	return nil
 }
 
-func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) (*archArtifacts, error) {
+func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) (_ *archArtifacts, err error) {
 	artifacts := &archArtifacts{}
+	defer func() {
+		if err != nil {
+			artifacts.release()
+		}
+	}()
 	for _, required := range o.requiredArtifacts {
-		files, err := o.fetchPackageFiles(ctx, required, arch)
+		result, err := o.fetchPackageFiles(ctx, required, arch)
 		if err != nil {
 			return nil, err
 		}
+		artifacts.leases = append(artifacts.leases, result)
+		files := result.Components[0].Files
 		switch required.Component.Name {
 		case bootstrapPackageName:
 			artifacts.serverPath = files[serverBinaryName]
@@ -719,7 +744,7 @@ func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) 
 
 // fetchPackageFiles downloads one bootstrap package for the given architecture
 // and returns its contents as a file-name -> local-path map.
-func (o *UpgradeOptions) fetchPackageFiles(ctx context.Context, artifact *releasemanifest.Artifact, arch string) (map[string]string, error) {
+func (o *UpgradeOptions) fetchPackageFiles(ctx context.Context, artifact *releasemanifest.Artifact, arch string) (*deliveryfetcher.FetchResult, error) {
 	repository, tag, ok := strings.Cut(artifact.Target, ":")
 	if !ok || tag == "" {
 		return nil, fmt.Errorf("release manifest artifact target %q carries no tag", artifact.Target)
@@ -772,9 +797,10 @@ func (o *UpgradeOptions) fetchPackageFiles(ctx context.Context, artifact *releas
 		return nil, fmt.Errorf("fetch %s/%s:%s for %s: %w", artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch, err)
 	}
 	if len(result.Components) != 1 {
+		_ = result.Release()
 		return nil, fmt.Errorf("fetch %s/%s:%s for %s: unexpected fetch result", artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch)
 	}
-	return result.Components[0].Files, nil
+	return result, nil
 }
 
 func selectPackageEntry(inventory *deliveryapis.PackageInventory, kind, name, version, arch string) *deliveryapis.PackageEntry {

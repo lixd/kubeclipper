@@ -116,6 +116,7 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if err != nil {
 		return fmt.Errorf("fetch bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
+	defer result.Release()
 	fetched := make(map[string]string, len(result.Components))
 	for _, component := range result.Components {
 		for contentName, path := range component.Files {
@@ -199,7 +200,7 @@ func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, a
 			Arch:      pkg.Arch,
 			Required:  true,
 			Transport: pkg.Transport,
-			Contents:  pkg.Contents,
+			Contents:  selectedBootstrapContents(pkg.Contents, packageAssets),
 		})
 	}
 	return components, missing
@@ -286,4 +287,17 @@ func (a bootstrapAsset) packageName() string {
 
 func bootstrapAssetKey(packageName, contentName string) string {
 	return packageName + "/" + contentName
+}
+
+func selectedBootstrapContents(contents []deliveryapis.ArtifactContent, assets []bootstrapAsset) []deliveryapis.ArtifactContent {
+	var result []deliveryapis.ArtifactContent
+	for _, c := range contents {
+		for _, a := range assets {
+			if c.Name == a.Name {
+				result = append(result, c)
+				break
+			}
+		}
+	}
+	return result
 }

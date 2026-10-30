@@ -45,6 +45,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
+	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
 )
 
@@ -63,7 +64,14 @@ func init() {
 	}
 }
 
+type ChartRelease struct {
+	Name       string `json:"name"`
+	Namespace  string `json:"namespace"`
+	ValuesFile string `json:"valuesFile"`
+}
+
 type Chart struct {
+	Release   *ChartRelease                  `json:"release,omitempty"`
 	Kind      string                         `json:"kind,omitempty"`
 	PkgName   string                         `json:"pkgName"`
 	Version   string                         `json:"version"`
@@ -79,37 +87,53 @@ func (i *Chart) Install(ctx context.Context, opts component.Options) ([]byte, er
 	if i.Transport.Type != deliveryapis.TransportOCI {
 		return nil, fmt.Errorf("install %s-%s chart unsupported resolved transport %q", i.PkgName, i.Version, i.Transport.Type)
 	}
-	if _, err := i.downloadResolvedChart(ctx, opts); err != nil {
-		return nil, fmt.Errorf("download %s-%s resolved chart packages failed: %v", i.PkgName, i.Version, err)
+	chartPath, release, err := i.acquireChart(ctx, opts)
+	if err != nil {
+		return nil, fmt.Errorf("download %s-%s resolved chart packages failed: %w", i.PkgName, i.Version, err)
 	}
+	defer release()
+	if i.Release != nil {
+		args := []string{"upgrade", "--install", "--create-namespace", i.Release.Name, "-n", i.Release.Namespace, chartPath, "-f", i.Release.ValuesFile}
+		if _, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "helm", args...); err != nil {
+			return nil, err
+		}
+	}
+
 	logger.Infof("%s-%s chart packages installed successfully", i.PkgName, i.Version)
 	return nil, nil
 }
 
-func (i *Chart) downloadResolvedChart(ctx context.Context, opts component.Options) (string, error) {
+func (i *Chart) acquireChart(ctx context.Context, opts component.Options) (string, func() error, error) {
 	if content, ok := chartContent(i.Contents); ok && content.Transport.Type == deliveryapis.TransportHelmOCI {
-		return i.downloadHelmOCIChart(ctx, opts, content)
+		// Preserve native Helm acquisition; protect consumption from package cleanup.
+		if opts.DryRun {
+			p, err := i.downloadHelmOCIChart(ctx, opts, content)
+			return p, func() error { return nil }, err
+		}
+		lock, err := downloader.LockCache(ctx, "lifecycle", false, false)
+		if err != nil {
+			return "", nil, err
+		}
+		p, err := i.downloadHelmOCIChart(ctx, opts, content)
+		if err != nil {
+			_ = lock.Release()
+			return "", nil, err
+		}
+		return p, lock.Release, nil
 	}
-	contents := i.Contents
-	if len(contents) == 0 {
-		return "", fmt.Errorf("resolved chart contents are required")
+	if len(i.Contents) == 0 {
+		return "", nil, fmt.Errorf("resolved chart contents are required")
 	}
-	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{
-		Kind:      i.ArtifactKind(),
-		Name:      i.PkgName,
-		Version:   i.Version,
-		Arch:      i.Arch,
-		Transport: i.Transport,
-		Contents:  contents,
-	}, opts.DryRun)
+	result, err := deliveryfetcher.FetchComponent(ctx, runtime.GOARCH, deliveryapis.ResolvedComponent{Kind: i.ArtifactKind(), Name: i.PkgName, Version: i.Version, Arch: i.Arch, Transport: i.Transport, Contents: i.Contents}, opts.DryRun)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	path := result.Files[deliveryapis.ContentCharts]
-	if path == "" {
-		return "", fmt.Errorf("resolved chart content is missing")
+	p := result.Files[deliveryapis.ContentCharts]
+	if p == "" {
+		_ = result.Release()
+		return "", nil, fmt.Errorf("resolved chart content is missing")
 	}
-	return path, nil
+	return p, result.Release, nil
 }
 
 func (i *Chart) downloadHelmOCIChart(ctx context.Context, opts component.Options, content deliveryapis.ArtifactContent) (chartPath string, err error) {

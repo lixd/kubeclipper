@@ -29,7 +29,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/component/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
-	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/fileutil"
 	tmplutil "github.com/kubeclipper/kubeclipper/pkg/utils/template"
 )
@@ -161,14 +160,18 @@ func (runnable *CalicoRunnable) InstallStepsWithContext(ctx context.Context, nod
 				return nil, err
 			}
 		}
+		namespace := "calico-system"
+		if IsHighCalicoVersion(runnable.Version) {
+			namespace = "tigera-operator"
+		}
+		chart.Release = &common.ChartRelease{Name: "calico", Namespace: namespace, ValuesFile: filepath.Join(manifestDir, "calico.yaml")}
+		steps = append(steps, RenderYaml("calico", bytes, nodes))
 		cLoadSteps, err := chart.InstallStepsV2(nodes)
 		if err != nil {
 			return nil, err
 		}
 		steps = append(steps, cLoadSteps...)
-		steps = append(steps, RenderYaml("calico", bytes, nodes))
-		chartPath := downloader.ChartPath(chart.ArtifactKind(), chart.PkgName, chart.Version, chart.ArtifactPlatform())
-		steps = append(steps, InstallCalicoRelease(chartPath, filepath.Join(manifestDir, "calico.yaml"), runnable.Version, nodes))
+
 	} else {
 		steps = append(steps, RenderYaml("calico", bytes, nodes))
 		steps = append(steps, ApplyYaml(filepath.Join(manifestDir, "calico.yaml"), nodes))

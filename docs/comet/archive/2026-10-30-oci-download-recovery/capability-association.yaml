@@ -1,0 +1,79 @@
+schema: comet.capability-association.v1
+status: suggested
+workflow: native
+capability: registry-experience
+current_spec: docs/comet/specs/registry-experience/spec.md
+current_hash: 87304cd9ae138e3e4fe0a2cad4fc3a94ca0bdf6d3b4c96de482c9293dea6a5a1
+confidence: high
+query: "Fix OCI package delivery: download each layer once, validate before
+  extraction, recover interrupted bodies with bounded retries/resume, and fetch
+  only required bootstrap assets. Preserve existing changes and verify exact
+  source on sh-dev."
+reason: 当前总 Spec 已命中，并找到 1 个历史来源；已核对当前能力文件，匹配 4 个查询词（high）
+historical_sources:
+  - docs/comet/archive/2026-10-29-oci-registry-experience/specs/registry-experience/spec.md
+evidence:
+  - source: docs/comet/specs/registry-experience/spec.md
+    kind: native-spec
+    title: OCI 安装资源与全局镜像仓库
+    snippet: >-
+      # OCI 安装资源与全局镜像仓库
+
+
+      ## 目标及配置职责
+
+
+      平台在部署时选择安装资源 OCI 仓库，默认 ghcr.io/kubeclipper/kubeclipper，显式
+      --package-registry 优先。Server、Agent、containerd、Kubernetes 二进制和 Chart
+      均从正式解析计划指定的资源位置获取。仓库失败时直接失败。
+
+
+      部署登记对应的全局镜像 Registry 并记录平台默认引用；协议、地址、路径、认证、CA、TLS
+      校验设置保留。已有同名资源一致时复用，不一致时显式报冲突，不删除重建，不偷偷更改用户配置。现有配置 API 返回默认 Registry 引用供
+      Web 和 CLI 共用；不能由前端根据名称或安装资源字符串推测。
+
+
+      ## 下载脚本
+
+
+      脚本默认下载 GitHub 的 kcctl，--mirror cn 选择既定国内下载站。未知参数失败。删除 KC_REGION 和
+      KC_DOWNLOAD_URL，不写 shell 配置或 /etc/kc/kc.env，不把地区传给平台部署。
+
+
+      ## 创建与执行
+
+
+      未传 imageRegistry 时服务端解析平台默认 Registry，显式传入 Registry
+      名称时使用该对象；解析后将明确引用保存在集群。引用不存在、地址非法或默认未配置时返回可操作错误。CLI 与 Web 遵循相同规
+  - source: docs/comet/archive/2026-10-29-oci-registry-experience/specs/registry-experience/spec.md
+    kind: native-archive
+    title: OCI 安装资源与全局镜像仓库
+    snippet: >-
+      # OCI 安装资源与全局镜像仓库
+
+
+      ## 目标及配置职责
+
+
+      平台在部署时选择安装资源 OCI 仓库，默认 ghcr.io/kubeclipper/kubeclipper，显式
+      --package-registry 优先。Server、Agent、containerd、Kubernetes 二进制和 Chart
+      均从正式解析计划指定的资源位置获取。仓库失败时直接失败。
+
+
+      部署登记对应的全局镜像 Registry 并记录平台默认引用；协议、地址、路径、认证、CA、TLS
+      校验设置保留。已有同名资源一致时复用，不一致时显式报冲突，不删除重建，不偷偷更改用户配置。现有配置 API 返回默认 Registry 引用供
+      Web 和 CLI 共用；不能由前端根据名称或安装资源字符串推测。
+
+
+      ## 下载脚本
+
+
+      脚本默认下载 GitHub 的 kcctl，--mirror cn 选择既定国内下载站。未知参数失败。删除 KC_REGION 和
+      KC_DOWNLOAD_URL，不写 shell 配置或 /etc/kc/kc.env，不把地区传给平台部署。
+
+
+      ## 创建与执行
+
+
+      未传 imageRegistry 时服务端解析平台默认 Registry，显式传入 Registry
+      名称时使用该对象；解析后将明确引用保存在集群。引用不存在、地址非法或默认未配置时返回可操作错误。CLI 与 Web 遵循相同规

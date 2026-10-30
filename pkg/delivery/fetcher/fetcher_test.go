@@ -79,7 +79,7 @@ func TestFetchComponentUsesResolvedComponentArch(t *testing.T) {
 	if result.Arch != "arm64" {
 		t.Fatalf("result arch = %q, want arm64", result.Arch)
 	}
-	if got := result.Files[deliveryapis.ContentCharts]; got != downloader.ChartPath("cni", "calico", "v3.31.5", "linux-arm64") {
+	if got := result.Files[deliveryapis.ContentCharts]; !strings.HasPrefix(got, downloader.PackageDir("cni", "calico", "v3.31.5", "linux-arm64")) {
 		t.Fatalf("chart path = %q", got)
 	}
 }

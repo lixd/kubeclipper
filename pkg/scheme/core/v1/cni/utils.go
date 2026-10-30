@@ -24,10 +24,11 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func RenderYaml(name string, custom []byte, nodes []v1.StepNode) v1.Step {
@@ -62,30 +63,6 @@ func ApplyYaml(yamlName string, nodes []v1.StepNode) v1.Step {
 			{
 				Type:         v1.CommandShell,
 				ShellCommand: []string{"kubectl", "apply", "-f", yamlName},
-			},
-		},
-	}
-}
-
-func InstallCalicoRelease(chartPath string, yamlName string, calicoVersion string, nodes []v1.StepNode) v1.Step {
-	// For Calico v3.29.6 and later, tigera-operator must be installed in tigera-operator namespace
-	// For earlier versions, it can be installed in calico-system namespace
-	namespace := "calico-system"
-	if IsHighCalicoVersion(calicoVersion) {
-		namespace = "tigera-operator"
-	}
-
-	return v1.Step{
-		ID:         strutil.GetUUID(),
-		Name:       "installCalicoRelease",
-		Timeout:    metav1.Duration{Duration: 1 * time.Minute},
-		ErrIgnore:  false,
-		RetryTimes: 1,
-		Nodes:      nodes,
-		Commands: []v1.Command{
-			{
-				Type:         v1.CommandShell,
-				ShellCommand: []string{"helm", "upgrade", "--install", "--create-namespace", "calico", "-n", namespace, chartPath, "-f", yamlName},
 			},
 		},
 	}

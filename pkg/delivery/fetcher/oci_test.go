@@ -29,6 +29,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	containerv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -41,6 +42,9 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	if os.Getenv("KC_INGEST_CHILD") == "1" || os.Getenv("KC_SNAPSHOT_CHILD") != "" {
+		os.Exit(m.Run())
+	}
 	cacheDir, err := os.MkdirTemp("", "kubeclipper-fetcher-test-")
 	if err != nil {
 		panic(err)
@@ -54,6 +58,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestOCIReference(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	for _, tt := range []struct {
 		name      string
 		transport deliveryapis.TransportRef
@@ -85,6 +90,7 @@ func TestOCIReference(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherRejectsTagOnlyReference(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	fetcher := NewOCIArtifactFetcher(false)
 	_, err := fetcher.Fetch(context.Background(), &deliveryapis.ResolvedArtifactPlan{
 		KubernetesVersion: "v1.36.0",
@@ -107,6 +113,7 @@ func TestOCIArtifactFetcherRejectsTagOnlyReference(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherRejectsMismatchedPinnedReference(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	fetcher := NewOCIArtifactFetcher(false)
 	fetcher.PullImage = func(ref string) (containerv1.Image, error) {
 		t.Fatalf("PullImage() should not be called for mismatched pinned reference")
@@ -134,6 +141,7 @@ func TestOCIArtifactFetcherRejectsMismatchedPinnedReference(t *testing.T) {
 }
 
 func TestContentFile(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	for _, tt := range []struct {
 		content deliveryapis.ArtifactContent
 		want    string
@@ -149,6 +157,7 @@ func TestContentFile(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherDryRun(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	fetcher := NewOCIArtifactFetcher(true)
 	result, err := fetcher.Fetch(context.Background(), &deliveryapis.ResolvedArtifactPlan{
 		KubernetesVersion: "v1.36.0",
@@ -174,21 +183,23 @@ func TestOCIArtifactFetcherDryRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch() error: %+v", err)
 	}
+	defer result.Release()
 	if len(result.Components) != 1 {
 		t.Fatalf("components length = %d, want 1", len(result.Components))
 	}
 	if result.Components[0].OS != deliveryapis.DefaultPackageOS {
 		t.Fatalf("component os = %q", result.Components[0].OS)
 	}
-	if got := result.Components[0].Files[deliveryapis.ContentCharts]; got != downloader.ChartPath("cni", "calico", "v3.31.5", "linux-amd64") {
+	if got := result.Components[0].Files[deliveryapis.ContentCharts]; !strings.HasPrefix(got, downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64")+string(filepath.Separator)) || filepath.Base(got) != downloader.ChartFilename {
 		t.Fatalf("chart path = %q", got)
 	}
-	if result.Components[0].BaseDir != downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64") {
+	if !strings.HasPrefix(result.Components[0].BaseDir, downloader.PackageDir("cni", "calico", "v3.31.5", "linux-amd64")+string(filepath.Separator)) {
 		t.Fatalf("base dir = %q", result.Components[0].BaseDir)
 	}
 }
 
 func TestOCIArtifactFetcherValidatesPackageManifest(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
@@ -207,6 +218,7 @@ func TestOCIArtifactFetcherValidatesPackageManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Fetch() error: %+v", err)
 	}
+	defer result.Release()
 	if len(result.Components) != 1 {
 		t.Fatalf("components length = %d, want 1", len(result.Components))
 	}
@@ -221,6 +233,7 @@ func TestOCIArtifactFetcherValidatesPackageManifest(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherReusesDigestValidatedCache(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "cached chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
@@ -235,11 +248,15 @@ func TestOCIArtifactFetcherReusesDigestValidatedCache(t *testing.T) {
 		pulls++
 		return image, nil
 	}
-	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("initial Fetch() error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
-	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("cached Fetch() error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
 	if pulls != 1 {
 		t.Fatalf("PullImage() calls = %d, want 1", pulls)
@@ -247,6 +264,7 @@ func TestOCIArtifactFetcherReusesDigestValidatedCache(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherReusesCacheWithoutResolverSlot(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "cached extension payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
@@ -261,12 +279,16 @@ func TestOCIArtifactFetcherReusesCacheWithoutResolverSlot(t *testing.T) {
 		pulls++
 		return image, nil
 	}
-	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("initial Fetch() error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
 	plan.Components[0].Slot = ""
-	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("Fetch() without resolver slot error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
 	if pulls != 1 {
 		t.Fatalf("PullImage() calls = %d, want 1", pulls)
@@ -274,6 +296,7 @@ func TestOCIArtifactFetcherReusesCacheWithoutResolverSlot(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherRejectsTamperedCache(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "cached chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
@@ -292,19 +315,24 @@ func TestOCIArtifactFetcherRejectsTamperedCache(t *testing.T) {
 	result, err := fetcher.Fetch(context.Background(), plan)
 	if err != nil {
 		t.Fatalf("initial Fetch() error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
 	if err = os.WriteFile(result.Components[0].Files[deliveryapis.ContentCharts], []byte("tampered"), 0644); err != nil {
 		t.Fatalf("tamper cached payload: %+v", err)
 	}
-	if _, err = fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("refetch after cache tamper: %+v", err)
+	} else {
+		_ = result.Release()
 	}
-	if pulls != 2 {
-		t.Fatalf("PullImage() calls = %d, want 2", pulls)
+	if pulls != 1 {
+		t.Fatalf("PullImage() calls = %d, want 1 (verified local content reuse)", pulls)
 	}
 }
 
-func TestOCIArtifactFetcherRejectsCacheFromDifferentReference(t *testing.T) {
+func TestOCIArtifactFetcherReusesVerifiedDigestAcrossReferences(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "cached chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
@@ -319,19 +347,24 @@ func TestOCIArtifactFetcherRejectsCacheFromDifferentReference(t *testing.T) {
 		pulls++
 		return image, nil
 	}
-	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("initial Fetch() error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
 	plan.Components[0].Transport.Ref = "mirror.local:5000/kubeclipper/packages/cni/calico:v3.31.5"
-	if _, err := fetcher.Fetch(context.Background(), plan); err != nil {
+	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("Fetch() with changed reference error: %+v", err)
+	} else {
+		_ = result.Release()
 	}
-	if pulls != 2 {
-		t.Fatalf("PullImage() calls = %d, want 2", pulls)
+	if pulls != 1 {
+		t.Fatalf("PullImage() calls = %d, want 1 (verified local content reuse)", pulls)
 	}
 }
 
 func TestOCIArtifactFetcherRejectsPulledDigestMismatch(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("calico", "v3.31.5", payloadDigest)
@@ -348,6 +381,7 @@ func TestOCIArtifactFetcherRejectsPulledDigestMismatch(t *testing.T) {
 }
 
 func TestOCIArtifactFetcherRejectsMismatchedPackageManifest(t *testing.T) {
+	t.Setenv(downloader.CacheDirEnv, t.TempDir())
 	payload := testGzipPayload(t, "chart payload")
 	payloadDigest := mustPackageDigest(t, payload, deliveryapis.ContentCharts)
 	manifest := fetcherPackageManifest("flannel", "v3.31.5", payloadDigest)
@@ -364,70 +398,25 @@ func TestOCIArtifactFetcherRejectsMismatchedPackageManifest(t *testing.T) {
 	}
 }
 
-func TestWritePackageFileValidatesDigest(t *testing.T) {
-	payload := testGzipPayload(t, "configs")
-	digest := mustPackageDigest(t, payload, deliveryapis.ContentConfigs)
-	manifest := fetcherPackageManifest("calico", "v3.31.5", digest)
-	manifest.Contents[0].Name = deliveryapis.ContentConfigs
-	manifest.Contents[0].File = downloader.ConfigFilename
-	layer := packageRootFSLayer(t, manifest, payload)
-	target := filepath.Join(t.TempDir(), "configs.tar.gz")
-	if err := writePackageFile([]containerv1.Layer{layer}, target, deliveryapis.ArtifactContent{
-		Name:   deliveryapis.ContentConfigs,
-		File:   downloader.ConfigFilename,
-		Digest: digest,
-	}); err != nil {
-		t.Fatalf("writePackageFile() error: %+v", err)
-	}
-	data, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatalf("ReadFile() error: %+v", err)
-	}
-	if !bytes.Equal(data, payload) {
-		t.Fatalf("payload was not preserved")
-	}
-}
-
-func TestWritePackageFileRejectsDigestMismatch(t *testing.T) {
-	payload := testGzipPayload(t, "configs")
-	digest := mustPackageDigest(t, payload, deliveryapis.ContentConfigs)
-	manifest := fetcherPackageManifest("calico", "v3.31.5", digest)
-	manifest.Contents[0].Name = deliveryapis.ContentConfigs
-	manifest.Contents[0].File = downloader.ConfigFilename
-	layer := packageRootFSLayer(t, manifest, payload)
-	target := filepath.Join(t.TempDir(), "configs.tar.gz")
-	if err := writePackageFile([]containerv1.Layer{layer}, target, deliveryapis.ArtifactContent{
-		Name:   deliveryapis.ContentConfigs,
-		File:   downloader.ConfigFilename,
-		Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-	}); err == nil {
-		t.Fatalf("writePackageFile() expected digest mismatch error")
-	}
-}
-
-func TestWritePackageFileWritesBinaryPayload(t *testing.T) {
-	payload := []byte("binary-payload")
-	digest := mustPackageDigest(t, payload, deliveryapis.ContentBinary)
-	manifest := fetcherPackageManifest("kubeclipper-agent", "v1.8.0", digest)
-	manifest.Kind = "binary"
-	manifest.Name = "kubeclipper-agent"
-	manifest.Contents[0].Name = deliveryapis.ContentBinary
-	manifest.Contents[0].File = "kubeclipper-agent"
-	layer := packageRootFSLayer(t, manifest, payload)
-	target := filepath.Join(t.TempDir(), "kubeclipper-agent")
-	if err := writePackageFile([]containerv1.Layer{layer}, target, deliveryapis.ArtifactContent{
-		Name:   deliveryapis.ContentBinary,
-		File:   "kubeclipper-agent",
-		Digest: digest,
-	}); err != nil {
-		t.Fatalf("writePackageFile() error: %+v", err)
-	}
-	data, err := os.ReadFile(target)
-	if err != nil {
-		t.Fatalf("ReadFile() error: %+v", err)
-	}
-	if string(data) != "binary-payload" {
-		t.Fatalf("payload = %q, want binary-payload", string(data))
+func TestPayloadVerificationPreservesDigestSemantics(t *testing.T) {
+	for _, name := range []string{deliveryapis.ContentConfigs, deliveryapis.ContentCharts, deliveryapis.ContentBinary} {
+		t.Run(name, func(t *testing.T) {
+			payload := []byte("binary-payload")
+			if name != deliveryapis.ContentBinary {
+				payload = testGzipPayload(t, "payload")
+			}
+			p := filepath.Join(t.TempDir(), "payload")
+			if err := os.WriteFile(p, payload, 0600); err != nil {
+				t.Fatal(err)
+			}
+			expected := mustPackageDigest(t, payload, name)
+			if err := verifyPayload(context.Background(), p, name, expected); err != nil {
+				t.Fatal(err)
+			}
+			if err := verifyPayload(context.Background(), p, name, "sha256:"+strings.Repeat("a", 64)); err == nil {
+				t.Fatal("bad digest accepted")
+			}
+		})
 	}
 }
 
@@ -629,4 +618,21 @@ func packageRootFSLayer(t *testing.T, manifest deliveryapis.PackageManifest, pay
 		t.Fatalf("close rootfs tar: %+v", err)
 	}
 	return newStubLayer(buf.Bytes(), string(types.OCILayer))
+}
+
+func packageFilePayloadDigest(data []byte, contentName string) (string, error) {
+	if isPlainFileContent(contentName) {
+		sum := sha256.Sum256(data)
+		return "sha256:" + hex.EncodeToString(sum[:]), nil
+	}
+	gzr, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		return "", err
+	}
+	defer gzr.Close()
+	hash := sha256.New()
+	if _, err = io.Copy(hash, gzr); err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(hash.Sum(nil)), nil
 }

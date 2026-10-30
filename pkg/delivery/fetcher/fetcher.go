@@ -21,6 +21,7 @@ package fetcher
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
@@ -32,9 +33,11 @@ type ArtifactFetcher interface {
 
 type FetchResult struct {
 	Components []ComponentFetchResult `json:"components"`
+	lease      *resultLease
 }
 
 type ComponentFetchResult struct {
+	lease        *resultLease
 	Slot         string                    `json:"slot"`
 	Kind         string                    `json:"kind"`
 	Name         string                    `json:"name"`
@@ -46,6 +49,27 @@ type ComponentFetchResult struct {
 	Transport    deliveryapis.TransportRef `json:"transport,omitempty"`
 	Files        map[string]string         `json:"files"`
 }
+
+type resultLease struct {
+	once    sync.Once
+	release func() error
+	err     error
+}
+
+func (l *resultLease) close() error {
+	if l == nil {
+		return nil
+	}
+	l.once.Do(func() { l.err = l.release() })
+	return l.err
+}
+func (r *FetchResult) Release() error {
+	if r == nil {
+		return nil
+	}
+	return r.lease.close()
+}
+func (r ComponentFetchResult) Release() error { return r.lease.close() }
 
 func NewForTransport(transportType string, dryRun bool) (ArtifactFetcher, error) {
 	switch transportType {
@@ -72,6 +96,7 @@ func FetchComponent(ctx context.Context, arch string, component deliveryapis.Res
 		return ComponentFetchResult{}, err
 	}
 	if len(result.Components) == 0 {
+		_ = result.Release()
 		return ComponentFetchResult{}, fmt.Errorf("no fetch result for %s/%s:%s", component.Kind, component.Name, component.Version)
 	}
 	return result.Components[0], nil

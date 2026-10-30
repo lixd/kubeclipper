@@ -250,6 +250,7 @@ func downloadAndUnpackResolvedPackage(ctx context.Context, stepper *Package, opt
 	if err != nil {
 		return err
 	}
+	defer result.Release()
 	if err = os.MkdirAll(Kubelet10KubeadmDir, 0755); err != nil {
 		if !opts.DryRun {
 			return err

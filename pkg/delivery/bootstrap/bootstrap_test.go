@@ -96,3 +96,20 @@ func TestRefreshBootstrapInventoryUsesCatalogWhenAvailable(t *testing.T) {
 		t.Fatalf("fallback ran %d times, want 0 when the catalog works", fake.fallbackCalls)
 	}
 }
+
+func TestBootstrapSelectsOnlyConsumedAssets(t *testing.T) {
+	all := []deliveryapis.ArtifactContent{{Name: "kubeclipper-server"}, {Name: "kubeclipper-agent"}, {Name: "kcctl"}}
+	deploy := selectedBootstrapContents(all, deployBootstrapAssets)
+	if len(deploy) != 2 {
+		t.Fatalf("deploy selected %v", deploy)
+	}
+	for _, x := range deploy {
+		if x.Name == "kcctl" {
+			t.Fatal("deploy selected kcctl")
+		}
+	}
+	join := selectedBootstrapContents(all, joinBootstrapAssets)
+	if len(join) != 1 || join[0].Name != "kubeclipper-agent" {
+		t.Fatalf("join selected %v", join)
+	}
+}

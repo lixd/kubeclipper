@@ -25,6 +25,9 @@ import (
 	"runtime"
 	"time"
 
+	"go.uber.org/zap"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
@@ -34,8 +37,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/cmdutil"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/strutil"
-	"go.uber.org/zap"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func init() {
@@ -102,6 +103,7 @@ func (stepper *Extension) installResolved(ctx context.Context, opts component.Op
 	if err != nil {
 		return err
 	}
+	defer result.Release()
 	configs := result.Files[deliveryapis.ContentConfigs]
 	if configs == "" {
 		return fmt.Errorf("resolved k8s extension configs content is missing")

@@ -17,6 +17,7 @@
 package downloader
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -155,21 +156,7 @@ func AtomicWrite(path string, mode os.FileMode, write func(io.Writer) error) err
 }
 
 func CleanupCharts(kind, name, version, arch string, dryRun bool) error {
-	if err := ValidatePackagePath(kind, name, version, arch); err != nil {
-		return err
-	}
-	if dryRun {
-		return nil
-	}
-	for _, path := range []string{
-		ChartPath(kind, name, version, arch),
-		ChartPath(kind, name, version, arch) + ".source.json",
-	} {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
+	return CleanupPackage(kind, name, version, arch, dryRun)
 }
 
 func CleanupPackage(kind, name, version, arch string, dryRun bool) error {
@@ -179,5 +166,10 @@ func CleanupPackage(kind, name, version, arch string, dryRun bool) error {
 	if dryRun {
 		return nil
 	}
+	lock, err := LockCache(context.Background(), "lifecycle", true, false)
+	if err != nil {
+		return err
+	}
+	defer lock.Release()
 	return os.RemoveAll(PackageDir(kind, name, version, arch))
 }
