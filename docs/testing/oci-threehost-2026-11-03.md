@@ -21,3 +21,5 @@
 首轮 qualification 按既有配置构建 v2.0.9，而现场 Server 为 v2.0.10-e2e.71319775；正常升级会触发降级拒绝。首轮执行已取消，不计为通过。将 release 与 kubeclipperVersion 同步为测试候选 v2.0.11-oci.20261103，保持降级保护不变，重新生成 qualification。dev-3/4 的 doctor --config 复查因旧 CLI 无此选项退出，保留为未完成；未复制认证资料修饰结果。
 
 1477172b qualification 41616216648 未通过：发布策略校验发现内置 Delivery Policy 的 bootstrap 默认值仍为 v2.0.9。矩阵生成使用 echo 包住命令替换，掩盖子命令退出码，使 prepare 虚假成功后出现 fromJSON 空输入。同步内置版本，并拆分赋值与 echo，使失败在 prepare 明确返回；该失败不计为部署或测试通过。
+
+平台首次升级在任何服务改动前被 ReleaseManifest 稳定版本格式约束拒绝（metadata.version 不接受预发布后缀）。这是本轮候选版本选择错误；配置统一为 v2.0.11，仍仅在 fork qualification 命名空间发布测试候选，不创建正式 Release。旧失败日志与制品保留，不伪装为成功；重新构建验证。
