@@ -1,0 +1,15 @@
+{
+  "checks": [
+    {
+      "arch": "amd64",
+      "exit": 0,
+      "lines": 61
+    },
+    {
+      "arch": "arm64",
+      "exit": 0,
+      "lines": 61
+    }
+  ],
+  "nativeARMRuntimeTested": false
+}

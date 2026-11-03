@@ -1,0 +1,106 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "clusterPackageManifestRevision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "checks": [
+    {
+      "check": "existing1364 cluster runs with public network blocked and runtime images match qualified manifest",
+      "passed": true,
+      "detail": {
+        "clusterUID": "7ae7f041-e687-435e-b971-4840079eee08",
+        "operationUID": "0479114d-bec4-4d87-a8d5-03bc34edff17",
+        "nodeUID": "6fbdd364-8da3-4527-a877-4c542ea050c3",
+        "packagePlanTransportRefs": [
+          "172.16.131.146:5605/qualified-final/kubeclipper/packages/k8s/k8s:v1.36.4",
+          "172.16.131.146:5605/qualified-final/kubeclipper/packages/cri/containerd:2.2.4",
+          "172.16.131.146:5605/qualified-final/kubeclipper/charts/tigera-operator:v3.31.5",
+          "172.16.131.146:5605/qualified-final/kubeclipper/packages/k8s-extension/k8s-extension:v1"
+        ],
+        "systemContainersVerified": 17,
+        "images": [
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/apiserver:v3.31.5",
+            "digest": "sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/apiserver:v3.31.5",
+            "digest": "sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/kube-controllers:v3.31.5",
+            "digest": "sha256:4a1c3d86e8501edb1429226b4b8939b57d2b297ef990703c5dbea30a0b3bd84d"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/pod2daemon-flexvol:v3.31.5",
+            "digest": "sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/cni:v3.31.5",
+            "digest": "sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/calico/typha:v3.31.5",
+            "digest": "sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/coredns:v1.14.2",
+            "digest": "sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/coredns:v1.14.2",
+            "digest": "sha256:fd5079792b93909db3adefa91e41c3995455013394f0197c7346786ae19079fc"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/etcd:3.6.8-0",
+            "digest": "sha256:aa2b41e3f99c9a337b82f687875a63c5119e6d39bc43fc76b6c40a96f55cf391"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/kubeclipper/kubectl",
+            "digest": "sha256:85db688a80a1493d40ba9d13f64bf2c615121112fbe9f44dd43368fa4f837c59"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/kube-apiserver:v1.36.4",
+            "digest": "sha256:feb6509b541379d76b37cf6e7a5c1e3767458f7468288525f75574672fee1b18"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/kube-controller-manager:v1.36.4",
+            "digest": "sha256:ff4b86d6ed3cb2a8ef22c2fea31054bdc16099e583c343aabf3d54d212480c8e"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/kube-proxy:v1.36.4",
+            "digest": "sha256:70f5e02ebce27a7a3b1bc9b164f64e1982acf46f4ed68348c9a7b94a43d6d014"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/kube-scheduler:v1.36.4",
+            "digest": "sha256:883d4d505bf015f73cea8bfead8b9d9d1ec3a9f19bcad6c004f929d666102c2a"
+          },
+          {
+            "image": "172.16.131.146:5605/qualified-final/tigera/operator:v1.40.8",
+            "digest": "sha256:bb3104920794aca0b4b89334a6b5f5a3f45191b94ae296ea7e4164175787292f"
+          }
+        ],
+        "autodetection": "can-reach=172.16.131.1",
+        "calicoVXLANMode": "CrossSubnet",
+        "coldCreationClaim": false
+      }
+    },
+    {
+      "check": "real workload Service HTTP and cluster DNS succeed during enforced isolation while Pod public HTTPS fails",
+      "passed": true,
+      "detail": {
+        "HTTPBody": "airgap-real",
+        "serviceDNSIP": "10.105.0.1",
+        "publicPodHTTPSBlocked": true,
+        "firewallRejectCounterPackets": 201
+      }
+    }
+  ],
+  "postTestState": "public network and original proxy drop-in restored; HTTP package source config intentionally retained for upgrade tests; original config snapshots private"
+}

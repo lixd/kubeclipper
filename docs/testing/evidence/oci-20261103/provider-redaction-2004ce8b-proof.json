@@ -1,0 +1,67 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "real platform-view list detail and forged informer reads remove actual Provider SSH private key and kubeconfig",
+      "passed": true,
+      "detail": {
+        "responses": [
+          {
+            "path": "/api/core.kubeclipper.io/v1/cloudproviders",
+            "forgedInformerHeader": false,
+            "status": 200,
+            "credentialsAbsent": true
+          },
+          {
+            "path": "/api/core.kubeclipper.io/v1/cloudproviders/oci-3e33-kubeadm",
+            "forgedInformerHeader": false,
+            "status": 200,
+            "credentialsAbsent": true
+          },
+          {
+            "path": "/api/core.kubeclipper.io/v1/cloudproviders",
+            "forgedInformerHeader": true,
+            "status": 200,
+            "credentialsAbsent": true
+          },
+          {
+            "path": "/api/core.kubeclipper.io/v1/cloudproviders/oci-3e33-kubeadm",
+            "forgedInformerHeader": true,
+            "status": 200,
+            "credentialsAbsent": true
+          }
+        ],
+        "credentialValuesRecorded": false
+      }
+    },
+    {
+      "check": "actual platform-admin JWT retains stored provider credentials required by existing editor while controller remains Ready",
+      "passed": true,
+      "detail": {
+        "status": 200,
+        "fullEditorDataPreserved": true,
+        "privilegedValuesOmitted": true
+      }
+    },
+    {
+      "check": "real cached Provider watches redact credentials and internal informer still reconciles imported cluster successfully",
+      "passed": true,
+      "detail": {
+        "streams": [
+          {
+            "forgedInformerHeader": false,
+            "actualMutationReceived": true,
+            "credentialsAbsent": true
+          },
+          {
+            "forgedInformerHeader": true,
+            "actualMutationReceived": true,
+            "credentialsAbsent": true
+          }
+        ],
+        "providerReady": true,
+        "importedClusterRunning": true
+      }
+    }
+  ]
+}

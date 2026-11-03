@@ -1,0 +1,29 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "checks": [
+    {
+      "check": "native kubeadm Provider precheck validates real external Kubernetes TLS API with CA verification",
+      "passed": true,
+      "detail": {
+        "sourceKubernetesNodeUID": "6fbdd364-8da3-4527-a877-4c542ea050c3",
+        "actualVersion": "v1.37.0",
+        "kubeconfigSHA256": "cdadb60b0dfd3ba637af89d5d5ce98ff4e7adce63d947f6f4286c58bcf45784c",
+        "TLSVerificationDisabled": false,
+        "scope": "existing lab Kubernetes will be released from source platform ownership before import"
+      }
+    },
+    {
+      "check": "real external cluster imports and native Provider sync preserves Kubernetes and existing Agent identities",
+      "passed": true,
+      "detail": {
+        "providerUID": "638cfdab-b039-4a1f-a0dc-ff4cd3007a17",
+        "importedClusterUID": "975af537-c7a7-4893-97ec-8922d2bb68fd",
+        "sourceKubernetesNodeUID": "6fbdd364-8da3-4527-a877-4c542ea050c3",
+        "platformNodeUID": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+        "actualAPIWriteReadDelete": true,
+        "otherClusterPlanPreserved": true,
+        "agentBranch": "existing active Agent reused; dedicated expiring SSH fixture restricted to dev2 source"
+      }
+    }
+  ]
+}

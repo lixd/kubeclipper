@@ -1,0 +1,12 @@
+{
+  "revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+  "binaries": {
+    "kubeclipper-agent": {
+      "gitCommitVerified": true,
+      "sha256": "853e849ec6e124ff021778012a54ecd985474be5e6bfea68312f79ee40779046",
+      "runningPID": 1737031,
+      "runningSHA256": "853e849ec6e124ff021778012a54ecd985474be5e6bfea68312f79ee40779046",
+      "HTTP2ForcedOff": false
+    }
+  }
+}

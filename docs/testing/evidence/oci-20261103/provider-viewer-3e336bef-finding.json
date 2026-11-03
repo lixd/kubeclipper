@@ -1,0 +1,36 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "actualRole": "platform-view",
+  "results": [
+    {
+      "path": "/api/core.kubeclipper.io/v1/cloudproviders",
+      "forgedInformerHeader": false,
+      "status": 200,
+      "actualPrivateKeyExposed": true,
+      "actualKubeConfigExposed": true
+    },
+    {
+      "path": "/api/core.kubeclipper.io/v1/cloudproviders/oci-3e33-kubeadm",
+      "forgedInformerHeader": false,
+      "status": 200,
+      "actualPrivateKeyExposed": true,
+      "actualKubeConfigExposed": true
+    },
+    {
+      "path": "/api/core.kubeclipper.io/v1/cloudproviders",
+      "forgedInformerHeader": true,
+      "status": 200,
+      "actualPrivateKeyExposed": true,
+      "actualKubeConfigExposed": true
+    },
+    {
+      "path": "/api/core.kubeclipper.io/v1/cloudproviders/oci-3e33-kubeadm",
+      "forgedInformerHeader": true,
+      "status": 200,
+      "actualPrivateKeyExposed": true,
+      "actualKubeConfigExposed": true
+    }
+  ],
+  "credentialValuesRecorded": false,
+  "finding": true
+}

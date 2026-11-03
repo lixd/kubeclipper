@@ -1,0 +1,98 @@
+{
+  "revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+  "checks": [
+    {
+      "check": "real native package preparation warms verified cache on free Agent first",
+      "passed": true,
+      "detail": {
+        "operationUID": "27d3dfa5-b62c-48fa-9f7f-7545572c2fb0",
+        "sourceAddNodesUID": "540a1d84-1b6e-47b6-9960-0e32fa8a9e7d",
+        "executedNativeSteps": [
+          "installRuntime",
+          "installExtension",
+          "installPackages"
+        ],
+        "manualCacheCopyUsed": false,
+        "note": "node removal deliberately cleans cache, so native preparation is run before each cold/cache fault scenario"
+      }
+    },
+    {
+      "check": "real required worker installation succeeds from verified cache with Agent public Registry transport unavailable",
+      "passed": true,
+      "detail": {
+        "operationUID": "e7035b09-ffa0-4cae-8f05-6be18e8524ab",
+        "agentProxyUnavailable": true,
+        "containerdInternalRegistryUnaffected": true,
+        "packagePlanUnchanged": true
+      }
+    },
+    {
+      "check": "native worker removal succeeds while cache is valid and public package source remains unavailable",
+      "passed": true,
+      "detail": {
+        "operationUID": "e1c8b9df-5bd4-42e3-8fd7-84b10353cd7e"
+      }
+    },
+    {
+      "check": "real native package preparation warms verified cache on free Agent second",
+      "passed": true,
+      "detail": {
+        "operationUID": "c70c7643-8607-4f44-bd22-fd07fbce092c",
+        "sourceAddNodesUID": "e7035b09-ffa0-4cae-8f05-6be18e8524ab",
+        "executedNativeSteps": [
+          "installRuntime",
+          "installExtension",
+          "installPackages"
+        ],
+        "manualCacheCopyUsed": false,
+        "note": "node removal deliberately cleans cache, so native preparation is run before each cold/cache fault scenario"
+      }
+    },
+    {
+      "check": "corrupt extracted payload rebuilt from verified local OCI blobs while Registry is unavailable",
+      "passed": true,
+      "detail": {
+        "operationUID": "05e03681-5f56-48d0-bb93-80abe190f52b",
+        "restoredFileSHA256": "42f9648c8d0366018b1d84633d3d26d0b3133284b397fc421d2f6b89f5295e98",
+        "manualCacheRestoreUsed": false
+      }
+    },
+    {
+      "check": "real native package preparation warms verified cache on free Agent third",
+      "passed": true,
+      "detail": {
+        "operationUID": "47e94245-3b7c-4fa5-aa52-160401048b48",
+        "sourceAddNodesUID": "05e03681-5f56-48d0-bb93-80abe190f52b",
+        "executedNativeSteps": [
+          "installRuntime",
+          "installExtension",
+          "installPackages"
+        ],
+        "manualCacheCopyUsed": false,
+        "note": "node removal deliberately cleans cache, so native preparation is run before each cold/cache fault scenario"
+      }
+    },
+    {
+      "check": "corrupt required CRI payload and incomplete local CAS fail explicitly when Registry is unreachable",
+      "passed": true,
+      "detail": {
+        "operationUID": "28c40cf1-0ba2-4073-8d31-f624d7cbc03e",
+        "retryGeneration": 1,
+        "phase": "Failed",
+        "sanitizedError": "network proxyconnect failed",
+        "note": "previous fixture incorrectly expected private proxy port in intentionally sanitized API logs; assertion corrected and fault re-established before this retry"
+      }
+    },
+    {
+      "check": "native retry restores correct digest-pinned package from Registry and worker becomes Ready",
+      "passed": true,
+      "detail": {
+        "operationUID": "28c40cf1-0ba2-4073-8d31-f624d7cbc03e",
+        "retryGeneration": 2,
+        "stepsSHA256": "cfadc3501b9113a69af34724a321e53aae4c98e8d248e21a073c0cf0b9ac8e49",
+        "restoredFileSHA256": "42f9648c8d0366018b1d84633d3d26d0b3133284b397fc421d2f6b89f5295e98",
+        "manualCacheRestoreUsed": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "actual all3 cold native receipts CAS manifests every package payload and native Helm chart match frozen digests and latest source revision",
+      "passed": true,
+      "detail": {
+        "172.16.131.208": {
+          "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+          "components": [
+            {
+              "slot": "k8s",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s/k8s:v1.37.0",
+                "digest": "sha256:6cef908956dd1bd934d63343b551c8ea02054f4a3c64e6329dd5a48f1099ba7b"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:4e1baeffd08682d1a3dd00a1aefec907cd8c1c61d4dccf30b1478ad6f5b8748a",
+                  "bytes": 57424823
+                }
+              ]
+            },
+            {
+              "slot": "cri",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/cri/containerd:2.2.4",
+                "digest": "sha256:e78f36ed05f6bb08dc397acc7e29c991754a4d3dfa27c613ab4a1c3b715d4a0a"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:23d223c3b1c9f2a5771f88b1bebb72f149a6b127930764bcfbcbeaafccbfa79e",
+                  "bytes": 59082655
+                }
+              ]
+            },
+            {
+              "slot": "cni",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/charts/tigera-operator:v3.31.5",
+                "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+              },
+              "chartSourceReceiptVerified": true,
+              "payloadSHA256": "sha256:557faaa9d32fa83947ec33f3a47285277e19985edfafdf9eb2eae6754f1206ca"
+            },
+            {
+              "slot": "k8s-extension",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                "digest": "sha256:4c0bd0e6b657f3dbe591a0840b60b73d16bb5a2656b5c897495431fa88f0869a"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:069408f1d0509d298b70c034f2b39789683ad368b411a845fc74929085c3946e",
+                  "bytes": 111918287
+                }
+              ]
+            }
+          ],
+          "passed": true
+        },
+        "172.16.131.146": {
+          "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+          "components": [
+            {
+              "slot": "k8s",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s/k8s:v1.37.0",
+                "digest": "sha256:6cef908956dd1bd934d63343b551c8ea02054f4a3c64e6329dd5a48f1099ba7b"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:4e1baeffd08682d1a3dd00a1aefec907cd8c1c61d4dccf30b1478ad6f5b8748a",
+                  "bytes": 57424823
+                }
+              ]
+            },
+            {
+              "slot": "cri",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/cri/containerd:2.2.4",
+                "digest": "sha256:e78f36ed05f6bb08dc397acc7e29c991754a4d3dfa27c613ab4a1c3b715d4a0a"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:23d223c3b1c9f2a5771f88b1bebb72f149a6b127930764bcfbcbeaafccbfa79e",
+                  "bytes": 59082655
+                }
+              ]
+            },
+            {
+              "slot": "k8s-extension",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                "digest": "sha256:4c0bd0e6b657f3dbe591a0840b60b73d16bb5a2656b5c897495431fa88f0869a"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:069408f1d0509d298b70c034f2b39789683ad368b411a845fc74929085c3946e",
+                  "bytes": 111918287
+                }
+              ]
+            }
+          ],
+          "passed": true
+        },
+        "172.16.131.230": {
+          "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+          "components": [
+            {
+              "slot": "k8s",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s/k8s:v1.37.0",
+                "digest": "sha256:6cef908956dd1bd934d63343b551c8ea02054f4a3c64e6329dd5a48f1099ba7b"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:4e1baeffd08682d1a3dd00a1aefec907cd8c1c61d4dccf30b1478ad6f5b8748a",
+                  "bytes": 57424823
+                }
+              ]
+            },
+            {
+              "slot": "cri",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/cri/containerd:2.2.4",
+                "digest": "sha256:e78f36ed05f6bb08dc397acc7e29c991754a4d3dfa27c613ab4a1c3b715d4a0a"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:23d223c3b1c9f2a5771f88b1bebb72f149a6b127930764bcfbcbeaafccbfa79e",
+                  "bytes": 59082655
+                }
+              ]
+            },
+            {
+              "slot": "k8s-extension",
+              "transport": {
+                "type": "oci",
+                "ref": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                "digest": "sha256:4c0bd0e6b657f3dbe591a0840b60b73d16bb5a2656b5c897495431fa88f0869a"
+              },
+              "receiptSourceRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+              "manifestBlobVerified": true,
+              "payloadFilesVerified": [
+                {
+                  "name": "configs",
+                  "sha256": "sha256:069408f1d0509d298b70c034f2b39789683ad368b411a845fc74929085c3946e",
+                  "bytes": 111918287
+                }
+              ]
+            }
+          ],
+          "passed": true
+        }
+      }
+    }
+  ]
+}

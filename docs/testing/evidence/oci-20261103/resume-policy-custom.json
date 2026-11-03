@@ -1,0 +1,31 @@
+{
+  "checks": [
+    {
+      "check": "fresh control-plane policy equals candidate native default template",
+      "passed": true,
+      "policyNames": [
+        "k8s-v1.37",
+        "k8s-v1.36",
+        "k8s-v1.35"
+      ]
+    },
+    {
+      "check": "custom whitelist persists and candidate CLI rejects removed version before creating object",
+      "passed": false,
+      "output": "[2026-11-03T12:16:44Z][ERROR] get component meta failed: Internal server error due to reason package registry config /etc/kubeclipper-agent/delivery/package-registry.json must have mode 0600 or stricter. please check .kc/config\n[2026-11-03T12:16:44Z][ERROR] get component meta failed: Internal server error due to reason package registry config /etc/kubeclipper-agent/delivery/package-registry.json must have mode 0600 or stricter. please check .kc/config\nunsupported k8s version,support [] now\nSee 'kcctl create cluster -h' for help and examples\n",
+      "exit": 1,
+      "invalidated": true,
+      "correction": "The early CLI transport permission error invalidated this whitelist diagnostic. Superseded by policy-custom-16309d2d-proof.json which requires metadata200 and no transport error before rejection."
+    },
+    {
+      "check": "required slot without default rejected by real API",
+      "passed": true,
+      "status": 400,
+      "reason": "policy[k8s-v1.37].componentSlots[0]: required slot must have default choice"
+    },
+    {
+      "check": "original default policy restored and verified",
+      "passed": true
+    }
+  ]
+}

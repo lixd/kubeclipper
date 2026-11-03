@@ -1,0 +1,44 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "provider": "actual official Dex v2.44.0 image",
+  "scope": "isolated loopback HTTP IdP and candidate Server with fresh standalone etcd; no production IdP TLS claim",
+  "checks": [
+    {
+      "check": "actual Dex rejects wrong password before native callback",
+      "passed": true,
+      "detail": {
+        "callbackNotReached": true
+      }
+    },
+    {
+      "check": "real authorization-code callback issues KC token and auto-maps actual OIDC identity",
+      "passed": true,
+      "detail": {
+        "user": "oci-7689-oidc",
+        "idp": "dex",
+        "userAPI": 200,
+        "expiresIn": 15
+      }
+    },
+    {
+      "check": "used authorization code replay rejected401",
+      "passed": true,
+      "detail": {}
+    },
+    {
+      "check": "actual KC OIDC access token expires and protected API rejects401",
+      "passed": true,
+      "detail": {
+        "ttlSeconds": 15
+      }
+    },
+    {
+      "check": "fresh real OIDC login then native logout revokes access token",
+      "passed": true,
+      "detail": {
+        "logoutHTTP": 200,
+        "protectedAPIHTTP": 401
+      }
+    }
+  ]
+}

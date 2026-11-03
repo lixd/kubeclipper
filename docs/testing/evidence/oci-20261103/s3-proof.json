@@ -1,0 +1,37 @@
+{
+  "checks": [
+    {
+      "check": "S3 backup persists actual nonempty object",
+      "passed": true,
+      "detail": {
+        "backup": "online-ens3-71319775-s3-good-vdn4wk",
+        "objects": [
+          {
+            "key": "online-ens3-71319775-s3-good-vdn4wk",
+            "size": 11567136
+          }
+        ]
+      }
+    },
+    {
+      "check": "S3 restore reverts actual marker and nodes become Ready",
+      "passed": true,
+      "detail": {
+        "operation": "178f5de6-0f3f-461a-8ead-a2cebf955c8d"
+      }
+    },
+    {
+      "check": "S3 deletion removes object",
+      "passed": true,
+      "detail": "online-ens3-71319775-s3-good-vdn4wk"
+    },
+    {
+      "check": "bad S3 credential causes observable backup failure",
+      "passed": true,
+      "detail": {
+        "backup": "online-ens3-71319775-s3-bad-secret-xrgzms",
+        "status": "error"
+      }
+    }
+  ]
+}

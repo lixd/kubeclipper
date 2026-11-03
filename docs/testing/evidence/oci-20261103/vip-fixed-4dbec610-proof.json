@@ -1,0 +1,43 @@
+{
+  "revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+  "checks": [
+    {
+      "check": "native additional Master switches existing worker hosts from direct sole master to VIP with exact current backends",
+      "passed": true,
+      "detail": {
+        "operationUID": "aec6c868-ad83-41a7-99d6-e400495283fe",
+        "existingWorkerHosts": [
+          "169.254.169.100  apiserver.cluster.local"
+        ],
+        "kernelIPVS": "TCP  A9FEA964:192B rr  \n  -> AC1083E6:192B      Masq    1      0          0         \n  -> AC108392:192B      Masq    1      0          0         ",
+        "etcdMembers": 2
+      }
+    },
+    {
+      "check": "native demotion to single Master removes API VIP and updates both existing and converted workers hosts; all3Nodes Ready",
+      "passed": true,
+      "detail": {
+        "operationUID": "4583993a-416b-4702-887a-542d88234b8e",
+        "workers": [
+          {
+            "ip": "172.16.131.208",
+            "APIHosts": [
+              "172.16.131.146   apiserver.cluster.local"
+            ],
+            "APIVIPAbsent": true
+          },
+          {
+            "ip": "172.16.131.230",
+            "APIHosts": [
+              "172.16.131.146   apiserver.cluster.local"
+            ],
+            "APIVIPAbsent": true
+          }
+        ],
+        "etcdMembers": 1,
+        "packagePlanUnchanged": true,
+        "manualHostsEditsDuringFixVerification": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "binaries": {
+    "kcctl": {
+      "gitCommitVerified": true,
+      "sha256": "0c13aad7b7a25077c2f096de5a6512450bfd4558a69d819fe172f98089e36425"
+    },
+    "kubeclipper-server": {
+      "gitCommitVerified": true,
+      "sha256": "ff606c3be78a6f154f34952bc7a007f4473ff6031cfd65c0f897e80f43cd35a8",
+      "runningPID": 376754,
+      "runningSHA256": "ff606c3be78a6f154f34952bc7a007f4473ff6031cfd65c0f897e80f43cd35a8",
+      "HTTP2ForcedOff": false
+    },
+    "kubeclipper-agent": {
+      "gitCommitVerified": true,
+      "sha256": "a0203a8df438a16765229fa3a51355feaa672c977c5a0f56069385646f434787",
+      "runningPID": 377866,
+      "runningSHA256": "a0203a8df438a16765229fa3a51355feaa672c977c5a0f56069385646f434787",
+      "HTTP2ForcedOff": false
+    }
+  }
+}

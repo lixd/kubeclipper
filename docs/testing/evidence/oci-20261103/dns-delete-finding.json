@@ -1,0 +1,14 @@
+{
+  "revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "domain": "oci-88d8-20261103.invalid",
+  "cluster": "online-ens3-71319775",
+  "utc": "2026-11-03T11:59:27.022925+00:00",
+  "createResolves": "192.0.2.25",
+  "updateResolves": "192.0.2.47",
+  "afterDomainDeleteHTTP": 404,
+  "oldRecordRemainedInCoreDNS": true,
+  "deletionRetestWaitSeconds": 150,
+  "fieldResult": "failed",
+  "rootCause": "DNSReconciler returns on Domain NotFound before syncConfigMap; the deleted Domain stays in the CoreDNS configuration until another reconciliation triggers a full sync",
+  "fix": "call syncConfigMap on NotFound; local patch, not yet deployed"
+}

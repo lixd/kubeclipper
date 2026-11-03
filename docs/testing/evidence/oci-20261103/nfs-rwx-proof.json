@@ -1,0 +1,54 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "NFS CSI installed for dedicated export path",
+      "passed": true,
+      "detail": {
+        "id": "4d5e7853-5f8f-4a71-90ac-14970f695f04",
+        "uid": "93348d31-cd8d-4247-a832-b079826cc7d1",
+        "action": "InstallComponents",
+        "generation": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-11-03T12:58:45Z",
+          "startedAt": "2026-11-03T11:28:45Z",
+          "finishedAt": "2026-11-03T11:30:28Z"
+        }
+      }
+    },
+    {
+      "check": "RWX volume written on dev3 and read on dev4",
+      "passed": true,
+      "detail": {
+        "pvcUID": "e136bc86-5eba-48b9-affd-ea2c2465ed87",
+        "pv": "pvc-e136bc86-5eba-48b9-affd-ea2c2465ed87",
+        "backingEntries": [
+          "pvc-e136bc86-5eba-48b9-affd-ea2c2465ed87"
+        ]
+      }
+    },
+    {
+      "check": "PVC PV and backing data removed",
+      "passed": true,
+      "detail": "pvc-e136bc86-5eba-48b9-affd-ea2c2465ed87"
+    },
+    {
+      "check": "NFS CSI removed after volume cleanup",
+      "passed": true,
+      "detail": {
+        "id": "c7c57520-aada-4b12-9662-51d4294f75fb",
+        "uid": "9a01faea-8de3-4dff-924f-3ae4c64702aa",
+        "action": "UninstallComponents",
+        "generation": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-11-03T13:01:32Z",
+          "startedAt": "2026-11-03T11:31:32Z",
+          "finishedAt": "2026-11-03T11:31:32Z"
+        }
+      }
+    }
+  ],
+  "clusterUID": "e3314f5a-fc7c-44ca-83a9-392427cbb1d9"
+}

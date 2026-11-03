@@ -1,0 +1,90 @@
+{
+  "checks": [
+    {
+      "check": "actual Agent receives Watch410 and EOF then reestablishes real upstream watch",
+      "passed": true,
+      "detail": [
+        {
+          "event": "proxy-started-loopback-mTLS"
+        },
+        {
+          "event": "actual-task-list-or-get",
+          "status": 200
+        },
+        {
+          "event": "injected-watch-410"
+        },
+        {
+          "event": "actual-task-list-or-get",
+          "status": 200
+        },
+        {
+          "event": "injected-watch-EOF"
+        },
+        {
+          "event": "actual-task-list-or-get",
+          "status": 200
+        },
+        {
+          "event": "actual-watch-forwarded",
+          "status": 200
+        }
+      ]
+    },
+    {
+      "check": "real terminal PUT persisted200 but response discarded; Operation succeeds and side effect occurs exactly once",
+      "passed": true,
+      "detail": {
+        "operationUID": "697639ea-6058-4b0c-bae3-b6ab9efcc8ed",
+        "taskUID": "6f400215-16cc-492a-98e4-b55d06fe94f3",
+        "sideEffectLines": 1,
+        "events": [
+          {
+            "event": "proxy-started-loopback-mTLS"
+          },
+          {
+            "event": "actual-task-list-or-get",
+            "status": 200
+          },
+          {
+            "event": "injected-watch-410"
+          },
+          {
+            "event": "actual-task-list-or-get",
+            "status": 200
+          },
+          {
+            "event": "injected-watch-EOF"
+          },
+          {
+            "event": "actual-task-list-or-get",
+            "status": 200
+          },
+          {
+            "event": "actual-watch-forwarded",
+            "status": 200
+          },
+          {
+            "event": "actual-task-list-or-get",
+            "status": 200
+          },
+          {
+            "event": "terminal-write-persisted-response-dropped",
+            "taskUID": "6f400215-16cc-492a-98e4-b55d06fe94f3",
+            "phase": "Succeeded",
+            "upstreamStatus": 200
+          },
+          {
+            "event": "actual-task-list-or-get",
+            "status": 200
+          }
+        ]
+      }
+    },
+    {
+      "check": "original Agent endpoint restored, proxy and rollback timer stopped",
+      "passed": true,
+      "detail": true
+    }
+  ]
+}

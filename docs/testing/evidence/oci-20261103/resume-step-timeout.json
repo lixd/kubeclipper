@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "check": "real Step10s context terminates sleep30 before Operation120s deadline, later side effects absent",
+      "passed": true,
+      "operationUID": "43f433fd-7c09-4f83-8e95-d53f3d63c7cc",
+      "operationStatus": {
+        "phase": "Failed",
+        "reason": "StepFailed",
+        "message": "step \"fada1df2-26b9-4283-8758-293baf85adc2\" exhausted its retry limit",
+        "deadline": "2026-11-03T11:53:47Z",
+        "startedAt": "2026-11-03T11:51:47Z",
+        "finishedAt": "2026-11-03T11:51:58Z"
+      },
+      "taskStatus": {
+        "phase": "TimedOut",
+        "result": {
+          "reason": "DeadlineExceeded",
+          "message": "task deadline exceeded: run shell command: context deadline exceeded"
+        },
+        "startedAt": "2026-11-03T11:51:48Z",
+        "finishedAt": "2026-11-03T11:51:58Z"
+      },
+      "elapsedSeconds": 12.12456894479692
+    }
+  ]
+}

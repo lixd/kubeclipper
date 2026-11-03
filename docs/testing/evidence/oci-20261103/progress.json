@@ -1,0 +1,19 @@
+{
+  "utc": "2026-11-03T18:35:22.164150+00:00",
+  "currentDeployedRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "consoleRevision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+  "counts": {
+    "passed": 190,
+    "out_of_scope": 2
+  },
+  "total": 192,
+  "phase": "Complete within agreed Tier1 amd64 scope; publicCA item merged, nativeARM not run",
+  "finalTopology": "3Server/3etcd/3Agent;3KubernetesMasters",
+  "doctor": {
+    "passed": 25,
+    "warnings": 0,
+    "failed": 0
+  },
+  "formalReleasePublished": false,
+  "historicalCandidateResultsKeepActualRevision": true
+}

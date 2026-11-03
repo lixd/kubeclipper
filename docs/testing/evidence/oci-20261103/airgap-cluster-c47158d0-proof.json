@@ -1,0 +1,24 @@
+{
+  "revision": "c47158d024859e1766200ad6ff6262190e925c35",
+  "clusterPackageManifestRevision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "checks": [
+    {
+      "check": "actual Agent public HTTPS and reverse proxy blocked while internal Registry works; package cache quarantined",
+      "passed": true,
+      "detail": {
+        "firewall": "dedicated nft OUTPUT and FORWARD chains",
+        "publicHTTPSBlocked": true,
+        "loopbackReverseProxyBlocked": true,
+        "proxyEnvironmentDisabled": true,
+        "managementSSHAndPrivateLANPreserved": true,
+        "oldPackageCacheNotUsed": true
+      }
+    },
+    {
+      "check": "actual isolated cluster create",
+      "passed": false,
+      "error": "calico-apiserver-7749f7cd55-72q24"
+    }
+  ],
+  "postTestState": "public network and original proxy drop-in restored; HTTP package source config intentionally retained for upgrade tests; original config snapshots private"
+}

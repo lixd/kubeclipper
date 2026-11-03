@@ -1,0 +1,22 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "checks": [
+    {
+      "check": "complete internal HTTP Registry is a valid real cluster admission source",
+      "passed": true,
+      "status": 200,
+      "sourceRevision": "16309d2d507eca58adb7ff90a4f744a57eeec4af"
+    },
+    {
+      "check": "required CNI repository absent causes explicit rejection before Cluster or Operation creation",
+      "passed": true,
+      "status": 400,
+      "reason": "ArtifactNotPublished: artifact cni/calico:v3.29.6 is not published",
+      "newObjects": 0
+    },
+    {
+      "check": "authoritative deploy config and Server Registry client bytes restored",
+      "passed": true
+    }
+  ]
+}

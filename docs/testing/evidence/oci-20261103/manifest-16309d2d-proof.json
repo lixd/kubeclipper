@@ -1,0 +1,13 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "manifestSHA256": "7ef3f5e2818b306e22091d133a45fca04a1f57d6114044150bd6421c5403394d",
+  "artifactCount": 110,
+  "counts": {
+    "helm-chart": 2,
+    "package-image": 10,
+    "runtime-image": 98
+  },
+  "qualificationRun": "https://github.com/lixd/kubeclipper/actions/runs/41662687046",
+  "qualificationConclusion": "success",
+  "nativeARMFieldVerified": false
+}

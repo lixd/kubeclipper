@@ -1,0 +1,44 @@
+{
+  "checks": [
+    {
+      "check": "real online preflight finished while offline peer prevents downstream Task creation",
+      "passed": true,
+      "detail": {
+        "operationUID": "06c681af-bbca-4ce9-b89e-99f31f24494b",
+        "tasks": [
+          {
+            "uid": "1da22ec8-c097-4209-a9d3-703c351ba9b2",
+            "nodeUID": "95cbff66-30ee-4113-9cce-e504f0304db4",
+            "phase": "Pending"
+          },
+          {
+            "uid": "b8c47319-0f2c-4227-a537-b74d0fe8ec37",
+            "nodeUID": "3b8dbf63-2ad4-4572-857b-d85561312644",
+            "phase": "Succeeded"
+          }
+        ]
+      }
+    },
+    {
+      "check": "second same-cluster operation has no Task while first owns lock",
+      "passed": true,
+      "detail": {
+        "queuedUID": "09889f50-4353-4b7e-bbdc-84f0cc74ec09"
+      }
+    },
+    {
+      "check": "barrier releases after all upstream completion; real hostname output transferred and lock serializes next operation",
+      "passed": true,
+      "detail": {
+        "hostname": "lixd-dev-2",
+        "downstreamCreated": "2026-11-03T11:52:10Z",
+        "upstreamFinished": [
+          "2026-11-03T11:52:10Z",
+          "2026-11-03T11:52:02Z"
+        ],
+        "firstFinished": "2026-11-03T11:52:10Z",
+        "secondStarted": "2026-11-03T11:52:11Z"
+      }
+    }
+  ]
+}

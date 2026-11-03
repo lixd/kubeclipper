@@ -1,0 +1,12 @@
+{
+  "seconds": 128.36240399815142,
+  "status": 200,
+  "keys": [
+    "defaultImageRegistry",
+    "rules",
+    "addons",
+    "registry"
+  ],
+  "rules": 10,
+  "error": null
+}

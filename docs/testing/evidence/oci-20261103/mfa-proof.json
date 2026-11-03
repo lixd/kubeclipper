@@ -1,0 +1,101 @@
+{
+  "scope": "candidate server and standalone loopback etcd; built-in fake_sms only, no real SMS delivery",
+  "checks": [
+    {
+      "check": "password login with MFA disabled",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "create isolated MFA user",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "MFA challenge required",
+      "actual": 428,
+      "expected": 428,
+      "passed": true
+    },
+    {
+      "check": "verification code request",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "immediate resend limited",
+      "actual": 429,
+      "expected": 429,
+      "passed": true
+    },
+    {
+      "check": "wrong code rejected",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "correct code issues access",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "MFA token authenticates API",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "used challenge replay rejected",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "fresh challenge",
+      "actual": 428,
+      "expected": 428,
+      "passed": true
+    },
+    {
+      "check": "consumed code rejected on fresh challenge",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "new challenge after resend window",
+      "actual": 428,
+      "expected": 428,
+      "passed": true
+    },
+    {
+      "check": "resend after real time window",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "expired verification code rejected",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "new code after expiry",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "fresh code authenticates after expiry",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    }
+  ]
+}

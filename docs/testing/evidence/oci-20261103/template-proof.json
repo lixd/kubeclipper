@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "check": "create",
+      "http": 201
+    },
+    {
+      "check": "read update read",
+      "http": 200
+    },
+    {
+      "check": "unknown template rejected",
+      "http": 400
+    },
+    {
+      "check": "owned template removed",
+      "passed": true
+    }
+  ]
+}

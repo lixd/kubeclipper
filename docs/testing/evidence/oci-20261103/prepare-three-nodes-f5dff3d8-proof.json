@@ -1,0 +1,42 @@
+{
+  "revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+  "checks": [
+    {
+      "check": "second cluster deleted and physical Node ownership released",
+      "passed": true,
+      "detail": {
+        "objectStatus": 404,
+        "note": "DeleteCluster final ledger is garbage-collected with cluster; terminal Operation snapshot was missed, so object and released ownership are the observed evidence"
+      }
+    },
+    {
+      "check": "canceled erroneous cross-cluster addition cleaned after original cluster was normally deleted",
+      "passed": true,
+      "detail": {
+        "originalOccupiedNodeFailureRetained": true,
+        "manualEtcdEditsUsed": false
+      }
+    },
+    {
+      "check": "native 1 master plus 2 workers all Ready",
+      "passed": true,
+      "detail": {
+        "operationUID": "2f67a611-3f0c-48a4-b73d-0f1f0585bfec",
+        "nodes": [
+          {
+            "name": "lixd-dev-2",
+            "version": "v1.36.4"
+          },
+          {
+            "name": "lixd-dev-3",
+            "version": "v1.36.4"
+          },
+          {
+            "name": "lixd-dev-4",
+            "version": "v1.36.4"
+          }
+        ]
+      }
+    }
+  ]
+}

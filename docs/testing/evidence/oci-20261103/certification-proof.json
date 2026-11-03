@@ -1,0 +1,24 @@
+{
+  "passed": true,
+  "revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+  "before": "serial=7D6DFC95188EDB53\nnotAfter=Oct 31 04:26:34 2027 GMT\n",
+  "after": "serial=419FA06B4A2C7A61\nnotAfter=Nov  3 10:53:47 2027 GMT\n",
+  "queuedOperations": [
+    {
+      "operation": "43f9f182-cf4e-43ce-8729-085b86dfc0a5",
+      "startedAt": "2026-11-03T10:53:19Z",
+      "finishedAt": "2026-11-03T10:53:47Z",
+      "tasks": 2
+    },
+    {
+      "operation": "a9078d7f-9f4e-47f0-b1d7-481f213f800f",
+      "startedAt": "2026-11-03T10:53:47Z",
+      "finishedAt": "2026-11-03T10:54:19Z",
+      "tasks": 2
+    }
+  ],
+  "executionWindowsDoNotOverlap": true,
+  "allNodesReady": true,
+  "realAPIWritePassed": true,
+  "fixtureCorrection": "Original case allows queued requests; rejection expectation was wrong; behavior-changing branch removed and never deployed."
+}

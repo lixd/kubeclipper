@@ -1,0 +1,46 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "native worker add produces real1M1W and preserves original packagePlan",
+      "passed": true,
+      "detail": {
+        "operations": [
+          "f6aa2317-1155-4d9f-a7a8-2a58371bbe9a"
+        ],
+        "nodeNames": [
+          "lixd-dev-2",
+          "lixd-dev-3"
+        ],
+        "packagePlanUnchanged": true
+      }
+    },
+    {
+      "check": "native worker removal deletes actual Kubernetes node and preserves plan",
+      "passed": true,
+      "detail": {
+        "operations": [
+          "72a0f9e4-1cfe-46fb-a4d3-6c19009e930e"
+        ],
+        "nodeNames": [
+          "lixd-dev-3"
+        ],
+        "packagePlanUnchanged": true
+      }
+    },
+    {
+      "check": "native worker re-add uses original immutable plan and returns Ready",
+      "passed": true,
+      "detail": {
+        "operations": [
+          "43ac5708-1263-47c5-9eeb-c763d0844862"
+        ],
+        "nodeNames": [
+          "lixd-dev-2",
+          "lixd-dev-3"
+        ],
+        "packagePlanUnchanged": true
+      }
+    }
+  ]
+}

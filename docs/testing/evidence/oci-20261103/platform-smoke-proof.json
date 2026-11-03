@@ -1,0 +1,80 @@
+{
+  "checks": [
+    {
+      "check": "platform configz",
+      "passed": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "check": "platform status",
+      "passed": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "check": "platform components",
+      "passed": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "check": "platform componentmeta",
+      "passed": true,
+      "detail": {
+        "http": 200
+      }
+    },
+    {
+      "check": "healthz and metrics on 172.16.131.208",
+      "passed": true,
+      "detail": {
+        "http": 200,
+        "metrics": 40,
+        "sensitiveMetricNames": 0
+      }
+    },
+    {
+      "check": "healthz and metrics on 172.16.131.146",
+      "passed": true,
+      "detail": {
+        "http": 200,
+        "metrics": 40,
+        "sensitiveMetricNames": 0
+      }
+    },
+    {
+      "check": "healthz and metrics on 172.16.131.230",
+      "passed": true,
+      "detail": {
+        "http": 200,
+        "metrics": 40,
+        "sensitiveMetricNames": 0
+      }
+    },
+    {
+      "check": "kcctl status healthy",
+      "passed": true,
+      "detail": {
+        "agents": "3/3"
+      }
+    },
+    {
+      "check": "kcctl deploy config emits template",
+      "passed": true,
+      "detail": {
+        "exit": 0
+      }
+    },
+    {
+      "check": "docker CRI rejected by real CLI",
+      "passed": true,
+      "detail": {
+        "exit": 1
+      }
+    }
+  ]
+}

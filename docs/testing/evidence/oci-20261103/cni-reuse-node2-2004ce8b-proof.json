@@ -1,0 +1,59 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "same native failed removal retries successfully; real Calico cgroup view and all old CNI identities removed, host cgroup retained",
+      "passed": true,
+      "detail": {
+        "operationUID": "369c0d90-7aa6-4d20-b428-ef0250d910ba",
+        "stepsSHA256": "3588f9c91045a748f9adfc7969621a1b53b86d2e44072385431e391ebc3d1f35",
+        "retryGeneration": 1,
+        "nodeUID": "9627e252-35da-4403-9fb5-a7703e2c9552",
+        "after": {
+          "paths": {
+            "/etc/cni/net.d": true,
+            "/var/lib/cni": false,
+            "/var/lib/calico": false,
+            "/run/calico": false
+          },
+          "CNIConfigEntries": [],
+          "calicoMount": false,
+          "globalCgroupMounted": true
+        },
+        "manualUnmountOrCleanup": false,
+        "priorFailureProof": "cni-reuse-node2-3e336bef-proof.json",
+        "correctedHarnessCheck": "CNI config directory may exist empty; actual files and credentials must be absent. No manual deletion was performed."
+      }
+    },
+    {
+      "check": "reused physical node creates actual1358 control plane with only-install-Kubernetes and no previous CNI credentials or new Calico Pods",
+      "passed": true,
+      "detail": {
+        "clusterUID": "35550504-1b10-4135-8d31-435268a89d24",
+        "operationUID": "b6c09f1d-4aae-44b5-9fbe-420b887d674c",
+        "version": "v1.35.8",
+        "nodeReady": false,
+        "CNIConfigAbsent": true,
+        "CalicoPodsAbsent": true,
+        "scope": "Node NotReady is allowed when CNI installation is intentionally skipped"
+      }
+    },
+    {
+      "check": "native no-CNI cluster deletion frees original Agent without platform PID replacement",
+      "passed": true,
+      "detail": {
+        "clusterStatus": 404,
+        "nodeUID": "9627e252-35da-4403-9fb5-a7703e2c9552"
+      }
+    },
+    {
+      "check": "native rejoin restores original1M1W137 main cluster and two real business replicas",
+      "passed": true,
+      "detail": {
+        "operationUID": "26b6b6a9-28ac-4b95-a8a9-54b1f7bca0d5",
+        "packagePlanUnchanged": true,
+        "nodesReady": 2
+      }
+    }
+  ]
+}

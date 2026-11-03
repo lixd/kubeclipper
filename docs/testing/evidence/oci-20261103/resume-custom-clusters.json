@@ -1,0 +1,65 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "strict self-signed CA verifies registry and unauthenticated request rejected401",
+      "passed": true,
+      "detail": true
+    },
+    {
+      "check": "both containerd2.2.4 and1.7.29 actually pull authenticated HTTPS image with strict CA and no Pod secret; workloads execute",
+      "passed": true,
+      "detail": [
+        {
+          "host": "172.16.131.146",
+          "nodeVersion": "v1.36.4",
+          "runtime": "containerd://2.2.4",
+          "image": "172.16.131.146:5607/qualified/nicolaka/netshoot:v0.13",
+          "imageID": "172.16.131.146:5605/qualified-88/nicolaka/netshoot@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8",
+          "imagePullSecrets": false,
+          "caSHA256": "7c06db2c59cf03b3d15bfe12fe08bcb954b8903744725e75db3b97358fcd07cb",
+          "allRunningContainersReady": true
+        },
+        {
+          "host": "172.16.131.230",
+          "nodeVersion": "v1.35.8",
+          "runtime": "containerd://1.7.29",
+          "image": "172.16.131.146:5607/qualified/nicolaka/netshoot:v0.13",
+          "imageID": "172.16.131.146:5607/qualified/nicolaka/netshoot@sha256:5a21d467fed653554bdc483ca5e7e866805c5b4c8f7ecb195a43f778c8d02fb8",
+          "imagePullSecrets": false,
+          "caSHA256": "7c06db2c59cf03b3d15bfe12fe08bcb954b8903744725e75db3b97358fcd07cb",
+          "allRunningContainersReady": true
+        }
+      ]
+    },
+    {
+      "check": "custom Kubernetes CA reused byte-identically; real APIServer feature-gates and kubeadm preflight ignore propagated",
+      "passed": true,
+      "detail": {
+        "caSHA256": "921c669c869a0f4cd83e61fbb874c7e7d20b42b206b6de0d74c6dd36000a0058",
+        "featureGates": "WatchList=false",
+        "ignorePreflightErrors": "  ignorePreflightErrors:\n    - Swap\n  criSocket: /run/containerd/containerd.sock\n\n"
+      }
+    },
+    {
+      "check": "actual external16443 endpoint passes client-certificate authentication and CA verification for DNS and IP SAN",
+      "passed": true,
+      "detail": {
+        "subjectAltName": "X509v3 Subject Alternative Name: \n    DNS:apiserver.cluster.local, DNS:concurrent-oci-88d8.kc.test, DNS:extra-oci-88d8.kc.test, DNS:kubernetes, DNS:kubernetes.default, DNS:kubernetes.default.svc, DNS:kubernetes.default.svc.cluster.local, DNS:lixd-dev-4, IP Address:10.101.0.1, IP Address:172.16.131.230, IP Address:192.0.2.150\n",
+        "port": 16443,
+        "externalEndpoint": "172.16.131.230:16443",
+        "transportFixture": "own transparent TCP forward to6443; TLS remains end-to-end"
+      }
+    },
+    {
+      "check": "native CLI online=false-offline cluster Running with all system containers Ready",
+      "passed": true,
+      "detail": {
+        "uid": "9db3caf4-ba95-409d-a7c6-01159571152f",
+        "version": "v1.35.8",
+        "phase": "Running",
+        "offlineAnnotationPresent": false
+      }
+    }
+  ]
+}

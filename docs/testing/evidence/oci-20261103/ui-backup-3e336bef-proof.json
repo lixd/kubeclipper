@@ -1,0 +1,37 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "frontendRevision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+  "checks": [
+    {
+      "check": "actual Console backup and restore complete via Operation V2, reverting actual etcd marker and preserving node identities and frozen plan",
+      "passed": true,
+      "detail": {
+        "clusterUID": "7ae7f041-e687-435e-b971-4840079eee08",
+        "backupUID": "63d17144-dbda-4011-81e7-155a35f52a7d",
+        "backupBytes": 10932256,
+        "operations": [
+          {
+            "uid": "d9e9e80e-c41b-436f-b970-f5900f89f1fe",
+            "action": "RecoveryCluster",
+            "phase": "Succeeded"
+          },
+          {
+            "uid": "b8508b53-f76f-4f60-aa93-c33ba45915ca",
+            "action": "BackupCluster",
+            "phase": "Succeeded"
+          }
+        ],
+        "restoredMarker": "before-ui-snapshot",
+        "nodeUIDs": {
+          "lixd-dev-4": "6fbdd364-8da3-4527-a877-4c542ea050c3"
+        },
+        "businessHTTP": "airgap-real",
+        "originalPDBRestored": true
+      }
+    },
+    {
+      "check": "actual Console deleted own Backup; API confirms404 and backup point association cleaned",
+      "passed": true
+    }
+  ]
+}

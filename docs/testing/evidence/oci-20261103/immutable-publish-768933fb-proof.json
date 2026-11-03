@@ -1,0 +1,24 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "publisherBuild": "exact git archive on sh-dev Docker Go1.26.1",
+  "publisherSHA256": "e7a87b34d9f1e51cfb087bf55f95c8a5797a3be1394faad8c4a2e96882827213",
+  "namespace": "172.16.131.146:5605/oci-7689-immutable",
+  "checks": [
+    {
+      "check": "candidate native publisher writes disposable real binary package",
+      "passed": true,
+      "indexDigest": "sha256:3e766b661166e3cef5e0b0b51f1acffdda0e9c83b28c447cc14faa3f8dff98a8",
+      "amd64Digest": "sha256:24a94dc9549d05f765866a9caf482d2296700feb97e0188559f41d9c52ea9a5a"
+    },
+    {
+      "check": "same content repeated publication idempotent",
+      "passed": true
+    },
+    {
+      "check": "different content same tag refused; index and child digest preserved",
+      "passed": true,
+      "nonzeroExit": true,
+      "conflictVisible": true
+    }
+  ]
+}

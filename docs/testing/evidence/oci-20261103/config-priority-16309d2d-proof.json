@@ -1,0 +1,36 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "passed": true,
+  "checks": [
+    {
+      "case": "env",
+      "passed": true,
+      "selectedSource": "/root/kc-oci-5ffb1323-20261103/private/config-priority/env.json",
+      "invalidPrivateFilePermissionsRejected": true,
+      "existingServicePrecheckStopsExplicitFlags": false
+    },
+    {
+      "case": "agent",
+      "passed": true,
+      "selectedSource": "/etc/kubeclipper-agent/delivery/package-registry.json",
+      "invalidPrivateFilePermissionsRejected": true,
+      "existingServicePrecheckStopsExplicitFlags": false
+    },
+    {
+      "case": "server",
+      "passed": true,
+      "selectedSource": "/etc/kubeclipper-server/delivery/package-registry.json",
+      "invalidPrivateFilePermissionsRejected": true,
+      "existingServicePrecheckStopsExplicitFlags": false
+    },
+    {
+      "case": "flags",
+      "passed": true,
+      "selectedSource": ".service already exists",
+      "invalidPrivateFilePermissionsRejected": false,
+      "existingServicePrecheckStopsExplicitFlags": true
+    }
+  ],
+  "isolation": "private Linux mount namespace overlays affect only CLI subprocess; host config bytes/modes and running Server PID unchanged",
+  "actualAgentAndServerConfigModes": "0600"
+}

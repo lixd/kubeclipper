@@ -1,0 +1,446 @@
+{
+  "revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+  "checks": [
+    {
+      "check": "same version downgrade unsupported jump and unknown version upgrades rejected before Operation creation",
+      "passed": true,
+      "detail": {
+        "versions": [
+          "v1.36.4",
+          "v1.35.8",
+          "v1.38.0",
+          "v9.9.9"
+        ],
+        "statuses": [
+          400,
+          400,
+          400,
+          400
+        ]
+      }
+    },
+    {
+      "check": "native kcctl performs real1.36.4 to1.37.0 upgrade on1M2W preserving CRI and CNI plans",
+      "passed": true,
+      "detail": {
+        "operationUID": "4fff8454-6c48-4b39-b3ca-012418090d61",
+        "nodes": [
+          {
+            "name": "lixd-dev-2",
+            "version": "v1.37.0"
+          },
+          {
+            "name": "lixd-dev-3",
+            "version": "v1.37.0"
+          },
+          {
+            "name": "lixd-dev-4",
+            "version": "v1.37.0"
+          }
+        ],
+        "beforePlan": {
+          "kubernetesVersion": "v1.36.4",
+          "os": "linux",
+          "arch": "amd64",
+          "components": [
+            {
+              "slot": "k8s",
+              "kind": "k8s",
+              "name": "k8s",
+              "version": "v1.36.4",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/packages/k8s/k8s:v1.36.4",
+                "digest": "sha256:208bd13181cdadc9bff5f5d6611ec69420934e517eb5c28bd829bdb4afd7c6ea"
+              },
+              "contents": [
+                {
+                  "name": "configs",
+                  "file": "configs.tar.gz",
+                  "digest": "sha256:3d3a885d85ea76ef14a525244a4a76675cb7984ecb3632165827823afa1f4c27",
+                  "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                  "transport": {
+                    "type": "",
+                    "ref": "",
+                    "digest": ""
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "cri",
+              "kind": "cri",
+              "name": "containerd",
+              "version": "2.2.4",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/packages/cri/containerd:2.2.4",
+                "digest": "sha256:d70bf49b75c2d57dbac839ebe7db036516de4189e89db7a0c8406261aad9e8db"
+              },
+              "contents": [
+                {
+                  "name": "configs",
+                  "file": "configs.tar.gz",
+                  "digest": "sha256:721cb439dd03708869fd423eaa14eb699422f0fc3bd9eeea35250c12b85b0ca0",
+                  "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                  "transport": {
+                    "type": "",
+                    "ref": "",
+                    "digest": ""
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "cni",
+              "kind": "cni",
+              "name": "calico",
+              "version": "v3.31.5",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/charts/tigera-operator:v3.31.5",
+                "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+              },
+              "contents": [
+                {
+                  "name": "charts",
+                  "file": "charts.tgz",
+                  "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                  "transport": {
+                    "type": "helm-oci",
+                    "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/charts/tigera-operator",
+                    "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "k8s-extension",
+              "kind": "k8s-extension",
+              "name": "k8s-extension",
+              "version": "v1",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                "digest": "sha256:5a714f72e29df78414de5745fa1682d61a754b6905008229db8117b090551127"
+              },
+              "contents": [
+                {
+                  "name": "configs",
+                  "file": "configs.tar.gz",
+                  "digest": "sha256:6d503b2ff48f93965e659ee83cce5c0e307f9d6829d03319a574c987a0c273fe",
+                  "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                  "transport": {
+                    "type": "",
+                    "ref": "",
+                    "digest": ""
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "afterPlan": {
+          "kubernetesVersion": "v1.37.0",
+          "os": "linux",
+          "arch": "amd64",
+          "components": [
+            {
+              "slot": "k8s",
+              "kind": "k8s",
+              "name": "k8s",
+              "version": "v1.37.0",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/packages/k8s/k8s:v1.37.0",
+                "digest": "sha256:2459cac7d3eecbc542206b0b0419002a1d47d24ff4b10c8faa7fe6121eb93075"
+              },
+              "contents": [
+                {
+                  "name": "configs",
+                  "file": "configs.tar.gz",
+                  "digest": "sha256:3600a7b9df6764a35b59df4f34177d78bc15bd2efaecde510264091e760dc2c0",
+                  "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                  "transport": {
+                    "type": "",
+                    "ref": "",
+                    "digest": ""
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "cri",
+              "kind": "cri",
+              "name": "containerd",
+              "version": "2.2.4",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/packages/cri/containerd:2.2.4",
+                "digest": "sha256:d70bf49b75c2d57dbac839ebe7db036516de4189e89db7a0c8406261aad9e8db"
+              },
+              "contents": [
+                {
+                  "name": "configs",
+                  "file": "configs.tar.gz",
+                  "digest": "sha256:721cb439dd03708869fd423eaa14eb699422f0fc3bd9eeea35250c12b85b0ca0",
+                  "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                  "transport": {
+                    "type": "",
+                    "ref": "",
+                    "digest": ""
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "cni",
+              "kind": "cni",
+              "name": "calico",
+              "version": "v3.31.5",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/charts/tigera-operator:v3.31.5",
+                "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+              },
+              "contents": [
+                {
+                  "name": "charts",
+                  "file": "charts.tgz",
+                  "mediaType": "application/vnd.cncf.helm.chart.content.v1.tar+gzip",
+                  "transport": {
+                    "type": "helm-oci",
+                    "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/charts/tigera-operator",
+                    "digest": "sha256:9b5aa9e439479fc17633b859136871c18d836e5277c6ac4b3b5473628a27af18"
+                  }
+                }
+              ]
+            },
+            {
+              "slot": "k8s-extension",
+              "kind": "k8s-extension",
+              "name": "k8s-extension",
+              "version": "v1",
+              "os": "linux",
+              "arch": "amd64",
+              "required": true,
+              "transport": {
+                "type": "oci",
+                "ref": "ghcr.io/lixd/kubeclipper/qualification-768933fb479ea756382baa6915f102bde6293a27/kubeclipper/packages/k8s-extension/k8s-extension:v1",
+                "digest": "sha256:5a714f72e29df78414de5745fa1682d61a754b6905008229db8117b090551127"
+              },
+              "contents": [
+                {
+                  "name": "configs",
+                  "file": "configs.tar.gz",
+                  "digest": "sha256:6d503b2ff48f93965e659ee83cce5c0e307f9d6829d03319a574c987a0c273fe",
+                  "mediaType": "application/vnd.kubeclipper.configs.layer.v1.tar+gzip",
+                  "transport": {
+                    "type": "",
+                    "ref": "",
+                    "digest": ""
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "check": "upgrade Task timestamps and node references retained for rolling order verification",
+      "passed": true,
+      "detail": {
+        "tasks": [
+          {
+            "name": "task-086abadf8d9314bb85e9e7befbdc2f5d",
+            "stepID": "211c1fbf-f86c-4e23-add2-b83c88707706",
+            "node": {
+              "name": "8e5dbf26-595f-44f2-8810-49cf23caed96",
+              "uid": "9627e252-35da-4403-9fb5-a7703e2c9552",
+              "ip": "172.16.131.208"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:09:40Z",
+              "finishedAt": "2026-11-03T14:09:41Z"
+            }
+          },
+          {
+            "name": "task-2fecaad882cc4b0b4128f2dc30905898",
+            "stepID": "1d426ad3-64c8-4748-9554-acefa941a895",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:02:04Z",
+              "finishedAt": "2026-11-03T14:09:07Z"
+            }
+          },
+          {
+            "name": "task-3281eb1dc3f11c7977f50d736704cefa",
+            "stepID": "ba246e66-56f5-4ea7-8206-a4a4d0d2c751",
+            "node": {
+              "name": "f9500d86-2b3b-44a8-a572-14ea04db0743",
+              "uid": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+              "ip": "172.16.131.230"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:00:55Z",
+              "finishedAt": "2026-11-03T14:01:55Z"
+            }
+          },
+          {
+            "name": "task-50b51d6209d22246afdcdfecea89a086",
+            "stepID": "ba246e66-56f5-4ea7-8206-a4a4d0d2c751",
+            "node": {
+              "name": "8e5dbf26-595f-44f2-8810-49cf23caed96",
+              "uid": "9627e252-35da-4403-9fb5-a7703e2c9552",
+              "ip": "172.16.131.208"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:00:55Z",
+              "finishedAt": "2026-11-03T14:01:39Z"
+            }
+          },
+          {
+            "name": "task-82cb493d68e3390bfc368341cecfd4b2",
+            "stepID": "796cf648-0edc-4f5b-9064-6bb90f41b10d",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:02:03Z",
+              "finishedAt": "2026-11-03T14:02:03Z"
+            }
+          },
+          {
+            "name": "task-9ee57a699bf4f7b3d7904f61e2787f3e",
+            "stepID": "a2d43656-7ee9-46bb-8745-4eb6c59065bb",
+            "node": {
+              "name": "f9500d86-2b3b-44a8-a572-14ea04db0743",
+              "uid": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+              "ip": "172.16.131.230"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:10:14Z",
+              "finishedAt": "2026-11-03T14:10:15Z"
+            }
+          },
+          {
+            "name": "task-bdcbbe0318079fb1dabc38576f3276ef",
+            "stepID": "783a0ca9-1ae2-4495-903c-c17846b0fa00",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:09:41Z",
+              "finishedAt": "2026-11-03T14:09:41Z"
+            }
+          },
+          {
+            "name": "task-c0be45ace035832dd49d4c0da00ce4ea",
+            "stepID": "b7aab51e-e96e-4a07-8302-07b00ac2fcf9",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:09:07Z",
+              "finishedAt": "2026-11-03T14:09:40Z"
+            }
+          },
+          {
+            "name": "task-ce54b6d22516d168a3df893f859b86fe",
+            "stepID": "cf675476-6018-4a0c-b05a-18cc58378086",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:10:15Z",
+              "finishedAt": "2026-11-03T14:10:15Z"
+            }
+          },
+          {
+            "name": "task-da77f772a506df3cb95e55d63f56da4a",
+            "stepID": "ba246e66-56f5-4ea7-8206-a4a4d0d2c751",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:00:55Z",
+              "finishedAt": "2026-11-03T14:02:03Z"
+            }
+          },
+          {
+            "name": "task-f0e82f0e02f20596c0feeb60c77f422d",
+            "stepID": "f4c94f62-497f-4426-9ebd-74015805fc6e",
+            "node": {
+              "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+              "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+              "ip": "172.16.131.146"
+            },
+            "status": {
+              "phase": "Succeeded",
+              "startedAt": "2026-11-03T14:09:41Z",
+              "finishedAt": "2026-11-03T14:10:14Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "check": "business HTTP sampled throughout rolling upgrade",
+      "passed": true,
+      "detail": {
+        "samples": 1268,
+        "failedSamples": 0,
+        "firstUTC": "2026-11-03T13:59:27.832984+00:00",
+        "lastUTC": "2026-11-03T14:10:18.575381+00:00",
+        "maxLatencySeconds": 0.0408,
+        "failed": []
+      }
+    }
+  ]
+}

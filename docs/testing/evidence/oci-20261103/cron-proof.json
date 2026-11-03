@@ -1,0 +1,35 @@
+{
+  "checks": [
+    {
+      "check": "periodic schedule creates actual available backup",
+      "passed": true,
+      "detail": [
+        "online-ens3-71319775-oci-faa1-cron-periodic-20261103-j4txjr"
+      ]
+    },
+    {
+      "check": "disabled schedule does not create another backup across a scheduled minute",
+      "passed": true,
+      "detail": [
+        "0cdfc675-bcb5-423f-a581-d1e1d33a4ed2"
+      ]
+    },
+    {
+      "check": "re-enabled schedule creates another backup",
+      "passed": true,
+      "detail": [
+        "online-ens3-71319775-oci-faa1-cron-periodic-20261103-n55kn8"
+      ]
+    },
+    {
+      "check": "maxBackupNum rotation removes old record and snapshot",
+      "passed": true,
+      "detail": {
+        "removed": "online-ens3-71319775-oci-faa1-cron-periodic-20261103-j4txjr",
+        "current": [
+          "online-ens3-71319775-oci-faa1-cron-periodic-20261103-n55kn8"
+        ]
+      }
+    }
+  ]
+}

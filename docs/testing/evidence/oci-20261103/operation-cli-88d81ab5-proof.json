@@ -1,0 +1,23 @@
+{
+  "revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "checks": [
+    {
+      "check": "CLI operation list",
+      "exitCode": 0,
+      "expectedRealContentObserved": true,
+      "passed": true
+    },
+    {
+      "check": "CLI operation describe",
+      "exitCode": 0,
+      "expectedRealContentObserved": true,
+      "passed": true
+    },
+    {
+      "check": "CLI operation logs",
+      "exitCode": 0,
+      "expectedRealContentObserved": true,
+      "passed": true
+    }
+  ]
+}

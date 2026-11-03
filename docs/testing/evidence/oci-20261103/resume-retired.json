@@ -1,0 +1,23 @@
+{
+  "checks": [
+    {
+      "check": "live componentmeta retired docker/nfs-provisioner absent",
+      "passed": true
+    },
+    {
+      "check": "console active",
+      "host": "172.16.131.208",
+      "passed": true
+    },
+    {
+      "check": "console active",
+      "host": "172.16.131.146",
+      "passed": true
+    },
+    {
+      "check": "console active",
+      "host": "172.16.131.230",
+      "passed": true
+    }
+  ]
+}

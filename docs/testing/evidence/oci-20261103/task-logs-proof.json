@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "task": "task-1ea0c0681d0aec6427cda1a91cccfd2b",
+      "bytes": 6064,
+      "chunks": 95,
+      "matchesFullLog": true,
+      "eofEmpty": true
+    },
+    {
+      "task": "task-35352894b50e9c52867adf4e6a277282",
+      "bytes": 1542,
+      "chunks": 25,
+      "matchesFullLog": true,
+      "eofEmpty": true
+    }
+  ],
+  "secondTaskStartsAtOffsetZero": true,
+  "contentOmitted": true
+}

@@ -1,0 +1,86 @@
+{
+  "checks": [
+    {
+      "check": "resource list real mirror",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "resource inspect containerd",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "resource refresh real mirror",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy get",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy identical diff",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy validate",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy identical apply",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy unchanged after apply",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy template",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "policy invalid input rejected",
+      "exitCode": 1,
+      "expected": 1,
+      "passed": true
+    },
+    {
+      "check": "completion bash",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "completion zsh",
+      "exitCode": 0,
+      "expected": 0,
+      "passed": true
+    },
+    {
+      "check": "/api/audit.kubeclipper.io/v1/events",
+      "http": 200,
+      "passed": true
+    },
+    {
+      "check": "/api/audit.kubeclipper.io/v1/events?limit=1",
+      "http": 200,
+      "passed": true
+    }
+  ]
+}

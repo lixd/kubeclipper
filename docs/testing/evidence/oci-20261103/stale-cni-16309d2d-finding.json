@@ -1,0 +1,21 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "finding": "normal Worker removal omits CNI configuration/state cleanup; subsequent only-Kubernetes cluster inherits previous Calico config and kubeconfig",
+  "files": [
+    "/etc/cni/net.d/10-calico.conflist",
+    "/etc/cni/net.d/calico-kubeconfig"
+  ],
+  "calicoPlugins": [
+    "calico",
+    "portmap"
+  ],
+  "staleCNICertificateSHA256": "921c669c869a0f4cd83e61fbb874c7e7d20b42b206b6de0d74c6dd36000a0058",
+  "priorMainClusterCertificateSHA256": "921c669c869a0f4cd83e61fbb874c7e7d20b42b206b6de0d74c6dd36000a0058",
+  "newOnlyKubernetesClusterCertificateSHA256": "62203256fa750a402ddb054d5155a6c0af517e3dea0dde6929c9c5328bf3348b",
+  "actualNewCreateOperationSucceeded": true,
+  "credentialValuesPrinted": false,
+  "fixRevision": "c47158d024859e1766200ad6ff6262190e925c35",
+  "fixUnitBefore": "failed master and worker removal cases",
+  "fixUnitAfter": "whole k8s package passed on sh-dev Docker",
+  "fieldFixVerified": false
+}

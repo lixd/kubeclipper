@@ -1,0 +1,9 @@
+{
+  "revision": "c47158d024859e1766200ad6ff6262190e925c35",
+  "passed": true,
+  "operationUID": "a0e6c097-24cd-4721-8bd7-0cc6f69a3ac7",
+  "manualMountRecoveryRequired": true,
+  "nativeRetrySucceeded": true,
+  "frozenStepsSHA256": "b42bc941cc09125d1659d2a57e6ded5a07cb78fcf4a66203e2d8584e4bf67ffa",
+  "productMountFixFieldVerified": false
+}

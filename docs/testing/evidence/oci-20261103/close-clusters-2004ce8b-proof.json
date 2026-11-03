@@ -1,0 +1,43 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "native new-Agent Provider removal deletes owned Agent and records while external Kubernetes remains Ready and supports real API writes",
+      "passed": true,
+      "detail": {
+        "providerStatus": 404,
+        "clusterStatus": 404,
+        "ownedAgentStatus": 404,
+        "sourceKubernetesNodeUID": "6fbdd364-8da3-4527-a877-4c542ea050c3",
+        "actualAPIWriteReadDelete": true,
+        "sourceClusterNotResetByUnmanage": true
+      }
+    },
+    {
+      "check": "owned external Kubernetes fixture reset using native teardown commands in separate qualification Operation after successful unmanage test",
+      "passed": true,
+      "detail": {
+        "operationUID": "52c390ad-a63c-44a6-a8ff-87f0849a3d7b",
+        "sourceNativeRemoveOperationUID": "369c0d90-7aa6-4d20-b428-ef0250d910ba",
+        "commandPayloadSHA256": "b250964c2d2dde9109ca49c888084d01122541509066607b721e805905978e2f",
+        "steps": 12,
+        "globalCgroupPreserved": true,
+        "otherClusterPlanPreserved": true,
+        "scope": "explicit lab fixture reset; Provider removal itself preserved Kubernetes as verified earlier"
+      }
+    },
+    {
+      "check": "normal native main cluster deletion completes on latest code; all3 Agents free and temporary SSH fixture removed",
+      "passed": true,
+      "detail": {
+        "clusterStatus": 404,
+        "observedPhases": [
+          "Terminating"
+        ],
+        "nodes": 3,
+        "sharedRegistry5003": "preserved",
+        "sharedNFS": "preserved"
+      }
+    }
+  ]
+}

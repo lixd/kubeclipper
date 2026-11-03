@@ -1,0 +1,63 @@
+{
+  "checks": [
+    {
+      "check": "CLI cancellation prevents later real shell side effect",
+      "passed": true,
+      "detail": {
+        "id": "oci-88d8-20261103v2-cancel",
+        "status": {
+          "phase": "Canceled",
+          "reason": "CancelledByRequest",
+          "message": "operation canceled; running tasks finished",
+          "deadline": "2026-11-03T11:51:08Z",
+          "startedAt": "2026-11-03T11:49:08Z",
+          "finishedAt": "2026-11-03T11:49:24Z"
+        }
+      }
+    },
+    {
+      "check": "automatic retry real first exit42 then success",
+      "passed": true,
+      "detail": {
+        "id": "oci-88d8-20261103v2-auto-retry",
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-11-03T11:51:29Z",
+          "startedAt": "2026-11-03T11:49:29Z",
+          "finishedAt": "2026-11-03T11:49:31Z"
+        }
+      }
+    },
+    {
+      "check": "CLI manual retry same Operation after actual fixture repair",
+      "passed": true,
+      "detail": {
+        "id": "oci-88d8-20261103v2-manual-retry",
+        "status": {
+          "phase": "Succeeded",
+          "observedRetryGeneration": 1,
+          "deadline": "2026-11-03T11:51:35Z",
+          "startedAt": "2026-11-03T11:49:35Z",
+          "finishedAt": "2026-11-03T11:49:36Z"
+        },
+        "generation": 1,
+        "taskCount": 2
+      }
+    },
+    {
+      "check": "real execution deadline kills shell and reports timeout",
+      "passed": true,
+      "detail": {
+        "id": "oci-88d8-20261103v2-timeout",
+        "status": {
+          "phase": "TimedOut",
+          "reason": "DeadlineExceeded",
+          "message": "operation deadline exceeded",
+          "deadline": "2026-11-03T11:51:45Z",
+          "startedAt": "2026-11-03T11:50:45Z",
+          "finishedAt": "2026-11-03T11:51:45Z"
+        }
+      }
+    }
+  ]
+}

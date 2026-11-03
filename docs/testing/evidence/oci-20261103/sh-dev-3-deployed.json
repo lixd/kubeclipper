@@ -1,0 +1,33 @@
+{
+  "hostname": "lixd-dev-3",
+  "revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+  "binaries": {
+    "kcctl": {
+      "sha256": "ef35cc07833ed9cc3468b31d70ad3b6106c7245345f48b62839c90822bae5ee0",
+      "revisionVerified": true,
+      "versionExit": 0
+    },
+    "kubeclipper-server": {
+      "sha256": "f96e4de77648484da05a27bee6d4300c94854920d8eb6447fc862558cd830a80",
+      "revisionVerified": true,
+      "versionExit": 0
+    },
+    "kubeclipper-agent": {
+      "sha256": "235f8c5d5e8cbe5a0896fa66a3bfae115c86f39ec2dbc3793984a53a7086a98b",
+      "revisionVerified": true,
+      "versionExit": 0
+    }
+  },
+  "processes": {
+    "kc-server": {
+      "pid": 1550967,
+      "runningInstalledBinary": true,
+      "HTTP2ForcedOff": false
+    },
+    "kc-agent": {
+      "pid": 1551710,
+      "runningInstalledBinary": true,
+      "HTTP2ForcedOff": false
+    }
+  }
+}

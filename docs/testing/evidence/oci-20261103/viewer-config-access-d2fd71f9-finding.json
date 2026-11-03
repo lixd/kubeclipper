@@ -1,0 +1,17 @@
+{
+  "revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+  "viewerResults": [
+    {
+      "path": "/api/core.kubeclipper.io/v1/configmaps",
+      "status": 200,
+      "knownSecretInBody": true
+    },
+    {
+      "path": "/api/core.kubeclipper.io/v1/configmaps/deploy-config",
+      "status": 200,
+      "knownSecretInBody": true
+    }
+  ],
+  "anonymousStatus": 403,
+  "secretValuesPrinted": false
+}

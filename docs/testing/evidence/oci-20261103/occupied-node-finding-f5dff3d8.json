@@ -1,0 +1,26 @@
+{
+  "revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+  "finding": "AddNodes admitted a master owned by another cluster",
+  "httpStatus": 200,
+  "operationUID": "229b9296-cb6c-4b95-b592-c120401737b2",
+  "canceledStatus": {
+    "phase": "Canceled",
+    "reason": "CancelledByRequest",
+    "message": "operation canceled; running tasks finished",
+    "deadline": "2026-11-03T13:52:29Z",
+    "startedAt": "2026-11-03T13:49:29Z",
+    "finishedAt": "2026-11-03T13:50:31Z"
+  },
+  "tasks": [
+    {
+      "name": "task-3b665c178d3a3f0c4cd2e260cd1c9ea2",
+      "phase": "Succeeded"
+    },
+    {
+      "name": "task-c5e3e72ce2e65618356a09f50ca8e672",
+      "phase": "Succeeded"
+    }
+  ],
+  "affectedOriginalClusterNodeReady": true,
+  "sideEffect": "CRI runtime changed from1.7.29 to2.2.4 before cancellation; no Kubernetes join executed"
+}

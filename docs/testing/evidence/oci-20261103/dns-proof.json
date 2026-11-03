@@ -1,0 +1,104 @@
+{
+  "checks": [
+    {
+      "check": "create domain",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "create A",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "read A",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "reject duplicate",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "check": "reject A wrong family",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "check": "reject AAAA wrong family",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "check": "reject malformed A",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "check": "reject TXT type",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "check": "update AAAA",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "read AAAA",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "reject invalid update",
+      "status": 400,
+      "expected": 400,
+      "passed": true
+    },
+    {
+      "check": "valid record unchanged",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "list records",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "delete record",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "verify record gone",
+      "status": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "check": "cleanup owned domain",
+      "status": 200,
+      "passed": true
+    },
+    {
+      "check": "verify domain gone",
+      "status": 404,
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,110 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "existing backup point GET returns 200",
+      "passed": true,
+      "detail": {
+        "http": 200,
+        "name": "oci-faa1-point-20261103"
+      }
+    },
+    {
+      "check": "durable backup accepted",
+      "passed": true,
+      "detail": {
+        "backup": "backup-588a47dc4aefd7a8e8939559f200dd0ba37bdc324e6116e5",
+        "backupUID": "18e027a3-8494-405f-a84a-f252203c6347",
+        "operation": "backup-588a47dc4aefd7a8e8939559f200dd0ba37bdc324e6116e5",
+        "status": 200
+      }
+    },
+    {
+      "check": "one real Server restart after durable admission",
+      "passed": true,
+      "detail": {
+        "preRestartOperationFacts": [],
+        "servers": 1,
+        "agentsAndEtcdKeptRunning": true
+      }
+    },
+    {
+      "check": "sixteen concurrent keyed replays reuse one record; changed parameters rejected",
+      "passed": true,
+      "detail": {
+        "replays": 16,
+        "status": 200,
+        "changedParameters": 409
+      }
+    },
+    {
+      "check": "real backup file matches recorded size and MD5",
+      "passed": true,
+      "detail": {
+        "bytes": 11567136,
+        "md5": "a8bd1d368c38764ed567be3e597f4bc8"
+      }
+    },
+    {
+      "check": "cluster deletion rejected while Backup exists",
+      "passed": true,
+      "detail": {
+        "http": 400
+      }
+    },
+    {
+      "check": "one Backup and one successful Operation; Cluster Running",
+      "passed": true,
+      "detail": {
+        "backup": "backup-588a47dc4aefd7a8e8939559f200dd0ba37bdc324e6116e5",
+        "operationUID": "78331be8-6ee6-4bda-b081-922932d180b3",
+        "status": {
+          "kubernetesVersion": "v1.37.0",
+          "fileName": "backup-588a47dc4aefd7a8e8939559f200dd0ba37bdc324e6116e5",
+          "backupFileSize": 11567136,
+          "backupFileMD5": "a8bd1d368c38764ed567be3e597f4bc8",
+          "status": "available"
+        },
+        "clusterPhase": "Running",
+        "backupCount": 1
+      }
+    },
+    {
+      "check": "scheduled backup after manual completion succeeds and releases BackingUp",
+      "passed": true,
+      "detail": {
+        "cronUID": "1be11b56-92a6-462e-a89d-900998e99962",
+        "backup": "online-ens3-71319775-oci-faa1-scheduled-20261103-96brvf",
+        "operation": "3469533a-bcf5-4e32-ac67-1d814327d004",
+        "clusterPhase": "Running"
+      }
+    },
+    {
+      "check": "actual restore reverts marker and all three nodes Ready",
+      "passed": true,
+      "detail": {
+        "operation": "cc1de535-f58e-4815-ad2d-3676864d007e",
+        "marker": "before-f02-backup"
+      }
+    },
+    {
+      "check": "backup delete removes actual snapshot file",
+      "passed": true,
+      "detail": {
+        "removed": true
+      }
+    },
+    {
+      "check": "deleted backup replay is rejected instead of recreating against old Operation",
+      "passed": true,
+      "detail": {
+        "status": 410
+      }
+    }
+  ],
+  "cluster": "online-ens3-71319775",
+  "sourceManifestBinaries": {
+    "backendRevision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+    "packageSource": "existing cluster packagePlan retained from 71319775; new platform faa1e9d8"
+  }
+}

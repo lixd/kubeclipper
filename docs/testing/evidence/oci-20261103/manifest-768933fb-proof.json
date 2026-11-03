@@ -1,0 +1,19 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "manifestSHA256": "a04844985ce547f19ddb1044586efb2ca99f5e35bf64157c7e4e2fdafd6711ed",
+  "artifactCounts": {
+    "helm-chart": 2,
+    "package-image": 10,
+    "runtime-image": 98
+  },
+  "artifacts": 110,
+  "qualifiedWorkflow": "https://github.com/lixd/kubeclipper/actions/runs/41632579584",
+  "qualificationResult": "success",
+  "goWorkflow": "https://github.com/lixd/kubeclipper/actions/runs/41632579373",
+  "goResult": "success",
+  "aioWorkflow": "https://github.com/lixd/kubeclipper/actions/runs/41632579439",
+  "aioResult": "success",
+  "nativeARMFieldTest": false,
+  "formalReleasePublished": false,
+  "checkedUTC": "2026-11-03T12:33:32.586516+00:00"
+}

@@ -1,0 +1,38 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "native deletion of TLS package consumer cluster cleans actual CNI credentials views and runtime image cache on all3 while preserving host cgroup",
+      "passed": true,
+      "detail": {
+        "clusterUID": "09ca2645-2b3a-458b-a453-11cd2349de0d",
+        "observedPhases": [
+          "Terminating"
+        ],
+        "hosts": {
+          "172.16.131.208": {
+            "kubeletInactive": true,
+            "calicoViewAbsent": true,
+            "cniFilesAbsent": true,
+            "containerdImageCacheAbsent": true,
+            "hostCgroupPreserved": true
+          },
+          "172.16.131.146": {
+            "kubeletInactive": true,
+            "calicoViewAbsent": true,
+            "cniFilesAbsent": true,
+            "containerdImageCacheAbsent": true,
+            "hostCgroupPreserved": true
+          },
+          "172.16.131.230": {
+            "kubeletInactive": true,
+            "calicoViewAbsent": true,
+            "cniFilesAbsent": true,
+            "containerdImageCacheAbsent": true,
+            "hostCgroupPreserved": true
+          }
+        }
+      }
+    }
+  ]
+}

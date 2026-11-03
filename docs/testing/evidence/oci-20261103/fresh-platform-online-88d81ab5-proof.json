@@ -1,0 +1,88 @@
+{
+  "revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "checks": [
+    {
+      "check": "normal old-cluster deletion and target Operation ledger purge",
+      "passed": true,
+      "utc": "2026-11-03T12:07:02.016859+00:00",
+      "detail": {
+        "clusterUID": "e3314f5a-fc7c-44ca-83a9-392427cbb1d9"
+      }
+    },
+    {
+      "check": "normal clean all completed",
+      "passed": true,
+      "utc": "2026-11-03T12:07:15.663498+00:00",
+      "detail": {
+        "sharedRegistry": "172.16.131.146:5003",
+        "sharedNFS": "preserved"
+      }
+    },
+    {
+      "check": "fresh GHCR platform deploy: one Server, one separate Agent",
+      "passed": true,
+      "utc": "2026-11-03T12:10:20.963484+00:00",
+      "detail": {
+        "agentUIDs": {
+          "172.16.131.146": "fbc32516-c2c9-44bd-b858-5f83c222129e"
+        },
+        "packageRegistry": "ghcr.io/lixd/kubeclipper/qualification-88d81ab5905eb631e01ea66338985aae204516f9"
+      }
+    },
+    {
+      "check": "configured initial admin password accepts correct and rejects wrong input",
+      "passed": true,
+      "utc": "2026-11-03T12:15:38.087860+00:00",
+      "detail": {
+        "credentialValuesOmitted": true
+      }
+    },
+    {
+      "check": "repeat deploy preserves existing platform identity and health",
+      "passed": true,
+      "utc": "2026-11-03T12:15:42.529981+00:00",
+      "detail": {
+        "exitCode": 1,
+        "agentUIDsUnchanged": true
+      }
+    },
+    {
+      "check": "independent Agent join 172.16.131.230",
+      "passed": true,
+      "utc": "2026-11-03T12:16:24.133080+00:00",
+      "detail": {
+        "agentUIDs": {
+          "172.16.131.230": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+          "172.16.131.146": "fbc32516-c2c9-44bd-b858-5f83c222129e"
+        },
+        "existingUIDsUnchanged": true
+      }
+    },
+    {
+      "check": "independent Agent join 172.16.131.208",
+      "passed": true,
+      "utc": "2026-11-03T12:16:58.603285+00:00",
+      "detail": {
+        "agentUIDs": {
+          "172.16.131.208": "0770a532-183e-4727-a9d2-1a36d281400f",
+          "172.16.131.230": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+          "172.16.131.146": "fbc32516-c2c9-44bd-b858-5f83c222129e"
+        },
+        "existingUIDsUnchanged": true
+      }
+    },
+    {
+      "check": "one Server with three Agents, including Server/Agent colocation",
+      "passed": true,
+      "utc": "2026-11-03T12:16:58.619083+00:00",
+      "detail": {
+        "agentUIDs": {
+          "172.16.131.208": "0770a532-183e-4727-a9d2-1a36d281400f",
+          "172.16.131.230": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+          "172.16.131.146": "fbc32516-c2c9-44bd-b858-5f83c222129e"
+        }
+      }
+    }
+  ],
+  "phase": "one Server with three Agents, including Server/Agent colocation"
+}

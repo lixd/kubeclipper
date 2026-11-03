@@ -1,0 +1,44 @@
+{
+  "revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+  "qualification": "full artifact workflow checked separately",
+  "checks": [
+    {
+      "check": "native independent upgrade server",
+      "passed": true,
+      "startedUTC": "2026-11-03T13:10:41.578507+00:00",
+      "finishedUTC": "2026-11-03T13:12:30.781807+00:00",
+      "exit": 0,
+      "unrelatedServerAgentPIDsPreserved": true
+    },
+    {
+      "check": "native independent upgrade agent",
+      "passed": true,
+      "startedUTC": "2026-11-03T13:12:30.817098+00:00",
+      "finishedUTC": "2026-11-03T13:13:03.766479+00:00",
+      "exit": 0,
+      "unrelatedServerAgentPIDsPreserved": true
+    },
+    {
+      "check": "native independent upgrade console",
+      "passed": true,
+      "startedUTC": "2026-11-03T13:13:03.807212+00:00",
+      "finishedUTC": "2026-11-03T13:13:46.296747+00:00",
+      "exit": 0,
+      "unrelatedServerAgentPIDsPreserved": true
+    },
+    {
+      "check": "native independent upgrade kcctl",
+      "passed": true,
+      "startedUTC": "2026-11-03T13:13:46.319273+00:00",
+      "finishedUTC": "2026-11-03T13:14:04.991686+00:00",
+      "exit": 0,
+      "unrelatedServerAgentPIDsPreserved": true
+    },
+    {
+      "check": "Node and Cluster identities preserved and both clusters remain Running",
+      "passed": true,
+      "nodes": 3,
+      "clusters": 2
+    }
+  ]
+}

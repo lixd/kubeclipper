@@ -1,0 +1,56 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "fresh cold pure-offline3master real six-direction Pod ping and HTTP plus cluster DNS on each node",
+      "passed": true,
+      "detail": {
+        "edges": [
+          {
+            "fromNode": "lixd-dev-4",
+            "toNode": "lixd-dev-3",
+            "pingPassed": true,
+            "HTTPBody": "final-mesh-real"
+          },
+          {
+            "fromNode": "lixd-dev-4",
+            "toNode": "lixd-dev-2",
+            "pingPassed": true,
+            "HTTPBody": "final-mesh-real"
+          },
+          {
+            "fromNode": "lixd-dev-3",
+            "toNode": "lixd-dev-4",
+            "pingPassed": true,
+            "HTTPBody": "final-mesh-real"
+          },
+          {
+            "fromNode": "lixd-dev-3",
+            "toNode": "lixd-dev-2",
+            "pingPassed": true,
+            "HTTPBody": "final-mesh-real"
+          },
+          {
+            "fromNode": "lixd-dev-2",
+            "toNode": "lixd-dev-4",
+            "pingPassed": true,
+            "HTTPBody": "final-mesh-real"
+          },
+          {
+            "fromNode": "lixd-dev-2",
+            "toNode": "lixd-dev-3",
+            "pingPassed": true,
+            "HTTPBody": "final-mesh-real"
+          }
+        ],
+        "DNSNodes": [
+          "lixd-dev-4",
+          "lixd-dev-3",
+          "lixd-dev-2"
+        ],
+        "publicPodHTTPSBlockedOnAll3": true,
+        "daemonSetRetainedForInspection": true
+      }
+    }
+  ]
+}

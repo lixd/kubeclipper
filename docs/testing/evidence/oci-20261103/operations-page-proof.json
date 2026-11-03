@@ -1,0 +1,23 @@
+{
+  "checks": [
+    {
+      "resource": "operations",
+      "pages": 1,
+      "items": 7,
+      "unique": true,
+      "equalsUnpaged": true,
+      "snapshotVersions": 1
+    },
+    {
+      "resource": "operationtasks",
+      "pages": 4,
+      "items": 37,
+      "unique": true,
+      "equalsUnpaged": true,
+      "snapshotVersions": 1
+    },
+    {
+      "negativeLimitHTTP": 400
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "scope": "candidate server and standalone loopback etcd",
+  "checks": [
+    {
+      "check": "GET /terminal.key",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "GET /terminal.key",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "POST /terminal.key",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "GET /terminal.key",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "PUT /template",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "GET /template",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "PUT /template",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "no-role read denied /api/config.kubeclipper.io/v1/template",
+      "actual": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "check": "no-role read denied /api/config.kubeclipper.io/v1/terminal.key",
+      "actual": 403,
+      "expected": 403,
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "startedUTC": "2026-11-03T11:32:57.946758+00:00",
+  "finishedUTC": "2026-11-03T11:37:44.468023+00:00",
+  "exit": 0,
+  "candidateRevision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "proxyUsed": true,
+  "HTTP2ForcedOff": false,
+  "scope": "platform upgrade; full qualification separate"
+}

@@ -1,0 +1,26 @@
+{
+  "scope": "existing checklist fixes Tier1 to Ubuntu24.04 amd64 only; lifecycle completion tracked separately",
+  "hosts": [
+    {
+      "host": "172.16.131.208",
+      "os": "ubuntu",
+      "version": "24.04",
+      "arch": "x86_64",
+      "kernel": "6.8.0-90-generic"
+    },
+    {
+      "host": "172.16.131.146",
+      "os": "ubuntu",
+      "version": "24.04",
+      "arch": "x86_64",
+      "kernel": "6.8.0-90-generic"
+    },
+    {
+      "host": "172.16.131.230",
+      "os": "ubuntu",
+      "version": "24.04",
+      "arch": "x86_64",
+      "kernel": "6.8.0-90-generic"
+    }
+  ]
+}

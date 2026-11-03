@@ -1,0 +1,40 @@
+{
+  "revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+  "checks": [
+    {
+      "check": "real snapshot with installed MetalLB and all3nodes; existing Backup rejects cluster deletion before new Operation",
+      "passed": true,
+      "detail": {
+        "backupUID": "27f115c1-3600-4e29-ba23-2343bb66e1ff",
+        "backupOperationUID": "c517620c-d065-48de-997c-74d3d9c7e7be",
+        "snapshotBytes": 14290976,
+        "deleteStatus": 400,
+        "newDeleteOperations": 0
+      }
+    },
+    {
+      "check": "actual restore reverts etcd data and preserves3Node identities Ready plus installed MetalLB and real business HTTP",
+      "passed": true,
+      "detail": {
+        "recoveryOperationUID": "d5723511-1788-4104-9850-f5f5d5772aa1",
+        "restoredMarker": "before-final-snapshot",
+        "nodeUIDs": {
+          "lixd-dev-2": "aef5b866-a2a9-40ae-952e-64b283b29ddd",
+          "lixd-dev-3": "62af883a-c86b-4e3b-9d86-187be70c36c6",
+          "lixd-dev-4": "5b5efcec-3a1d-4fe2-833a-d3a8419cb3f4"
+        },
+        "addonDeploymentUID": "a761ffe2-28ab-45f6-b46c-ac18c1f768cf",
+        "businessHTTPBody": "continuity-real",
+        "packagePlanUnchanged": true,
+        "scope": "etcd snapshot restore, no claim of backing up external volume contents"
+      }
+    },
+    {
+      "check": "own Backup record and backup point removed and prior cluster backup label restored",
+      "passed": true,
+      "detail": {
+        "backupStatus": 404
+      }
+    }
+  ]
+}

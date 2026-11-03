@@ -1,0 +1,220 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "native fresh3node Kubernetes137 and all system Pods Ready from shipped offline bundle",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-2004-final-offline-ha",
+        "clusterUID": "aad332e2-85d4-48c8-98bc-7995b842dea0",
+        "nodeUIDs": {
+          "lixd-dev-2": "6c6e77dc-e79c-428f-b035-3fe3730cd8a6",
+          "lixd-dev-3": "121bbddb-4ab7-40f6-8c8b-e5e6e519f5b3",
+          "lixd-dev-4": "a70e6f59-bc22-435f-9748-88fe0e008efc"
+        },
+        "operationUIDs": [
+          "9057b3f9-a55f-48ab-b788-45b013bbc26a"
+        ],
+        "masters": 3,
+        "workers": 0,
+        "agentRegistryConfigVerified": {
+          "172.16.131.208": {
+            "scheme": "http",
+            "prefix": "172.16.131.146:5605/offline-shipped-2004",
+            "credentialValuesOmitted": true
+          },
+          "172.16.131.146": {
+            "scheme": "http",
+            "prefix": "172.16.131.146:5605/offline-shipped-2004",
+            "credentialValuesOmitted": true
+          },
+          "172.16.131.230": {
+            "scheme": "http",
+            "prefix": "172.16.131.146:5605/offline-shipped-2004",
+            "credentialValuesOmitted": true
+          }
+        },
+        "frozenTransportRefs": [
+          "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s/k8s:v1.37.0",
+          "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/cri/containerd:2.2.4",
+          "172.16.131.146:5605/offline-shipped-2004/kubeclipper/charts/tigera-operator:v3.31.5",
+          "172.16.131.146:5605/offline-shipped-2004/kubeclipper/packages/k8s-extension/k8s-extension:v1"
+        ]
+      }
+    },
+    {
+      "check": "all real system container and initContainer imageIDs match latest full qualification runtime manifest",
+      "passed": true,
+      "detail": {
+        "systemContainersVerified": 36,
+        "images": [
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/apiserver:v3.31.5",
+            "digest": "sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/apiserver:v3.31.5",
+            "digest": "sha256:8a487c14daa06afaf11695fdd5556e493a21288131742c8a5114d3b0860677b7"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/kube-controllers:v3.31.5",
+            "digest": "sha256:4a1c3d86e8501edb1429226b4b8939b57d2b297ef990703c5dbea30a0b3bd84d"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/pod2daemon-flexvol:v3.31.5",
+            "digest": "sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/cni:v3.31.5",
+            "digest": "sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/pod2daemon-flexvol:v3.31.5",
+            "digest": "sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/cni:v3.31.5",
+            "digest": "sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/pod2daemon-flexvol:v3.31.5",
+            "digest": "sha256:a3f3230beba7c3ca0f956d1504c62ac8c33e996f1de51a86f8b50437c5769756"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/node:v3.31.5",
+            "digest": "sha256:584e225717b812c55c5d7b3d1b99a565002733976ed4dde6eb9392423fd727e8"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/cni:v3.31.5",
+            "digest": "sha256:2a0ce169973b1531cc50af7c2164474a741061c5a37886fab1553ad77e4ac272"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/typha:v3.31.5",
+            "digest": "sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/calico/typha:v3.31.5",
+            "digest": "sha256:edd3c5b8ba1af10a77a21865bdbbbd8584eba84e20feceb99645aa6b48c31e99"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/coredns:v1.14.6",
+            "digest": "sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/coredns:v1.14.6",
+            "digest": "sha256:1ba6f47265602e2e50a9c4669e3a955e4298a0d30dc82f39293d4bf1a851e0ff"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/etcd:3.7.0-0",
+            "digest": "sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/etcd:3.7.0-0",
+            "digest": "sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/etcd:3.7.0-0",
+            "digest": "sha256:1f445fa5dd06b08f3c0cf9f46e2891e9bc66cbf7e0b9c66627c40658edf4bc98"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kubeclipper/kubectl",
+            "digest": "sha256:85db688a80a1493d40ba9d13f64bf2c615121112fbe9f44dd43368fa4f837c59"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-apiserver:v1.37.0",
+            "digest": "sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-apiserver:v1.37.0",
+            "digest": "sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-apiserver:v1.37.0",
+            "digest": "sha256:83f25d9626d2860003425ad0e31b4d3c73738b2ee16505fca9645d6443b719da"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-controller-manager:v1.37.0",
+            "digest": "sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-controller-manager:v1.37.0",
+            "digest": "sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-controller-manager:v1.37.0",
+            "digest": "sha256:9db48abfafe1ca12b8cd6208331e0867fa225cb173e7588627cdada1818bcee9"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-proxy:v1.37.0",
+            "digest": "sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-proxy:v1.37.0",
+            "digest": "sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-proxy:v1.37.0",
+            "digest": "sha256:f12572a048cde334f140cd7cbe04d7d1f064d630c65dacd9a979adc030d5998f"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-scheduler:v1.37.0",
+            "digest": "sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-scheduler:v1.37.0",
+            "digest": "sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/kube-scheduler:v1.37.0",
+            "digest": "sha256:f705b23a4c819ed0f571ce1f618531acf59e3d53bec13896eb1c3a1d28488041"
+          },
+          {
+            "image": "172.16.131.146:5605/offline-shipped-2004/tigera/operator:v1.40.8",
+            "digest": "sha256:bb3104920794aca0b4b89334a6b5f5a3f45191b94ae296ea7e4164175787292f"
+          }
+        ]
+      }
+    },
+    {
+      "check": "real Pod Service HTTP and absolute cluster DNS succeed",
+      "passed": true,
+      "detail": {
+        "HTTPBody": "oci-final-real",
+        "clusterDNSResolved": true
+      }
+    },
+    {
+      "check": "actual all3host and Pod public HTTPS and reverse proxy blocked during cold creation with private LAN functional",
+      "passed": true,
+      "detail": {
+        "rejectCounters": {
+          "172.16.131.208": 224,
+          "172.16.131.146": 9349,
+          "172.16.131.230": 7779
+        },
+        "podPublicHTTPSBlocked": true,
+        "noManualPackageCacheCopy": true
+      }
+    }
+  ]
+}

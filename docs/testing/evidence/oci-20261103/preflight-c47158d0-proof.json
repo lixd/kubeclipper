@@ -1,0 +1,44 @@
+{
+  "revision": "c47158d024859e1766200ad6ff6262190e925c35",
+  "checks": [
+    {
+      "check": "actual built-in node readiness detects disk failure on free physical Agent",
+      "passed": true,
+      "operationUID": "548416cd-3246-474f-add2-d54e44f8ccdf",
+      "taskUIDs": [
+        "e3e95330-51e2-4fc5-bd3d-ad6bedebb9fc"
+      ],
+      "expectedDiagnostic": "insufficient disk space",
+      "actualFault": "real64MiB tmpfs on configured kubelet path",
+      "nativeCommandsSHA256": "e96972142b30a8a95cc09a9718a1da89eedcd3201e8fd869e77c431afb554713",
+      "sourceCreateOperationUID": "30d03ba4-7bd3-4a1c-89b0-39ef6ce9adac",
+      "scope": "unmodified native readiness commands executed in isolated qualification Operation; no package or cluster installation executed"
+    },
+    {
+      "check": "actual built-in node readiness detects time failure on free physical Agent",
+      "passed": true,
+      "operationUID": "cd6af822-e6c8-4f14-82cb-975438fa3040",
+      "taskUIDs": [
+        "bc0b58db-6b35-4471-ac7b-5265bd46de13"
+      ],
+      "expectedDiagnostic": "no supported time synchronization service",
+      "actualFault": "actual active time sync service temporarily stopped; system clock unchanged",
+      "nativeCommandsSHA256": "e96972142b30a8a95cc09a9718a1da89eedcd3201e8fd869e77c431afb554713",
+      "sourceCreateOperationUID": "30d03ba4-7bd3-4a1c-89b0-39ef6ce9adac",
+      "scope": "unmodified native readiness commands executed in isolated qualification Operation; no package or cluster installation executed"
+    },
+    {
+      "check": "actual built-in node readiness detects hostname failure on free physical Agent",
+      "passed": true,
+      "operationUID": "3997cffb-b642-4006-91c8-5c64db4d8726",
+      "taskUIDs": [
+        "62b47025-959d-4cde-b7d7-a10f3fc8922a"
+      ],
+      "expectedDiagnostic": "invalid Kubernetes node hostname: invalid_kc_hostname",
+      "actualFault": "actual transient Linux hostname changed to invalid_kc_hostname; persistent hostname file unchanged",
+      "nativeCommandsSHA256": "e96972142b30a8a95cc09a9718a1da89eedcd3201e8fd869e77c431afb554713",
+      "sourceCreateOperationUID": "30d03ba4-7bd3-4a1c-89b0-39ef6ce9adac",
+      "scope": "unmodified native readiness commands executed in isolated qualification Operation; no package or cluster installation executed"
+    }
+  ]
+}

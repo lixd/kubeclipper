@@ -1,0 +1,22 @@
+{
+  "revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+  "operationUID": "8a24768a-5086-43bc-8c10-e7bdefb9925e",
+  "operationPhase": "Succeeded",
+  "remainingMasters": 1,
+  "workerAPIHostsMapping": [
+    "169.254.169.100  apiserver.cluster.local"
+  ],
+  "APIVIPAbsent": true,
+  "nodeReadyConditions": [
+    {
+      "lastHeartbeatTime": "2026-11-03T14:35:08Z",
+      "lastTransitionTime": "2026-11-03T14:36:07Z",
+      "message": "Kubelet stopped posting node status.",
+      "reason": "NodeStatusUnknown",
+      "status": "Unknown",
+      "type": "Ready"
+    }
+  ],
+  "manualRecoveryApplied": true,
+  "recoveryScope": "restored only existing dev4 API hosts mapping after original failure recorded; no fixed-version cycle claimed"
+}

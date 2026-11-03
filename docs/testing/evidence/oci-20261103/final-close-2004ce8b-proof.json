@@ -1,0 +1,25 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "stages": [
+    {
+      "stage": "six-direction-isolated-network",
+      "exit": 0
+    },
+    {
+      "stage": "final-redaction",
+      "exit": 0
+    },
+    {
+      "stage": "restore-network-proxy",
+      "exit": 0
+    },
+    {
+      "stage": "final-latest-platform-ha",
+      "exit": 0
+    },
+    {
+      "stage": "final-running-state",
+      "exit": 0
+    }
+  ]
+}

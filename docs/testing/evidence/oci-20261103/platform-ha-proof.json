@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "check": "other servers healthy and real write succeeded while dev4 server stopped",
+      "passed": true
+    },
+    {
+      "check": "server restored and platform doctor healthy",
+      "passed": true
+    },
+    {
+      "check": "other servers healthy and real write succeeded while dev4 etcd stopped",
+      "passed": true
+    },
+    {
+      "check": "etcd restored and platform doctor healthy",
+      "passed": true
+    }
+  ]
+}

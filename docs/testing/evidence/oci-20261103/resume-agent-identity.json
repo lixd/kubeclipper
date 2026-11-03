@@ -1,0 +1,50 @@
+{
+  "checks": [
+    {
+      "check": "agent client certificate reads own Node",
+      "status": 200,
+      "expected": 200,
+      "passed": true,
+      "reason": null
+    },
+    {
+      "check": "agent cannot read other Node",
+      "status": 403,
+      "expected": 403,
+      "passed": true,
+      "reason": "agent \"0649c52b-9da1-4b31-b853-967f767a0f86\" cannot access Node \"9d5537c6-3ce7-4841-bf2d-0223a553d7c5\""
+    },
+    {
+      "check": "agent cannot register other identity",
+      "status": 403,
+      "expected": 403,
+      "passed": true,
+      "reason": "agent \"0649c52b-9da1-4b31-b853-967f767a0f86\" cannot register Node \"9d5537c6-3ce7-4841-bf2d-0223a553d7c5\""
+    },
+    {
+      "check": "agent cannot update other Node status",
+      "status": 403,
+      "expected": 403,
+      "passed": true,
+      "reason": "agent \"0649c52b-9da1-4b31-b853-967f767a0f86\" cannot update Node \"9d5537c6-3ce7-4841-bf2d-0223a553d7c5\""
+    },
+    {
+      "check": "own status mismatched UID rejected",
+      "status": 409,
+      "expected": 409,
+      "passed": true,
+      "reason": "node UID or resourceVersion changed"
+    },
+    {
+      "check": "own status stale resourceVersion rejected",
+      "status": 409,
+      "expected": 409,
+      "passed": true,
+      "reason": "node UID or resourceVersion changed"
+    },
+    {
+      "check": "status endpoint preserves server-owned Node metadata",
+      "passed": true
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "doctor": "KubeClipper Doctor\n\nOverall: Healthy\nChecked: 2026-11-03T10:29:03Z (1.3s)\n\n[OK]  kcctl         connected to KubeClipper API\n[OK]  kc-server     3/3 instances healthy; all subsystems ready\n[OK]  kc-etcd       3/3 members healthy\n[OK]  kc-agent      3/3 agents healthy\n\nSummary: 25 passed, 0 warnings, 0 failed, 0 skipped\n",
+  "markerUnchanged": true,
+  "nodeUIDsUnchanged": true,
+  "nodesReady": true
+}

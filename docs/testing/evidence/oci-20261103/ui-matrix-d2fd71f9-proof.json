@@ -1,0 +1,41 @@
+{
+  "revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+  "frontendRevision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+  "checks": [
+    {
+      "check": "actual Console wizard creates native137 cluster with customDNS iptables and IPIP",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-d2fd-20261103-ui-137",
+        "clusterUID": "8a05eec5-ddbf-4790-a689-5df9298438de",
+        "operationUID": "1988232d-f071-4560-a20e-414902179781",
+        "kubeletVersion": "v1.37.0",
+        "runtimeVersion": "containerd://2.2.4",
+        "DNSDomain": "oci.test",
+        "proxyMode": "iptables",
+        "IPIPMode": "Always",
+        "podCIDR": "172.32.0.0/16",
+        "serviceCIDR": "10.102.0.0/16"
+      }
+    },
+    {
+      "check": "actual Pod resolves Kubernetes Service through custom cluster DNS",
+      "passed": true,
+      "detail": {
+        "query": "kubernetes.default.svc.oci.test",
+        "expectedServiceIP": "10.102.0.1",
+        "realPodDNS": true
+      }
+    },
+    {
+      "check": "cross-cluster occupied master rejected before creating an Operation and original cluster stays Ready",
+      "passed": true,
+      "detail": {
+        "status": 400,
+        "newOperations": 0,
+        "occupiedNode": "f9500d86-2b3b-44a8-a572-14ea04db0743",
+        "originalClusterUID": "8a05eec5-ddbf-4790-a689-5df9298438de"
+      }
+    }
+  ]
+}

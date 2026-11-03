@@ -1,0 +1,95 @@
+{
+  "scope": "candidate server and standalone loopback etcd",
+  "checks": [
+    {
+      "check": "login issues short access token",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "token valid before expiry",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "token list",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "token detail",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "expired token rejected",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "refresh exchanges token",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "expired access token object deleted",
+      "actual": 404,
+      "expected": 404,
+      "passed": true
+    },
+    {
+      "check": "logout",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "logged-out access token rejected",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "revoked refresh rejected",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "wrong password 0",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "wrong password 1",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "wrong password 2",
+      "actual": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "rate limiter blocks during lock",
+      "actual": 429,
+      "expected": 429,
+      "passed": true
+    },
+    {
+      "check": "login recovers",
+      "actual": 200,
+      "expected": 200,
+      "passed": true
+    }
+  ]
+}

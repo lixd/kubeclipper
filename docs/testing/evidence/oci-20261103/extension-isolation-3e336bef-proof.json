@@ -1,0 +1,17 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "checks": [
+    {
+      "check": "native bootstrap Console upgrade and standalone extension preserve every existing cluster packagePlan",
+      "passed": true,
+      "clusterNames": [
+        "oci-c471-1104-airgap-136",
+        "oci-88d8-20261103-concurrent-ca"
+      ],
+      "clustersChecked": 2,
+      "extensionOperationUID": "a8a0b34c-9964-4de3-afdf-728d1e2054db",
+      "ConsoleSource": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+      "scope": "two independent clusters with different Kubernetes versions and OCI package plans"
+    }
+  ]
+}

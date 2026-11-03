@@ -1,0 +1,14 @@
+{
+  "checks": [
+    {
+      "check": "stop only this round reverse SSH33917 tunnels after removing service dependency; keep Console28113 tunnel",
+      "passed": true,
+      "terminatedOwnedPIDs": [
+        87026,
+        87027,
+        87028
+      ],
+      "localProxy7890NotStopped": true
+    }
+  ]
+}

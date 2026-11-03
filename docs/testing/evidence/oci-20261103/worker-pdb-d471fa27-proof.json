@@ -1,0 +1,65 @@
+{
+  "revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+  "checks": [
+    {
+      "check": "restrictive PDB fully observed with two healthy replicas and zero allowed disruptions",
+      "passed": true,
+      "detail": {
+        "generation": 2,
+        "status": {
+          "conditions": [
+            {
+              "lastTransitionTime": "2026-11-03T13:15:37Z",
+              "message": "",
+              "observedGeneration": 2,
+              "reason": "InsufficientPods",
+              "status": "False",
+              "type": "DisruptionAllowed"
+            }
+          ],
+          "currentHealthy": 2,
+          "desiredHealthy": 2,
+          "disruptionsAllowed": 0,
+          "expectedPods": 2,
+          "observedGeneration": 2
+        }
+      }
+    },
+    {
+      "check": "same in-progress real node removal request rejected without second Operation",
+      "passed": true,
+      "detail": {
+        "status": 400,
+        "reason": "nodes is already removed",
+        "operationUID": "bf89e18f-a68d-469e-b0de-391655a45c1d"
+      }
+    },
+    {
+      "check": "real worker removal respects PDB and fails or times out visibly without deleting the Node",
+      "passed": true,
+      "detail": {
+        "operationUID": "bf89e18f-a68d-469e-b0de-391655a45c1d",
+        "status": {
+          "phase": "TimedOut",
+          "reason": "DeadlineExceeded",
+          "message": "operation deadline exceeded",
+          "deadline": "2026-11-03T13:16:38Z",
+          "startedAt": "2026-11-03T13:15:38Z",
+          "finishedAt": "2026-11-03T13:16:38Z"
+        },
+        "actualKubernetesNodes": 2,
+        "pdbHealthy": 2
+      }
+    },
+    {
+      "check": "same immutable removal Operation retry succeeds after own PDB is removed; worker absent from real K8s",
+      "passed": true,
+      "detail": {
+        "operationUID": "bf89e18f-a68d-469e-b0de-391655a45c1d",
+        "retryGeneration": 1,
+        "stepsSHA256": "eb4815d8335863646cd3fa983bc06b6d46ae9d0e7a193725d1310d6c061c1d82",
+        "remainingNode": "lixd-dev-3"
+      }
+    }
+  ]
+}

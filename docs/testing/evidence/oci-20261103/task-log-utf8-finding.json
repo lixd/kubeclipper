@@ -1,0 +1,22 @@
+{
+  "observedUTC": "2026-11-03T11:29:36.115919+00:00",
+  "revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+  "task": "task-1ea0c0681d0aec6427cda1a91cccfd2b",
+  "offset": 3520,
+  "limit": 64,
+  "http": 200,
+  "encodedContentBytes": 66,
+  "deliverySize": 64,
+  "logSize": 6064,
+  "result": "UTF-8 sequence split by byte pagination; JSON replacement changes reconstructed content",
+  "fixRevision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "regressionBefore": "fails for limits 1,2,3,4,64",
+  "regressionAfter": "passed on sh-dev Docker Go 1.26.1, operationv2/oplog/API/CLI/TUI packages",
+  "fieldRetest": "passed",
+  "originalOffsetAfter": {
+    "contentBytes": 63,
+    "deliverySize": 63,
+    "replacementCharacter": false
+  },
+  "reconstructionEvidence": "task-logs-proof.json"
+}

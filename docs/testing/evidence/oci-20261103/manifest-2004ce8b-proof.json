@@ -1,0 +1,28 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "manifestSHA256": "e23109a974c04e20f4c6696cbd618b0818897ee08613c021503a8f43aa1c4179",
+  "qualificationTag": "oci-qualification-2004ce8b-20261104",
+  "formalReleasePublished": false,
+  "checks": [
+    {
+      "check": "publish-oci-qualification",
+      "passed": true,
+      "url": "https://github.com/lixd/kubeclipper/actions/runs/41684295043"
+    },
+    {
+      "check": "go-test-coverage",
+      "passed": true,
+      "url": "https://github.com/lixd/kubeclipper/actions/runs/41684295289"
+    },
+    {
+      "check": "offline-resource-validate",
+      "passed": true,
+      "url": "https://github.com/lixd/kubeclipper/actions/runs/41684295084"
+    },
+    {
+      "check": "e2e-aio-test",
+      "passed": true,
+      "url": "https://github.com/lixd/kubeclipper/actions/runs/41684295201"
+    }
+  ]
+}

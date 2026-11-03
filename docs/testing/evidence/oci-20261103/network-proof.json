@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "crossNodePairs": [
+    {
+      "source": "lixd-dev-2",
+      "target": "lixd-dev-3",
+      "ping": true,
+      "HTTP": true
+    },
+    {
+      "source": "lixd-dev-2",
+      "target": "lixd-dev-4",
+      "ping": true,
+      "HTTP": true
+    },
+    {
+      "source": "lixd-dev-3",
+      "target": "lixd-dev-2",
+      "ping": true,
+      "HTTP": true
+    },
+    {
+      "source": "lixd-dev-3",
+      "target": "lixd-dev-4",
+      "ping": true,
+      "HTTP": true
+    },
+    {
+      "source": "lixd-dev-4",
+      "target": "lixd-dev-2",
+      "ping": true,
+      "HTTP": true
+    },
+    {
+      "source": "lixd-dev-4",
+      "target": "lixd-dev-3",
+      "ping": true,
+      "HTTP": true
+    }
+  ],
+  "DNSAndServiceHTTPFromAllNodes": true
+}

@@ -1,0 +1,42 @@
+{
+  "checks": [
+    {
+      "check": "real etcd owned Task executor conflict fails closed without side effect",
+      "passed": true,
+      "detail": {
+        "operationUID": "3e1d7d82-2375-4a42-869a-7ee4d011a4ba",
+        "taskUID": "a902f7c3-28ea-4bc0-9657-b6654f8a7c94",
+        "status": {
+          "phase": "Failed",
+          "reason": "InvalidExecutionFacts",
+          "message": "task \"task-8431521b315ad65e1005f3e8cdf5bb2a\" executor differs from its immutable plan",
+          "deadline": "2026-11-03T11:54:15Z",
+          "startedAt": "2026-11-03T11:52:15Z",
+          "finishedAt": "2026-11-03T11:52:17Z"
+        },
+        "taskPhases": [
+          "Canceled"
+        ]
+      }
+    },
+    {
+      "check": "real etcd owned Task payload conflict fails closed without side effect",
+      "passed": true,
+      "detail": {
+        "operationUID": "2c4ba4b6-312a-4e46-8dc2-ddf9eea85930",
+        "taskUID": "e1dbaf9b-8f22-4e5f-ac63-36154b88d75f",
+        "status": {
+          "phase": "Failed",
+          "reason": "InvalidExecutionFacts",
+          "message": "task \"task-df66fd92fbed6a383579b0f52c932544\" payload differs from its immutable plan",
+          "deadline": "2026-11-03T11:54:20Z",
+          "startedAt": "2026-11-03T11:52:20Z",
+          "finishedAt": "2026-11-03T11:52:22Z"
+        },
+        "taskPhases": [
+          "Canceled"
+        ]
+      }
+    }
+  ]
+}

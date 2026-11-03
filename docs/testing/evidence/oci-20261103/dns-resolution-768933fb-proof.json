@@ -1,0 +1,25 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "two Domains actually resolve through attached cluster CoreDNS",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "record update propagates to real DNS response",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "deleting Domain removes stale Corefile record and returns NXDOMAIN while preserving another Domain",
+      "passed": true,
+      "detail": null
+    },
+    {
+      "check": "deleting final Domain removes last stale DNS record and returns NXDOMAIN",
+      "passed": true,
+      "detail": null
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "actual native deploy rejects address before any service replacement",
+      "passed": true,
+      "nonzeroExit": 1,
+      "originalServerAgentEtcdConsolePIDsPreserved": true,
+      "credentialValuesOmitted": true
+    },
+    {
+      "check": "actual native deploy rejects credentials before any service replacement",
+      "passed": true,
+      "nonzeroExit": 1,
+      "originalServerAgentEtcdConsolePIDsPreserved": true,
+      "credentialValuesOmitted": true
+    },
+    {
+      "check": "actual native deploy rejects ca before any service replacement",
+      "passed": true,
+      "nonzeroExit": 1,
+      "originalServerAgentEtcdConsolePIDsPreserved": true,
+      "credentialValuesOmitted": true
+    },
+    {
+      "check": "actual native deploy rejects missing-bootstrap before any service replacement",
+      "passed": true,
+      "nonzeroExit": 1,
+      "originalServerAgentEtcdConsolePIDsPreserved": true,
+      "credentialValuesOmitted": true
+    }
+  ]
+}

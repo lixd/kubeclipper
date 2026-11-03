@@ -1,0 +1,19 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "native interactive password login rejects wrong password and preserves client config",
+      "passed": true
+    },
+    {
+      "check": "native interactive login stores bearer config0600 and real CLI lists clusters",
+      "passed": true,
+      "passwordPassedInArgv": false,
+      "storedTokenNotPrinted": true
+    },
+    {
+      "check": "original administrator mTLS client config restored byte-identically",
+      "passed": true
+    }
+  ]
+}

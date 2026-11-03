@@ -1,0 +1,21 @@
+{
+  "backendRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "frontendRevision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+  "checks": [
+    {
+      "check": "actual browser admin login and final3healthy control-plane cluster detail after network restoration and HA tests",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-2004-final-offline-ha",
+        "status": "运行中",
+        "kubernetes": "v1.37.0",
+        "runtime": "containerd2.2.4",
+        "cni": "calicov3.31.5",
+        "registry": "oci-2004-final-images",
+        "all3ControlPlanesShownHealthy": true,
+        "screenshot": "ui-final-offline-ha-2004ce8b.png",
+        "temporaryViewportOverrideReset": true
+      }
+    }
+  ]
+}

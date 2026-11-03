@@ -1,0 +1,82 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "native drain unregisters free colocated Agent while Server remains healthy",
+      "passed": true,
+      "detail": {
+        "oldNodeID": "5d9363c2-0063-4732-b36b-794ee843a663",
+        "nodeGET": 404,
+        "serverHealth": 200
+      }
+    },
+    {
+      "check": "native join rejects wrong-password before partial Agent installation",
+      "passed": true,
+      "detail": {
+        "nonzeroExit": true,
+        "expectedCausePresent": true,
+        "nodeAbsent": true
+      }
+    },
+    {
+      "check": "native join rejects wrong-ca before partial Agent installation",
+      "passed": true,
+      "detail": {
+        "nonzeroExit": true,
+        "expectedCausePresent": true,
+        "nodeAbsent": true
+      }
+    },
+    {
+      "check": "native join rejects wrong-address before partial Agent installation",
+      "passed": true,
+      "detail": {
+        "nonzeroExit": true,
+        "expectedCausePresent": true,
+        "nodeAbsent": true
+      }
+    },
+    {
+      "check": "native join rejects missing-artifact before partial Agent installation",
+      "passed": true,
+      "detail": {
+        "nonzeroExit": true,
+        "expectedCausePresent": true,
+        "nodeAbsent": true
+      }
+    },
+    {
+      "check": "nonroot password SSH on2237 with sudo joins exact candidate through authenticated strict-CA HTTPS in distinct Region",
+      "passed": true,
+      "detail": {
+        "nodeID": "9754396e-af52-4080-b651-5b128922f27c",
+        "region": "oci-7689-region",
+        "sshPort": 2237,
+        "nativeAgentRevisionVerified": true
+      }
+    },
+    {
+      "check": "native mixed-Region cluster selection rejected without object creation",
+      "passed": true,
+      "detail": {
+        "clusterGET": 404
+      }
+    },
+    {
+      "check": "nonroot key SSH rejoins default Region with new CA-verified Agent certificate and old identity denied403",
+      "passed": true,
+      "detail": {
+        "nodeID": "8e5dbf26-595f-44f2-8810-49cf23caed96",
+        "oldSerial": "serial=1120C10D0C42BE2E",
+        "newSerial": "serial=29EE7CAF0D54E8AB",
+        "oldIdentityHTTP": 403
+      }
+    },
+    {
+      "check": "own SSH account, sudoers and2237 listener removed; API SSH restored with native numeric duration while preserving new Agent membership",
+      "passed": true,
+      "fixtureCorrection": "local deploy YAML string connectionTimeout cannot be copied into API config, which uses JSON time.Duration nanoseconds; restored original API representation"
+    }
+  ]
+}

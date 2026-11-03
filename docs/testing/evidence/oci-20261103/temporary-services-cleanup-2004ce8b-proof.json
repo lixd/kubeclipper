@@ -1,0 +1,20 @@
+{
+  "utc": "2026-11-03T18:29:44.361042+00:00",
+  "checks": [
+    {
+      "check": "stop exactly owned completed TLS Registry, MinIO and external TCP fixtures; keep final5605 and shared5003 Registry plus NFS data",
+      "passed": true,
+      "detail": {
+        "stoppedOwnedUnits": [
+          "kc-oci-final-tls-registry-stop-20261104.timer",
+          "kc-oci-faa1-tls-registry.service",
+          "kc-oci-faa1-minio.service",
+          "kc-oci-7689-external-tcp-20261103.service"
+        ],
+        "dataDeleted": false,
+        "final5605MirrorActive": true,
+        "shared5003RegistryActive": true
+      }
+    }
+  ]
+}

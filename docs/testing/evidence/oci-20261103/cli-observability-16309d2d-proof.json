@@ -1,0 +1,62 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "checks": [
+    {
+      "check": "native kcctl set cluster sets and clears all4 external access fields while preserving Cluster identity and frozen packagePlan",
+      "passed": true,
+      "detail": {
+        "setLabels": {
+          "kubeclipper.io/externalDomain": "apiserver.cluster.local",
+          "kubeclipper.io/externalDomainPort": "6443",
+          "kubeclipper.io/externalIP": "172.16.131.146",
+          "kubeclipper.io/externalPort": "6443"
+        },
+        "cleared": true,
+        "clusterUID": "02dd7bfe-e173-4bed-a69a-f1b12c8093b4"
+      }
+    },
+    {
+      "check": "actual Operation and Task API expose real Node UID IP step and explicit failure; native CLI describe/logs return real content",
+      "passed": true,
+      "detail": {
+        "tasksValidated": 429,
+        "sample": [
+          {
+            "task": "task-0097c7ca38e4e549a70d39e75dadf39f",
+            "nodeUID": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+            "nodeIP": "172.16.131.230",
+            "stepID": "dfe1a517-ff03-4a8d-a14a-2db9cdcfa819",
+            "phase": "Succeeded"
+          },
+          {
+            "task": "task-01a0faf73e123b12101530df84009622",
+            "nodeUID": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "nodeIP": "172.16.131.146",
+            "stepID": "daf4a46d-1d7f-4759-953a-9bc2119d4f37",
+            "phase": "Succeeded"
+          },
+          {
+            "task": "task-020ba288d313826411d3a4a9999f9ba9",
+            "nodeUID": "9627e252-35da-4403-9fb5-a7703e2c9552",
+            "nodeIP": "172.16.131.208",
+            "stepID": "c2015bcb-5776-4157-9408-302434d2ea3f",
+            "phase": "Succeeded"
+          },
+          {
+            "task": "task-02e81f244f17a050c4025e0d32a4e402",
+            "nodeUID": "9627e252-35da-4403-9fb5-a7703e2c9552",
+            "nodeIP": "172.16.131.208",
+            "stepID": "4adffd21-6a16-4534-ba01-4cc242fb5a5e",
+            "phase": "Succeeded"
+          }
+        ],
+        "failedOperationUID": "28c40cf1-0ba2-4073-8d31-f624d7cbc03e",
+        "failedTask": "task-5ab4949741fc0a1355ef1d717be67611",
+        "failureReason": "ExecutionFailed",
+        "nonemptyFailureMessageObserved": true,
+        "operationNowSucceededAfterRetry": true,
+        "CLIContentOmitted": true
+      }
+    }
+  ]
+}

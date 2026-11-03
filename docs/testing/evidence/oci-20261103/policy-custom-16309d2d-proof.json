@@ -1,0 +1,30 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "checks": [
+    {
+      "check": "fresh control-plane policy equals candidate native default template",
+      "passed": true,
+      "policyNames": [
+        "k8s-v1.37",
+        "k8s-v1.36",
+        "k8s-v1.35"
+      ]
+    },
+    {
+      "check": "custom whitelist persists and candidate CLI rejects removed version before creating object",
+      "passed": true,
+      "unsupportedVersionDiagnosticObserved": true,
+      "exit": 1
+    },
+    {
+      "check": "required slot without default rejected by real API",
+      "passed": true,
+      "status": 400,
+      "reason": "policy[k8s-v1.37].componentSlots[0]: required slot must have default choice"
+    },
+    {
+      "check": "original default policy restored and verified",
+      "passed": true
+    }
+  ]
+}

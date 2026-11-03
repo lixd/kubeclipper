@@ -1,0 +1,24 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "real host port6443 occupied triggers native CreateCluster Failed/InstallFailed",
+      "passed": true,
+      "detail": {
+        "operationUID": "57104eee-c124-4904-97b1-92705df4c955",
+        "phase": "InstallFailed",
+        "taskErrors": [
+          "exit status 1",
+          "exit status 1"
+        ]
+      }
+    },
+    {
+      "check": "native delete from InstallFailed completes and releases node",
+      "passed": true,
+      "detail": {
+        "clusterGET": 404
+      }
+    }
+  ]
+}

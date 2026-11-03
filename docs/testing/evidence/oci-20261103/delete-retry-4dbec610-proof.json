@@ -1,0 +1,26 @@
+{
+  "revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+  "checks": [
+    {
+      "check": "actual agent outage makes native deletion fail with retained Cluster and TerminateFailed",
+      "passed": true,
+      "operationUID": "41133fd7-07c3-47cb-b879-5e09c2e4da4f",
+      "operationPhase": "TimedOut",
+      "clusterUID": "8a05eec5-ddbf-4790-a689-5df9298438de"
+    },
+    {
+      "check": "native same-operation retry after Agent restoration deletes Cluster and releases occupied node",
+      "passed": true,
+      "clusterStatus": 404,
+      "sameOperationUID": "41133fd7-07c3-47cb-b879-5e09c2e4da4f",
+      "stepsSHA256": "e2dd378b9c4f32d6c1531c3eb515684d319a45b9db8b6822e75c9493d9c07373",
+      "observedPhases": [
+        "Running",
+        "Succeeded",
+        "TimedOut"
+      ],
+      "note": "Operation history may be GCd with deleted Cluster; no invented terminal operation snapshot"
+    }
+  ],
+  "fixtureCleanupNote": "Script final cleanup redundantly stopped an already removed transient timer and exited1 after both product checks passed. Independent follow-up verified Agent active, timer LoadState not-found, Cluster404, actual kubeclipper.io/nodeRole absent."
+}

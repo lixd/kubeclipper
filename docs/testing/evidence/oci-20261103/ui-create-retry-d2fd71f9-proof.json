@@ -1,0 +1,10 @@
+{
+  "revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+  "passed": true,
+  "operationUID": "1988232d-f071-4560-a20e-414902179781",
+  "sameOperationAndFrozenSteps": true,
+  "samePackagePlan": true,
+  "originalFailure": "Helm custom API domain request went through lab HTTP proxy and got EOF",
+  "environmentCorrection": "Added .oci.test to own Agent NO_PROXY drop-in and propagated same corrected exclusion to kubeadm-created kube-proxy DaemonSet; no product change or skipped CNI step",
+  "nativeRetrySucceeded": true
+}

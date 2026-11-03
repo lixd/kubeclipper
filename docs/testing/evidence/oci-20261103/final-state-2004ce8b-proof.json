@@ -1,0 +1,106 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "consoleRevision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+  "utc": "2026-11-03T18:37:03.401805+00:00",
+  "checks": [
+    {
+      "check": "final real running release payload hashes on all3 and native doctor25/0/0",
+      "passed": true,
+      "detail": {
+        "hosts": {
+          "172.16.131.208": {
+            "kc-server": {
+              "pid": 500027,
+              "actualRunningExecutableSHA256": "4c698dd9b7128f26330abdd2490708da190d6710cddddcff9f26a67466d755cd",
+              "expectedReleasePayloadSHA256": "4c698dd9b7128f26330abdd2490708da190d6710cddddcff9f26a67466d755cd"
+            },
+            "kc-agent": {
+              "pid": 500125,
+              "actualRunningExecutableSHA256": "e1c3a686a185fdd2117e4609bca16e6fe2489022a5645a6b237a72f5d2ea0c01",
+              "expectedReleasePayloadSHA256": "e1c3a686a185fdd2117e4609bca16e6fe2489022a5645a6b237a72f5d2ea0c01"
+            }
+          },
+          "172.16.131.146": {
+            "kc-server": {
+              "pid": 1902476,
+              "actualRunningExecutableSHA256": "4c698dd9b7128f26330abdd2490708da190d6710cddddcff9f26a67466d755cd",
+              "expectedReleasePayloadSHA256": "4c698dd9b7128f26330abdd2490708da190d6710cddddcff9f26a67466d755cd"
+            },
+            "kc-agent": {
+              "pid": 1902566,
+              "actualRunningExecutableSHA256": "e1c3a686a185fdd2117e4609bca16e6fe2489022a5645a6b237a72f5d2ea0c01",
+              "expectedReleasePayloadSHA256": "e1c3a686a185fdd2117e4609bca16e6fe2489022a5645a6b237a72f5d2ea0c01"
+            }
+          },
+          "172.16.131.230": {
+            "kc-server": {
+              "pid": 1825347,
+              "actualRunningExecutableSHA256": "4c698dd9b7128f26330abdd2490708da190d6710cddddcff9f26a67466d755cd",
+              "expectedReleasePayloadSHA256": "4c698dd9b7128f26330abdd2490708da190d6710cddddcff9f26a67466d755cd"
+            },
+            "kc-agent": {
+              "pid": 1825112,
+              "actualRunningExecutableSHA256": "e1c3a686a185fdd2117e4609bca16e6fe2489022a5645a6b237a72f5d2ea0c01",
+              "expectedReleasePayloadSHA256": "e1c3a686a185fdd2117e4609bca16e6fe2489022a5645a6b237a72f5d2ea0c01"
+            }
+          }
+        },
+        "etcdMembers": [
+          {
+            "ID": 1464281319794254161,
+            "name": "lixd-dev-2",
+            "peerURLs": [
+              "https://172.16.131.208:12380"
+            ],
+            "clientURLs": [
+              "https://172.16.131.208:12379"
+            ]
+          },
+          {
+            "ID": 2320589015618095299,
+            "name": "lixd-dev-3",
+            "peerURLs": [
+              "https://172.16.131.146:12380"
+            ],
+            "clientURLs": [
+              "https://172.16.131.146:12379"
+            ]
+          },
+          {
+            "ID": 7986987537318775838,
+            "name": "lixd-dev-4",
+            "peerURLs": [
+              "https://172.16.131.230:12380"
+            ],
+            "clientURLs": [
+              "https://172.16.131.230:12379"
+            ]
+          }
+        ],
+        "clusterUID": "aad332e2-85d4-48c8-98bc-7995b842dea0",
+        "kubernetesNodes": [
+          {
+            "name": "lixd-dev-2",
+            "uid": "6c6e77dc-e79c-428f-b035-3fe3730cd8a6",
+            "version": "v1.37.0"
+          },
+          {
+            "name": "lixd-dev-3",
+            "uid": "121bbddb-4ab7-40f6-8c8b-e5e6e519f5b3",
+            "version": "v1.37.0"
+          },
+          {
+            "name": "lixd-dev-4",
+            "uid": "a70e6f59-bc22-435f-9748-88fe0e008efc",
+            "version": "v1.37.0"
+          }
+        ],
+        "allSystemPodsReady": true,
+        "realHTTPBody": "oci-final-real",
+        "faultFirewallRemoved": true,
+        "temporaryReverseProxyDependencyRemoved": true,
+        "sharedRegistryAndNFSPreserved": true
+      }
+    }
+  ]
+}

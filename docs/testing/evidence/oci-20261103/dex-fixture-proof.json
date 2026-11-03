@@ -1,0 +1,7 @@
+{
+  "image": "ghcr.io/dexidp/dex:v2.44.0",
+  "platform": "linux/amd64",
+  "digest": "sha256:587f29be7f1437c7123ecb9ff9e31079ded140365c3518a8e85b99fae5f22421",
+  "binarySHA256": "f6fbee638d7333dc9e24e6a8756b52918345a877372d102bcdbb270d8e8aef74",
+  "version": "Dex Version: v2.44.0\nGo Version: go1.25.0\nGo OS/ARCH: linux amd64"
+}

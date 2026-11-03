@@ -1,0 +1,17 @@
+{
+  "revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+  "manifestSHA256": "16ea57d9de36e7e4b9a94b65652aadb903af27caca59bcf5d79207742a959873",
+  "artifacts": 110,
+  "types": {
+    "helm-chart": 2,
+    "package-image": 10,
+    "runtime-image": 98
+  },
+  "qualificationRun": "https://github.com/lixd/kubeclipper/actions/runs/41644669502",
+  "goTestRun": "https://github.com/lixd/kubeclipper/actions/runs/41644669722",
+  "qualificationConclusion": "success",
+  "goTestConclusion": "success",
+  "consoleRevision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+  "consoleUnitRun": "https://github.com/lixd/console/actions/runs/41644510952",
+  "consoleUnitConclusion": "success"
+}

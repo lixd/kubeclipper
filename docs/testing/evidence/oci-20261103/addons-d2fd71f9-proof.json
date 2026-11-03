@@ -1,0 +1,115 @@
+{
+  "revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+  "checks": [
+    {
+      "check": "native MetalLB L2 installed and real containers Ready",
+      "passed": true,
+      "detail": {
+        "operationUID": "e1d1454f-6ab4-45db-a16b-c18dac21c97a",
+        "images": [
+          {
+            "pod": "controller-68fb5fb445-b8mvw",
+            "containers": [
+              {
+                "name": "controller",
+                "image": "172.16.131.146:5605/qualified-88/caas4/metallb-controller:v0.13.7"
+              }
+            ],
+            "imageIDs": [
+              "172.16.131.146:5605/qualified-88/caas4/metallb-controller@sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb"
+            ]
+          },
+          {
+            "pod": "speaker-vzgcr",
+            "containers": [
+              {
+                "name": "speaker",
+                "image": "172.16.131.146:5605/qualified-88/caas4/metallb-speaker:v0.13.7"
+              }
+            ],
+            "imageIDs": [
+              "172.16.131.146:5605/qualified-88/caas4/metallb-speaker@sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2"
+            ]
+          }
+        ],
+        "advertisements": [
+          "local"
+        ],
+        "scope": "Layer2 addon install and readiness"
+      }
+    },
+    {
+      "check": "real LoadBalancer service receives address from declared MetalLB pool",
+      "passed": true,
+      "detail": {
+        "assignedAddress": "192.0.2.240"
+      }
+    },
+    {
+      "check": "native MetalLB L2 uninstall removes actual Pods",
+      "passed": true,
+      "detail": {
+        "operationUID": "93d72058-fda6-487b-b5a5-1714ddbe5fda"
+      }
+    },
+    {
+      "check": "native MetalLB BGP installed and real containers Ready",
+      "passed": true,
+      "detail": {
+        "operationUID": "c1557d2c-eae4-4c2a-a4f5-9adb33a9d225",
+        "images": [
+          {
+            "pod": "controller-86555458d4-4qkrv",
+            "containers": [
+              {
+                "name": "controller",
+                "image": "172.16.131.146:5605/qualified-88/caas4/metallb-controller:v0.13.7"
+              }
+            ],
+            "imageIDs": [
+              "172.16.131.146:5605/qualified-88/caas4/metallb-controller@sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb"
+            ]
+          },
+          {
+            "pod": "speaker-d8l92",
+            "containers": [
+              {
+                "name": "frr",
+                "image": "172.16.131.146:5605/qualified-88/caas4/frr:v7.5.1"
+              },
+              {
+                "name": "reloader",
+                "image": "172.16.131.146:5605/qualified-88/caas4/frr:v7.5.1"
+              },
+              {
+                "name": "frr-metrics",
+                "image": "172.16.131.146:5605/qualified-88/caas4/frr:v7.5.1"
+              },
+              {
+                "name": "speaker",
+                "image": "172.16.131.146:5605/qualified-88/caas4/metallb-speaker:v0.13.7"
+              }
+            ],
+            "imageIDs": [
+              "172.16.131.146:5605/qualified-88/caas4/frr@sha256:61a95fe14406594a65043f5905aa684cb46c5950ecb6b407b4dd5346ec177970",
+              "172.16.131.146:5605/qualified-88/caas4/frr@sha256:61a95fe14406594a65043f5905aa684cb46c5950ecb6b407b4dd5346ec177970",
+              "172.16.131.146:5605/qualified-88/caas4/frr@sha256:61a95fe14406594a65043f5905aa684cb46c5950ecb6b407b4dd5346ec177970",
+              "172.16.131.146:5605/qualified-88/caas4/metallb-speaker@sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2"
+            ]
+          }
+        ],
+        "advertisements": [
+          "local"
+        ],
+        "scope": "BGP install and FRR readiness only; no external peer available"
+      }
+    },
+    {
+      "check": "native MetalLB BGP uninstall removes actual Pods",
+      "passed": true,
+      "detail": {
+        "operationUID": "146cc136-39a0-49e0-8d43-e6c6dc872c59"
+      }
+    }
+  ]
+}

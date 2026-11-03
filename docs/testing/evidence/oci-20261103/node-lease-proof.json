@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "node": "339eacbe-4e55-4ff1-ba75-0476d928b998",
+  "offlineCondition": {
+    "type": "Ready",
+    "status": "Unknown",
+    "lastHeartbeatTime": "2026-11-03T11:01:24Z",
+    "lastTransitionTime": "2026-11-03T11:05:31Z",
+    "reason": "NodeStatusUnknown",
+    "message": "KcAgent stopped posting node status."
+  },
+  "recoveredCondition": {
+    "type": "Ready",
+    "status": "True",
+    "lastHeartbeatTime": "2026-11-03T11:05:32Z",
+    "lastTransitionTime": "2026-11-03T11:05:32Z",
+    "reason": "AgentReady"
+  }
+}

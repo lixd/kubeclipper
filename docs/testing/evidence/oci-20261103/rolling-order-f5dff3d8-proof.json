@@ -1,0 +1,144 @@
+{
+  "revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+  "operationUID": "4fff8454-6c48-4b39-b3ca-012418090d61",
+  "checks": [
+    {
+      "check": "actual master then workers drain-upgrade-uncordon order verified without overlap",
+      "passed": true,
+      "tasks": [
+        {
+          "task": "task-086abadf8d9314bb85e9e7befbdc2f5d",
+          "step": "UpgradeWorker-lixd-dev-2",
+          "nodeRef": {
+            "name": "8e5dbf26-595f-44f2-8810-49cf23caed96",
+            "uid": "9627e252-35da-4403-9fb5-a7703e2c9552",
+            "ip": "172.16.131.208"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:09:40Z",
+          "finishedAt": "2026-11-03T14:09:41Z"
+        },
+        {
+          "task": "task-2fecaad882cc4b0b4128f2dc30905898",
+          "step": "UpgradeControlPlane-lixd-dev-3",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:02:04Z",
+          "finishedAt": "2026-11-03T14:09:07Z"
+        },
+        {
+          "task": "task-3281eb1dc3f11c7977f50d736704cefa",
+          "step": "DownloadUpgradePackage",
+          "nodeRef": {
+            "name": "f9500d86-2b3b-44a8-a572-14ea04db0743",
+            "uid": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+            "ip": "172.16.131.230"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:00:55Z",
+          "finishedAt": "2026-11-03T14:01:55Z"
+        },
+        {
+          "task": "task-50b51d6209d22246afdcdfecea89a086",
+          "step": "DownloadUpgradePackage",
+          "nodeRef": {
+            "name": "8e5dbf26-595f-44f2-8810-49cf23caed96",
+            "uid": "9627e252-35da-4403-9fb5-a7703e2c9552",
+            "ip": "172.16.131.208"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:00:55Z",
+          "finishedAt": "2026-11-03T14:01:39Z"
+        },
+        {
+          "task": "task-82cb493d68e3390bfc368341cecfd4b2",
+          "step": "RenderUpgradeKubeadm",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:02:03Z",
+          "finishedAt": "2026-11-03T14:02:03Z"
+        },
+        {
+          "task": "task-9ee57a699bf4f7b3d7904f61e2787f3e",
+          "step": "UpgradeWorker-lixd-dev-4",
+          "nodeRef": {
+            "name": "f9500d86-2b3b-44a8-a572-14ea04db0743",
+            "uid": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+            "ip": "172.16.131.230"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:10:14Z",
+          "finishedAt": "2026-11-03T14:10:15Z"
+        },
+        {
+          "task": "task-bdcbbe0318079fb1dabc38576f3276ef",
+          "step": "UncordonNode-lixd-dev-2",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:09:41Z",
+          "finishedAt": "2026-11-03T14:09:41Z"
+        },
+        {
+          "task": "task-c0be45ace035832dd49d4c0da00ce4ea",
+          "step": "DrainNode-lixd-dev-2",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:09:07Z",
+          "finishedAt": "2026-11-03T14:09:40Z"
+        },
+        {
+          "task": "task-ce54b6d22516d168a3df893f859b86fe",
+          "step": "UncordonNode-lixd-dev-4",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:10:15Z",
+          "finishedAt": "2026-11-03T14:10:15Z"
+        },
+        {
+          "task": "task-da77f772a506df3cb95e55d63f56da4a",
+          "step": "DownloadUpgradePackage",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:00:55Z",
+          "finishedAt": "2026-11-03T14:02:03Z"
+        },
+        {
+          "task": "task-f0e82f0e02f20596c0feeb60c77f422d",
+          "step": "DrainNode-lixd-dev-4",
+          "nodeRef": {
+            "name": "f5481e7b-f3ac-4626-9760-02236cf1e676",
+            "uid": "fbc32516-c2c9-44bd-b858-5f83c222129e",
+            "ip": "172.16.131.146"
+          },
+          "phase": "Succeeded",
+          "startedAt": "2026-11-03T14:09:41Z",
+          "finishedAt": "2026-11-03T14:10:14Z"
+        }
+      ]
+    }
+  ]
+}

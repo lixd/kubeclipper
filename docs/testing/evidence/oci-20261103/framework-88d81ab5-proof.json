@@ -1,0 +1,62 @@
+{
+  "revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "runs": [
+    {
+      "command": [
+        "python3",
+        "/root/kc-oci-5ffb1323-20261103/resume_operations_continue.py"
+      ],
+      "exitCode": 0,
+      "startedUTC": "2026-11-03T11:50:44.386995+00:00",
+      "finishedUTC": "2026-11-03T11:51:46.772145+00:00"
+    },
+    {
+      "command": [
+        "python3",
+        "/root/kc-oci-5ffb1323-20261103/resume_step_timeout.py"
+      ],
+      "exitCode": 0,
+      "startedUTC": "2026-11-03T11:51:46.772920+00:00",
+      "finishedUTC": "2026-11-03T11:51:59.632917+00:00"
+    },
+    {
+      "command": [
+        "python3",
+        "/root/kc-oci-5ffb1323-20261103/resume_barrier.py"
+      ],
+      "exitCode": 0,
+      "startedUTC": "2026-11-03T11:51:59.633649+00:00",
+      "finishedUTC": "2026-11-03T11:52:13.346995+00:00"
+    },
+    {
+      "command": [
+        "python3",
+        "/root/kc-oci-5ffb1323-20261103/resume_fail_closed.py"
+      ],
+      "exitCode": 0,
+      "startedUTC": "2026-11-03T11:52:13.347650+00:00",
+      "finishedUTC": "2026-11-03T11:52:26.106973+00:00"
+    },
+    {
+      "command": [
+        "ssh",
+        "172.16.131.230",
+        "python3",
+        "/root/kc-oci-5ffb1323-20261103/resume_proxy_setup.py",
+        "setup"
+      ],
+      "exitCode": 0,
+      "startedUTC": "2026-11-03T11:52:26.107530+00:00",
+      "finishedUTC": "2026-11-03T11:52:26.923791+00:00"
+    },
+    {
+      "command": [
+        "python3",
+        "/root/kc-oci-5ffb1323-20261103/resume_proxy_tests.py"
+      ],
+      "exitCode": 0,
+      "startedUTC": "2026-11-03T11:52:26.924198+00:00",
+      "finishedUTC": "2026-11-03T11:52:47.863204+00:00"
+    }
+  ]
+}

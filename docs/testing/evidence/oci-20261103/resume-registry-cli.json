@@ -1,0 +1,44 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "native CLI registry deploy from real binary on owned5609",
+      "passed": true,
+      "detail": {
+        "output": "172.16.131.230: run before hook...  \n\u001b[1A\u001b[J172.16.131.230: run before hook...  \n\u001b[1A\u001b[J172.16.131.230: check file exist...  \n\u001b[1A\u001b[J172.16.131.230: check file exist...  \n\u001b[1A\u001b[J172.16.131.230: check file exist...  \n\u001b[1A\u001b[J172.16.131.230: check file md5...  \n\u001b[1A\u001b[J172.16.131.230: check file md5...  \n\u001b[1A\u001b[J172.16.131.230: check file md5...  \n\u001b[1A\u001b[J172.16.131.230: downloading  0 % | 0.00 b / 0.00 b [-----|  \n\u001b[1A\u001b[J172.16.131.230: check file md5...  \n\u001b[1A\u001b[J172.16.131.230: run after hook...   \n\u001b[1A\u001b[J172.16.131.230: run after hook...   \n\u001b[1A\u001b[J172.16.131.230: run after hook...   \n\u001b[1A\u001b[J172.16.131.230: done!   \n\u001b[1;36;36mdeploy registry successfully.\nthere is some tips to visit your repository: \n\t1. visit http://172.16.131.230:5609/v2/_catalog\n\t2. run cmd [kcctl registry list --node 172.16.131.230 --registry-port 5609]\u001b[0m\n",
+        "host": "172.16.131.230:5609"
+      }
+    },
+    {
+      "check": "native CLI push real Docker archive without Docker engine",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "native CLI list repository and tags sees pushed image",
+      "passed": true,
+      "detail": {
+        "repositories": "+----------------------------------+\n|           REPOSITORIES           |\n+----------------------------------+\n| oci-7689-20261103/registry-proof |\n+----------------------------------+\n",
+        "tags": "+----------------------------------+------+\n|               NAME               | TAGS |\n+----------------------------------+------+\n| oci-7689-20261103/registry-proof | v1   |\n+----------------------------------+------+\n"
+      }
+    },
+    {
+      "check": "native CLI delete removes actual manifest",
+      "passed": true,
+      "detail": {
+        "output": "",
+        "manifestGET": 404
+      }
+    },
+    {
+      "check": "native CLI clean removes owned registry service and own data",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "check": "pre-existing unused registry binary restored exactly and original CLI registry config restored",
+      "passed": true,
+      "detail": true
+    }
+  ]
+}

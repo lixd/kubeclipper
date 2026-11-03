@@ -1,0 +1,226 @@
+{
+  "revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+  "checks": [
+    {
+      "check": "native worker to master conversion forms healthy3M0W and3member etcd",
+      "passed": true,
+      "detail": {
+        "operationUID": "8b1403a0-0b40-41b5-bd1d-854b2a6d5cbf",
+        "masters": [
+          "lixd-dev-2",
+          "lixd-dev-3",
+          "lixd-dev-4"
+        ],
+        "members": {
+          "header": {
+            "cluster_id": 557347687461134747,
+            "member_id": 5732358089935204567,
+            "raft_term": 4
+          },
+          "members": [
+            {
+              "ID": 2568673779588574496,
+              "name": "lixd-dev-4",
+              "peerURLs": [
+                "https://172.16.131.230:2380"
+              ],
+              "clientURLs": [
+                "https://172.16.131.230:2379"
+              ]
+            },
+            {
+              "ID": 5296340627115140937,
+              "name": "lixd-dev-2",
+              "peerURLs": [
+                "https://172.16.131.208:2380"
+              ],
+              "clientURLs": [
+                "https://172.16.131.208:2379"
+              ]
+            },
+            {
+              "ID": 5732358089935204567,
+              "name": "lixd-dev-3",
+              "peerURLs": [
+                "https://172.16.131.146:2380"
+              ],
+              "clientURLs": [
+                "https://172.16.131.146:2379"
+              ]
+            }
+          ]
+        },
+        "health": [
+          {
+            "endpoint": "https://172.16.131.146:2379",
+            "health": true,
+            "took": "17.599264ms"
+          },
+          {
+            "endpoint": "https://172.16.131.230:2379",
+            "health": true,
+            "took": "52.633144ms"
+          },
+          {
+            "endpoint": "https://172.16.131.208:2379",
+            "health": true,
+            "took": "51.172759ms"
+          }
+        ],
+        "packagePlanUnchanged": true
+      }
+    },
+    {
+      "check": "one actual etcd member stopped and remaining majority accepts real writes",
+      "passed": true,
+      "detail": {
+        "stoppedHost": "172.16.131.230",
+        "writes": 3,
+        "staticPodContainerAbsent": true
+      }
+    },
+    {
+      "check": "restored third etcd endpoint becomes healthy",
+      "passed": true,
+      "detail": [
+        {
+          "endpoint": "https://172.16.131.146:2379",
+          "health": true,
+          "took": "20.306508ms"
+        },
+        {
+          "endpoint": "https://172.16.131.208:2379",
+          "health": true,
+          "took": "31.368339ms"
+        },
+        {
+          "endpoint": "https://172.16.131.230:2379",
+          "health": true,
+          "took": "3.143144369s"
+        }
+      ]
+    },
+    {
+      "check": "native master to worker conversion preserves3nodes with1master and etcd membership converges",
+      "passed": true,
+      "detail": {
+        "operationUID": "9dd07b03-d96c-4224-95ff-647f52b985a1",
+        "masters": [
+          "lixd-dev-3"
+        ],
+        "packagePlanUnchanged": true
+      }
+    },
+    {
+      "check": "native removal of two workers leaves original master",
+      "passed": true,
+      "detail": {
+        "operationUID": "4bef82e2-26f5-48fb-ba2b-f98295ea4896"
+      }
+    },
+    {
+      "check": "explicit native add two masters produces healthy3M0W",
+      "passed": true,
+      "detail": {
+        "operationUID": "ecc2dcf5-9542-4131-ba99-67812013301d",
+        "masters": [
+          "lixd-dev-2",
+          "lixd-dev-3",
+          "lixd-dev-4"
+        ],
+        "health": [
+          {
+            "endpoint": "https://172.16.131.146:2379",
+            "health": true,
+            "took": "22.057467ms"
+          },
+          {
+            "endpoint": "https://172.16.131.208:2379",
+            "health": true,
+            "took": "29.276071ms"
+          },
+          {
+            "endpoint": "https://172.16.131.230:2379",
+            "health": true,
+            "took": "23.258044ms"
+          }
+        ],
+        "observedSettlingSeconds": 3.46,
+        "note": "first immediate etcd health probe timed out on new member; bounded follow-up confirms actual settled state"
+      }
+    },
+    {
+      "check": "native quorum guard rejects batch3 to1 master removal before creating an Operation",
+      "passed": true,
+      "detail": {
+        "status": 400,
+        "note": "existing documented API requires at least two masters remain; original test fixture incorrectly expected batch3 to1 to be accepted"
+      }
+    },
+    {
+      "check": "explicit native master removal converges to2 healthy etcd members",
+      "passed": true,
+      "detail": {
+        "operationUID": "facded1b-115d-4216-9fb3-f5d9ee4a6810",
+        "masters": [
+          "lixd-dev-2",
+          "lixd-dev-3"
+        ],
+        "members": {
+          "header": {
+            "cluster_id": 557347687461134747,
+            "member_id": 5732358089935204567,
+            "raft_term": 5
+          },
+          "members": [
+            {
+              "ID": 5732358089935204567,
+              "name": "lixd-dev-3",
+              "peerURLs": [
+                "https://172.16.131.146:2380"
+              ],
+              "clientURLs": [
+                "https://172.16.131.146:2379"
+              ]
+            },
+            {
+              "ID": 14467644877540794768,
+              "name": "lixd-dev-2",
+              "peerURLs": [
+                "https://172.16.131.208:2380"
+              ],
+              "clientURLs": [
+                "https://172.16.131.208:2379"
+              ]
+            }
+          ]
+        },
+        "health": [
+          {
+            "endpoint": "https://172.16.131.208:2379",
+            "health": true,
+            "took": "23.15107ms"
+          },
+          {
+            "endpoint": "https://172.16.131.146:2379",
+            "health": true,
+            "took": "30.92274ms"
+          }
+        ]
+      }
+    },
+    {
+      "check": "actual2M1W worker API VIP contains exactly current two masters",
+      "passed": true,
+      "detail": {
+        "operationUID": "494be8df-7402-438f-8216-9943a4c62d73",
+        "kernelIPVS": "TCP  A9FEA964:192B rr  \n  -> AC108392:192B      Masq    1      1          0         \n  -> AC1083D0:192B      Masq    1      2          0         "
+      }
+    },
+    {
+      "check": "master VIP convergence",
+      "passed": false,
+      "error": "worker API access did not converge to direct single-master mode"
+    }
+  ]
+}

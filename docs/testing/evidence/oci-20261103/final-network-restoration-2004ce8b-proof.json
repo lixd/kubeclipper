@@ -1,0 +1,32 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "own isolation rules and proxy overrides removed; sequential native services restart preserves platform and Kubernetes identities and real HTTP",
+      "passed": true,
+      "detail": {
+        "172.16.131.208": {
+          "ownProxyDropinsRemoved": [
+            "kc-server",
+            "kc-agent"
+          ],
+          "serverAndAgentRestartedWithoutTemporaryProxy": true
+        },
+        "172.16.131.146": {
+          "ownProxyDropinsRemoved": [
+            "kc-server",
+            "kc-agent"
+          ],
+          "serverAndAgentRestartedWithoutTemporaryProxy": true
+        },
+        "172.16.131.230": {
+          "ownProxyDropinsRemoved": [
+            "kc-server",
+            "kc-agent"
+          ],
+          "serverAndAgentRestartedWithoutTemporaryProxy": true
+        }
+      }
+    }
+  ]
+}

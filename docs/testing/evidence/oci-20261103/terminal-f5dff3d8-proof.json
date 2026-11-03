@@ -1,0 +1,59 @@
+{
+  "revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+  "checks": [
+    {
+      "check": "ordinary Pod exec across platform websocket online",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-88d8-20261103-concurrent-online",
+        "marker": "pod-exec-f5-online",
+        "output": "pod-exec-f5-online"
+      }
+    },
+    {
+      "check": "Pod exec rejects missing container and Pod online",
+      "passed": true,
+      "detail": {
+        "statuses": [
+          400,
+          404
+        ]
+      }
+    },
+    {
+      "check": "cluster Web terminal executes real kubectl command and accepts resize online",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-88d8-20261103-concurrent-online",
+        "output": "printf cluster-terminal-f5-online; kubectl get nodes -o name\r\n\u001b[H\u001b[J\u001b[?2004hkc-kubectl-7dcd55888f-2nt22:/# printf cluster-terminal-f5-online; kubectl get nodes -o name\r\n\u001b[?2004l\rcluster-terminal-f5-onlinenode/lixd-dev-4\r\n"
+      }
+    },
+    {
+      "check": "ordinary Pod exec across platform websocket ca",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-88d8-20261103-concurrent-ca",
+        "marker": "pod-exec-f5-ca",
+        "output": "pod-exec-f5-ca"
+      }
+    },
+    {
+      "check": "Pod exec rejects missing container and Pod ca",
+      "passed": true,
+      "detail": {
+        "statuses": [
+          400,
+          404
+        ]
+      }
+    },
+    {
+      "check": "cluster Web terminal executes real kubectl command and accepts resize ca",
+      "passed": true,
+      "detail": {
+        "cluster": "oci-88d8-20261103-concurrent-ca",
+        "output": "printf cluster-terminal-f5-ca; kubectl get nodes -o name\r\n\u001b[H\u001b[J\u001b[?2004hkc-kubectl-96f47b96b-mc7cb:/# printf cluster-terminal-f5-ca; kubectl get nodes -o name\r\n\u001b[?2004l\rcluster-terminal-f5-canode/lixd-dev-2\r\nnode/lixd-dev-3\r\n"
+      }
+    }
+  ]
+}

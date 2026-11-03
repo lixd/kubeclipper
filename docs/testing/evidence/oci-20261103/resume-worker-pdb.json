@@ -1,0 +1,43 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "checks": [
+    {
+      "check": "restrictive PDB fully observed with two healthy replicas and zero allowed disruptions",
+      "passed": true,
+      "detail": {
+        "generation": 2,
+        "status": {
+          "conditions": [
+            {
+              "lastTransitionTime": "2026-11-03T13:02:50Z",
+              "message": "",
+              "observedGeneration": 2,
+              "reason": "InsufficientPods",
+              "status": "False",
+              "type": "DisruptionAllowed"
+            }
+          ],
+          "currentHealthy": 2,
+          "desiredHealthy": 2,
+          "disruptionsAllowed": 0,
+          "expectedPods": 2,
+          "observedGeneration": 2
+        }
+      }
+    },
+    {
+      "check": "same in-progress real node removal request rejected without second Operation",
+      "passed": true,
+      "detail": {
+        "status": 400,
+        "reason": "nodes is already removed",
+        "operationUID": "ed6edbc6-4330-4d0c-a645-87ec6868be7a"
+      }
+    },
+    {
+      "check": "worker PDB failure",
+      "passed": false,
+      "error": ""
+    }
+  ]
+}

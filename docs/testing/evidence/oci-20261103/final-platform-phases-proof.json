@@ -1,0 +1,115 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "normal native clean preserves shared Registry and NFS",
+      "passed": true,
+      "detail": {
+        "allOwnedKubernetesFixturesPreviouslyDeleted": true
+      }
+    },
+    {
+      "check": "normal native clean preserves shared Registry and NFS",
+      "passed": true,
+      "detail": {
+        "allOwnedKubernetesFixturesPreviouslyDeleted": true
+      }
+    },
+    {
+      "check": "fresh3Server deploy waits for actual etcd writes while all client ports already listen",
+      "passed": true,
+      "detail": {
+        "baselineRevision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+        "nativeWriteProbeObservedFailing": true,
+        "perHost": {
+          "172.16.131.208": {
+            "clientTCPListening": true,
+            "peerRejectPackets": 348
+          },
+          "172.16.131.146": {
+            "clientTCPListening": true,
+            "peerRejectPackets": 390
+          },
+          "172.16.131.230": {
+            "clientTCPListening": true,
+            "peerRejectPackets": 254
+          }
+        }
+      }
+    },
+    {
+      "check": "fresh TLS authenticated self-CA3Server3Agent platform healthy after native etcd probe retry",
+      "passed": true,
+      "detail": {
+        "baselineRevision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+        "agentUIDs": {
+          "172.16.131.208": "a71d67ea-9322-4aa2-b3ed-183bc06aed9e",
+          "172.16.131.146": "c1bffe40-6b98-4d62-8ce1-81ce80e94454",
+          "172.16.131.230": "e131ccc0-4434-4cc2-84e4-bd7c0dec94e8"
+        },
+        "all3EndpointsRealWriteReadDelete": true,
+        "strictCAValidation": true
+      }
+    },
+    {
+      "check": "real3e33 to2004 offline native all-component upgrade with all3 public egress and proxies blocked",
+      "passed": true,
+      "detail": {
+        "beforeRevision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+        "afterRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+        "agentUIDsPreserved": true,
+        "clusterUIDAndFrozenPlanPreserved": true,
+        "all3ServerAgentBinariesChanged": true,
+        "all3EndpointsRealWriteReadDelete": true
+      }
+    },
+    {
+      "check": "force clean using actual3Server deployment config while all API servers unavailable",
+      "passed": true,
+      "detail": {
+        "sharedRegistryAndNFSPreserved": true
+      }
+    },
+    {
+      "check": "fresh HTTP native-sync Registry3Server3Agent2004 deploy under actual public isolation",
+      "passed": true,
+      "detail": {
+        "agentUIDs": {
+          "172.16.131.230": "95037475-cd05-4cd0-808d-d0f2d169c0d6",
+          "172.16.131.208": "36070198-caa3-4c59-8f2f-1c48bac1ba1b",
+          "172.16.131.146": "b1d9cc5d-62ee-4684-8cf8-7d5fdd8cea09"
+        },
+        "all3EndpointsRealWriteReadDelete": true,
+        "prefix": "172.16.131.146:5605/qualified-2004"
+      }
+    },
+    {
+      "check": "fresh cold-cache pure-offline shipped-bundle3Server3Agent deploy",
+      "passed": true,
+      "detail": {
+        "agentUIDs": {
+          "172.16.131.230": "339e7929-ea87-4a06-a888-681e62c09b5d",
+          "172.16.131.208": "877672c3-1a47-49c3-b160-6b3a1b9145f5",
+          "172.16.131.146": "78127fe9-f48d-4ff4-b908-a82dedd1686b"
+        },
+        "cacheStateBeforeDeploy": {
+          "172.16.131.208": {
+            "oldCacheQuarantined": true,
+            "cacheAbsentBeforeDeploy": true
+          },
+          "172.16.131.146": {
+            "oldCacheQuarantined": true,
+            "cacheAbsentBeforeDeploy": true
+          },
+          "172.16.131.230": {
+            "oldCacheQuarantined": true,
+            "cacheAbsentBeforeDeploy": true
+          }
+        },
+        "all3EndpointsRealWriteReadDelete": true,
+        "prefix": "172.16.131.146:5605/offline-shipped-2004",
+        "noManualPackageCacheCopy": true
+      }
+    }
+  ]
+}

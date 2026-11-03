@@ -1,0 +1,38 @@
+{
+  "checks": [
+    {
+      "check": "native CLI retired flag rejected",
+      "command": [
+        "kcctl",
+        "deploy",
+        "--static-server-port"
+      ],
+      "passed": true
+    },
+    {
+      "check": "native CLI retired flag rejected",
+      "command": [
+        "kcctl",
+        "join",
+        "--pkg"
+      ],
+      "passed": true
+    },
+    {
+      "check": "retired static server8081 not listening",
+      "host": "172.16.131.208",
+      "passed": true
+    },
+    {
+      "check": "retired static server8081 not listening",
+      "host": "172.16.131.146",
+      "passed": true
+    },
+    {
+      "check": "retired static server8081 not listening",
+      "host": "172.16.131.230",
+      "passed": true
+    }
+  ],
+  "sourceEvidence": "static-server removal commit1f6d7771 removes staticServerPort8081, StaticServer config and legacy join --pkg"
+}

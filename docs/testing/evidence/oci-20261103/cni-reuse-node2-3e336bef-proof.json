@@ -1,0 +1,10 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "checks": [
+    {
+      "check": "native CNI cleanup and no-CNI node reuse field case",
+      "passed": false,
+      "error": "[('48a65643-373c-48f1-8ccb-03fa4245e07e', {'phase': 'Failed', 'reason': 'StepFailed', 'message': 'step \"f923908c-9c84-4bb4-bd9a-dfba30e4bd79\" exhausted its retry limit', 'deadline': '2026-11-03T18:50:28Z', 'startedAt': '2026-11-03T17:20:28Z', 'finishedAt': '2026-11-03T17:21:24Z'})]"
+    }
+  ]
+}

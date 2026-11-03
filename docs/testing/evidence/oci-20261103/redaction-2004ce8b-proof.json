@@ -1,0 +1,71 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "sensitive authoritative deployment config is denied to platform viewer and anonymous clients",
+      "passed": true,
+      "viewerStatuses": [
+        403,
+        403
+      ],
+      "anonymousStatus": 403,
+      "privilegedConfigContainsInitialPassword": true,
+      "note": "the admin-only authoritative deployment document also contains SSH/deployment credentials and is not a public diagnostic response; bootstrap password retention is separately recorded, not counted as public log leakage"
+    },
+    {
+      "check": "viewer list detail and forged informer reads redact private CA kubeconfig registry passwords and pending internal payloads",
+      "passed": true,
+      "responses": [
+        {
+          "rawHeaderSpoofed": false,
+          "status": 200,
+          "path": "/api/core.kubeclipper.io/v1/clusters",
+          "sensitiveClusterFieldsAbsent": true
+        },
+        {
+          "rawHeaderSpoofed": false,
+          "status": 200,
+          "path": "/api/core.kubeclipper.io/v1/clusters/oci-88d8-20261103-concurrent-ca",
+          "sensitiveClusterFieldsAbsent": true
+        },
+        {
+          "rawHeaderSpoofed": true,
+          "status": 200,
+          "path": "/api/core.kubeclipper.io/v1/clusters",
+          "sensitiveClusterFieldsAbsent": true
+        },
+        {
+          "rawHeaderSpoofed": true,
+          "status": 200,
+          "path": "/api/core.kubeclipper.io/v1/clusters/oci-88d8-20261103-concurrent-ca",
+          "sensitiveClusterFieldsAbsent": true
+        }
+      ]
+    },
+    {
+      "check": "actual viewer watch events and forged informer watch redact credentials while preserving live cluster updates",
+      "passed": true,
+      "streams": [
+        {
+          "forgedInformerHeader": false,
+          "realMutationEventReceived": true,
+          "privateFieldsAbsent": true
+        },
+        {
+          "forgedInformerHeader": true,
+          "realMutationEventReceived": true,
+          "privateFieldsAbsent": true
+        }
+      ]
+    },
+    {
+      "check": "known Registry Provider SSH Kubernetes-client and bootstrap credentials absent from current API data task logs and three-host service journals",
+      "passed": true,
+      "secretValuesPrinted": false,
+      "knownDistinctSecretsChecked": 11,
+      "taskLogsChecked": 507,
+      "journalHosts": 3,
+      "scope": "known test credentials; no claim of arbitrary application stdout redaction"
+    }
+  ]
+}

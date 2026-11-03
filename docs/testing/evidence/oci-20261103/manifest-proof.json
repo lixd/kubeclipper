@@ -1,0 +1,15 @@
+{
+  "revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+  "version": "v2.0.11",
+  "sha256": "42f9f8a692321c6b9cb4313337b735985f3fec8c22899272b114bb3cd5f92b80",
+  "artifacts": 110,
+  "types": {
+    "helm-chart": 2,
+    "package-image": 10,
+    "runtime-image": 98
+  },
+  "platforms": [
+    "linux/amd64",
+    "linux/arm64"
+  ]
+}

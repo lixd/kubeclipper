@@ -1,0 +1,93 @@
+{
+  "checks": [
+    {
+      "check": "create viewer",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "password login",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "viewer read clusters",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "viewer create forbidden",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "check": "get user",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "profile update",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "disable user",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "disabled login forbidden",
+      "status": 403,
+      "expected": 403,
+      "passed": true
+    },
+    {
+      "check": "enable user",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "reset password",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "old password rejected",
+      "status": 401,
+      "expected": 401,
+      "passed": true
+    },
+    {
+      "check": "new password accepted",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "login records",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "logout",
+      "status": 200,
+      "expected": 200,
+      "passed": true
+    },
+    {
+      "check": "delete owned user",
+      "status": 200,
+      "passed": true
+    }
+  ]
+}

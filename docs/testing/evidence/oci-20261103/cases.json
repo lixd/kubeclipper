@@ -2,1537 +2,2143 @@
   {
     "id": "1.1-01",
     "name": "在线部署：GHCR 直装（当前允许 fork 制品）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.1-02",
     "name": "半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-platform-phases-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新完整清单原生registry sync目标仓库真实消费；全新HTTP3Server/3Agent、三API端点实际写读删和doctor通过；API全停后使用保存的实际3Server部署配置原生force clean成功。测试期间公网/代理实测阻断，共享Registry5003/NFS保留。"
   },
   {
     "id": "1.1-03",
     "name": "纯离线：bundle export → 拷贝 → import 进仓库 → deploy",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "offline-export-2004ce8b-proof.json",
+      "offline-import-2004ce8b-proof.json",
+      "final-platform-phases-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "最新61项amd64 bundle dev3导出→实际拷贝dev4校验SHA→初始空前缀import两次逐项digest匹配→三机取包缓存隔离、公网/代理阻断→全新3Server/3Agent deploy及doctor25/0/0、三端点真实API写读删通过。"
   },
   {
     "id": "1.1-04",
     "name": "私有仓库 http",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-platform-phases-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新完整清单原生registry sync目标仓库真实消费；全新HTTP3Server/3Agent、三API端点实际写读删和doctor通过；API全停后使用保存的实际3Server部署配置原生force clean成功。测试期间公网/代理实测阻断，共享Registry5003/NFS保留。"
   },
   {
     "id": "1.1-05",
     "name": "私有仓库 https + 自签 CA",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-tls-cluster-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "全新3Server/3Agent严格自签CA+账号密码deploy；三Agent实际凭据投递和TLS包/Chart消费，1M2W全部Ready；实际系统镜像digest、Pod Service HTTP与DNS通过。"
   },
   {
     "id": "1.1-06",
     "name": "Package Registry 账号密码认证（deploy/join/agent 消费侧）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json",
+      "final-tls-cluster-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "全新3Server/3Agent严格自签CA+账号密码deploy；三Agent实际凭据投递和TLS包/Chart消费，1M2W全部Ready；实际系统镜像digest、Pod Service HTTP与DNS通过。"
   },
   {
     "id": "1.1-07",
     "name": "`registry sync` 重复同步幂等",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "registry-sync-first-result.json",
+      "registry-sync-repeat-result.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.1-08",
     "name": "离线 bundle 重复 import 幂等",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "offline-export-proof.json",
+      "offline-import-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.1-09",
     "name": "错误仓库地址、凭据、CA 或缺失制品",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "deploy-negative-3e336bef-proof.json",
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "deploy及join的地址/凭据/CA/缺包负向均真实预检失败，原平台服务PID保持；未用已有服务占用报错充当仓库失败。"
   },
   {
     "id": "1.1-10",
     "name": "HTTPS 公共 CA 信任路径（合并至 1.1-01）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "out_of_scope",
+    "evidence": [
+      "../../r46-case-ledger.md"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "沿用已确认范围：公共 CA 合并 GHCR 路径；无原生 arm64 三机环境。"
   },
   {
     "id": "1.2-01",
     "name": "单 server + 多 agent",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.2-02",
     "name": "server 与 agent/k8s 节点混部同机",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "workers-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "dev2为Server/Agent同机，实际加入第一集群为worker并Ready。"
   },
   {
     "id": "1.2-03",
     "name": "**多 server HA（3× server，etcd 奇数集群）**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "upgrade-live-health.json",
+        "result": "Three HA servers/etcd/agents healthy after upgrade; fresh HA deploy remains"
+      },
+      "final-platform-phases-proof.json",
+      "platform-ha-final-2004ce8b-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "全新3Server/3Agent；阻断真实etcd peer12380而client12379监听，原生写探针明确失败并等待；恢复quorum后自动重试部署成功，三API端点真实写读删。首次错端口注入不计通过。"
   },
   {
     "id": "1.2-04",
     "name": "console 组件部署与访问",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "upgrade-components-f5dff3d8-proof.json",
+      "ui-cluster-details-94bac83.jpg"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528"
   },
   {
     "id": "1.2-05",
     "name": "单 server + 单 agent",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.2-06",
     "name": "server 与 agent 分离部署",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.2-07",
     "name": "HA server/etcd 单点故障与滚动重启",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "platform-ha-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-01",
     "name": "预检失败引导（不可达/缺包报错）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "deploy-negative-3e336bef-proof.json",
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "原生deploy/join在仓库预检准确失败并输出修复引导，四类实际诊断核对通过，无半安装。"
   },
   {
     "id": "1.3-02",
     "name": "etcd 冷启动竞态（写探针+重试）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-platform-phases-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "全新3Server/3Agent；阻断真实etcd peer12380而client12379监听，原生写探针明确失败并等待；恢复quorum后自动重试部署成功，三API端点真实写读删。首次错端口注入不计通过。"
   },
   {
     "id": "1.3-03",
     "name": "clean --all 后重 deploy 幂等",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-04",
     "name": "不 clean 直接重复 deploy 的行为与平台安全性",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-05",
     "name": "`kcctl join` 独立纳管新节点",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-06",
     "name": "`clean --all --force --deploy-config` 异常恢复",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-platform-phases-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新完整清单原生registry sync目标仓库真实消费；全新HTTP3Server/3Agent、三API端点实际写读删和doctor通过；API全停后使用保存的实际3Server部署配置原生force clean成功。测试期间公网/代理实测阻断，共享Registry5003/NFS保留。"
   },
   {
     "id": "1.3-07",
     "name": "**`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "platform-upgrade-faa1e9d8-result.json",
+        "result": "All components upgraded successfully via manifest from GHCR; internal-registry offline upgrade remains"
+      },
+      "final-platform-phases-proof.json",
+      "offline-upgrade-isolation-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实3e336bef→2004ce8b原生all升级，制品来自跨机搬运的内网bundle仓库；三机公网及反向代理均实测阻断，Server/Agent摘要实际改变，节点/集群UID与冻结plan保留，升级后doctor25/0/0和业务HTTP通过。不据单次HTTP检查宣称全程无中断。"
   },
   {
     "id": "1.3-08",
     "name": "`kcctl doctor`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "upgrade-live-health.json",
+        "result": "25 passed, zero warnings/failures after three-host upgrade"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-09",
     "name": "**`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "upgrade-version-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "正式CLI --version经显式loopback release-base-url下载真实qualification清单及校验和；坏checksum在服务修改前拒绝，合法checksum幂等升级/Console重装成功。未发布或声称正式GitHub Release。"
   },
   {
     "id": "1.3-10",
     "name": "`kcctl upgrade server/agent/console/kcctl` 组件独立升级",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "upgrade-components-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-11",
     "name": "SSH key/password、非 root sudo 与自定义端口",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "1.3-12",
     "name": "初始化管理员密码",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-01",
     "name": "1 master + 2 worker",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "rolling-upgrade-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-02",
     "name": "单节点（master 兼 worker）最小规格",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-03",
     "name": "3 master HA（0 worker；当前范围不含独立 worker/VIP）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "masters-d2fd71f9-proof.json",
+      "final-offline-cluster-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "3Master/0Worker及真实多数派故障恢复通过；VIP独立故障另列2.2-10。"
   },
   {
     "id": "2.1-04",
     "name": "版本矩阵 v1.35.8 / v1.36.4 / v1.37.0",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json",
+      "ui-matrix-d2fd71f9-proof.json",
+      "rolling-upgrade-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "三版本均真实新建；1364→137三节点实际滚动升级通过，各阶段源码见对应证据。"
   },
   {
     "id": "2.1-05",
     "name": "CRI containerd 1.7.29 / 2.2.4",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-06",
     "name": "CNI calico v3.29.6 / v3.31.5",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-07",
     "name": "镜像/物料 100% 来自指定仓库（离线保证）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-offline-cluster-proof.json",
+      "final-network-matrix-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "三机旧取包缓存隔离且runtime镜像缓存原生清除；全程真实OUTPUT/FORWARD拒绝公网及loopback代理。仅从跨机bundle导入的指定前缀新建3Master Kubernetes1.37，节点和全部系统Pod Ready；冻结取包refs与实际imageID逐个digest核对，Pod Service HTTP/DNS通过，主机和Pod公网HTTPS实测失败。"
   },
   {
     "id": "2.1-08",
     "name": "proxyMode ipvs",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-09",
     "name": "proxyMode iptables",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "ui-matrix-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实kube-proxy配置iptables，Service DNS与实际Pod探测通过。"
   },
   {
     "id": "2.1-10",
     "name": "创建集群时拒绝支持矩阵外版本",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "create-negative-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-11",
     "name": "网络自定义（pod/service 网段、DNS 域）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json",
+      "ui-matrix-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实自定义Pod/Service网段及DNS域oci.test，实际Pod解析Service成功。"
   },
   {
     "id": "2.1-12",
     "name": "apiserver 对外发布（cert-sans / external-domain / external-ip / external-port）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-custom-clusters.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-14",
     "name": "untaint-master（master 允许调度）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-16",
     "name": "自带 CA（ca-cert / ca-key 复用已有根证书）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-custom-clusters.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-18",
     "name": "Calico 默认 VXLAN 网络模式",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-19",
     "name": "Calico IPIP/BGP 或 cross-subnet 网络模式",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "ui-matrix-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实IPPool ipipMode Always/vxlanMode Never；Pod与DNS探测通过。"
   },
   {
     "id": "2.1-20",
     "name": "Calico IPv4 自动探测（first-found/interface/can-reach）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json",
+      "ui-matrix-d2fd71f9-proof.json",
+      "airgap-runtime-3e336bef-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "interface=ens3、first-found、can-reach均在真实集群使用并核对。"
   },
   {
     "id": "2.1-21",
     "name": "集群镜像 Registry 与 Package Registry 分离配置",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-22",
     "name": "私有 CRI Registry 配置下发",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-custom-clusters.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-23",
     "name": "集群真实断网创建",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-offline-cluster-proof.json",
+      "final-network-matrix-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "三机旧取包缓存隔离且runtime镜像缓存原生清除；全程真实OUTPUT/FORWARD拒绝公网及loopback代理。仅从跨机bundle导入的指定前缀新建3Master Kubernetes1.37，节点和全部系统Pod Ready；冻结取包refs与实际imageID逐个digest核对，Pod Service HTTP/DNS通过，主机和Pod公网HTTPS实测失败。"
   },
   {
     "id": "2.1-24",
     "name": "1 master + 1 worker 最小多节点规格",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "workers-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-25",
     "name": "集群在线安装",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-26",
     "name": "节点已被其他集群占用或 Master/Worker 重复",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "create-negative-88d81ab5-proof.json",
+      "occupied-node-finding-f5dff3d8.json",
+      "ui-matrix-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "跨集群已占用Master被400拒绝，零新Operation，原集群Ready；同集群重复节点负向既有证明保留。"
   },
   {
     "id": "2.1-27",
     "name": "Master/Worker 跨 Region",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-28",
     "name": "Pod/Service CIDR 非法、重叠或与主机网络冲突",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "create-negative-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-29",
     "name": "端口、磁盘、时间同步、主机名等集群预检失败",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "resume-port-preflight.json",
+      "preflight-c47158d0-proof.json"
+    ],
+    "backend_revision": "c47158d024859e1766200ad6ff6262190e925c35",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "除既有端口等负向外，独立qualification Operation在空闲真实Agent运行未改动的原生nodeReadinessPrecheck命令：真实64MiB tmpfs触发磁盘不足、停止真实chrony触发同步服务缺失、临时OS hostname非法触发拒绝。日志要求实际诊断行而非脚本字符串；挂载/NTP/hostname均恢复，主集群plan不变。此三项未执行完整集群安装。"
   },
   {
     "id": "2.1-30",
     "name": "创建中断后的 retry 或安全删除",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "ui-create-retry-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实创建因实验室代理NO_PROXY缺自定义域失败；修正Agent及既有kube-proxy环境后同Operation/frozen steps/packagePlan重试Succeeded。"
   },
   {
     "id": "2.1-31",
     "name": "创建成功后的固定健康验收",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-33",
-    "name": "离线建群缺省 `imageRegistry` 创建前拒绝",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "name": "离线建群镜像仓库补全与缺失校验",
+    "status": "passed",
+    "evidence": [
+      "create-negative-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-01",
     "name": "worker 添加（含 packagePlan 不变性）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "workers-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-02",
     "name": "worker 移除（含不可 drain 容错）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "pdb-taint-finding-768933fb.json",
+      "worker-pdb-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "充分观测PDB generation、healthy2、disruptionsAllowed0；新版本真实移除TimedOut且Node保留，解除PDB后同一Operation/冻结步骤重试Succeeded。相同移除重复提交400，无第二Operation。"
   },
   {
     "id": "2.2-03",
     "name": "**master 添加 / 移除**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "masters-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "原生添加/移除 Master 通过；VIP 切换故障单独记录在2.2-10。"
   },
   {
     "id": "2.2-04",
     "name": "master↔worker 角色转换（convertNodes）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "masters-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "原生双向角色转换与 etcd 成员变化通过；既有 Worker hosts 切换故障见2.2-10。"
   },
   {
     "id": "2.2-05",
     "name": "节点 disable / enable",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "create-negative-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-06",
     "name": "节点失联后操作收敛（agent down）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "component-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-07",
     "name": "agent 节点注销（`DELETE /nodes/{name}`）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-08",
     "name": "Worker 添加时复用原 `status.packagePlan`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "workers-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-09",
     "name": "Master 添加后 etcd/control-plane quorum",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "masters-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "3成员etcd健康；停掉一个真实成员后多数派写入成功，恢复后全部健康。"
   },
   {
     "id": "2.2-10",
     "name": "Master 移除后的 etcd 成员与 VIP 收敛",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "vip-hosts-finding-d2fd71f9.json",
+      "vip-fixed-4dbec610-proof.json"
+    ],
+    "backend_revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "修复后原生加Master：既有Worker direct→VIP且后端准确；再原生降级至单Master：两个Worker VIP清理、hosts→唯一Master，3Node Ready，etcd1成员；复测无手工hosts修补。"
   },
   {
     "id": "2.2-11",
     "name": "Agent 注册身份与 Node 状态更新保护",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-agent-identity.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-12",
     "name": "Node Lease、Ready/Unknown 与重连恢复",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "node-lease-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.2-13",
     "name": "Region 归属、列表和同 Region 调度约束",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.3-01",
     "name": "真实滚动升级 1.36.4→1.37.0（master→worker drain）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "rolling-upgrade-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.3-02",
     "name": "升级中途失败 → op retry",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "upgrade-retry-3e336bef-proof.json",
+      "upgrade-single-node-pdb-3e336bef-finding.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实UI升级断仓库失败，同一Operation原生retry成功；单节点Calico PDB又阻止drain，专用fixture临时维护放宽后继续原任务，完成即恢复。无PDB绕过产品改动。"
   },
   {
     "id": "2.3-03",
     "name": "升级失败 → 集群状态恢复（reset status）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "upgrade-retry-3e336bef-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实Console reset恢复管理状态；原Failed Operation/冻结plan保留，实际kubelet仍1364直到原生retry成功。"
   },
   {
     "id": "2.3-04",
     "name": "**集群证书更新（/certification）**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "certification-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.3-05",
     "name": "agent 证书重新签发",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.3-06",
     "name": "升级前后 `packagePlan` 变更边界",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "rolling-upgrade-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.3-07",
     "name": "Registry tag 变化后 Operation retry 仍使用原 digest",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "upgrade-retry-3e336bef-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "只改测试副本137tag指向136制品，保留原137digest；原UID与stepsSHA不变，实际kubeadm/kubelet均137并Ready。canonical标签未改。"
   },
   {
     "id": "2.3-08",
     "name": "同版本、降级、跨越不支持版本升级拒绝",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "rolling-upgrade-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.3-09",
     "name": "Master/Worker 滚动顺序与业务可用性",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "rolling-upgrade-f5dff3d8-proof.json",
+      "rolling-order-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "控制平面完成后，两个Worker逐个drain/upgrade/uncordon，Task时间戳无交叉；1268次HTTP采样零失败。"
   },
   {
     "id": "2.4-01",
     "name": "正常删除（含与 SyncKubeConfig 并发死锁回归）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.4-02",
     "name": "InstallFailed 状态删除",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-port-preflight.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.4-03",
     "name": "删除失败 TerminateFailed → 重试",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "delete-retry-4dbec610-proof.json"
+    ],
+    "backend_revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实Agent停机使删除超时且Cluster保留TerminateFailed；恢复后同Operation/frozen steps重试删除并释放Node。清理脚本重复stop已消失timer的退出1另记，后续状态独立核验。"
   },
   {
     "id": "2.4-04",
     "name": "有备份时删除保护（引导先删备份）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "backup-addons-4dbec610-proof.json"
+    ],
+    "backend_revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实etcd备份/恢复回滚ConfigMap，保留3Node UID且全部Ready，MetalLB Deployment UID和容器就绪、业务HTTP正确、packagePlan不变。有Backup时DELETE400且零新Operation；测试备份/point已删除。未宣称备份外部卷内容。"
   },
   {
     "id": "2.4-05",
     "name": "删除后 ops 账本清理",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-01",
     "name": "backuppoint fs 型（含非法类型拒绝）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json",
+      "backuppoint-negative.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-02",
     "name": "backuppoint **S3 型（MinIO）**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "s3-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-03",
     "name": "手动备份 → 恢复（marker 回滚证明）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json",
+      "s3-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-04",
     "name": "备份删除（连带存储文件清除）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json",
+      "s3-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-05",
     "name": "cronbackup runAt 单次触发",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-06",
     "name": "cronbackup 真实周期命中",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cron-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-07",
     "name": "cronbackup enable / disable 子资源",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cron-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-08",
     "name": "**maxBackupNum 超限自动轮转**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cron-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-09",
     "name": "恢复后集群可用性（addons/节点完整）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json",
+      "s3-proof.json",
+      "backup-addons-4dbec610-proof.json"
+    ],
+    "backend_revision": "4dbec6105da788beebc7edc82214848b94acb3ee",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实etcd备份/恢复回滚ConfigMap，保留3Node UID且全部Ready，MetalLB Deployment UID和容器就绪、业务HTTP正确、packagePlan不变。有Backup时DELETE400且零新Operation；测试备份/point已删除。未宣称备份外部卷内容。"
   },
   {
     "id": "2.5-10",
     "name": "备份损坏或错误 S3/FS 凭据",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "s3-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.5-11",
     "name": "Backup 详情查询 API（`GET /backups/{name}`）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.6-01",
     "name": "创建集群解析并持久化 `status.packagePlan`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.6-02",
     "name": "packagePlan 不保存 blob 或 Registry 凭据",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.6-03",
     "name": "Agent 首次按 digest 拉取、校验、解包和执行",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cold-receipts-16309d2d-proof.json",
+      "final-all3-receipts-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "冷缓存实际四组件receipt、CAS、解压payload/Helm chart来源逐一校验；无手工缓存复制。"
   },
   {
     "id": "2.6-04",
     "name": "Agent 命中本地校验缓存",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cache-fault-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实Worker增删：有效缓存离线安装、损坏解压文件从本地CAS修复、CAS缺失且Registry不可达明确失败，恢复连接后原Operation不变计划重试成功。"
   },
   {
     "id": "2.6-05",
     "name": "缓存损坏或 digest 不符",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cache-fault-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实Worker增删：有效缓存离线安装、损坏解压文件从本地CAS修复、CAS缺失且Registry不可达明确失败，恢复连接后原Operation不变计划重试成功。"
   },
   {
     "id": "2.6-06",
     "name": "Registry 暂时不可达时的缓存行为",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cache-fault-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实Worker增删：有效缓存离线安装、损坏解压文件从本地CAS修复、CAS缺失且Registry不可达明确失败，恢复连接后原Operation不变计划重试成功。"
   },
   {
     "id": "2.6-07",
     "name": "Package Registry 配置优先级与文件权限",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "config-priority-16309d2d-proof.json"
+    ],
+    "backend_revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实CLI在Linux私有mount namespace独立验证显式transport flags > env配置 > Agent文件 > Server文件，0644配置拒绝；实际两配置0600，宿主配置字节/权限与Server PID不变。"
   },
   {
     "id": "2.6-08",
     "name": "Delivery Policy 默认策略初始化",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "resume-policy-custom.json",
+      "policy-custom-16309d2d-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": " 早期CLI证据受配置权限错误干扰，已明确作废；16309d2d重测先要求metadata200且无transport错误，再确认白名单拒绝和默认policy恢复。"
   },
   {
     "id": "2.6-09",
     "name": "Delivery Policy 自定义版本白名单",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "resume-policy-custom.json",
+      "policy-custom-16309d2d-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": " 早期CLI证据受配置权限错误干扰，已明确作废；16309d2d重测先要求metadata200且无transport错误，再确认白名单拒绝和默认policy恢复。"
   },
   {
     "id": "2.6-10",
     "name": "Delivery Policy 缺失 slot/repository",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "policy-custom-16309d2d-proof.json",
+      "missing-repository-16309d2d-proof.json"
+    ],
+    "backend_revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "required slot 无default PUT400；真实完整内网仓库dryRun200对照，仅移除CNI chart repository后创建dryRun400明确缺cni，零新Cluster/Operation。原始API配置与Server Registry文件字节已恢复。"
   },
   {
     "id": "2.6-11",
     "name": "bootstrap/standalone extension 与集群 packagePlan 隔离",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "extension-isolation-3e336bef-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "原生Console bootstrap及独立扩展升级后，两个不同K8s版本的独立集群packagePlan完全不变。"
   },
   {
     "id": "3-01",
     "name": "`kcctl deploy`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-02",
     "name": "`kcctl clean --all`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-03",
     "name": "`kcctl doctor`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "upgrade-live-health.json",
+        "result": "Real doctor against upgraded HA platform"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-04",
     "name": "`kcctl join`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-05",
     "name": "`kcctl create cluster`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-concurrent-create-768933fb.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-06",
     "name": "`kcctl create/delete user`、`role`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "cli-identity-proof.json",
+        "result": "Real CLI role/user create/get/delete; all twelve checks passed"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-07",
     "name": "`kcctl create/delete registry`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "registry-cli-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-08",
     "name": "`kcctl delete cluster`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "fresh-platform-online-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-09",
     "name": "`kcctl get cluster/node/user/role/configmap/registry`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "cli-identity-proof.json",
+        "result": "Six listed CLI resource kinds queried from real API"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-10",
     "name": "`kcctl get --watch`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "watch-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-11",
     "name": "`kcctl operation list/describe/logs/retry`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "operation-cli-88d81ab5-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-12",
     "name": "`kcctl operation cancel`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-operations.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-13",
     "name": "`kcctl cluster upgrade`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "rolling-upgrade-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-14",
     "name": "`kcctl set cluster`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cli-observability-16309d2d-proof.json"
+    ],
+    "backend_revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "原生CLI设置/清除4种外部访问字段并保持UID/plan；真实Task nodeRef.uid/ip/stepID核对API实际Node；历史失败Task保留reason/message，所属Operation重试后Succeeded；CLI describe/logs内容真实。"
   },
   {
     "id": "3-15",
     "name": "`kcctl drain`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "join-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-16",
     "name": "`kcctl upgrade all --manifest/--version`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "platform-upgrade-faa1e9d8-result.json",
+        "result": "Manifest upgrade completed; --version path remains"
+      },
+      "upgrade-version-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "正式CLI --version经显式loopback release-base-url下载真实qualification清单及校验和；坏checksum在服务修改前拒绝，合法checksum幂等升级/Console重装成功。未发布或声称正式GitHub Release。"
   },
   {
     "id": "3-17",
     "name": "`kcctl upgrade server/agent/console/kcctl`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "upgrade-components-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-18",
     "name": "`kcctl registry sync`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "registry-sync-first-result.json",
+      "registry-sync-repeat-result.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-19",
     "name": "`kcctl registry list/deploy/clean/push/delete`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-registry-cli.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-20",
     "name": "`kcctl resource list`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-21",
     "name": "`kcctl resource inspect`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-22",
     "name": "`kcctl resource refresh`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-23",
     "name": "`kcctl delivery-policy template/get/apply/diff`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-24",
     "name": "`kcctl delivery-policy validate`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-25",
     "name": "`kcctl login`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-login-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-26",
     "name": "`kcctl status`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "platform-smoke-proof.json",
+        "result": "Real kcctl status Healthy with three agents"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-27",
     "name": "`kcctl deploy config`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "platform-smoke-proof.json",
+        "result": "Real deploy config command emits template"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "3-28",
     "name": "`kcctl version`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "sh-dev-2-deployed.json",
+        "result": "All three hosts CLI/Server/Agent versions and running process hashes verified"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-01",
     "name": "addons：nfs-csi 安装/动态供给读写/卸载",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "nfs-rwx-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-02",
     "name": "addons：metallb L2 安装/卸载",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "addons-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "原生安装、真实容器Ready、Service分配地址和原生卸载通过。"
   },
   {
     "id": "4-05",
     "name": "addons：uninstall 容错（空 config / ErrIgnore 链）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "component-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-06",
     "name": "可观测：operation logs、失败原因展示（API 侧）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cli-observability-16309d2d-proof.json"
+    ],
+    "backend_revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "原生CLI设置/清除4种外部访问字段并保持UID/plan；真实Task nodeRef.uid/ip/stepID核对API实际Node；历史失败Task保留reason/message，所属Operation重试后Succeeded；CLI describe/logs内容真实。"
   },
   {
     "id": "4-07",
     "name": "**console UI 端到端（含任务失败展示）**",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "ui-matrix-d2fd71f9-proof.json",
+      "terminal-f5dff3d8-proof.json",
+      "ui-backup-3e336bef-proof.json",
+      "upgrade-retry-3e336bef-proof.json",
+      "ui-created-137-d2fd71f9.jpg",
+      "ui-node-terminal-d2fd71f9.jpg",
+      "ui-backup-available-3e336bef.jpg",
+      "ui-final-2004ce8b-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "真实Console登录、新建137、任务失败及重试、Pod/集群/节点终端、升级、状态reset、备份/恢复/删除闭环完成；恢复实际回退ConfigMap且业务HTTP恢复。"
   },
   {
     "id": "4-08",
     "name": "用户 / 角色 CRUD、enable/disable、改密、登录记录",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "iam-proof.json",
+      "cli-identity-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-08b",
     "name": "RBAC 鉴权拦截（非管理员越权应 403）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "iam-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-08c",
     "name": "密码登录与验证码登录",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "iam-proof.json",
+      "mfa-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-08d",
     "name": "长期 token 创建、查询、撤销与过期",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "isolated-token-full-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "按现有 IAM/OAuth 契约验证登录签发、查询、真实 API 鉴权、过期与 logout 撤销；当前产品没有独立 POST /tokens 的长期静态 token 创建接口，不凭用例简称扩充功能范围。"
   },
   {
     "id": "4-12",
     "name": "kubeconfig 下载",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "kubeconfig-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-13",
     "name": "平台自省：/configz、/status、/components、/componentmeta",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "platform-smoke-proof.json",
+      "componentmeta-cold-observation.json",
+      "componentmeta-warm-observation.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "四个自省接口均实际 200。冷读 128.362s、后续约30.6/23.9ms；记录性能观察项，不借未经约定的30秒测试辅助超时增加产品验收条件。"
   },
   {
     "id": "4-14",
     "name": "审计事件查询（/events，auditing 组）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-16",
     "name": "敏感信息脱敏",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "viewer-config-access-d2fd71f9-finding.json",
+      "viewer-cluster-secrets-d2fd71f9-finding.json",
+      "viewer-watch-4dbec610-finding.json",
+      "redaction-16309d2d-proof.json"
+    ],
+    "backend_revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "修复现场闭环：只读ConfigMap403；Cluster GET/list/真实watch及伪造raw header均无私钥/kubeconfig/Registry密码/内部pending payload；429份Task日志和三机journals已知凭据扫描无命中。不宣称任意应用输出自动脱敏。"
   },
   {
     "id": "4-17",
     "name": "`/healthz` 与 `/metrics`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "platform-smoke-proof.json",
+        "result": "Authenticated healthz/metrics checks on all three servers"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-18",
     "name": "登录失败限流与恢复",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "isolated-token-full-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-19",
     "name": "Addon OCI runtime 镜像来源与 digest",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "addon-digests-3e336bef-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "NFS与MetalLB同时真实Ready，运行及init容器imageID均匹配最新qualification amd64清单；RWX卷真实写读通过。首轮测试漏建自定义命名空间，补齐后同一Operation原生重试成功。"
   },
   {
     "id": "4-20",
     "name": "Addon 安装失败后的 retry/卸载清理",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "component-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-01",
     "name": "创建、扩缩、升级、备份、恢复使用 Operation V2",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cluster-matrix-768933fb-proof.json",
+      "workers-768933fb-proof.json",
+      "masters-d2fd71f9-proof.json",
+      "rolling-upgrade-f5dff3d8-proof.json",
+      "ui-backup-3e336bef-proof.json"
+    ],
+    "backend_revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "本轮创建、扩缩/角色、升级、备份、恢复均有真实Operation V2 UID及Task记录；不同阶段实际源码见各证据。"
   },
   {
     "id": "5-02",
     "name": "Operation/Task 展示节点 UID、IP、步骤和错误",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "cli-observability-16309d2d-proof.json"
+    ],
+    "backend_revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "原生CLI设置/清除4种外部访问字段并保持UID/plan；真实Task nodeRef.uid/ip/stepID核对API实际Node；历史失败Task保留reason/message，所属Operation重试后Succeeded；CLI describe/logs内容真实。"
   },
   {
     "id": "5-03",
     "name": "Server/Agent 重启后的 Operation 恢复",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "backup-proof.json",
+      "component-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-04",
     "name": "Agent Watch 410/EOF 后 relist",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-proxy-tests.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-05",
     "name": "多节点 Step barrier 与输出传递",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-barrier.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-06",
     "name": "Operation cancel",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-operations.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-07",
     "name": "自动 retry 与人工 retry",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-operations.json",
+      "component-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-08",
     "name": "同集群危险操作互斥",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "certification-proof.json",
+      "component-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-09",
     "name": "Task 终态写入成功但响应丢失",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-proxy-tests.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-10",
     "name": "无法确认副作用时 fail-closed",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-fail-closed.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-11",
     "name": "Operation API `limit/continue` 稳定游标分页",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "operations-page-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-12",
     "name": "Task 日志 offset 与 Task 切换",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "task-log-utf8-finding.json",
+      "task-logs-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "5-13",
     "name": "相同业务请求重复提交",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "worker-pdb-d471fa27-proof.json"
+    ],
+    "backend_revision": "d471fa274a6ec49539223c6d87f60ad79f894059",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "充分观测PDB generation、healthy2、disruptionsAllowed0；新版本真实移除TimedOut且Node保留，解除PDB后同一Operation/冻结步骤重试Succeeded。相同移除重复提交400，无第二Operation。"
   },
   {
     "id": "5-14",
     "name": "Operation/Task timeout",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-operations.json",
+      "resume-step-timeout.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-01",
     "name": "支持策略与 `packaging/resources.yaml` 一致",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "manifest-proof.json",
+        "result": "Same-source policy verification and CI contracts passed"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-02",
     "name": "bootstrap、Kubernetes、CRI、CNI、extension、addon OCI 制品完整",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "manifest-proof.json",
+        "result": "All 110 declared artifacts published and verified in same-source manifest job"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-03",
     "name": "Release Manifest 包含 package、chart、runtime image 和 bootstrap",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "manifest-proof.json",
+        "result": "Manifest contains 10 package images, 2 charts, 98 runtime images"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-04",
     "name": "digest、source、revision、version provenance 正确",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "manifest-proof.json",
+        "result": "CI manifest resolution validates remote digests and package provenance; source revision matches deployed binaries"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-05",
     "name": "制品不可变性与重复发布保护",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "immutable-publish-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-06",
     "name": "amd64/arm64 Manifest 与架构过滤",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "arch-filter-proof.json",
+      "manifest-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-07",
     "name": "Registry sync 与目标仓库消费",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "final-platform-phases-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新完整清单原生registry sync目标仓库真实消费；全新HTTP3Server/3Agent、三API端点实际写读删和doctor通过；API全停后使用保存的实际3Server部署配置原生force clean成功。测试期间公网/代理实测阻断，共享Registry5003/NFS保留。"
   },
   {
     "id": "6-08",
     "name": "完整 qualification 发布",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "manifest-proof.json",
+      "manifest-2004ce8b-proof.json",
+      "tier1-os-inventory-20261104.json",
+      "final-platform-phases-proof.json",
+      "final-pipeline-2004ce8b-proof.json",
+      "final-offline-cluster-proof.json",
+      "final-close-2004ce8b-proof.json",
+      "final-network-matrix-2004ce8b-proof.json",
+      "final-all3-receipts-2004ce8b-proof.json",
+      "final-redaction-2004ce8b-proof.json",
+      "final-network-restoration-2004ce8b-proof.json",
+      "platform-ha-final-2004ce8b-proof.json",
+      "final-state-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新2004完整qualification/Go/AIO/resources均成功；真实TLS基线→2004断网升级、force恢复、全新HTTP及跨机bundle冷缓存纯离线3Server3Agent/3Master创建、真实网络/receipt摘要、凭据扫描、HA与最终进程SHA闭环。本轮Tier1按原清单仅Ubuntu24.04 amd64，非原生ARM验证；各历史候选实际revision保留，不声称全部路径在同一revision重复执行。"
   },
   {
     "id": "6-09",
     "name": "linux/amd64 主路径",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "manifest-2004ce8b-proof.json",
+      "tier1-os-inventory-20261104.json",
+      "final-platform-phases-proof.json",
+      "final-pipeline-2004ce8b-proof.json",
+      "final-offline-cluster-proof.json",
+      "final-close-2004ce8b-proof.json",
+      "final-network-matrix-2004ce8b-proof.json",
+      "final-all3-receipts-2004ce8b-proof.json",
+      "final-redaction-2004ce8b-proof.json",
+      "final-network-restoration-2004ce8b-proof.json",
+      "platform-ha-final-2004ce8b-proof.json",
+      "final-state-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新2004完整qualification/Go/AIO/resources均成功；真实TLS基线→2004断网升级、force恢复、全新HTTP及跨机bundle冷缓存纯离线3Server3Agent/3Master创建、真实网络/receipt摘要、凭据扫描、HA与最终进程SHA闭环。本轮Tier1按原清单仅Ubuntu24.04 amd64，非原生ARM验证；各历史候选实际revision保留，不声称全部路径在同一revision重复执行。"
   },
   {
     "id": "6-10",
     "name": "linux/arm64 主路径",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "out_of_scope",
+    "evidence": [
+      "../../r46-case-ledger.md"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "沿用已确认范围：公共 CA 合并 GHCR 路径；无原生 arm64 三机环境。"
   },
   {
     "id": "6-11",
     "name": "Tier 1 OS 矩阵",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "manifest-2004ce8b-proof.json",
+      "tier1-os-inventory-20261104.json",
+      "final-platform-phases-proof.json",
+      "final-pipeline-2004ce8b-proof.json",
+      "final-offline-cluster-proof.json",
+      "final-close-2004ce8b-proof.json",
+      "final-network-matrix-2004ce8b-proof.json",
+      "final-all3-receipts-2004ce8b-proof.json",
+      "final-redaction-2004ce8b-proof.json",
+      "final-network-restoration-2004ce8b-proof.json",
+      "platform-ha-final-2004ce8b-proof.json",
+      "final-state-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "最新2004完整qualification/Go/AIO/resources均成功；真实TLS基线→2004断网升级、force恢复、全新HTTP及跨机bundle冷缓存纯离线3Server3Agent/3Master创建、真实网络/receipt摘要、凭据扫描、HA与最终进程SHA闭环。本轮Tier1按原清单仅Ubuntu24.04 amd64，非原生ARM验证；各历史候选实际revision保留，不声称全部路径在同一revision重复执行。"
   },
   {
     "id": "6-12",
     "name": "Docker CRI 废弃入口清理",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      {
+        "file": "platform-smoke-proof.json",
+        "result": "Real CLI rejects retired Docker CRI entry"
+      }
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "6-13",
     "name": "legacy static server 与 `nfs-provisioner` 不再暴露",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-retirement-cli.json",
+      "resume-retired.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-03",
     "name": "addons：metallb BGP",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "addons-d2fd71f9-proof.json"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "按现有清单用户裁定，仅要求addon安装成功；实际BGP安装/FRR容器Ready/原生卸载通过，无外部peer数据面验收承诺。"
   },
   {
     "id": "4-09",
     "name": "集群模板 templates",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "template-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-10",
     "name": "DNS domains / records",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "dns-proof.json",
+      "dns-resolution-88d81ab5-proof.json",
+      "dns-delete-finding.json",
+      "dns-resolution-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "真实 CoreDNS 创建/更新、删除一个域时保留其他域、删除最后一个域均收敛；旧768前的失败记录保留。"
   },
   {
     "id": "4-11",
     "name": "外部集群纳管",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "import-external-3e336bef-proof.json",
+      "provider-viewer-3e336bef-finding.json",
+      "close-clusters-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "原有Agent复用及缺失Agent原生OCI引导均验证；解除纳管仅删除拥有的Agent，外部Kubernetes节点UID、Ready及实际API写保留。"
   },
   {
     "id": "4-12a",
     "name": "Web 节点/集群终端",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "terminal-f5dff3d8-proof.json",
+      "ui-node-terminal-d2fd71f9.jpg"
+    ],
+    "backend_revision": "d2fd71f9defcc2cd8454aec5f0c21531155a1cc1",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "两套集群WebSocket终端和真实浏览器节点SSH终端执行通过；临时账号/监听器已清理。"
   },
   {
     "id": "4-12b",
     "name": "Pod exec",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "terminal-f5dff3d8-proof.json"
+    ],
+    "backend_revision": "f5dff3d82cf18b96cd5cf822bd29047c1e9090eb",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "4-15",
     "name": "PlatformSetting（镜像仓库模板、Web 终端密钥）",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "isolated-setting4-proof.json"
+    ],
+    "backend_revision": "88d81ab5905eb631e01ea66338985aae204516f9",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "7-01",
     "name": "第三方 OAuth/OIDC 登录",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "oidc-768933fb-proof.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "7-02",
     "name": "`kcctl completion`",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "cli-extra-proof.json"
+    ],
+    "backend_revision": "faa1e9d8840bc35d95cdd76ba41c2e5eb5a867d3",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "7-03",
     "name": "多节点并发任务基础容量",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "resume-concurrent-create-768933fb.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
+    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa",
+    "note": "两个独立1M集群 native CreateCluster均Succeeded，执行窗口重叠303秒。测试辅助脚本去掉已移除的--offline参数后复验，不声称统一OCI路径仍有该旧开关。"
   },
   {
     "id": "2.1-13",
     "name": "Kubernetes feature-gates 透传",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-custom-clusters.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   },
   {
     "id": "2.1-15",
     "name": "`--only-install-kubernetes-component` 跳过 CNI",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
-    "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
+    "status": "passed",
+    "evidence": [
+      "stale-cni-16309d2d-finding.json",
+      "cni-reuse-node2-3e336bef-proof.json",
+      "cni-reuse-node2-2004ce8b-proof.json"
+    ],
+    "backend_revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+    "frontend_revision": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+    "note": "实际重现普通umount的EBUSY；修复后同一失败Operation重试成功；节点再建OnlyK8s无CNI残留，正常删除后重加Calico集群与业务恢复。"
   },
   {
     "id": "2.1-17",
     "name": "kubeadm preflight ignore 定制",
-    "status": "pending",
-    "evidence": [],
-    "backend_revision": "5ffb13235d29ca02c65254c6267e892303b1fecd",
+    "status": "passed",
+    "evidence": [
+      "resume-custom-clusters.json"
+    ],
+    "backend_revision": "768933fb479ea756382baa6915f102bde6293a27",
     "frontend_revision": "ee51883a2126324a567fa17cb1020e39916d17aa"
   }
 ]

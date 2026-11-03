@@ -1,0 +1,70 @@
+{
+  "checks": [
+    {
+      "check": "get cluster",
+      "exit": 0,
+      "passed": true,
+      "items": 1
+    },
+    {
+      "check": "get node",
+      "exit": 0,
+      "passed": true,
+      "items": 3
+    },
+    {
+      "check": "get user",
+      "exit": 0,
+      "passed": true,
+      "items": 1
+    },
+    {
+      "check": "get role",
+      "exit": 0,
+      "passed": true,
+      "items": 33
+    },
+    {
+      "check": "get configmap",
+      "exit": 0,
+      "passed": true,
+      "items": 4
+    },
+    {
+      "check": "get registry",
+      "exit": 0,
+      "passed": true,
+      "items": 1
+    },
+    {
+      "check": "create role",
+      "exit": 0,
+      "passed": true
+    },
+    {
+      "check": "get role",
+      "exit": 0,
+      "passed": true
+    },
+    {
+      "check": "create user",
+      "exit": 0,
+      "passed": true
+    },
+    {
+      "check": "get user",
+      "exit": 0,
+      "passed": true
+    },
+    {
+      "check": "delete user",
+      "exit": 0,
+      "passed": true
+    },
+    {
+      "check": "delete role",
+      "exit": 0,
+      "passed": true
+    }
+  ]
+}

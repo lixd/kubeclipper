@@ -1,0 +1,12 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "public report evidence contain none of the known real bootstrap Registry Provider SSH or Kubernetes client credentials",
+      "passed": true,
+      "filesScanned": 192,
+      "knownDistinctSecretsCompared": 11,
+      "secretValuesPrinted": false
+    }
+  ]
+}

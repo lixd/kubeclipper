@@ -1,0 +1,35 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "stages": [
+    {
+      "stage": "real-offline-upgrade",
+      "exit": 0,
+      "startedUTC": "2026-11-03T18:16:09.466051+00:00",
+      "finishedUTC": "2026-11-03T18:19:14.788017+00:00"
+    },
+    {
+      "stage": "normal-tls-cluster-deletion",
+      "exit": 0,
+      "startedUTC": "2026-11-03T18:19:14.788903+00:00",
+      "finishedUTC": "2026-11-03T18:20:20.962663+00:00"
+    },
+    {
+      "stage": "api-unavailable-force-clean-and-fresh-http",
+      "exit": 0,
+      "startedUTC": "2026-11-03T18:20:20.963527+00:00",
+      "finishedUTC": "2026-11-03T18:23:07.778219+00:00"
+    },
+    {
+      "stage": "cold-pure-offline-platform",
+      "exit": 0,
+      "startedUTC": "2026-11-03T18:23:07.779030+00:00",
+      "finishedUTC": "2026-11-03T18:25:20.944145+00:00"
+    },
+    {
+      "stage": "cold-pure-offline3master-kubernetes",
+      "exit": 0,
+      "startedUTC": "2026-11-03T18:25:20.944896+00:00",
+      "finishedUTC": "2026-11-03T18:30:48.809180+00:00"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "operationUID": "8e055dd3-664a-4361-a382-02ca35fd898e",
+  "actualFailure": "native drain respects Calico API PDB and single-node topology prevents evicting last API Pod",
+  "isProductPDBBypassApplied": false,
+  "checks": [
+    {
+      "check": "actual UI1364-to137 upgrade freezes plan and fails on isolated Agent required OCI fetch before version mutation",
+      "passed": true,
+      "detail": {
+        "operationUID": "58861953-8e4b-4ed3-bc86-163f20b6cf12",
+        "stepsSHA256": "4fc0890cac58b4240e3f011fa54020fff6544ad1265159e487136523e0612fa6",
+        "clusterPhase": "UpgradeFailed",
+        "operationPhase": "Failed",
+        "actualKubeletVersion": "v1.36.4",
+        "failedTaskUIDs": [
+          "8c51cdcb-f14d-4e79-967c-b7a39fd831ff",
+          "0d642fa3-9fec-41c9-a445-c2b06b214989"
+        ],
+        "requiredRegistryFetchFailed": true
+      }
+    },
+    {
+      "check": "actual Console reset returns management phase Running while retaining Failed Operation and real1364 node",
+      "passed": true,
+      "detail": {
+        "operationUID": "58861953-8e4b-4ed3-bc86-163f20b6cf12",
+        "phase": "Running",
+        "operationPhase": "Failed",
+        "actualKubeletVersion": "v1.36.4",
+        "packagePlanPreserved": true,
+        "scope": "reset does not claim successful software upgrade"
+      }
+    },
+    {
+      "check": "only own retry fixture137 tag now points to136 artifact while frozen137 digest remains available",
+      "passed": true,
+      "detail": {
+        "frozen137Digest": "sha256:0a5a34aba102de5016ffaaa0ad33be96c6bb0db0b7763471b17ef6b59cc364ff",
+        "changedTagDigest": "sha256:e6b6eb476be00724d8ff1fa935510d8f549ace101dc6e096b6d3e4f15f4bbed2",
+        "canonicalQualificationTagsModified": false
+      }
+    },
+    {
+      "check": "upgrade retry with changed tag",
+      "passed": false,
+      "error": "native retry failed; inspect private task logs"
+    }
+  ]
+}

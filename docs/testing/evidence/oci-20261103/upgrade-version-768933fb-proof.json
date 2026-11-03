@@ -1,0 +1,19 @@
+{
+  "revision": "768933fb479ea756382baa6915f102bde6293a27",
+  "scope": "actual CLI --version download/checksum/OCI rollout via explicit loopback release-base-url test mirror; formal GitHub Release not published",
+  "checks": [
+    {
+      "check": "native --version rejects modified checksum before any service restart",
+      "passed": true,
+      "servicePIDsUnchanged": true
+    },
+    {
+      "check": "native --version downloads real pinned qualification manifest and validates checksum; same-revision platform idempotence and Console reinstall succeed",
+      "passed": true,
+      "exit": 0,
+      "manifestSHA256": "e23593b76b0d489cd2dd6ce4996504889de943d269f904f2bd1a51d1f60d8884",
+      "targetVersion": "v2.0.11",
+      "sourceRevision": "768933fb479ea756382baa6915f102bde6293a27"
+    }
+  ]
+}

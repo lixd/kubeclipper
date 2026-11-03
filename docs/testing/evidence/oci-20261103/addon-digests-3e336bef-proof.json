@@ -1,0 +1,103 @@
+{
+  "revision": "3e336bef3ab0f05295f9a4ef0fd6616168eb1ad0",
+  "checks": [
+    {
+      "check": "real simultaneously installed NFS and MetalLB runtime container imageIDs match latest qualification amd64 digests",
+      "passed": true,
+      "detail": {
+        "operationUID": "f42f98ec-3adc-45b9-bf9a-84f135df603b",
+        "pods": 5,
+        "containers": [
+          {
+            "pod": "controller-68fb5fb445-mv9xl",
+            "container": "controller",
+            "image": "172.16.131.146:5605/qualified-88/caas4/metallb-controller:v0.13.7",
+            "digest": "sha256:bd0c8e03b23c2fabc95f6a0e085c91e91e4f6bd27d3962d465c361beb468e4eb"
+          },
+          {
+            "pod": "speaker-7xmzz",
+            "container": "speaker",
+            "image": "172.16.131.146:5605/qualified-88/caas4/metallb-speaker:v0.13.7",
+            "digest": "sha256:208f50614e7da922420361f7e023b2d1d5b20d50a34204a1013fa41367143df2"
+          },
+          {
+            "pod": "csi-nfs-controller-5475c68f87-tg596",
+            "container": "csi-provisioner",
+            "image": "172.16.131.146:5605/qualified-88/caas4/csi-provisioner:v3.2.0",
+            "digest": "sha256:c1ad4f78e65cbac02f64f9731b57638eb01c51bed20d03f818669a217745abe5"
+          },
+          {
+            "pod": "csi-nfs-controller-5475c68f87-tg596",
+            "container": "liveness-probe",
+            "image": "172.16.131.146:5605/qualified-88/caas4/livenessprobe:v2.7.0",
+            "digest": "sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae"
+          },
+          {
+            "pod": "csi-nfs-controller-5475c68f87-tg596",
+            "container": "csi-attacher",
+            "image": "172.16.131.146:5605/qualified-88/caas4/csi-attacher:v3.2.1",
+            "digest": "sha256:8cd2c0171cd135d20705759429feaa3ee80b6def312fef28a31d958ccb1e96e9"
+          },
+          {
+            "pod": "csi-nfs-controller-5475c68f87-tg596",
+            "container": "nfs",
+            "image": "172.16.131.146:5605/qualified-88/caas4/nfsplugin:v4.1.0",
+            "digest": "sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81"
+          },
+          {
+            "pod": "csi-nfs-node-kqbpr",
+            "container": "liveness-probe",
+            "image": "172.16.131.146:5605/qualified-88/caas4/livenessprobe:v2.7.0",
+            "digest": "sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae"
+          },
+          {
+            "pod": "csi-nfs-node-kqbpr",
+            "container": "node-driver-registrar",
+            "image": "172.16.131.146:5605/qualified-88/caas4/csi-node-driver-registrar:v2.5.1",
+            "digest": "sha256:0e2b44916eb0a240cbe34206721e2079a5251eae5526469652c949aa5a941c1c"
+          },
+          {
+            "pod": "csi-nfs-node-kqbpr",
+            "container": "nfs",
+            "image": "172.16.131.146:5605/qualified-88/caas4/nfsplugin:v4.1.0",
+            "digest": "sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81"
+          },
+          {
+            "pod": "csi-nfs-node-t2b4r",
+            "container": "liveness-probe",
+            "image": "172.16.131.146:5605/qualified-88/caas4/livenessprobe:v2.7.0",
+            "digest": "sha256:b4f471dd1498411a5d94bc1c851461e7aa9027783bb036d0a0108900b3c7eeae"
+          },
+          {
+            "pod": "csi-nfs-node-t2b4r",
+            "container": "node-driver-registrar",
+            "image": "172.16.131.146:5605/qualified-88/caas4/csi-node-driver-registrar:v2.5.1",
+            "digest": "sha256:0e2b44916eb0a240cbe34206721e2079a5251eae5526469652c949aa5a941c1c"
+          },
+          {
+            "pod": "csi-nfs-node-t2b4r",
+            "container": "nfs",
+            "image": "172.16.131.146:5605/qualified-88/caas4/nfsplugin:v4.1.0",
+            "digest": "sha256:0a07ed2fe711bdb4f48b39c6cb46b6bd1d18d3242d92b48488bcacad21711d81"
+          }
+        ],
+        "clusterRuntimeRegistryFrozenAtOriginalSource": true
+      }
+    },
+    {
+      "check": "real NFS RWX PVC Bound and actual volume write read succeeds",
+      "passed": true,
+      "detail": {
+        "pvcUID": "370acca2-e856-4379-a9cf-c74825ba9473",
+        "body": "addon-real"
+      }
+    },
+    {
+      "check": "normal native NFS uninstall and own test volume cleanup complete",
+      "passed": true,
+      "detail": {
+        "MetalLBPreserved": true
+      }
+    }
+  ]
+}

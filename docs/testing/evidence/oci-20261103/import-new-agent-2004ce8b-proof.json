@@ -1,0 +1,40 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "checks": [
+    {
+      "check": "native Provider removal releases platform ownership and preserves existing origin Agent plus live Kubernetes identity",
+      "passed": true,
+      "detail": {
+        "providerStatus": 404,
+        "importedClusterStatus": 404,
+        "originalAgentUID": "12e2d6b9-b3b9-43de-8a9c-019078961a74",
+        "sourceKubernetesNodeUID": "6fbdd364-8da3-4527-a877-4c542ea050c3"
+      }
+    },
+    {
+      "check": "native Agent drain removes only platform Agent and leaves actual external137 Kubernetes node running",
+      "passed": true,
+      "detail": {
+        "oldNodeStatus": 404,
+        "agentInactive": true,
+        "KubernetesNodeUIDPreserved": true
+      }
+    },
+    {
+      "check": "real external import bootstraps missing Agent from exact running Server OCI source, signs new identity and preserves Kubernetes137",
+      "passed": true,
+      "detail": {
+        "providerUID": "6231ee04-450b-4311-b7a2-1af5209578c1",
+        "importedClusterUID": "34652765-f560-47eb-9092-6c5a0070a41d",
+        "newPlatformNodeName": "a119dc73-a730-4a8f-a55c-a21065bd906a",
+        "newPlatformNodeUID": "03ba2053-0d25-47c5-a10b-0ac1d3458c6e",
+        "sourceKubernetesNodeUID": "6fbdd364-8da3-4527-a877-4c542ea050c3",
+        "actualAgentRevision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+        "nativeRegistry": "ghcr.io/lixd/kubeclipper/qualification-2004ce8bd69e527930ca666f846a9ef8117e9361",
+        "newCertificateAndIdentity": true,
+        "KubernetesAPIWriteReadDelete": true,
+        "SSHFixtureRestrictedToDev2": true
+      }
+    }
+  ]
+}

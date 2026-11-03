@@ -1,0 +1,11 @@
+{
+  "revision": "c47158d024859e1766200ad6ff6262190e925c35",
+  "operationUID": "a57ed975-b59b-4a4b-9596-0a875851f04f",
+  "failedStep": "removeCNIRunData",
+  "actualFault": "recursive runtime cleanup reached Calico-owned view of host cgroup2 filesystem",
+  "manualRecoveryApplied": true,
+  "manualUnmountTarget": "/run/calico/cgroup",
+  "noRunningContainersBeforeRecovery": true,
+  "globalSysFsCgroupMountPreserved": true,
+  "productMountFixFieldVerified": false
+}

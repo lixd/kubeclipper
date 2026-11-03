@@ -1,0 +1,27 @@
+{
+  "revision": "2004ce8bd69e527930ca666f846a9ef8117e9361",
+  "utc": "2026-11-03T18:17:38.011987+00:00",
+  "checks": [
+    {
+      "check": "actual public and reverse proxy traffic blocked on all3 during offline upgrade",
+      "passed": true,
+      "detail": {
+        "172.16.131.208": {
+          "directPublicHTTPSBlocked": true,
+          "reverseProxyBlocked": true,
+          "rejectCounterPackets": 20
+        },
+        "172.16.131.146": {
+          "directPublicHTTPSBlocked": true,
+          "reverseProxyBlocked": true,
+          "rejectCounterPackets": 732
+        },
+        "172.16.131.230": {
+          "directPublicHTTPSBlocked": true,
+          "reverseProxyBlocked": true,
+          "rejectCounterPackets": 440
+        }
+      }
+    }
+  ]
+}

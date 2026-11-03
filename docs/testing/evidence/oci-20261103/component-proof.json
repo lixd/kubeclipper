@@ -1,0 +1,232 @@
+{
+  "passed": true,
+  "checks": [
+    {
+      "check": "extension succeeds on three real nodes and Cluster returns Running",
+      "passed": true,
+      "detail": {
+        "operation": {
+          "id": "828f14e6-9fd8-49eb-828e-c50026d0a3ee",
+          "uid": "23e3797c-eb06-4133-afc8-5682ba42a0fe",
+          "action": "UpgradeExtension",
+          "generation": 0,
+          "status": {
+            "phase": "Succeeded",
+            "deadline": "2026-11-03T13:08:05Z",
+            "startedAt": "2026-11-03T11:38:05Z",
+            "finishedAt": "2026-11-03T11:38:30Z"
+          }
+        },
+        "states": [
+          [
+            "Pending",
+            "Updating"
+          ],
+          [
+            "Running",
+            "Updating"
+          ],
+          [
+            "Succeeded",
+            "Running"
+          ]
+        ],
+        "tasks": [
+          {
+            "name": "task-03fe249f8e7d382a9c8e671312212232",
+            "node": "339eacbe-4e55-4ff1-ba75-0476d928b998",
+            "phase": "Succeeded"
+          },
+          {
+            "name": "task-94487f32b46b250abec1acd187fe78f6",
+            "node": "0649c52b-9da1-4b31-b853-967f767a0f86",
+            "phase": "Succeeded"
+          },
+          {
+            "name": "task-aa93cd55a81467bd58fbab367f39fc5d",
+            "node": "9d5537c6-3ce7-4841-bf2d-0223a553d7c5",
+            "phase": "Succeeded"
+          }
+        ]
+      }
+    },
+    {
+      "check": "component install accepted after extension; workload and StorageClass exist",
+      "passed": true,
+      "detail": {
+        "operation": {
+          "id": "ee39cd29-81a3-4402-b55c-f5ebdc6542c4",
+          "uid": "8b040d26-8b08-4fce-9882-0b07a219f764",
+          "action": "InstallComponents",
+          "generation": 0,
+          "status": {
+            "phase": "Succeeded",
+            "deadline": "2026-11-03T13:08:40Z",
+            "startedAt": "2026-11-03T11:38:40Z",
+            "finishedAt": "2026-11-03T11:39:15Z"
+          }
+        },
+        "states": [
+          [
+            "Running",
+            "Updating"
+          ],
+          [
+            "Succeeded",
+            "Running"
+          ]
+        ]
+      }
+    },
+    {
+      "check": "component uninstall succeeds and actual resources are removed",
+      "passed": true,
+      "detail": {
+        "operation": {
+          "id": "c63df42c-0c11-4086-b209-6265e075807d",
+          "uid": "a51d0f5d-1fd9-49a3-8bce-13bc3de767b1",
+          "action": "UninstallComponents",
+          "generation": 0,
+          "status": {
+            "phase": "Succeeded",
+            "deadline": "2026-11-03T13:09:17Z",
+            "startedAt": "2026-11-03T11:39:17Z",
+            "finishedAt": "2026-11-03T11:39:56Z"
+          }
+        },
+        "states": [
+          [
+            "Running",
+            "Updating"
+          ],
+          [
+            "Succeeded",
+            "Running"
+          ]
+        ]
+      }
+    },
+    {
+      "check": "next component install is accepted without a manual status reset",
+      "passed": true,
+      "detail": {
+        "id": "dee2fd6e-1e48-447f-9c8d-0e728bc50f32",
+        "uid": "3e83a6a9-74d3-4b9b-b187-ef4e5db86e4b",
+        "action": "InstallComponents",
+        "generation": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-11-03T13:09:59Z",
+          "startedAt": "2026-11-03T11:39:59Z",
+          "finishedAt": "2026-11-03T11:41:47Z"
+        }
+      }
+    },
+    {
+      "check": "cluster deletion rejected during component update",
+      "passed": true,
+      "detail": {
+        "httpStatus": 400
+      }
+    },
+    {
+      "check": "offline Agent timeout survives Server restart and projects UpdateFailed",
+      "passed": true,
+      "detail": {
+        "operation": {
+          "id": "bc834d63-46d6-4c1b-9cc1-11e894fb8491",
+          "uid": "76801784-a320-4319-8226-bc73364fbc1f",
+          "action": "UninstallComponents",
+          "generation": 0,
+          "status": {
+            "phase": "TimedOut",
+            "reason": "DeadlineExceeded",
+            "message": "operation deadline exceeded",
+            "deadline": "2026-11-03T11:42:49Z",
+            "startedAt": "2026-11-03T11:41:49Z",
+            "finishedAt": "2026-11-03T11:42:50Z"
+          }
+        },
+        "states": [
+          [
+            "Running",
+            "Updating"
+          ],
+          [
+            "TimedOut",
+            "Updating"
+          ],
+          [
+            "TimedOut",
+            "UpdateFailed"
+          ]
+        ],
+        "tasks": [
+          {
+            "name": "task-61d4acffa0d71856352ba33ec0ec9f97",
+            "phase": "Canceled",
+            "reason": "OperationDeadlineExceededBeforeStart"
+          }
+        ]
+      }
+    },
+    {
+      "check": "UpdateFailed blocks a conflicting new update",
+      "passed": true,
+      "detail": {
+        "httpStatus": 400
+      }
+    },
+    {
+      "check": "same Operation retries with Updating exclusion and returns Running",
+      "passed": true,
+      "detail": {
+        "operation": {
+          "id": "bc834d63-46d6-4c1b-9cc1-11e894fb8491",
+          "uid": "76801784-a320-4319-8226-bc73364fbc1f",
+          "action": "UninstallComponents",
+          "generation": 1,
+          "status": {
+            "phase": "Succeeded",
+            "observedRetryGeneration": 1,
+            "deadline": "2026-11-03T11:44:17Z",
+            "startedAt": "2026-11-03T11:43:17Z",
+            "finishedAt": "2026-11-03T11:43:27Z"
+          }
+        },
+        "states": [
+          [
+            "Pending",
+            "Updating"
+          ],
+          [
+            "Running",
+            "Updating"
+          ],
+          [
+            "Succeeded",
+            "Running"
+          ]
+        ],
+        "observedUpdating": true
+      }
+    },
+    {
+      "check": "subsequent extension update is accepted after recovered retry",
+      "passed": true,
+      "detail": {
+        "id": "41cea155-716b-4b49-b18f-2c8ea2daadd6",
+        "uid": "8c50ba33-9ab6-4d30-8241-a233ae96f1cf",
+        "action": "UpgradeExtension",
+        "generation": 0,
+        "status": {
+          "phase": "Succeeded",
+          "deadline": "2026-11-03T13:13:30Z",
+          "startedAt": "2026-11-03T11:43:30Z",
+          "finishedAt": "2026-11-03T11:43:46Z"
+        }
+      }
+    }
+  ],
+  "clusterUID": "e3314f5a-fc7c-44ca-83a9-392427cbb1d9"
+}

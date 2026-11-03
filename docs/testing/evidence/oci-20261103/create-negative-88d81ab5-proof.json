@@ -1,0 +1,121 @@
+{
+  "revision": "88d81ab5905eb631e01ea66338985aae204516f9",
+  "checks": [
+    {
+      "check": "valid free-node control dryRun",
+      "http": 200,
+      "expected": 200,
+      "reason": "",
+      "passed": true
+    },
+    {
+      "check": "unsupported Kubernetes",
+      "http": 400,
+      "expected": 400,
+      "reason": "UnsupportedKubernetesVersion: no policy matched kubernetes version \"v1.2.3\"",
+      "passed": true
+    },
+    {
+      "check": "unsupported CRI",
+      "http": 400,
+      "expected": 400,
+      "reason": "UnsupportedComponentVersion: slot \"cri\" option \"containerd\" does not allow version \"0.0.1\"",
+      "passed": true
+    },
+    {
+      "check": "unsupported CNI",
+      "http": 400,
+      "expected": 400,
+      "reason": "UnsupportedComponentVersion: slot \"cni\" option \"calico\" does not allow version \"v0.0.1\"",
+      "passed": true
+    },
+    {
+      "check": "Docker CRI rejected",
+      "http": 400,
+      "expected": 400,
+      "reason": "Docker CRI is not supported, use containerd",
+      "passed": true
+    },
+    {
+      "check": "duplicate Master/Worker rejected",
+      "http": 400,
+      "expected": 400,
+      "reason": "duplicate node \"5d9363c2-0063-4732-b36b-794ee843a663\" in master/worker lists",
+      "passed": true
+    },
+    {
+      "check": "malformed Pod CIDR",
+      "http": 400,
+      "expected": 400,
+      "reason": "invalid cluster networking: invalid pod subnet \"broken\": invalid CIDR address: broken",
+      "passed": true
+    },
+    {
+      "check": "overlapping Pod/Service CIDRs",
+      "http": 400,
+      "expected": 400,
+      "reason": "invalid cluster networking: pod subnet 172.30.0.0/16 overlaps service subnet 172.30.1.0/24; use disjoint subnets",
+      "passed": true
+    },
+    {
+      "check": "host network conflicts",
+      "http": 400,
+      "expected": 400,
+      "reason": "invalid cluster networking: pod subnet 172.16.131.0/24 conflicts with node 5d9363c2-0063-4732-b36b-794ee843a663 address 172.16.131.208; use subnets outside the node network",
+      "passed": true
+    },
+    {
+      "check": "nested Pod CIDRs",
+      "http": 400,
+      "expected": 400,
+      "reason": "invalid cluster networking: at most one ipv4 pod subnet is allowed",
+      "passed": true
+    },
+    {
+      "check": "omitted imageRegistry uses explicit platform default",
+      "http": 200,
+      "expected": 200,
+      "reason": "",
+      "passed": true
+    },
+    {
+      "check": "missing explicit and platform default Registry rejected",
+      "http": 400,
+      "expected": 400,
+      "reason": "platform default image registry is not configured; select a Registry explicitly or configure the platform default",
+      "passed": true
+    },
+    {
+      "check": "explicit Registry works without platform default",
+      "http": 200,
+      "expected": 200,
+      "reason": "",
+      "passed": true
+    },
+    {
+      "check": "invalid explicit Registry does not silently use default",
+      "http": 400,
+      "expected": 400,
+      "reason": "get image registry oci-88d8-missing-registry: registries.core.kubeclipper.io \"oci-88d8-missing-registry\" not found",
+      "passed": true
+    },
+    {
+      "check": "disabled free Node rejected",
+      "http": 400,
+      "expected": 400,
+      "reason": "some nodes in used or disabled",
+      "passed": true
+    },
+    {
+      "check": "valid control after restoring node flags",
+      "http": 200,
+      "expected": 200,
+      "reason": "",
+      "passed": true
+    },
+    {
+      "check": "no Cluster/Operation created and mutations restored",
+      "passed": true
+    }
+  ]
+}

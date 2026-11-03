@@ -1,0 +1,16 @@
+{
+  "revision": "16309d2d507eca58adb7ff90a4f744a57eeec4af",
+  "checks": [
+    {
+      "check": "native bootstrap Console upgrade and standalone extension preserve every existing cluster packagePlan",
+      "passed": true,
+      "clusterNames": [
+        "oci-88d8-20261103-concurrent-ca"
+      ],
+      "clustersChecked": 1,
+      "extensionOperationUID": "aad800be-0dda-4ebd-b4d3-481b9b3f6345",
+      "ConsoleSource": "94bac83135fb0fb2a18360b22aaf9de6bb8c9528",
+      "scope": "all currently existing clusters; second independent cluster comparison will be added separately"
+    }
+  ]
+}
