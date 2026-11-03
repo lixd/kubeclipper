@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/txn2/txeh"
 	"go.uber.org/zap"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -152,9 +153,10 @@ func findEtcdMemberID(memberListStdout, peerIP string) string {
 // remains the care pod and the virtual service are removed, mirroring the
 // creation path which never installs them for single-master clusters.
 type LvsCare struct {
-	WorkerNodeVIP string            `json:"workerNodeVip"`
-	Masters       map[string]string `json:"masters"`
-	ImageRegistry string            `json:"imageRegistry,omitempty"`
+	WorkerNodeVIP       string            `json:"workerNodeVip"`
+	Masters             map[string]string `json:"masters"`
+	ImageRegistry       string            `json:"imageRegistry,omitempty"`
+	APIServerDomainName string            `json:"apiServerDomainName"`
 }
 
 func (stepper *LvsCare) NewInstance() component.ObjectMeta {
@@ -173,6 +175,13 @@ func (stepper *LvsCare) reconcile(ctx context.Context, opts component.Options) e
 	if stepper.WorkerNodeVIP == "" {
 		return nil
 	}
+	if stepper.APIServerDomainName == "" {
+		return fmt.Errorf("API server domain is required to refresh worker access")
+	}
+	hosts, err := txeh.NewHostsDefault()
+	if err != nil {
+		return err
+	}
 	if len(stepper.Masters) > 1 {
 		var rsList []ipvsutil.RealServer
 		for _, ip := range stepper.Masters {
@@ -189,6 +198,9 @@ func (stepper *LvsCare) reconcile(ctx context.Context, opts component.Options) e
 		if err := ipvsutil.CreateIPVS(&vs, opts.DryRun); err != nil {
 			return err
 		}
+		if err := stepper.updateAPIHosts(hosts, stepper.WorkerNodeVIP, opts); err != nil {
+			return err
+		}
 		care := &ClusterNode{
 			WorkerNodeVIP: stepper.WorkerNodeVIP,
 			Masters:       stepper.Masters,
@@ -200,11 +212,24 @@ func (stepper *LvsCare) reconcile(ctx context.Context, opts component.Options) e
 		return fileutil.WriteFileWithContext(ctx, lvscareManifestFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644,
 			care.renderIPVSCarePod, opts.DryRun)
 	}
+	for _, ip := range stepper.Masters {
+		if err := stepper.updateAPIHosts(hosts, ip, opts); err != nil {
+			return err
+		}
+	}
 	if err := ipvsutil.Clear(opts.DryRun); err != nil {
 		logger.Warnf("ipvs clear service error info: %v", err)
 	}
-	_, err := cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -f %s", lvscareManifestFile))
+	_, err = cmdutil.RunCmdWithContext(ctx, opts.DryRun, "bash", "-c", fmt.Sprintf("rm -f %s", lvscareManifestFile))
 	return err
+}
+
+func (stepper *LvsCare) updateAPIHosts(hosts *txeh.Hosts, address string, opts component.Options) error {
+	if opts.DryRun {
+		return nil
+	}
+	hosts.AddHost(address, stepper.APIServerDomainName)
+	return hosts.Save()
 }
 
 // EtcdMemberRemoveSteps builds the step that removes the leaving control-plane
@@ -260,9 +285,10 @@ func LvsCareRefreshSteps(cluster *v1.Cluster, metadata *component.ExtraMetadata,
 		masters = filtered
 	}
 	payload := LvsCare{
-		WorkerNodeVIP: cluster.Networking.WorkerNodeVip,
-		Masters:       masters,
-		ImageRegistry: cluster.ResolvedImageRegistry,
+		WorkerNodeVIP:       cluster.Networking.WorkerNodeVip,
+		Masters:             masters,
+		ImageRegistry:       cluster.ResolvedImageRegistry,
+		APIServerDomainName: APIServerDomainPrefix + strutil.StringDefaultIfEmpty("cluster.local", cluster.Networking.DNSDomain),
 	}
 	bytes, err := json.Marshal(payload)
 	if err != nil {
