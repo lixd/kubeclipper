@@ -186,13 +186,16 @@ func (i *RegistryPackageInventoryIndexer) repositoryInventory(ctx context.Contex
 	if refresh {
 		flightKey += "\x00refresh"
 	}
-	pending := i.repositoryReads.DoChan(flightKey, func() (interface{}, error) {
+	pending := i.repositoryReads.DoChan(flightKey, func() (any, error) {
 		if !refresh {
 			if inventory, ok := i.loadCache(key); ok {
 				return inventory, nil
 			}
 		}
 		inventory, err := i.indexRepositories(ctx, registry, normalized)
+		if err == nil {
+			err = ctx.Err()
+		}
 		if err == nil {
 			i.storeCache(key, inventory)
 		}

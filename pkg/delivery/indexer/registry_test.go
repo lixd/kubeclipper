@@ -967,3 +967,40 @@ func TestRepositoryReadsCoalesceAndWaitersCancel(t *testing.T) {
 		t.Fatalf("concurrent tag reads = %d, want 1", calls)
 	}
 }
+
+type cancelingRepositoryClient struct {
+	RegistryClient
+	cancel context.CancelFunc
+	calls  atomic.Int32
+}
+
+func (c *cancelingRepositoryClient) ListTags(context.Context, string, string) ([]string, error) {
+	c.calls.Add(1)
+	c.cancel()
+	return nil, nil
+}
+
+func TestCanceledRepositoryScanDoesNotPublishCache(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	client := &cancelingRepositoryClient{cancel: cancel}
+	indexer := NewRegistryPackageInventoryIndexer(client)
+	repositories := []string{"kubeclipper/packages/k8s/k8s"}
+	if _, err := indexer.IndexRepositories(ctx, "registry.local", repositories); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled scan returned %v", err)
+	}
+	// A following request may first join the canceled flight; it must then
+	// perform a new scan instead of using the canceled result as a cache hit.
+	var err error
+	for attempt := 0; attempt < 3; attempt++ {
+		if _, err = indexer.IndexRepositories(context.Background(), "registry.local", repositories); err == nil {
+			break
+		}
+		if !errors.Is(err, context.Canceled) {
+			t.Fatal(err)
+		}
+	}
+	if err != nil || client.calls.Load() != 2 {
+		t.Fatalf("canceled scan poisoned cache: calls=%d err=%v", client.calls.Load(), err)
+	}
+}
