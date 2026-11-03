@@ -554,21 +554,6 @@ func (stepper *Drain) Uninstall(ctx context.Context, opts component.Options) (by
 		return nil, nil
 	}
 
-	ec, err = cmdutil.RunCmdWithContext(
-		ctx,
-		opts.DryRun,
-		"kubectl",
-		"taint",
-		"nodes",
-		stepper.Hostname,
-		"NoExec=true:NoExecute",
-		"--overwrite",
-	)
-	if err != nil {
-		logErrMsg = "kubectl taint node error"
-		return
-	}
-
 	cmds := strings.Split(fmt.Sprintf("kubectl drain %s", stepper.Hostname), " ")
 	cmds = append(cmds, stepper.ExtraArgs...)
 	// kubectl drain ${node_name} --ignore-daemonsets --delete-emptydir-data --force
