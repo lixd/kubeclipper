@@ -27,3 +27,29 @@ jobs:
           make test
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
+
+  release-contracts:
+    name: OCI Release Contracts
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+      - name: Verify policy and packaging contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          go run ./tools/release-policy-verify --manifest packaging/resources.yaml
+          for test in scripts/open-packaging/tests/*.sh; do
+            echo "RUN $test"
+            bash "$test"
+          done
+          python3 scripts/open-packaging/tests/installer-test.py

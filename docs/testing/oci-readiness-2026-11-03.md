@@ -24,7 +24,18 @@
 
 GHCR 实际标签包含 `v1.6.0`、`v1.6.0-r46.4` 和 `v1.6.1-oci.77edd549`。已有后者不能被描述为缺少新版 UI；本轮修正的是发布配置仍指向旧提交的情况，新的 `v1.6.1-oci.ee51883` 与当前前端提交一致，并避免采用低于既有 1.6.1 OCI 制品的版本号。
 
-最终配置相对 candidate-4 仅更正上述 Console 版本及说明文档，Go 源码保持一致。打包及 fork 流水线结果在执行结束后补录。
+后续只补充了仓库扫描结束时的取消校验，防止取消后的部分结果写入成功缓存。`candidate-5` 的 872 文件清单 SHA256 为 `3095f94509eef4413e202aaa9a1aeddfc42900bd8ada27255c7f0d21fdc2510e`，与已提交源码按文件核对；最终七包 race（含 Linux 清理）通过。
+
+首次实际 Git 检出重跑的元数据校验也未通过：验证镜像中的 BusyBox grep 对同一行两次固定串匹配只输出一次，二进制的两处提交参数实际正确。诊断输出与失败保留，不能将该次检查算通过。已准备 GNU grep 环境，但远端 Git 拉取先发生 HTTP/2/TLS 中断，随后 SSH 跳板拒绝连接，剩余检查改在用户 fork 的 Ubuntu CI 执行。
+
+`go-test-coverage` 新增 `OCI Release Contracts`：同一提交检查支持策略、现有八个打包 Shell 契约测试及安装脚本测试；使用正式发布相同的 Ubuntu/GNU 工具环境。它不替代完整 qualification 或 192 项现场验收。
+
+fork Console 发布工作流 41606724321 已成功，版本 `v1.6.1-oci.ee51883` 的真实 OCI index 含 linux/amd64 与 linux/arm64：
+
+- amd64：`sha256:64c4298528df7bb1e6a1dda712a3672dbcd56301454a02c071dd743a27d180fb`
+- arm64：`sha256:789cccfb0a72651cea7a06f5971c82d585af9a80658def5135fd10716525d972`
+
+代码提交 `f61cc52f` 的完整 Go CI 41606665921 已成功；取消边界补充提交 `704426e6` 和后续契约 CI 的最终结果在收尾后补录。
 
 ## 验收边界
 
