@@ -10,8 +10,8 @@ registries:
 bootstrap:
   kubeclipperVersion: v2.0.11
   etcdVersion: 3.5.21
-  consoleVersion: v1.6.1-oci.ee51883
-  consoleSourceRevision: ee51883a2126324a567fa17cb1020e39916d17aa
+  consoleVersion: v1.6.1-oci.94bac83
+  consoleSourceRevision: 94bac83135fb0fb2a18360b22aaf9de6bb8c9528
   registryVersion: 3.1.1
   caddyVersion: 2.10.2
   registry:
