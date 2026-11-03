@@ -369,7 +369,7 @@ func (s *APIServer) installAPIs(stopCh <-chan struct{}) error {
 	s.controllerManager = ctrl
 
 	if setupErr := corev1.AddToContainer(s.container, clusterOperator, s.operationV2Store, platformOperator,
-		leaseOperator, coreOperator, tokenOperator, s.Config.GenericServerRunOptions); setupErr != nil {
+		leaseOperator, coreOperator, tokenOperator, s.Config.GenericServerRunOptions, s.rbacAuthorizer); setupErr != nil {
 		return setupErr
 	}
 	if err = proxy.AddToContainer(s.container, clusterOperator); err != nil {

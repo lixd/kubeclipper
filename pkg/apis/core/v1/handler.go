@@ -35,6 +35,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kubeclipper/kubeclipper/pkg/authorization/authorizer"
 	"github.com/kubeclipper/kubeclipper/pkg/component/utils"
 
 	corev1 "k8s.io/api/core/v1"
@@ -101,6 +102,7 @@ var (
 )
 
 type handler struct {
+	authz            authorizer.Authorizer
 	genericConfig    *generic.ServerRunOptions
 	clusterOperator  cluster.Operator
 	leaseOperator    lease.Operator
@@ -3880,12 +3882,18 @@ func (h *handler) ListCloudProviders(req *restful.Request, resp *restful.Respons
 			restplus.HandleInternalError(resp, req, err)
 			return
 		}
+		for i := range result.Items {
+			result.Items[i] = *h.cloudProviderReadResponse(req.Request, &result.Items[i])
+		}
 		_ = resp.WriteHeaderAndEntity(http.StatusOK, result)
 	} else {
 		result, err := h.clusterOperator.ListCloudProvidersEx(req.Request.Context(), q)
 		if err != nil {
 			restplus.HandleInternalError(resp, req, err)
 			return
+		}
+		for i, item := range result.Items {
+			result.Items[i] = h.cloudProviderReadResponse(req.Request, item.(*v1.CloudProvider))
 		}
 		_ = resp.WriteHeaderAndEntity(http.StatusOK, result)
 	}
@@ -3903,7 +3911,7 @@ func (h *handler) DescribeCloudProvider(req *restful.Request, resp *restful.Resp
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
-	_ = resp.WriteHeaderAndEntity(http.StatusOK, c)
+	_ = resp.WriteHeaderAndEntity(http.StatusOK, h.cloudProviderReadResponse(req.Request, c))
 }
 
 func (h *handler) PreCheckCloudProvider(req *restful.Request, resp *restful.Response) {
@@ -4076,6 +4084,15 @@ func (h *handler) watchCloudProvider(req *restful.Request, resp *restful.Respons
 		restplus.HandleInternalError(resp, req, err)
 		return
 	}
+	watcher = watch.Filter(watcher, func(event watch.Event) (watch.Event, bool) {
+		if cached, ok := event.Object.(runtime.CacheableObject); ok {
+			event.Object = cached.GetObject()
+		}
+		if provider, ok := event.Object.(*v1.CloudProvider); ok {
+			event.Object = h.cloudProviderReadResponse(req.Request, provider)
+		}
+		return event, true
+	})
 	restplus.ServeWatch(watcher, v1.SchemeGroupVersion.WithKind("CloudProvider"), req, resp, timeout)
 }
 

@@ -21,6 +21,8 @@ package v1
 import (
 	"net/http"
 
+	"github.com/kubeclipper/kubeclipper/pkg/authorization/authorizer"
+
 	"github.com/kubeclipper/kubeclipper/pkg/clusteroperation"
 
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/auth"
@@ -1161,8 +1163,9 @@ func SetupWebService(h *handler) *restful.WebService {
 func AddToContainer(c *restful.Container, clusterOperator cluster.Operator,
 	operationV2Store operationv2.Store, platformOperator platform.Operator, leaseOperator lease.Operator,
 	coreOperator core.Operator, tokenOperator auth.TokenManagementInterface,
-	conf *generic.ServerRunOptions) error {
+	conf *generic.ServerRunOptions, authz authorizer.Authorizer) error {
 	h := newHandler(conf, clusterOperator, leaseOperator, operationV2Store, platformOperator, coreOperator, tokenOperator)
+	h.authz = authz
 	webservice := SetupWebService(h)
 	c.Add(webservice)
 	return nil
