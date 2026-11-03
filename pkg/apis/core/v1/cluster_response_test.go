@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/emicklei/go-restful"
 	"github.com/golang/mock/gomock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/apiserver/pkg/authentication/user"
 
@@ -26,10 +28,17 @@ type clusterResponseTestWatch struct{ events chan watch.Event }
 func (*clusterResponseTestWatch) Stop()                            {}
 func (w *clusterResponseTestWatch) ResultChan() <-chan watch.Event { return w.events }
 
+type clusterResponseCachedObject struct{ runtime.Object }
+
+func (c *clusterResponseCachedObject) GetObject() runtime.Object { return c.Object.DeepCopyObject() }
+func (c *clusterResponseCachedObject) CacheEncode(_ runtime.Identifier, encode func(runtime.Object, io.Writer) error, out io.Writer) error {
+	return encode(c.GetObject(), out)
+}
+
 func TestClusterReadResponsesDoNotExposeCredentials(t *testing.T) {
 	for _, test := range []struct {
-		name, path, username string
-		raw, internal        bool
+		name, path, username  string
+		raw, internal, cached bool
 	}{
 		{name: "detail", path: "/clusters/cluster"},
 		{name: "paged list", path: "/clusters"},
@@ -37,6 +46,9 @@ func TestClusterReadResponsesDoNotExposeCredentials(t *testing.T) {
 		{name: "spoofed raw list", path: "/clusters", raw: true},
 		{name: "watch", path: "/clusters?watch=true"},
 		{name: "spoofed raw watch", path: "/clusters?watch=true", raw: true},
+		{name: "cached watch", path: "/clusters?watch=true", cached: true},
+		{name: "spoofed cached watch", path: "/clusters?watch=true", raw: true, cached: true},
+		{name: "internal cached watch", path: "/clusters?watch=true", username: "system:kc-server", raw: true, internal: true, cached: true},
 		{name: "internal detail", path: "/clusters/cluster", username: "system:kc-server", raw: true, internal: true},
 		{name: "internal list", path: "/clusters", username: "system:kc-server", raw: true, internal: true},
 		{name: "internal watch", path: "/clusters?watch=true", username: "system:kc-server", raw: true, internal: true},
@@ -49,7 +61,11 @@ func TestClusterReadResponsesDoNotExposeCredentials(t *testing.T) {
 			operator.EXPECT().ListClusterEx(gomock.Any(), gomock.Any()).Return(&models.PageableResponse{Items: []interface{}{cluster}, TotalCount: 1}, nil).AnyTimes()
 			operator.EXPECT().ListClusters(gomock.Any(), gomock.Any()).Return(&corev1.ClusterList{Items: []corev1.Cluster{*cluster}}, nil).AnyTimes()
 			events := make(chan watch.Event, 1)
-			events <- watch.Event{Type: watch.Added, Object: cluster}
+			var eventObject runtime.Object = cluster
+			if test.cached {
+				eventObject = &clusterResponseCachedObject{Object: cluster}
+			}
+			events <- watch.Event{Type: watch.Added, Object: eventObject}
 			close(events)
 			operator.EXPECT().WatchClusters(gomock.Any(), gomock.Any()).Return(&clusterResponseTestWatch{events}, nil).AnyTimes()
 			h := &handler{clusterOperator: operator}

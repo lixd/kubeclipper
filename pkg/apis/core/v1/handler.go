@@ -51,6 +51,7 @@ import (
 	coordinationv1 "k8s.io/api/coordination/v1"
 	apimachineryErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	r "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/watch"
@@ -523,6 +524,9 @@ func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *
 	}
 	if !internalClusterRead(req.Request) {
 		watcher = watch.Filter(watcher, func(event watch.Event) (watch.Event, bool) {
+			if cached, ok := event.Object.(runtime.CacheableObject); ok {
+				event.Object = cached.GetObject()
+			}
 			if cluster, ok := event.Object.(*v1.Cluster); ok {
 				event.Object = clusterReadResponse(cluster)
 			}
