@@ -30,6 +30,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	"github.com/kubeclipper/kubeclipper/pkg/oplog"
@@ -71,7 +72,8 @@ func (h *LogHandler) ServeHTTP(response http.ResponseWriter, request *http.Reque
 		http.Error(response, err.Error(), http.StatusBadRequest)
 		return
 	}
-	content, delivered, size, err := h.Logs.GetStepLogContent(taskUID, "task", offset, limit)
+	// Read at least one complete rune so small limits still make progress.
+	content, delivered, size, err := h.Logs.GetStepLogContent(taskUID, "task", offset, max(limit, utf8.UTFMax))
 	if err != nil {
 		if os.IsNotExist(err) {
 			content, delivered, size = nil, 0, 0
@@ -80,6 +82,17 @@ func (h *LogHandler) ServeHTTP(response http.ResponseWriter, request *http.Reque
 			return
 		}
 	}
+	// JSON replaces incomplete UTF-8 with replacement characters. Leave a
+	// trailing partial rune for the next read and advance by delivered bytes.
+	for start := len(content) - 1; start >= 0 && len(content)-start < utf8.UTFMax; start-- {
+		if utf8.RuneStart(content[start]) {
+			if !utf8.FullRune(content[start:]) {
+				content = content[:start]
+			}
+			break
+		}
+	}
+	delivered = int64(len(content))
 	response.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(response).Encode(oplog.LogContentResponse{
 		Content:      string(content),
