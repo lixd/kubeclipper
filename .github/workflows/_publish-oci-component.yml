@@ -210,6 +210,7 @@ jobs:
           KC_DOWNLOAD_MAX_TIME: "1800"
           KC_RESOURCE_DIR: ${{ runner.temp }}/kc-resource
           KC_SOURCE_REVISION: ${{ github.sha }}
+          KC_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           set -euo pipefail
           mkdir -p "$KC_RESOURCE_DIR"
@@ -253,6 +254,8 @@ jobs:
 
       - name: Verify published component
         env:
+          KC_SOURCE_REVISION: ${{ github.sha }}
+          KC_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
           COMPONENT: ${{ steps.settings.outputs.component }}
           VERSION: ${{ steps.settings.outputs.version }}
           ARCHITECTURES: ${{ steps.settings.outputs.architectures }}
@@ -277,6 +280,10 @@ jobs:
             else
               for arch in $ARCHITECTURES; do
                 crane digest --platform "linux/$arch" "$ref"
+                config="$(crane config --platform "linux/$arch" "$ref")"
+                jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" \
+                  '.config.Labels["org.opencontainers.image.source"] == $source and
+                   .config.Labels["org.opencontainers.image.revision"] == $revision' <<< "$config"
               done
             fi
           fi

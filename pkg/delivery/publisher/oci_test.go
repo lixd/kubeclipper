@@ -454,6 +454,29 @@ func TestBuildArtifactImageUsesStandardRootFSLayer(t *testing.T) {
 	}
 }
 
+func TestBuildArtifactImageUsesActualSourceRepository(t *testing.T) {
+	for _, source := range []string{"https://github.com/lixd/kubeclipper", ""} {
+		t.Run(source, func(t *testing.T) {
+			manifestPath := filepath.Join(t.TempDir(), packageManifestFile)
+			if err := os.WriteFile(manifestPath, []byte(`{"schemaVersion":1}`), 0644); err != nil {
+				t.Fatal(err)
+			}
+			img, err := buildArtifactImage(manifestPath, nil, PublishRequest{SourceURL: source})
+			if err != nil {
+				t.Fatal(err)
+			}
+			config, err := img.ConfigFile()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, present := config.Config.Labels["org.opencontainers.image.source"]
+			if got != source || present != (source != "") {
+				t.Fatalf("source label = %q (present %t), want %q", got, present, source)
+			}
+		})
+	}
+}
+
 func TestHelmChartImageUsesHelmOCIMediaTypes(t *testing.T) {
 	var buf bytes.Buffer
 	if err := writeTestArchiveTo(&buf, map[string]string{

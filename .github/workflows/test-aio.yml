@@ -48,6 +48,7 @@ jobs:
       - name: Publish bootstrap package images
         env:
           KC_SOURCE_REVISION: ${{ github.sha }}
+          KC_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
         run: |
           tools_dir="$RUNNER_TEMP/kc-publish-tools"
           mkdir -p "$tools_dir"

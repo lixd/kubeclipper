@@ -85,6 +85,11 @@ different recorded commit. The provenance gate requires `--resolve-digests`
 because it verifies the actual remote image config rather than trusting a local
 declaration.
 
+`KC_SOURCE_URL` supplies the `org.opencontainers.image.source` OCI label.
+Component workflows set it to the publishing GitHub repository URL, including
+forks. Manual publishers should set it to their actual source repository; when
+unset, the source label is omitted rather than attributed to an unrelated repo.
+
 The revision is also part of Registry inventory. `kcctl deploy` selects the
 KubeClipper server/agent package built from the same commit as `kcctl`, and
 `kcctl join` selects an agent built from the running server's commit. This is

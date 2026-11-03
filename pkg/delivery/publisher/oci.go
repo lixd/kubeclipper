@@ -59,6 +59,7 @@ type PublishRequest struct {
 	Arch             string
 	Registry         string
 	ContentProfile   string
+	SourceURL        string
 	SourceRevision   string
 	ExternalContents []deliveryapis.ArtifactContent
 	RegistryConfig   *deliveryregistry.Config
@@ -282,9 +283,11 @@ func buildArtifactImage(manifestPath string, payloads []payloadFile, req Publish
 		return nil, err
 	}
 	config.Config.Labels = map[string]string{
-		"org.opencontainers.image.source":  "https://github.com/kubeclipper/kubeclipper",
 		"org.opencontainers.image.title":   req.Kind + "/" + req.Name,
 		"org.opencontainers.image.version": req.Version,
+	}
+	if req.SourceURL != "" {
+		config.Config.Labels["org.opencontainers.image.source"] = req.SourceURL
 	}
 	if req.SourceRevision != "" {
 		config.Config.Labels["org.opencontainers.image.revision"] = req.SourceRevision

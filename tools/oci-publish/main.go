@@ -86,6 +86,7 @@ func main() {
 		Arch:             opts.Arch,
 		Registry:         opts.Registry,
 		ContentProfile:   opts.Profile,
+		SourceURL:        os.Getenv("KC_SOURCE_URL"),
 		SourceRevision:   os.Getenv("KC_SOURCE_REVISION"),
 		ExternalContents: []deliveryapis.ArtifactContent(opts.ExternalContents),
 	})
