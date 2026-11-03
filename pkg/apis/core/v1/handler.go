@@ -314,7 +314,7 @@ func (h *handler) AddOrRemoveNodes(request *restful.Request, response *restful.R
 				restplus.HandleBadRequest(response, request, fmt.Errorf("this node(%s) is disabled", n.IPv4))
 				return
 			}
-			if nodeSet.Has(n.ID) {
+			if n.Role != "" || nodeSet.Has(n.ID) {
 				restplus.HandleBadRequest(response, request, fmt.Errorf("this node(%s) is already in use", n.IPv4))
 				return
 			}
