@@ -66,7 +66,7 @@ func (r *DNSReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// domain not found, possibly been deleted
 		// need to do the cleanup
 		if errors.IsNotFound(err) {
-			return ctrl.Result{}, nil
+			return ctrl.Result{}, r.syncConfigMap(ctx, log)
 		}
 		log.Error("Failed to get domain with name", zap.Error(err))
 		return ctrl.Result{}, err
