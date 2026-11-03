@@ -404,13 +404,37 @@ func (s *APIServer) migrateRole(operator iam.Operator) error {
 	}
 	for i := range result.Items {
 		role := &result.Items[i]
-		if role.Name == authenticatedRoleName && ensureStatusPermission(role) {
+		changed := role.Name == authenticatedRoleName && ensureStatusPermission(role)
+		if role.Name == "platform-view" && removeLegacyViewerWildcard(role) {
+			changed = true
+		}
+		if changed {
 			if _, err := operator.UpdateRole(context.TODO(), role); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// View permissions come from the role's view templates. The old wildcard also
+// exposed deployment credentials through configmaps and must be removed on upgrade.
+func removeLegacyViewerWildcard(role *v1.GlobalRole) bool {
+	changed := false
+	filtered := role.Rules[:0]
+	for _, rule := range role.Rules {
+		if len(rule.APIGroups) == 1 && rule.APIGroups[0] == "*" &&
+			len(rule.Resources) == 1 && rule.Resources[0] == "*" &&
+			len(rule.ResourceNames) == 0 && len(rule.NonResourceURLs) == 0 &&
+			len(rule.Verbs) == 3 && slices.Contains(rule.Verbs, "get") &&
+			slices.Contains(rule.Verbs, "list") && slices.Contains(rule.Verbs, "watch") {
+			changed = true
+			continue
+		}
+		filtered = append(filtered, rule)
+	}
+	role.Rules = filtered
+	return changed
 }
 
 func ensureStatusPermission(role *v1.GlobalRole) bool {

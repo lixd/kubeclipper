@@ -863,13 +863,6 @@ var Roles = GlobalRoleList{
 			},
 			Name: "platform-view",
 		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{"*"},
-				Resources: []string{"*"},
-				Verbs:     []string{"get", "list", "watch"},
-			},
-		},
 	},
 	{
 		TypeMeta: metav1.TypeMeta{
