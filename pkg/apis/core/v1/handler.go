@@ -53,6 +53,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	r "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/client-go/util/retry"
@@ -204,12 +205,20 @@ func (h *handler) ListClusters(request *restful.Request, response *restful.Respo
 			restplus.HandleInternalError(response, request, err)
 			return
 		}
+		if !internalClusterRead(request.Request) {
+			for i := range result.Items {
+				result.Items[i] = *clusterReadResponse(&result.Items[i])
+			}
+		}
 		_ = response.WriteHeaderAndEntity(http.StatusOK, result)
 	} else {
 		result, err := h.clusterOperator.ListClusterEx(request.Request.Context(), q)
 		if err != nil {
 			restplus.HandleInternalError(response, request, err)
 			return
+		}
+		for i, item := range result.Items {
+			result.Items[i] = clusterReadResponse(item.(*v1.Cluster))
 		}
 		_ = response.WriteHeaderAndEntity(http.StatusOK, result)
 	}
@@ -228,6 +237,9 @@ func (h *handler) DescribeCluster(request *restful.Request, response *restful.Re
 		return
 	}
 
+	if !internalClusterRead(request.Request) {
+		c = clusterReadResponse(c)
+	}
 	_ = response.WriteHeaderAndEntity(http.StatusOK, c)
 }
 
@@ -508,6 +520,14 @@ func (h *handler) watchCluster(req *restful.Request, resp *restful.Response, q *
 	if err != nil {
 		restplus.HandleInternalError(resp, req, err)
 		return
+	}
+	if !internalClusterRead(req.Request) {
+		watcher = watch.Filter(watcher, func(event watch.Event) (watch.Event, bool) {
+			if cluster, ok := event.Object.(*v1.Cluster); ok {
+				event.Object = clusterReadResponse(cluster)
+			}
+			return event, true
+		})
 	}
 	restplus.ServeWatch(watcher, v1.SchemeGroupVersion.WithKind("Cluster"), req, resp, timeout)
 }
