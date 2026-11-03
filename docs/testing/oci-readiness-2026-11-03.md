@@ -20,7 +20,7 @@
 
 - amd64/arm64 的 kcctl、Server、Agent 共六个二进制构建通过，并检查 ELF machine 分别为 62/183。此构建不证明 arm64 真机运行。
 - nft 与 legacy 同时存在的隔离实测通过，覆盖 legacy filter/nat 链删除及宿主 legacy 规则保留。
-- 首轮打包检查因源码 tar 快照没有 `.git`，在版本元数据脚本退出 128；不是产品功能通过。将用 fork 实际提交的干净检出重跑。
+- 首轮打包检查因源码 tar 快照没有 `.git`，在版本元数据脚本退出 128；不是产品功能通过。后续使用 fork 实际提交的干净检出和 Ubuntu CI 继续验证，结果见下。
 
 GHCR 实际标签包含 `v1.6.0`、`v1.6.0-r46.4` 和 `v1.6.1-oci.77edd549`。已有后者不能被描述为缺少新版 UI；本轮修正的是发布配置仍指向旧提交的情况，新的 `v1.6.1-oci.ee51883` 与当前前端提交一致，并避免采用低于既有 1.6.1 OCI 制品的版本号。
 
@@ -35,7 +35,20 @@ fork Console 发布工作流 41606724321 已成功，版本 `v1.6.1-oci.ee51883`
 - amd64：`sha256:64c4298528df7bb1e6a1dda712a3672dbcd56301454a02c071dd743a27d180fb`
 - arm64：`sha256:789cccfb0a72651cea7a06f5971c82d585af9a80658def5135fd10716525d972`
 
-代码提交 `f61cc52f` 的完整 Go CI 41606665921 已成功；取消边界补充提交 `704426e6` 和后续契约 CI 的最终结果在收尾后补录。
+代码提交 `f61cc52f` 的完整 Go CI [41606665921](https://github.com/lixd/kubeclipper/actions/runs/41606665921) 已成功；取消边界补充提交 `704426e6` 的完整 Go CI [41607579416](https://github.com/lixd/kubeclipper/actions/runs/41607579416) 也已成功。
+
+新增 Ubuntu 契约任务 [125824772963](https://github.com/lixd/kubeclipper/actions/runs/41608667328/job/125824772963) 已通过现有八个 Shell 契约脚本、安装脚本测试和策略一致性检查。验证环境问题没有通过放宽生产元数据校验规避。
+
+SSH 恢复后，以只含本轮增量的 Git bundle 将远端检出更新到 fork 实际提交 `0d7dcb93`；没有用旧远端代码替代最新候选。`0d7dcb93` 的六个 amd64/arm64 二进制再次构建成功，并核对 ELF machine；源码检出干净，产物保存在 Git 工作区之外。
+
+- amd64 kcctl：`746b986917348cdd040af351f14025e53ee539ec1cdc44d0f4b83825b6b8558e`
+- amd64 Server：`f0a651bb485e57dedf414a09fae31fc0f4d93d340695be6b8e61fc41439bc7b7`
+- amd64 Agent：`c4921656f68f00bd98f6edd6f32cb6cc76fbe9b74bdba06283c90aea98c69be7`
+- arm64 kcctl：`97ed1f0c0644d7847acd4372ea54b35004c32dd767d03b5d87a11bfe25f2bbd1`
+- arm64 Server：`b54dc8a45be6721eb13f9736eb7468fc98b6ed84aca20b5634af4b8eecd56427`
+- arm64 Agent：`5cea1e272cfa037e4cf72bca83866b5b2f062625b8363cbb699f79d979f0ee37`
+
+提交 `0d7dcb93` 的完整 Go CI 与 OCI Release Contracts 均成功，见 [41608667328](https://github.com/lixd/kubeclipper/actions/runs/41608667328)。代码、配置、来源及 CI 的状态分别保留，后续只追加此验证文档。
 
 ## 验收边界
 
