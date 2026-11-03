@@ -4,9 +4,13 @@ package cni
 
 import (
 	"context"
+	"errors"
 	"github.com/moby/sys/mountinfo"
+	"golang.org/x/sys/unix"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 )
 
@@ -67,5 +71,52 @@ func TestCalicoRuntimeDirectoryCleanup(t *testing.T) {
 	}
 	if _, err := os.Stat(parent); err != nil {
 		t.Fatal("symlink target changed")
+	}
+}
+
+// Run with KC_TEST_CALICO_MOUNTS=1 in a privileged Linux test container.
+// The child has its own mount namespace, so this never changes host mounts.
+func TestCalicoBusyCgroupRuntimeView(t *testing.T) {
+	if os.Getenv("KC_TEST_CALICO_MOUNTS") != "1" {
+		t.Skip("requires a privileged Linux mount test container")
+	}
+	if os.Getenv("KC_TEST_CALICO_MOUNT_CHILD") != "1" {
+		cmd := exec.Command(os.Args[0], "-test.run=^TestCalicoBusyCgroupRuntimeView$", "-test.v")
+		cmd.Env = append(os.Environ(), "KC_TEST_CALICO_MOUNT_CHILD=1")
+		cmd.SysProcAttr = &syscall.SysProcAttr{Cloneflags: unix.CLONE_NEWNS}
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("isolated mount test: %v\n%s", err, out)
+		}
+		return
+	}
+	if err := unix.Mount("", "/", "", unix.MS_REC|unix.MS_PRIVATE, ""); err != nil {
+		t.Fatal(err)
+	}
+	directory := filepath.Join(t.TempDir(), "calico")
+	view := filepath.Join(directory, "cgroup")
+	if err := os.MkdirAll(view, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Mount("/sys/fs/cgroup", view, "", unix.MS_BIND, ""); err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Unmount(view, unix.MNT_DETACH)
+	held, err := os.Open(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held.Close()
+	if err := unix.Unmount(view, 0); !errors.Is(err, unix.EBUSY) {
+		t.Fatalf("fixture must reproduce a genuinely busy cgroup mount: %v", err)
+	}
+	if err := clearCalicoRuntimeDirectory(context.Background(), directory); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(directory); !os.IsNotExist(err) {
+		t.Fatalf("runtime directory remains: %v", err)
+	}
+	var fs unix.Statfs_t
+	if err := unix.Statfs("/sys/fs/cgroup", &fs); err != nil || fs.Type != unix.CGROUP2_SUPER_MAGIC {
+		t.Fatalf("host cgroup filesystem must remain available: type=%x error=%v", fs.Type, err)
 	}
 }

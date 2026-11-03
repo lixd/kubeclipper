@@ -166,7 +166,9 @@ func clearCalicoRuntimeDirectory(ctx context.Context, directory string) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := unix.Unmount(target, 0); err != nil && !errors.Is(err, unix.ENOENT) && !errors.Is(err, unix.EINVAL) {
+		// Containers can still hold this dedicated view until CRI teardown.
+		// Detach it before removing the directory, without touching host cgroups.
+		if err := unix.Unmount(target, unix.MNT_DETACH); err != nil && !errors.Is(err, unix.ENOENT) && !errors.Is(err, unix.EINVAL) {
 			return fmt.Errorf("unmount Calico cgroup view %s: %w", target, err)
 		}
 	}
