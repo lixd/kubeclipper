@@ -1,6 +1,6 @@
 apiVersion: packaging.kubeclipper.io/v1alpha1
 kind: OfflineResourceBuild
-release: v2.0.9
+release: v2.0.11-oci.20261103
 architectures:
   - amd64
   - arm64
@@ -8,7 +8,7 @@ registries:
   package: ghcr.io/kubeclipper/kubeclipper
   image: ghcr.io/kubeclipper/kubeclipper
 bootstrap:
-  kubeclipperVersion: v2.0.9
+  kubeclipperVersion: v2.0.11-oci.20261103
   etcdVersion: 3.5.21
   consoleVersion: v1.6.1-oci.ee51883
   consoleSourceRevision: ee51883a2126324a567fa17cb1020e39916d17aa
