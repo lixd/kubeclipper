@@ -679,9 +679,10 @@ func (stepper *Health) InstallSteps(nodes []v1.StepNode) ([]v1.Step, error) {
 
 	return []v1.Step{
 		{
-			ID:         strutil.GetUUID(),
-			Name:       "checkHealth",
-			Timeout:    metav1.Duration{Duration: 10 * time.Minute},
+			ID:   strutil.GetUUID(),
+			Name: "checkHealth",
+			// Cold Registry pulls can outlast the old ten-minute health window.
+			Timeout:    metav1.Duration{Duration: 30 * time.Minute},
 			ErrIgnore:  false,
 			RetryTimes: 0,
 			Nodes:      nodes,
@@ -817,24 +818,8 @@ func (stepper *Health) UninstallSteps(network *v1.Networking, nodes ...v1.StepNo
 		}, nil
 	}
 
-	// iptables mode
-	return []v1.Step{
-		{
-			ID:         strutil.GetUUID(),
-			Name:       "flushRules",
-			Timeout:    metav1.Duration{Duration: 10 * time.Second},
-			ErrIgnore:  true,
-			RetryTimes: 1,
-			Nodes:      nodes,
-			Action:     v1.ActionUninstall,
-			Commands: []v1.Command{
-				{
-					Type:         v1.CommandShell,
-					ShellCommand: []string{bashCommand, shellCommandFlag, "iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X"},
-				},
-			},
-		},
-	}, nil
+	// cleanCalicoNetwork removes only KUBE-/cali- rules in both proxy modes.
+	return nil, nil
 }
 
 func (stepper *Certification) InitStepper() *Certification {
@@ -1112,8 +1097,8 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 	// clean CNI config
 	steps = append(steps,
 		doCommandRemoveStep("cleanCNIConfig", nodes, CniDefaultConfigDir),
-		doCommandRemoveStep("removeCNIData", nodes, CniDefaultConfigDir),
-		doCommandRemoveStep("removeCNIRunData", nodes, CniDefaultConfigDir))
+		doCommandRemoveStep("removeCNIData", nodes, "/var/lib/cni", "/var/lib/calico"),
+		doCommandRemoveStep("removeCNIRunData", nodes, "/var/run/calico"))
 
 	// clean Kubernetes config
 	steps = append(steps,

@@ -140,6 +140,7 @@ IP_AUTODETECTION_METHOD=can-reach=www.google.com
 IP6_AUTODETECTION_METHOD=can-reach=www.google.com`
 
 type CreateClusterOptions struct {
+	componentMetadata *kc.ComponentMeta
 	BaseOptions
 	Masters                          []string
 	Workers                          []string
@@ -340,11 +341,15 @@ func (l *CreateClusterOptions) PreRun() error {
 }
 
 func (l *CreateClusterOptions) componentMeta() *kc.ComponentMeta {
+	if l.componentMetadata != nil {
+		return l.componentMetadata
+	}
 	metas, err := l.Client.GetComponentMeta(context.TODO(), l.metaQuery())
 	if err != nil {
 		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
 		return nil
 	}
+	l.componentMetadata = metas
 	return metas
 }
 
@@ -784,9 +789,8 @@ func (l *CreateClusterOptions) listImageRegistry(toComplete string) []string {
 }
 
 func (l *CreateClusterOptions) componentVersions(component, toComplete string) []string {
-	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
-	if err != nil {
-		logger.Errorf("get component meta failed: %s. please check .kc/config", err)
+	metas := l.componentMeta()
+	if metas == nil {
 		return nil
 	}
 	set := sets.NewString()
@@ -818,8 +822,8 @@ func (l *CreateClusterOptions) componentVersions(component, toComplete string) [
 // from the configured OCI package registry. Returns "" when the server did
 // not report version-specific missing packages.
 func (l *CreateClusterOptions) missingPackagesMessage() string {
-	metas, err := l.Client.GetComponentMeta(context.TODO(), nil)
-	if err != nil {
+	metas := l.componentMeta()
+	if metas == nil {
 		return ""
 	}
 	missing := sets.NewString()

@@ -21,8 +21,13 @@
 
 package cni
 
-// clearCalicoNICs cleans up all the NICs created by calico
-// nolint
-func clearCalicoNICs(mode string) {
-	return
+import (
+	"context"
+	"fmt"
+
+	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+)
+
+func clearCalicoNetwork(context.Context, *v1.Calico) error {
+	return fmt.Errorf("Calico network cleanup requires Linux")
 }

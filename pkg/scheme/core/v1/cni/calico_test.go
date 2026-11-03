@@ -305,3 +305,25 @@ func TestCalicoPreservesRepositoryPrefix(t *testing.T) {
 		t.Fatal("Calico registry prefix lost")
 	}
 }
+
+func TestCalicoUninstallSchedulesCleanupOnEveryNode(t *testing.T) {
+	runnable := &CalicoRunnable{BaseCni: BaseCni{CNI: v1.CNI{Type: "calico", Version: "v3.31.5", Calico: defaultCalico(nil)}}}
+	nodes := []v1.StepNode{{ID: "master"}, {ID: "worker"}}
+	steps, err := runnable.UninstallSteps(nodes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(steps) != 1 || len(steps[0].Nodes) != 2 || steps[0].ErrIgnore || steps[0].Action != v1.ActionUninstall {
+		t.Fatalf("cleanup not required on all nodes: %+v", steps)
+	}
+	if len(steps[0].Commands) != 1 || steps[0].Commands[0].Type != v1.CommandCustom {
+		t.Fatal("cleanup is not an agent step")
+	}
+	var decoded CalicoRunnable
+	if err := json.Unmarshal(steps[0].Commands[0].CustomCommand, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Calico == nil || decoded.Calico.Mode != CalicoNetworkVXLANAll {
+		t.Fatal("cleanup lost network mode")
+	}
+}

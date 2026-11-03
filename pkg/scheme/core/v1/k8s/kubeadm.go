@@ -36,6 +36,7 @@ import (
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/homedir"
 
@@ -184,7 +185,7 @@ type ClusterNode struct {
 
 type Health struct {
 	KubernetesVersion string
-	*kubernetes.Clientset
+	Clientset         kubernetes.Interface `json:"-"`
 }
 
 // KubeConfigToken returns the credential used by kc-server to access a
@@ -969,13 +970,35 @@ func (stepper *Health) Install(ctx context.Context, opts component.Options) (b [
 		return nil, fmt.Errorf("failed to create clientset: %v", err)
 	}
 
-	for _, fn := range []func(ctx context.Context, opts component.Options) error{stepper.allNodesReady, stepper.kubeSystemPodsReady} {
-		if err = utils.RetryFunc(ctx, opts, 10*time.Second, "allNodeReady", fn); err != nil {
-			return
-		}
-	}
+	return nil, stepper.waitForReady(ctx, opts, 10*time.Second)
+}
 
-	return
+func (stepper *Health) waitForReady(ctx context.Context, opts component.Options, interval time.Duration) error {
+	var lastErr error
+	err := wait.PollImmediateUntilWithContext(ctx, interval, func(ctx context.Context) (bool, error) {
+		if err := ctx.Err(); err != nil {
+			return false, err
+		}
+		lastErr = stepper.allNodesReady(ctx, opts)
+		if podErr := stepper.kubeSystemPodsReady(ctx, opts); podErr != nil {
+			if lastErr == nil {
+				lastErr = podErr
+			} else {
+				lastErr = fmt.Errorf("%v; %w", lastErr, podErr)
+			}
+		}
+		if lastErr != nil {
+			logger.Warnf("waiting for cluster health: %v", lastErr)
+		}
+		return lastErr == nil, nil
+	})
+	if err != nil {
+		if ctx.Err() != nil {
+			err = ctx.Err()
+		}
+		return fmt.Errorf("cluster health wait ended: %w; last observation: %v", err, lastErr)
+	}
+	return nil
 }
 
 func (*KubeConfigToken) NewInstance() component.ObjectMeta {
@@ -1023,13 +1046,12 @@ func (stepper *Health) allNodesReady(ctx context.Context, opts component.Options
 	if err != nil {
 		return fmt.Errorf("failed to get nodes: %v", err)
 	}
+	if len(nodes.Items) == 0 {
+		return fmt.Errorf("no cluster nodes have registered")
+	}
 	for _, node := range nodes.Items {
-		for _, condition := range node.Status.Conditions {
-			if condition.Type == corev1.NodeReady && condition.Status != corev1.ConditionTrue {
-				err = fmt.Errorf("node %s is not ready", node.Name)
-				logger.Warn(err.Error())
-				return
-			}
+		if !nodeReady(&node) {
+			return fmt.Errorf("node %s is not ready", node.Name)
 		}
 	}
 
@@ -1043,12 +1065,28 @@ func (stepper *Health) kubeSystemPodsReady(ctx context.Context, opts component.O
 	if err != nil {
 		return fmt.Errorf("failed to get pods: %v", err)
 	}
+	if len(pods.Items) == 0 {
+		return fmt.Errorf("no kube-system Pods have been created")
+	}
 	for _, pod := range pods.Items {
-		if pod.Status.Phase != corev1.PodRunning {
-			err = fmt.Errorf("pod %s is not running", utils.NamespacedKey(pod.Namespace, pod.Name))
-			logger.Warn(err.Error())
-			return
+		if pod.Status.Phase == corev1.PodSucceeded {
+			continue
 		}
+		ready := false
+		for _, condition := range pod.Status.Conditions {
+			if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+				ready = true
+			}
+		}
+		if pod.Status.Phase == corev1.PodRunning && ready && pod.DeletionTimestamp == nil {
+			continue
+		}
+		for _, status := range append(pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses...) {
+			if status.State.Waiting != nil {
+				return fmt.Errorf("pod %s container %s image %s: %s", utils.NamespacedKey(pod.Namespace, pod.Name), status.Name, status.Image, status.State.Waiting.Reason)
+			}
+		}
+		return fmt.Errorf("pod %s is not ready (phase %s)", utils.NamespacedKey(pod.Namespace, pod.Name), pod.Status.Phase)
 	}
 
 	logger.Info("all Pods in kube-system namespace are ready")

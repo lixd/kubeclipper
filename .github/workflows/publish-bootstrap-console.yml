@@ -6,7 +6,7 @@ on:
       version:
         description: KubeClipper console version.
         required: true
-        default: v1.6.0-r46.4
+        default: v1.6.1-oci.ee51883
         type: string
       architecture:
         description: Target architecture.

@@ -26,10 +26,8 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	componentcommon "github.com/kubeclipper/kubeclipper/pkg/component/common"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
-	"github.com/kubeclipper/kubeclipper/pkg/logger"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/downloader"
-	"go.uber.org/zap"
 )
 
 var cniFactories = make(map[string]CniFactory)
@@ -99,7 +97,7 @@ func (runnable *BaseCni) Install(ctx context.Context, opts component.Options) ([
 
 func (runnable *BaseCni) Uninstall(ctx context.Context, opts component.Options) ([]byte, error) {
 	if err := downloader.CleanupPackage("cni", runnable.Type, runnable.Version, archOrRuntime(runnable.Arch), opts.DryRun); err != nil {
-		logger.Error("remove calico images compressed file failed", zap.Error(err))
+		return nil, err
 	}
 	return nil, nil
 }

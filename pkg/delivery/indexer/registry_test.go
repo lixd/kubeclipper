@@ -28,10 +28,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/v1"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -853,5 +854,116 @@ func TestIndexRepositoriesPropagatesRegistryErrors(t *testing.T) {
 	var terr *transport.Error
 	if !errors.As(err, &terr) || terr.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("IndexRepositories() error = %+v, want unauthorized transport error", err)
+	}
+}
+
+func TestPolicyRepositoryInventoryUsesScopedCache(t *testing.T) {
+	client := &fakeRegistryClient{}
+	indexer := NewRegistryPackageInventoryIndexer(client)
+	ctx := context.Background()
+	repos := []string{"kubeclipper/packages/k8s/k8s", "kubeclipper/packages/cri/containerd"}
+	first, err := indexer.IndexRepositories(ctx, "registry.local", repos)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = indexer.IndexRepositories(ctx, "registry.local", []string{repos[1], repos[0], repos[0]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.tagCalls != 2 {
+		t.Fatalf("tag requests = %d, want 2 across repeated policy reads", client.tagCalls)
+	}
+	_, err = indexer.IndexRepositories(ctx, "registry.local", repos[:1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if client.tagCalls != 3 {
+		t.Fatal("different repository selection reused an incompatible inventory")
+	}
+	indexer.CacheTTL = time.Nanosecond
+	time.Sleep(time.Millisecond)
+	if _, err = indexer.IndexRepositories(ctx, "registry.local", repos); err != nil {
+		t.Fatal(err)
+	}
+	if client.tagCalls != 5 {
+		t.Fatal("expired repository inventory was reused")
+	}
+	if first == nil {
+		t.Fatal("missing inventory")
+	}
+	if _, err = indexer.RefreshRepositories(ctx, "registry.local", repos); err != nil {
+		t.Fatal(err)
+	}
+	if client.tagCalls != 7 {
+		t.Fatal("explicit refresh reused stale repository inventory")
+	}
+}
+
+func TestPolicyRepositoryInventoryFailureIsNotCached(t *testing.T) {
+	client := &fakeRegistryClient{tagErrors: map[string]error{"kubeclipper/packages/k8s/k8s": errors.New("registry unavailable")}}
+	indexer := NewRegistryPackageInventoryIndexer(client)
+	repositories := []string{"kubeclipper/packages/k8s/k8s"}
+	if _, err := indexer.IndexRepositories(context.Background(), "registry.local", repositories); err == nil {
+		t.Fatal("registry failure was hidden")
+	}
+	delete(client.tagErrors, repositories[0])
+	if _, err := indexer.IndexRepositories(context.Background(), "registry.local", repositories); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := indexer.IndexRepositories(ctx, "registry.local", repositories); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cached response ignored cancellation: %v", err)
+	}
+}
+
+type blockedRepositoryClient struct {
+	RegistryClient
+	calls   atomic.Int32
+	started chan struct{}
+	release chan struct{}
+}
+
+func (c *blockedRepositoryClient) ListTags(ctx context.Context, _, _ string) ([]string, error) {
+	if c.calls.Add(1) == 1 {
+		close(c.started)
+	}
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-c.release:
+		return nil, nil
+	}
+}
+
+func TestRepositoryReadsCoalesceAndWaitersCancel(t *testing.T) {
+	client := &blockedRepositoryClient{started: make(chan struct{}), release: make(chan struct{})}
+	indexer := NewRegistryPackageInventoryIndexer(client)
+	repositories := []string{"kubeclipper/packages/k8s/k8s"}
+	results := make(chan error, 9)
+	go func() {
+		_, err := indexer.IndexRepositories(context.Background(), "registry.local", repositories)
+		results <- err
+	}()
+	<-client.started
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if _, err := indexer.IndexRepositories(ctx, "registry.local", repositories); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("blocked waiter did not cancel: %v", err)
+	}
+	for n := 0; n < 8; n++ {
+		go func() {
+			_, err := indexer.IndexRepositories(context.Background(), "registry.local", repositories)
+			results <- err
+		}()
+	}
+	close(client.release)
+	for n := 0; n < 9; n++ {
+		if err := <-results; err != nil {
+			t.Fatal(err)
+		}
+	}
+	if calls := client.calls.Load(); calls != 1 {
+		t.Fatalf("concurrent tag reads = %d, want 1", calls)
 	}
 }

@@ -32,9 +32,12 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 
 	"github.com/google/go-containerregistry/pkg/crane"
 	containerv1 "github.com/google/go-containerregistry/pkg/v1"
@@ -83,8 +86,9 @@ type RegistryPackageInventoryIndexer struct {
 	Client   RegistryClient
 	CacheTTL time.Duration
 
-	mu    sync.Mutex
-	cache map[string]cachedInventory
+	mu              sync.Mutex
+	cache           map[string]cachedInventory
+	repositoryReads singleflight.Group
 }
 
 func NewRegistryPackageInventoryIndexer(client RegistryClient) *RegistryPackageInventoryIndexer {
@@ -149,6 +153,63 @@ func (i *RegistryPackageInventoryIndexer) IndexPackageRepositories(ctx context.C
 // IndexRepositories indexes known package and Helm chart repositories without
 // requiring registry-wide catalog access.
 func (i *RegistryPackageInventoryIndexer) IndexRepositories(ctx context.Context, registry string, logicalRepositories []string) (*deliveryapis.PackageInventory, error) {
+	return i.repositoryInventory(ctx, registry, logicalRepositories, false)
+}
+
+// RefreshRepositories bypasses the TTL after newly published packages are missing.
+func (i *RegistryPackageInventoryIndexer) RefreshRepositories(ctx context.Context, registry string, repositories []string) (*deliveryapis.PackageInventory, error) {
+	return i.repositoryInventory(ctx, registry, repositories, true)
+}
+
+func (i *RegistryPackageInventoryIndexer) repositoryInventory(ctx context.Context, registry string, repositories []string, refresh bool) (*deliveryapis.PackageInventory, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	normalized := make([]string, 0, len(repositories))
+	seen := make(map[string]bool, len(repositories))
+	for _, repository := range repositories {
+		repository = strings.Trim(repository, "/")
+		if !seen[repository] {
+			normalized = append(normalized, repository)
+			seen[repository] = true
+		}
+	}
+	sort.Strings(normalized)
+	encoded, _ := json.Marshal(normalized)
+	key := registry + "\x00" + string(encoded)
+	if !refresh {
+		if inventory, ok := i.loadCache(key); ok {
+			return inventory, nil
+		}
+	}
+	flightKey := key
+	if refresh {
+		flightKey += "\x00refresh"
+	}
+	pending := i.repositoryReads.DoChan(flightKey, func() (interface{}, error) {
+		if !refresh {
+			if inventory, ok := i.loadCache(key); ok {
+				return inventory, nil
+			}
+		}
+		inventory, err := i.indexRepositories(ctx, registry, normalized)
+		if err == nil {
+			i.storeCache(key, inventory)
+		}
+		return inventory, err
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-pending:
+		if result.Err != nil {
+			return nil, result.Err
+		}
+		return result.Val.(*deliveryapis.PackageInventory), nil
+	}
+}
+
+func (i *RegistryPackageInventoryIndexer) indexRepositories(ctx context.Context, registry string, logicalRepositories []string) (*deliveryapis.PackageInventory, error) {
 	if registry == "" {
 		return nil, fmt.Errorf("registry is required")
 	}

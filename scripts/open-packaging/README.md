@@ -644,4 +644,4 @@ that implements `/v2/_catalog` because GHCR does not expose that API.
 
 ### Console fork 制品
 
-当前 fork 候选的 Console 版本和前端提交固定在 `packaging/resources.yaml` 的 `bootstrap.consoleVersion` 和 `bootstrap.consoleSourceRevision`。GitHub Actions 从 `KC_CONSOLE_RELEASE_REPOSITORY` 指定的仓库检出该提交并构建；fork 设置为 `lixd/console`。发布脚本校验归档中 `version.json` 的前端提交与配置一致，不一致或缺失时拒绝发布。手动发布可通过 `KC_CONSOLE_ARCHIVE` 指定已构建归档；未设置时下载对应版本的 GitHub release，并执行相同校验。新版本仍需实际发布并完成 qualification 后才能作为制品使用。
+当前 fork 候选的 Console 版本和前端提交固定在 `packaging/resources.yaml` 的 `bootstrap.consoleVersion` 和 `bootstrap.consoleSourceRevision`。GitHub Actions 默认从当前仓库 owner 的 `console` 仓库检出该提交并构建；可用 `KC_CONSOLE_RELEASE_REPOSITORY` 覆盖，用户 fork 对应 `lixd/console`。发布脚本校验归档中 `version.json` 的前端提交与配置一致，不一致或缺失时拒绝发布。手动发布可通过 `KC_CONSOLE_ARCHIVE` 指定已构建归档；未设置时下载对应版本的 GitHub release，并执行相同校验。新版本仍需实际发布并完成 qualification 后才能作为制品使用。

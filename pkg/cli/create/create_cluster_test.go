@@ -10,8 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 	"github.com/spf13/cobra"
+
+	"github.com/kubeclipper/kubeclipper/pkg/cli/printer"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -210,5 +211,47 @@ func TestCreateClusterReportsSubmissionWithoutPollutingJSON(t *testing.T) {
 				t.Fatalf("YAML polluted by progress guidance: %s", out.String())
 			}
 		})
+	}
+}
+
+func TestCreateMetadataReusedAcrossDefaultsAndValidation(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		fmt.Fprint(w, `{"defaultImageRegistry":"packages","rules":[{"type":"k8s","version":"v1.37.0"}],"addons":[{"name":"containerd","version":"2.2.4"},{"name":"calico","version":"v3.31.5"}]}`)
+	}))
+	defer server.Close()
+	o := NewCreateClusterOptions(options.IOStreams{})
+	var err error
+	o.Client, err = kc.NewClientWithOpts(kc.WithEndpoint(server.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o.componentVersions("k8s", "")) != 1 || len(o.componentVersions("containerd", "")) != 1 || len(o.componentVersions("calico", "")) != 1 || o.componentMeta().DefaultImageRegistry != "packages" {
+		t.Fatal("metadata consumers lost versions or default registry")
+	}
+	if calls != 1 {
+		t.Fatalf("metadata requests = %d, want one per command", calls)
+	}
+}
+
+func TestCreateMetadataFailureIsNotCached(t *testing.T) {
+	calls := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		if calls == 1 {
+			http.Error(w, "registry unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		fmt.Fprint(w, `{"defaultImageRegistry":"recovered"}`)
+	}))
+	defer server.Close()
+	o := NewCreateClusterOptions(options.IOStreams{})
+	o.Client, _ = kc.NewClientWithOpts(kc.WithEndpoint(server.URL))
+	if o.componentMeta() != nil {
+		t.Fatal("failed request returned metadata")
+	}
+	if meta := o.componentMeta(); meta == nil || meta.DefaultImageRegistry != "recovered" {
+		t.Fatal("failure prevented recovery")
 	}
 }

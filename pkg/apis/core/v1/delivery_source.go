@@ -48,6 +48,11 @@ type RepositoryRegistryPackageInventoryIndexer interface {
 	IndexRepositories(ctx context.Context, registry string, repositories []string) (*deliveryapis.PackageInventory, error)
 }
 
+type RefreshingRepositoryRegistryPackageInventoryIndexer interface {
+	RepositoryRegistryPackageInventoryIndexer
+	RefreshRepositories(context.Context, string, []string) (*deliveryapis.PackageInventory, error)
+}
+
 type indexedInventoryStore struct {
 	registry string
 	indexer  RegistryPackageInventoryIndexer
@@ -58,7 +63,7 @@ func (s indexedInventoryStore) Get(ctx context.Context) (*deliveryapis.PackageIn
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if inventory, handled, err := s.indexPolicyRepositories(ctx); handled {
+	if inventory, handled, err := s.indexPolicyRepositories(ctx, false); handled {
 		return inventory, err
 	}
 	inventory, err := s.indexer.Index(ctx, s.registry)
@@ -72,7 +77,7 @@ func (s indexedInventoryStore) Refresh(ctx context.Context) (*deliveryapis.Packa
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if inventory, handled, err := s.indexPolicyRepositories(ctx); handled {
+	if inventory, handled, err := s.indexPolicyRepositories(ctx, true); handled {
 		return inventory, err
 	}
 	if refresher, ok := s.indexer.(RefreshingRegistryPackageInventoryIndexer); ok {
@@ -81,7 +86,7 @@ func (s indexedInventoryStore) Refresh(ctx context.Context) (*deliveryapis.Packa
 	return s.Get(ctx)
 }
 
-func (s indexedInventoryStore) indexPolicyRepositories(ctx context.Context) (*deliveryapis.PackageInventory, bool, error) {
+func (s indexedInventoryStore) indexPolicyRepositories(ctx context.Context, refresh bool) (*deliveryapis.PackageInventory, bool, error) {
 	repositoryIndexer, ok := s.indexer.(RepositoryRegistryPackageInventoryIndexer)
 	if !ok || s.policy == nil {
 		return nil, false, nil
@@ -90,7 +95,12 @@ func (s indexedInventoryStore) indexPolicyRepositories(ctx context.Context) (*de
 	if err != nil {
 		return nil, true, err
 	}
-	inventory, err := repositoryIndexer.IndexRepositories(ctx, s.registry, deliveryapis.SupportPolicyRepositories(policy))
+	repositories := deliveryapis.SupportPolicyRepositories(policy)
+	if refresher, ok := s.indexer.(RefreshingRepositoryRegistryPackageInventoryIndexer); refresh && ok {
+		inventory, err := refresher.RefreshRepositories(ctx, s.registry, repositories)
+		return inventory, true, err
+	}
+	inventory, err := repositoryIndexer.IndexRepositories(ctx, s.registry, repositories)
 	return inventory, true, err
 }
 
