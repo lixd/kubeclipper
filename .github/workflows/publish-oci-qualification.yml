@@ -22,7 +22,10 @@ jobs:
           cache: true
       - name: Build qualification publish matrix
         id: matrix
-        run: echo "matrix=$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          matrix="$(go run ./tools/release-policy-verify --manifest packaging/resources.yaml --publish-matrix)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
   publish:
     needs: prepare
