@@ -270,7 +270,6 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 		for _, cleanup := range []v1.Step{
 			doCommandRemoveStep("cleanCNIConfig", patchNodes, CniDefaultConfigDir),
 			doCommandRemoveStep("removeCNIData", patchNodes, "/var/lib/cni", "/var/lib/calico"),
-			doCommandRemoveStep("removeCNIRunData", patchNodes, "/var/run/calico"),
 		} {
 			cleanup.ErrIgnore = false
 			stepper.uninstallSteps = append(stepper.uninstallSteps, cleanup)

@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/moby/sys/mountinfo"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
@@ -60,7 +61,10 @@ func clearCalicoNetwork(ctx context.Context, calico *v1.Calico) error {
 			}
 		}
 	}
-	return clearClusterRules(ctx)
+	if err := clearClusterRules(ctx); err != nil {
+		return err
+	}
+	return clearCalicoRuntimeDirectory(ctx, "/var/run/calico")
 }
 
 func clearCNINamespaces(ctx context.Context, directory string) error {
@@ -128,4 +132,68 @@ func clearClusterRules(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// Calico mounts the host cgroup filesystem below its runtime directory.
+// Unmount that view before removing files, and refuse unexpected nested mounts.
+func clearCalicoRuntimeDirectory(ctx context.Context, directory string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	info, err := os.Lstat(directory)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refuse Calico runtime directory symlink %s", directory)
+	}
+	directory, err = filepath.EvalSymlinks(directory)
+	if err != nil {
+		return err
+	}
+	mounts, err := mountinfo.GetMounts(mountinfo.PrefixFilter(directory))
+	if err != nil {
+		return err
+	}
+	targets, err := calicoRuntimeUnmountTargets(directory, mounts)
+	if err != nil {
+		return err
+	}
+	for _, target := range targets {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if err := unix.Unmount(target, 0); err != nil && !errors.Is(err, unix.ENOENT) && !errors.Is(err, unix.EINVAL) {
+			return fmt.Errorf("unmount Calico cgroup view %s: %w", target, err)
+		}
+	}
+	remaining, err := mountinfo.GetMounts(mountinfo.PrefixFilter(directory))
+	if err != nil {
+		return err
+	}
+	if len(remaining) != 0 {
+		return fmt.Errorf("Calico runtime directory %s still contains mounts", directory)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return os.RemoveAll(directory)
+}
+
+func calicoRuntimeUnmountTargets(directory string, mounts []*mountinfo.Info) ([]string, error) {
+	var targets []string
+	filter := mountinfo.PrefixFilter(directory)
+	for _, info := range mounts {
+		if skip, _ := filter(info); skip {
+			continue
+		}
+		if info.Mountpoint != filepath.Join(directory, "cgroup") || info.FSType != "cgroup2" {
+			return nil, fmt.Errorf("refuse unexpected mount %s (%s) in Calico runtime directory", info.Mountpoint, info.FSType)
+		}
+		targets = append(targets, info.Mountpoint)
+	}
+	return targets, nil
 }

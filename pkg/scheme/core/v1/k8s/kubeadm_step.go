@@ -1098,7 +1098,7 @@ func Clear(c *v1.Cluster, metadata *component.ExtraMetadata) ([]v1.Step, error) 
 	steps = append(steps,
 		doCommandRemoveStep("cleanCNIConfig", nodes, CniDefaultConfigDir),
 		doCommandRemoveStep("removeCNIData", nodes, "/var/lib/cni", "/var/lib/calico"),
-		doCommandRemoveStep("removeCNIRunData", nodes, "/var/run/calico"))
+	)
 
 	// clean Kubernetes config
 	steps = append(steps,

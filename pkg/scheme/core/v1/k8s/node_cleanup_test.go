@@ -22,7 +22,7 @@ func TestNodeRemovalCleansOnlyLeavingNodeCNIState(t *testing.T) {
 				t.Fatal(err)
 			}
 			steps := generator.GetSteps(v1.ActionUninstall)
-			for name, paths := range map[string][]string{"cleanCNIConfig": {CniDefaultConfigDir}, "removeCNIData": {"/var/lib/cni", "/var/lib/calico"}, "removeCNIRunData": {"/var/run/calico"}} {
+			for name, paths := range map[string][]string{"cleanCNIConfig": {CniDefaultConfigDir}, "removeCNIData": {"/var/lib/cni", "/var/lib/calico"}} {
 				step := findStep(t, steps, name)
 				if len(step.Nodes) != 1 || step.Nodes[0].ID != leaving.ID {
 					t.Fatalf("%s targets surviving nodes: %v", name, step.Nodes)
@@ -36,5 +36,29 @@ func TestNodeRemovalCleansOnlyLeavingNodeCNIState(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestClusterAndNodeCleanupNeverRecursivelyRemoveMountedCalicoRuntime(t *testing.T) {
+	listener := availableMasterListener(t)
+	defer func() { _ = (*listener).Close() }()
+	metadata := masterStepFixtureMetadata()
+	cluster := masterStepFixtureCluster()
+	node := (&GenNode{}).InitStepper(metadata, cluster, NodeRoleWorker)
+	if err := node.MakeUninstallSteps(metadata, []v1.StepNode{{ID: "worker-1", IPv4: "192.0.2.10", Hostname: "worker-1"}}); err != nil {
+		t.Fatal(err)
+	}
+	full, err := Clear(cluster, metadata)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range append(node.GetSteps(v1.ActionUninstall), full...) {
+		for _, cmd := range step.Commands {
+			for _, arg := range cmd.ShellCommand {
+				if arg == "/var/run/calico" {
+					t.Fatalf("%s recursively removes a runtime directory containing host cgroup mounts", step.Name)
+				}
+			}
+		}
 	}
 }
