@@ -266,7 +266,17 @@ func (stepper *GenNode) MakeUninstallSteps(metadata *component.ExtraMetadata, pa
 		}
 		stepper.uninstallSteps = append(stepper.uninstallSteps, steps...)
 
-		// clean CNI config
+		// Remove the leaving cluster's CNI configuration and identity before reuse.
+		for _, cleanup := range []v1.Step{
+			doCommandRemoveStep("cleanCNIConfig", patchNodes, CniDefaultConfigDir),
+			doCommandRemoveStep("removeCNIData", patchNodes, "/var/lib/cni", "/var/lib/calico"),
+			doCommandRemoveStep("removeCNIRunData", patchNodes, "/var/run/calico"),
+		} {
+			cleanup.ErrIgnore = false
+			stepper.uninstallSteps = append(stepper.uninstallSteps, cleanup)
+		}
+
+		// Clean the leaving node's CNI network.
 		steps, err = CleanCNI(metadata, &stepper.Cluster.CNI, &stepper.Cluster.Networking, patchNodes)
 		if err != nil {
 			return err
