@@ -46,8 +46,8 @@ artifacts:
       kind: bootstrap
       name: kubeclipper
       version: v2.0.3-rc.4
-    source: registry.internal:5000/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4
-    target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4
+    source: registry.internal:5000/package-bootstrap-kubeclipper:v2.0.3-rc.4
+    target: package-bootstrap-kubeclipper:v2.0.3-rc.4
     platforms:
       - linux/amd64
       - linux/arm64
@@ -58,8 +58,8 @@ artifacts:
       kind: bootstrap
       name: console
       version: v2.0.3-rc.4
-    source: registry.internal:5000/kubeclipper/packages/bootstrap/console:v2.0.3-rc.4
-    target: kubeclipper/packages/bootstrap/console:v2.0.3-rc.4
+    source: registry.internal:5000/package-bootstrap-console:v2.0.3-rc.4
+    target: package-bootstrap-console:v2.0.3-rc.4
     platforms:
       - linux/amd64
       - linux/arm64
@@ -92,8 +92,8 @@ artifacts:
       kind: bootstrap
       name: kubeclipper
       version: v2.0.3-rc.4
-    source: registry.internal:5000/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4
-    target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4
+    source: registry.internal:5000/package-bootstrap-kubeclipper:v2.0.3-rc.4
+    target: package-bootstrap-kubeclipper:v2.0.3-rc.4
     platforms:
       - linux/amd64
       - linux/arm64
@@ -169,7 +169,7 @@ func TestBootstrapConsoleArtifact(t *testing.T) {
 	if artifact.Component.Name != "console" || artifact.Component.Version != "v2.0.3-rc.4" {
 		t.Fatalf("unexpected console artifact component %+v", artifact.Component)
 	}
-	if artifact.Target != "kubeclipper/packages/bootstrap/console:v2.0.3-rc.4" {
+	if artifact.Target != "package-bootstrap-console:v2.0.3-rc.4" {
 		t.Fatalf("unexpected artifact target %q", artifact.Target)
 	}
 }
@@ -253,7 +253,7 @@ func TestBootstrapKubeClipperArtifact(t *testing.T) {
 	if artifact.Component.Version != "v2.0.3-rc.4" {
 		t.Fatalf("unexpected component version %q", artifact.Component.Version)
 	}
-	if artifact.Target != "kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4" {
+	if artifact.Target != "package-bootstrap-kubeclipper:v2.0.3-rc.4" {
 		t.Fatalf("unexpected artifact target %q", artifact.Target)
 	}
 }
@@ -265,7 +265,7 @@ func TestManifestArtifactKeepsTargetPathAndTag(t *testing.T) {
 	manifest := parseTestManifest(t)
 	artifact := manifest.BootstrapKubeClipperArtifact()
 	wantRef := manifest.Registries.Package + "/" + artifact.Target
-	if wantRef != "registry.internal:5000/kubeclipper/packages/bootstrap/kubeclipper:v2.0.3-rc.4" {
+	if wantRef != "registry.internal:5000/package-bootstrap-kubeclipper:v2.0.3-rc.4" {
 		t.Fatalf("target reference %q does not keep the manifest repository path and tag", wantRef)
 	}
 	if !strings.Contains(artifact.Target, ":") {

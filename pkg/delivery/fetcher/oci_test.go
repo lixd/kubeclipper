@@ -102,7 +102,7 @@ func TestOCIArtifactFetcherRejectsTagOnlyReference(t *testing.T) {
 			Version: "v3.31.5",
 			Transport: deliveryapis.TransportRef{
 				Type: deliveryapis.TransportOCI,
-				Ref:  "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5",
+				Ref:  "registry.local:5000/package-calico:v3.31.5",
 			},
 			Contents: []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentCharts}},
 		}},
@@ -129,7 +129,7 @@ func TestOCIArtifactFetcherRejectsMismatchedPinnedReference(t *testing.T) {
 			Version: "v3.31.5",
 			Transport: deliveryapis.TransportRef{
 				Type:   deliveryapis.TransportOCI,
-				Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Ref:    "registry.local:5000/package-calico:v3.31.5@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				Digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			Contents: []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentCharts}},
@@ -171,7 +171,7 @@ func TestOCIArtifactFetcherDryRun(t *testing.T) {
 				Version: "v3.31.5",
 				Transport: deliveryapis.TransportRef{
 					Type:   deliveryapis.TransportOCI,
-					Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5",
+					Ref:    "registry.local:5000/package-calico:v3.31.5",
 					Digest: "sha256:4444444444444444444444444444444444444444444444444444444444444444",
 				},
 				Contents: []deliveryapis.ArtifactContent{
@@ -207,7 +207,7 @@ func TestOCIArtifactFetcherValidatesPackageManifest(t *testing.T) {
 	manifestDigest := imageDigestString(t, image)
 	fetcher := NewOCIArtifactFetcher(false)
 	fetcher.PullImage = func(ref string) (containerv1.Image, error) {
-		if ref != "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5@"+manifestDigest {
+		if ref != "registry.local:5000/package-calico:v3.31.5@"+manifestDigest {
 			t.Fatalf("pull ref = %q", ref)
 		}
 		return image, nil
@@ -352,7 +352,7 @@ func TestOCIArtifactFetcherReusesVerifiedDigestAcrossReferences(t *testing.T) {
 	} else {
 		_ = result.Release()
 	}
-	plan.Components[0].Transport.Ref = "mirror.local:5000/kubeclipper/packages/cni/calico:v3.31.5"
+	plan.Components[0].Transport.Ref = "mirror.local:5000/package-calico:v3.31.5"
 	if result, err := fetcher.Fetch(context.Background(), plan); err != nil {
 		t.Fatalf("Fetch() with changed reference error: %+v", err)
 	} else {
@@ -517,7 +517,7 @@ func fetcherPlanWithTransportDigest(name, version, digest, transportDigest strin
 				OS:      deliveryapis.DefaultPackageOS,
 				Transport: deliveryapis.TransportRef{
 					Type:   deliveryapis.TransportOCI,
-					Ref:    "registry.local:5000/kubeclipper/packages/cni/" + name + ":" + version,
+					Ref:    "registry.local:5000/package-" + name + ":" + version,
 					Digest: transportDigest,
 				},
 				Contents: []deliveryapis.ArtifactContent{

@@ -20,7 +20,7 @@ Usage:
   publish-resource-calico.sh [flags]
 
 Builds and publishes:
-  <registry-prefix>/kubeclipper/packages/cni/calico:<version>
+  <registry-prefix>/package-calico:<version>
   Calico runtime images from the bundled image list.
 
 Flags:

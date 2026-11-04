@@ -23,7 +23,7 @@ Usage:
   publish-resource-k8s-extension.sh [flags]
 
 Builds and publishes:
-  <registry-prefix>/kubeclipper/packages/k8s-extension/k8s-extension:<version>
+  <registry-prefix>/package-k8s-extension:<version>
   k8s-extension runtime images from the bundled image list, when present.
 
 Flags:

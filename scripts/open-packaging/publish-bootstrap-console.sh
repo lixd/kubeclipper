@@ -15,7 +15,7 @@ Usage:
   publish-bootstrap-console.sh --version <version> [flags]
 
 Publishes:
-  <registry-prefix>/kubeclipper/packages/bootstrap/console:<version>
+  <registry-prefix>/package-bootstrap-console:<version>
 
 Contents:
   caddy

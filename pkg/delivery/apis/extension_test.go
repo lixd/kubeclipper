@@ -89,7 +89,7 @@ func extensionPackage(version, arch string) PackageEntry {
 		ContentProfile: ContentProfileExtension,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/extension/kubectl-terminal:" + version,
+			Ref:    "registry.local/package-kubectl-terminal:" + version,
 			Digest: testDigest,
 		},
 		Contents: []ArtifactContent{{Name: ContentConfigs, File: "configs.tar.gz", MediaType: MediaTypeConfigsLayer}},

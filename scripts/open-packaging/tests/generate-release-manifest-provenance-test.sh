@@ -41,10 +41,10 @@ case "$1" in
 digest) printf 'sha256:%064d\n' 1 ;;
 config)
   revision="dependency-rev"
-  if [[ " $* " == *"/bootstrap/kubeclipper@"* ]]; then
+  if [[ " $* " == *"/package-bootstrap-kubeclipper@"* ]]; then
     revision="${FAKE_REVISION:-}"
   fi
-  if [[ " $* " == *"/bootstrap/kubeclipper@"* && " $* " == *" --platform ${FAKE_STALE_PLATFORM:-__none__} "* ]]; then
+  if [[ " $* " == *"/package-bootstrap-kubeclipper@"* && " $* " == *" --platform ${FAKE_STALE_PLATFORM:-__none__} "* ]]; then
     revision=stale
   fi
   printf '{"config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}\n' "$revision"

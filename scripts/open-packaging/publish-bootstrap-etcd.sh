@@ -15,7 +15,7 @@ Usage:
   publish-bootstrap-etcd.sh [flags]
 
 Publishes:
-  <registry-prefix>/kubeclipper/packages/bootstrap/etcd:<version>
+  <registry-prefix>/package-bootstrap-etcd:<version>
 
 Contents:
   etcd

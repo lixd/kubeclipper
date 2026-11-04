@@ -25,19 +25,21 @@ import (
 
 const testDigest = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 
-func TestParsePackageRepository(t *testing.T) {
-	kind, name, ok := ParsePackageRepository("kubeclipper/packages/cri/containerd")
-	if !ok {
-		t.Fatalf("ParsePackageRepository() ok = false")
+func TestPackageRepository(t *testing.T) {
+	for _, tc := range []struct{ kind, name, want string }{
+		{"bootstrap", "kubeclipper", "package-bootstrap-kubeclipper"},
+		{"cri", "containerd", "package-containerd"},
+		{"cni", "calico", "package-calico"},
+		{"k8s", "k8s", "package-k8s"},
+	} {
+		if got := PackageRepository(tc.kind, tc.name); got != tc.want || !IsPackageRepository(got) {
+			t.Fatalf("PackageRepository(%q, %q) = %q, want %q", tc.kind, tc.name, got, tc.want)
+		}
 	}
-	if kind != "cri" || name != "containerd" {
-		t.Fatalf("ParsePackageRepository() = %q, %q", kind, name)
-	}
-	if _, _, ok = ParsePackageRepository("library/nginx"); ok {
-		t.Fatalf("ParsePackageRepository() accepted non-kubeclipper repository")
-	}
-	if _, _, ok = ParsePackageRepository("kubeclipper/packages/cri"); ok {
-		t.Fatalf("ParsePackageRepository() accepted incomplete repository")
+	for _, repository := range []string{"library/nginx", "package-", "package-bootstrap-", "package-cri/containerd", "kubeclipper/packages/cri/containerd"} {
+		if IsPackageRepository(repository) {
+			t.Fatalf("accepted invalid package repository %q", repository)
+		}
 	}
 }
 
@@ -50,10 +52,10 @@ func TestSupportPolicyRepositories(t *testing.T) {
 		},
 	}}
 	want := []string{
-		"kubeclipper/packages/cni/calico",
-		"kubeclipper/packages/cri/containerd",
-		"kubeclipper/packages/extension/kubectl-terminal",
-		"kubeclipper/packages/k8s/k8s",
+		"package-calico",
+		"package-containerd",
+		"package-k8s",
+		"package-kubectl-terminal",
 	}
 	if got := SupportPolicyRepositories(policy); !reflect.DeepEqual(got, want) {
 		t.Fatalf("SupportPolicyRepositories() = %v, want %v", got, want)
@@ -63,7 +65,7 @@ func TestSupportPolicyRepositories(t *testing.T) {
 func TestDerivePackageEntryFromManifest(t *testing.T) {
 	entry, err := DerivePackageEntryFromManifest(PackageRef{
 		Registry:   "registry.local:5000",
-		Repository: "kubeclipper/packages/cri/containerd",
+		Repository: "package-containerd",
 		Tag:        "2.1.0",
 		Digest:     testDigest,
 	}, PackageManifest{
@@ -93,7 +95,7 @@ func TestDerivePackageEntryFromManifest(t *testing.T) {
 	if entry.OS != "linux" || entry.Arch != "amd64" {
 		t.Fatalf("entry platform = %s/%s", entry.OS, entry.Arch)
 	}
-	if entry.Transport.Ref != "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0" {
+	if entry.Transport.Ref != "registry.local:5000/package-containerd:2.1.0" {
 		t.Fatalf("transport ref = %q", entry.Transport.Ref)
 	}
 	if entry.Transport.Digest != testDigest {
@@ -113,7 +115,7 @@ func TestDerivePackageEntryFromManifest(t *testing.T) {
 func TestDerivePackageEntryFromManifestRejectsIdentityMismatch(t *testing.T) {
 	_, err := DerivePackageEntryFromManifest(PackageRef{
 		Registry:   "registry.local",
-		Repository: "kubeclipper/packages/cri/containerd",
+		Repository: "package-containerd",
 		Tag:        "2.1.0",
 		Digest:     testDigest,
 	}, PackageManifest{
@@ -135,7 +137,7 @@ func TestDerivePackageEntryFromManifestRejectsIdentityMismatch(t *testing.T) {
 func TestDerivePackageEntryFromManifestRejectsMissingArch(t *testing.T) {
 	_, err := DerivePackageEntryFromManifest(PackageRef{
 		Registry:   "registry.local",
-		Repository: "kubeclipper/packages/cri/containerd",
+		Repository: "package-containerd",
 		Tag:        "2.1.0",
 		Digest:     testDigest,
 	}, PackageManifest{

@@ -115,7 +115,7 @@ func TestResolveArtifactsMatchesPackageIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveArtifacts() error: %+v", err)
 	}
-	if plan.Components[0].Transport.Ref != "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0" {
+	if plan.Components[0].Transport.Ref != "registry.local/package-k8s:v1.36.0" {
 		t.Fatalf("k8s transport ref = %q", plan.Components[0].Transport.Ref)
 	}
 }
@@ -130,7 +130,7 @@ func TestResolveArtifactsRejectsDuplicatePackageIdentity(t *testing.T) {
 		ContentProfile: ContentProfileK8s,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+			Ref:    "registry.local/package-k8s:v1.36.0",
 			Digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 		},
 		Contents: ContentsForProfile(ContentProfileK8s),
@@ -151,7 +151,7 @@ func TestResolveArtifactsOutputsDigestPinnedOCIPlan(t *testing.T) {
 		if catalog.Spec.Packages[i].Kind == "cri" && catalog.Spec.Packages[i].Name == "containerd" && catalog.Spec.Packages[i].Version == "2.1.0" && catalog.Spec.Packages[i].Arch == "amd64" {
 			catalog.Spec.Packages[i].Transport = TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local/package-containerd:2.1.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			}
 		}
@@ -238,7 +238,7 @@ func resolverPackage(name, kind, version, arch, profile string) PackageEntry {
 		ContentProfile: profile,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/" + kind + "/" + name + ":" + version,
+			Ref:    "registry.local/" + PackageRepository(kind, name) + ":" + version,
 			Digest: testDigest,
 		},
 		Contents: ContentsForProfile(profile),

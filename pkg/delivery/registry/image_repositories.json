@@ -1,0 +1,14 @@
+{
+  "coredns/coredns": "coredns",
+  "caas4/nfsplugin": "nfs-plugin",
+  "caas4/csi-attacher": "nfs-csi-attacher",
+  "caas4/csi-node-driver-registrar": "nfs-csi-node-driver-registrar",
+  "caas4/csi-provisioner": "nfs-csi-provisioner",
+  "caas4/livenessprobe": "nfs-livenessprobe",
+  "caas4/metallb-controller": "metallb-controller",
+  "caas4/metallb-speaker": "metallb-speaker",
+  "caas4/frr": "metallb-frr",
+  "fanux/lvscare": "lvscare",
+  "kubeclipper/kubectl": "kubectl",
+  "nicolaka/netshoot": "netshoot"
+}

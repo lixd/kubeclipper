@@ -16,7 +16,7 @@ Usage:
   publish-bootstrap-kubeclipper.sh --version <version> [flags]
 
 Publishes:
-  <registry-prefix>/kubeclipper/packages/bootstrap/kubeclipper:<version>
+  <registry-prefix>/package-bootstrap-kubeclipper:<version>
 
 Contents:
   kubeclipper-server

@@ -66,7 +66,7 @@ func TestFetchComponentUsesResolvedComponentArch(t *testing.T) {
 		Arch:    "arm64",
 		Transport: deliveryapis.TransportRef{
 			Type:   deliveryapis.TransportOCI,
-			Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5",
+			Ref:    "registry.local:5000/package-calico:v3.31.5",
 			Digest: "sha256:4444444444444444444444444444444444444444444444444444444444444444",
 		},
 		Contents: []deliveryapis.ArtifactContent{
@@ -92,7 +92,7 @@ func TestValidatePlanRejectsInvalidComponents(t *testing.T) {
 		Arch:    "amd64",
 		Transport: deliveryapis.TransportRef{
 			Type:   deliveryapis.TransportOCI,
-			Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.31.5",
+			Ref:    "registry.local:5000/package-calico:v3.31.5",
 			Digest: "sha256:4444444444444444444444444444444444444444444444444444444444444444",
 		},
 		Contents: []deliveryapis.ArtifactContent{{Name: deliveryapis.ContentCharts, File: "charts.tgz"}},

@@ -47,10 +47,10 @@ scripts/open-packaging/build-offline-resources.sh \
 Publishing is split by content type:
 
 - `configs.tar.gz` becomes a standard OCI package image under
-  `kubeclipper/packages/...`. The image filesystem stores files under
+  `package-*`. The image filesystem stores files under
   `/opt/kubeclipper/resource/`.
 - `charts.tgz` is included unchanged in the component package image under
-  `kubeclipper/packages/...`; it is extracted before Helm installation.
+  `package-*`; it is extracted before Helm installation.
 - `images.lock` is copied with `crane` or `skopeo` by
   `push-runtime-images.sh`. It is release-side metadata and is never consumed
   by KubeClipper server during cluster creation.
@@ -353,10 +353,10 @@ Registry image. `--arch` remains available as an explicit override.
 The published image refs follow the KubeClipper package layout:
 
 ```text
-<registry>/kubeclipper/packages/bootstrap/kubeclipper:<version> # server + agent
-<registry>/kubeclipper/packages/bootstrap/etcd:<version>        # etcd + etcdctl + etcdutl
-<registry>/kubeclipper/packages/bootstrap/console:<version>     # caddy + kc-console
-<registry>/kubeclipper/packages/bootstrap/registry:<version>    # registry
+<registry>/package-bootstrap-kubeclipper:<version> # server + agent
+<registry>/package-bootstrap-etcd:<version>        # etcd + etcdctl + etcdutl
+<registry>/package-bootstrap-console:<version>     # caddy + kc-console
+<registry>/package-bootstrap-registry:<version>    # registry
 ```
 
 ## 3. Publish Cluster Resource Packages
@@ -396,7 +396,7 @@ scripts/open-packaging/publish-resource-metallb.sh \
 ```
 
 `publish-resource-calico.sh` publishes `charts.tgz` inside the standard package
-image `kubeclipper/packages/cni/calico:<version>`. The Registry inventory reads
+image `package-calico:<version>`. The Registry inventory reads
 the package manifest and its architecture. Agents verify and extract the package,
 then pass the original chart archive to Helm. No native Helm OCI repository is
 required.
@@ -429,14 +429,14 @@ scripts/open-packaging/push-runtime-images.sh \
 The publisher deliberately separates the old static-server payloads:
 
 - `configs.tar.gz` and bootstrap binaries are pushed as standard OCI package
-  images under `kubeclipper/packages/...`. Each image contains
+  images under `package-*`. Each image contains
   `/opt/kubeclipper/resource/kc-package-manifest.json` plus
   `/opt/kubeclipper/resource/<file>`.
 - Runtime images are not embedded in package images. In the open build flow,
   `images.lock` is mirrored as normal runtime images with
   `push-runtime-images.sh`.
 - `charts.tgz` is stored unchanged inside the component package image. Calico
-  uses `kubeclipper/packages/cni/calico:<version>`, with an architecture descriptor
+  uses `package-calico:<version>`, with an architecture descriptor
   and source revision like other packages. Agents extract and verify the chart
   archive using the package fetcher before invoking Helm. The registry only needs
   to support ordinary OCI image config and layer media types.
@@ -464,28 +464,28 @@ Registry implementation, including Harbor:
 skopeo sync \
   --src docker \
   --dest docker \
-  ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s \
-  harbor.local/kubeclipper/packages/k8s
+  ghcr.io/kubeclipper/kubeclipper/package-k8s \
+  harbor.local/kubeclipper/package-k8s
 ```
 
 Or copy one package image by digest/tag:
 
 ```bash
 skopeo copy --all \
-  docker://ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0 \
-  docker://harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
+  docker://ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0 \
+  docker://harbor.local/kubeclipper/package-k8s:v1.37.0
 ```
 
 For fully offline environments, users can also use native image archives:
 
 ```bash
-docker pull ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
-docker save ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0 \
+docker pull ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0
+docker save ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0 \
   -o kubeclipper-package-images.tar
 docker load -i kubeclipper-package-images.tar
-docker tag ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0 \
-  harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
-docker push harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
+docker tag ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0 \
+  harbor.local/kubeclipper/package-k8s:v1.37.0
+docker push harbor.local/kubeclipper/package-k8s:v1.37.0
 ```
 
 Helm charts remain Helm OCI artifacts, but they were verified with
@@ -646,3 +646,13 @@ that implements `/v2/_catalog` because GHCR does not expose that API.
 ### Console fork 制品
 
 当前 fork 候选的 Console 版本和前端提交固定在 `packaging/resources.yaml` 的 `bootstrap.consoleVersion` 和 `bootstrap.consoleSourceRevision`。GitHub Actions 默认从当前仓库 owner 的 `console` 仓库检出该提交并构建；可用 `KC_CONSOLE_RELEASE_REPOSITORY` 覆盖，用户 fork 对应 `lixd/console`。发布脚本校验归档中 `version.json` 的前端提交与配置一致，不一致或缺失时拒绝发布。手动发布可通过 `KC_CONSOLE_ARCHIVE` 指定已构建归档；未设置时下载对应版本的 GitHub release，并执行相同校验。新版本仍需实际发布并完成 qualification 后才能作为制品使用。
+
+Package repositories use one flat name: `package-bootstrap-<name>` for platform
+bootstrap assets and `package-<name>` for component packages, including charts.
+For a namespace-scoped Registry such as
+`registry.cn-hangzhou.aliyuncs.com/kubeclipper-release`, runtime repositories are
+also flat (`calico-node`, `nfs-plugin`, `metallb-controller`, etc.). The publisher
+and agent templates share the aliases in
+`pkg/delivery/registry/image_repositories.json`. Registries configured without a
+namespace retain upstream runtime image paths; CoreDNS keeps its kubeadm name
+`coredns`. Package kind and platform are verified from the package manifest.

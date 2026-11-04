@@ -58,7 +58,7 @@ func TestPackageInventoryValidate(t *testing.T) {
 			ContentProfile: ContentProfileK8s,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+				Ref:    "registry.local/package-k8s:v1.36.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			},
 			Contents: []ArtifactContent{
@@ -81,7 +81,7 @@ func TestPackageInventoryValidateRejectsEmbeddedRuntimeImages(t *testing.T) {
 		ContentProfile: ContentProfileK8s,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+			Ref:    "registry.local/package-k8s:v1.36.0",
 			Digest: testDigest,
 		},
 		Contents: []ArtifactContent{
@@ -104,7 +104,7 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentity(t *testing.T) {
 		ContentProfile: ContentProfileRuntime,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+			Ref:    "registry.local/package-containerd:2.1.0",
 			Digest: testDigest,
 		},
 		Contents: []ArtifactContent{
@@ -128,7 +128,7 @@ func TestPackageInventoryValidateTreatsOSAsPackageIdentity(t *testing.T) {
 		ContentProfile: ContentProfileRuntime,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+			Ref:    "registry.local/package-containerd:2.1.0",
 			Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 		},
 		Contents: []ArtifactContent{
@@ -155,7 +155,7 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithDifferentDig
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local/package-containerd:2.1.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			},
 			Contents: []ArtifactContent{
@@ -170,7 +170,7 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithDifferentDig
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local/package-containerd:2.1.0",
 				Digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 			},
 			Contents: []ArtifactContent{
@@ -195,7 +195,7 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithSameDigest(t
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local/package-containerd:2.1.0",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
@@ -210,7 +210,7 @@ func TestPackageInventoryValidateRejectsDuplicatePackageIdentityWithSameDigest(t
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local/package-containerd:2.1.0",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
@@ -235,7 +235,7 @@ func TestPackageInventoryValidateContentProfile(t *testing.T) {
 			ContentProfile: ContentProfileK8s,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+				Ref:    "registry.local/package-k8s:v1.36.0",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
@@ -259,7 +259,7 @@ func TestPackageInventoryValidateRejectsDuplicateContents(t *testing.T) {
 			ContentProfile: ContentProfileK8s,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+				Ref:    "registry.local/package-k8s:v1.36.0",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
@@ -307,7 +307,7 @@ func TestPackageInventoryValidateRejectsLatestVersion(t *testing.T) {
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:latest",
+				Ref:    "registry.local/package-containerd:latest",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
@@ -331,7 +331,7 @@ func TestPackageInventoryValidateAllowsLatestKubeClipperBootstrap(t *testing.T) 
 			ContentProfile: ContentProfileBinary,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:latest",
+				Ref:    "registry.local/package-bootstrap-kubeclipper:latest",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{
@@ -356,7 +356,7 @@ func TestPackageInventoryValidateRejectsMismatchedPinnedRefDigest(t *testing.T) 
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Ref:    "registry.local/package-containerd:2.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 				Digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 			},
 			Contents: []ArtifactContent{
@@ -379,7 +379,7 @@ func TestPackageInventoryValidateAddonProfileAllowsConfigsImagesOrCharts(t *test
 		ContentProfile: ContentProfileAddon,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/app/metallb:v0.14.9",
+			Ref:    "registry.local/package-metallb:v0.14.9",
 			Digest: testDigest,
 		},
 	}
@@ -438,7 +438,7 @@ func TestPackageInventoryValidateBinaryProfile(t *testing.T) {
 			ContentProfile: ContentProfileBinary,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
+				Ref:    "registry.local/package-bootstrap-kubeclipper:v1.7.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			},
 		},

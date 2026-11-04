@@ -143,8 +143,8 @@ func (i *RegistryPackageInventoryIndexer) Refresh(ctx context.Context, registry 
 // permit pull and tag listing while denying GET /v2/_catalog.
 func (i *RegistryPackageInventoryIndexer) IndexPackageRepositories(ctx context.Context, registry string, logicalRepositories []string) (*deliveryapis.PackageInventory, error) {
 	for _, repository := range logicalRepositories {
-		if _, _, ok := deliveryapis.ParsePackageRepository(strings.Trim(repository, "/")); !ok {
-			return nil, fmt.Errorf("repository %q is not under %s/{kind}/{name}", repository, deliveryapis.PackageRepositoryPrefix)
+		if !deliveryapis.IsPackageRepository(strings.Trim(repository, "/")) {
+			return nil, fmt.Errorf("repository %q does not use the %s prefix", repository, deliveryapis.PackageRepositoryPrefix)
 		}
 	}
 	return i.IndexRepositories(ctx, registry, logicalRepositories)
@@ -230,7 +230,7 @@ func (i *RegistryPackageInventoryIndexer) indexRepositories(ctx context.Context,
 		}
 		seen[logicalRepository] = struct{}{}
 		repository := path.Join(prefix, logicalRepository)
-		if _, _, ok := deliveryapis.ParsePackageRepository(logicalRepository); ok {
+		if deliveryapis.IsPackageRepository(logicalRepository) {
 			if err := i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
 				return nil, err
 			}
@@ -265,7 +265,7 @@ func (i *RegistryPackageInventoryIndexer) index(ctx context.Context, registry st
 		if !ok {
 			continue
 		}
-		if _, _, ok = deliveryapis.ParsePackageRepository(logicalRepository); ok {
+		if deliveryapis.IsPackageRepository(logicalRepository) {
 			if err = i.indexPackageRepository(ctx, inventory, registry, repository); err != nil {
 				return nil, err
 			}

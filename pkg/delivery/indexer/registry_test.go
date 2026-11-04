@@ -64,14 +64,14 @@ func TestRegistryPackageIndexerIndex(t *testing.T) {
 	})
 	client := &fakeRegistryClient{
 		repositories: []string{
-			"kubeclipper/packages/cri/containerd",
+			"package-containerd",
 			"library/nginx",
 		},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {{
+			"registry.local/package-containerd:2.1.0": {{
 				Digest: testDigest,
 				Platform: &v1.Platform{
 					OS:           "linux",
@@ -95,7 +95,7 @@ func TestRegistryPackageIndexerIndex(t *testing.T) {
 	if pkg.Kind != "cri" || pkg.Name != "containerd" || pkg.Version != "2.1.0" || pkg.Arch != "amd64" {
 		t.Fatalf("package identity = %+v", pkg)
 	}
-	if pkg.Transport.Ref != "registry.local/kubeclipper/packages/cri/containerd:2.1.0" {
+	if pkg.Transport.Ref != "registry.local/package-containerd:2.1.0" {
 		t.Fatalf("transport ref = %q", pkg.Transport.Ref)
 	}
 	if pkg.Transport.Digest == "" {
@@ -122,11 +122,11 @@ func TestRegistryPackageIndexerIndexesKnownRepositoriesWithoutCatalog(t *testing
 			{Name: "kubeclipper-agent", File: "kubeclipper-agent", Digest: testDigest},
 		},
 	})
-	repository := "team-a/kubeclipper/packages/bootstrap/kubeclipper"
+	repository := "team-a/package-bootstrap-kubeclipper"
 	client := &fakeRegistryClient{
 		tags: map[string][]string{repository: {"v2.0.0"}},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"harbor.example.com/team-a/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0": {{
+			"harbor.example.com/team-a/package-bootstrap-kubeclipper:v2.0.0": {{
 				Digest:   testDigest,
 				Platform: &v1.Platform{OS: "linux", Architecture: "amd64"},
 				Image:    img,
@@ -137,7 +137,7 @@ func TestRegistryPackageIndexerIndexesKnownRepositoriesWithoutCatalog(t *testing
 	inventory, err := NewRegistryPackageInventoryIndexer(client).IndexPackageRepositories(
 		context.Background(),
 		"harbor.example.com/team-a",
-		[]string{"kubeclipper/packages/bootstrap/kubeclipper", "kubeclipper/packages/bootstrap/kubeclipper"},
+		[]string{"package-bootstrap-kubeclipper", "package-bootstrap-kubeclipper"},
 	)
 	if err != nil {
 		t.Fatalf("IndexPackageRepositories() error: %+v", err)
@@ -209,14 +209,14 @@ func TestRegistryPackageIndexerScopesProjectPrefix(t *testing.T) {
 	})
 	client := &fakeRegistryClient{
 		repositories: []string{
-			"team-a/kubeclipper/packages/cri/containerd",
-			"team-b/kubeclipper/packages/cri/containerd",
+			"team-a/package-containerd",
+			"team-b/package-containerd",
 		},
 		tags: map[string][]string{
-			"team-a/kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"team-a/package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"harbor.example.com/team-a/kubeclipper/packages/cri/containerd:2.1.0": {{
+			"harbor.example.com/team-a/package-containerd:2.1.0": {{
 				Digest: testDigest,
 				Image:  img,
 			}},
@@ -229,7 +229,7 @@ func TestRegistryPackageIndexerScopesProjectPrefix(t *testing.T) {
 	if len(inventory.Spec.Packages) != 1 {
 		t.Fatalf("package count = %d, want 1", len(inventory.Spec.Packages))
 	}
-	if got := inventory.Spec.Packages[0].Transport.Ref; got != "harbor.example.com/team-a/kubeclipper/packages/cri/containerd:2.1.0" {
+	if got := inventory.Spec.Packages[0].Transport.Ref; got != "harbor.example.com/team-a/package-containerd:2.1.0" {
 		t.Fatalf("transport ref = %q", got)
 	}
 	if client.tagCalls != 1 || client.resolveCalls != 1 {
@@ -267,12 +267,12 @@ func TestRegistryPackageIndexerProjectsMultiArchArtifacts(t *testing.T) {
 		},
 	})
 	client := &fakeRegistryClient{
-		repositories: []string{"kubeclipper/packages/cri/containerd"},
+		repositories: []string{"package-containerd"},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {
+			"registry.local/package-containerd:2.1.0": {
 				{
 					Digest: testDigest,
 					Platform: &v1.Platform{
@@ -377,12 +377,12 @@ func TestRegistryPackageIndexerSkipsInvalidArtifact(t *testing.T) {
 		},
 	})
 	client := &fakeRegistryClient{
-		repositories: []string{"kubeclipper/packages/cri/containerd"},
+		repositories: []string{"package-containerd"},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {
+			"registry.local/package-containerd:2.1.0": {
 				{
 					Digest: testDigest2,
 					Image:  empty.Image,
@@ -426,12 +426,12 @@ func TestRegistryPackageIndexerDoesNotDownloadPayloads(t *testing.T) {
 		},
 	})
 	client := &fakeRegistryClient{
-		repositories: []string{"kubeclipper/packages/cri/containerd"},
+		repositories: []string{"package-containerd"},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {{
+			"registry.local/package-containerd:2.1.0": {{
 				Digest: testDigest,
 				Image:  img,
 			}},
@@ -462,12 +462,12 @@ func TestRegistryPackageIndexerSkipsUnresolvableTag(t *testing.T) {
 		},
 	})
 	client := &fakeRegistryClient{
-		repositories: []string{"kubeclipper/packages/cri/containerd"},
+		repositories: []string{"package-containerd"},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"broken", "2.1.0"},
+			"package-containerd": {"broken", "2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {{
+			"registry.local/package-containerd:2.1.0": {{
 				Digest: testDigest,
 				Image:  validImage,
 			}},
@@ -515,12 +515,12 @@ func TestRegistryPackageIndexerFailsOnDuplicateIdentity(t *testing.T) {
 		},
 	})
 	client := &fakeRegistryClient{
-		repositories: []string{"kubeclipper/packages/cri/containerd"},
+		repositories: []string{"package-containerd"},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {
+			"registry.local/package-containerd:2.1.0": {
 				{
 					Digest: testDigest,
 					Image:  first,
@@ -748,12 +748,12 @@ func TestRegistryPackageIndexerCachesResultsUntilRefresh(t *testing.T) {
 		},
 	})
 	client := &fakeRegistryClient{
-		repositories: []string{"kubeclipper/packages/cri/containerd"},
+		repositories: []string{"package-containerd"},
 		tags: map[string][]string{
-			"kubeclipper/packages/cri/containerd": {"2.1.0"},
+			"package-containerd": {"2.1.0"},
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/cri/containerd:2.1.0": {{
+			"registry.local/package-containerd:2.1.0": {{
 				Digest: testDigest,
 				Image:  img,
 			}},
@@ -806,13 +806,13 @@ func TestIndexRepositoriesToleratesMissingRepositories(t *testing.T) {
 	})
 	client := &fakeRegistryClient{
 		tags: map[string][]string{
-			"kubeclipper/packages/k8s/k8s": {"v1.37.0"},
+			"package-k8s": {"v1.37.0"},
 		},
 		tagErrors: map[string]error{
-			"kubeclipper/packages/k8s-extension/k8s-extension": nameUnknown,
+			"package-k8s-extension": nameUnknown,
 		},
 		artifacts: map[string][]RegistryPackageArtifact{
-			"registry.local/kubeclipper/packages/k8s/k8s:v1.37.0": {{
+			"registry.local/package-k8s:v1.37.0": {{
 				Digest: testDigest,
 				Image:  img,
 			}},
@@ -820,8 +820,8 @@ func TestIndexRepositoriesToleratesMissingRepositories(t *testing.T) {
 	}
 	indexer := NewRegistryPackageInventoryIndexer(client)
 	inventory, err := indexer.IndexRepositories(context.Background(), "registry.local", []string{
-		"kubeclipper/packages/k8s/k8s",
-		"kubeclipper/packages/k8s-extension/k8s-extension",
+		"package-k8s",
+		"package-k8s-extension",
 	})
 	if err != nil {
 		t.Fatalf("IndexRepositories() error: %+v", err)
@@ -843,11 +843,11 @@ func TestIndexRepositoriesPropagatesRegistryErrors(t *testing.T) {
 	}
 	client := &fakeRegistryClient{
 		tagErrors: map[string]error{
-			"kubeclipper/packages/k8s/k8s": unauthorized,
+			"package-k8s": unauthorized,
 		},
 	}
 	indexer := NewRegistryPackageInventoryIndexer(client)
-	_, err := indexer.IndexRepositories(context.Background(), "registry.local", []string{"kubeclipper/packages/k8s/k8s"})
+	_, err := indexer.IndexRepositories(context.Background(), "registry.local", []string{"package-k8s"})
 	if err == nil {
 		t.Fatalf("IndexRepositories() expected error for unauthorized registry")
 	}
@@ -861,7 +861,7 @@ func TestPolicyRepositoryInventoryUsesScopedCache(t *testing.T) {
 	client := &fakeRegistryClient{}
 	indexer := NewRegistryPackageInventoryIndexer(client)
 	ctx := context.Background()
-	repos := []string{"kubeclipper/packages/k8s/k8s", "kubeclipper/packages/cri/containerd"}
+	repos := []string{"package-k8s", "package-containerd"}
 	first, err := indexer.IndexRepositories(ctx, "registry.local", repos)
 	if err != nil {
 		t.Fatal(err)
@@ -900,9 +900,9 @@ func TestPolicyRepositoryInventoryUsesScopedCache(t *testing.T) {
 }
 
 func TestPolicyRepositoryInventoryFailureIsNotCached(t *testing.T) {
-	client := &fakeRegistryClient{tagErrors: map[string]error{"kubeclipper/packages/k8s/k8s": errors.New("registry unavailable")}}
+	client := &fakeRegistryClient{tagErrors: map[string]error{"package-k8s": errors.New("registry unavailable")}}
 	indexer := NewRegistryPackageInventoryIndexer(client)
-	repositories := []string{"kubeclipper/packages/k8s/k8s"}
+	repositories := []string{"package-k8s"}
 	if _, err := indexer.IndexRepositories(context.Background(), "registry.local", repositories); err == nil {
 		t.Fatal("registry failure was hidden")
 	}
@@ -939,7 +939,7 @@ func (c *blockedRepositoryClient) ListTags(ctx context.Context, _, _ string) ([]
 func TestRepositoryReadsCoalesceAndWaitersCancel(t *testing.T) {
 	client := &blockedRepositoryClient{started: make(chan struct{}), release: make(chan struct{})}
 	indexer := NewRegistryPackageInventoryIndexer(client)
-	repositories := []string{"kubeclipper/packages/k8s/k8s"}
+	repositories := []string{"package-k8s"}
 	results := make(chan error, 9)
 	go func() {
 		_, err := indexer.IndexRepositories(context.Background(), "registry.local", repositories)
@@ -985,7 +985,7 @@ func TestCanceledRepositoryScanDoesNotPublishCache(t *testing.T) {
 	defer cancel()
 	client := &cancelingRepositoryClient{cancel: cancel}
 	indexer := NewRegistryPackageInventoryIndexer(client)
-	repositories := []string{"kubeclipper/packages/k8s/k8s"}
+	repositories := []string{"package-k8s"}
 	if _, err := indexer.IndexRepositories(ctx, "registry.local", repositories); !errors.Is(err, context.Canceled) {
 		t.Fatalf("canceled scan returned %v", err)
 	}

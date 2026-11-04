@@ -1912,7 +1912,7 @@ func (d *DeployOptions) precheckPackageRegistry() error {
 	if err != nil {
 		return d.packageRegistryPrecheckError(err)
 	}
-	if _, err = crane.ListTags(d.packageRegistryConfig.Registry+"/kubeclipper/packages/bootstrap/kubeclipper", opts...); err != nil {
+	if _, err = crane.ListTags(d.packageRegistryConfig.Registry+"/"+deliveryapis.PackageRepository("bootstrap", "kubeclipper"), opts...); err != nil {
 		return d.packageRegistryPrecheckError(err)
 	}
 	logger.Infof("============>PACKAGE-REGISTRY PRECHECK OK!")

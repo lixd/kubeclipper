@@ -36,7 +36,7 @@ func TestResolvedArtifactPlanCodecRoundTrip(t *testing.T) {
 			Required: true,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.example/kubeclipper/packages/k8s/k8s:v1.36.1",
+				Ref:    "registry.example/package-k8s:v1.36.1",
 				Digest: "sha256:package",
 			},
 			Contents: []ArtifactContent{{Name: ContentConfigs, File: "configs.tar.gz", Digest: "sha256:config"}},

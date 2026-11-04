@@ -31,7 +31,7 @@ func TestResolveBootstrapBinary(t *testing.T) {
 			ContentProfile: ContentProfileBinary,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
+				Ref:    "registry.local/package-bootstrap-kubeclipper:v1.7.0",
 				Digest: testDigest,
 			},
 			Contents: []ArtifactContent{

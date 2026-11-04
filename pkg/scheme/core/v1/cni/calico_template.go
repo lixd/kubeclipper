@@ -17923,7 +17923,11 @@ spec:
             periodSeconds: 10`
 
 const calicoV3261 = `installation:
-  registry: {{with .CNI.ImageRegistry}}{{.}}{{end}}
+  registry: {{with .CNI.ImageRegistry}}{{registryHost .}}/{{end}}
+  {{if registryPath .CNI.ImageRegistry}}
+  imagePath: {{registryPath .CNI.ImageRegistry}}
+  imagePrefix: calico-
+  {{end}}
   kubeletVolumePluginPath: {{ if .KubeletDataDir }}{{ .KubeletDataDir }}{{ else }}/var/lib/kubelet{{ end }}
   cni:
     type: Calico
@@ -17990,7 +17994,7 @@ apiServer:
   enabled: true
 
 tigeraOperator:
-  image: tigera/operator
+  image: {{if registryPath .CNI.ImageRegistry}}tigera-operator{{else}}tigera/operator{{end}}
   version: v1.30.4
   registry: {{with .CNI.ImageRegistry}}{{.}}{{else}}quay.io{{end}}
 calicoctl:
@@ -18000,7 +18004,11 @@ calicoctl:
 const calicoV3296 = `installation:
   enabled: true
   kubernetesProvider: ""
-  registry: {{with .CNI.ImageRegistry}}{{.}}{{end}}
+  registry: {{with .CNI.ImageRegistry}}{{registryHost .}}/{{end}}
+  {{if registryPath .CNI.ImageRegistry}}
+  imagePath: {{registryPath .CNI.ImageRegistry}}
+  imagePrefix: calico-
+  {{end}}
   kubeletVolumePluginPath: {{ if .KubeletDataDir }}{{ .KubeletDataDir }}{{ else }}/var/lib/kubelet{{ end }}
   cni:
     type: Calico
@@ -18102,7 +18110,7 @@ podLabels: {}
 dnsConfig: {}
 
 tigeraOperator:
-  image: tigera/operator
+  image: {{if registryPath .CNI.ImageRegistry}}tigera-operator{{else}}tigera/operator{{end}}
   version: v1.36.14
   registry: {{with .CNI.ImageRegistry}}{{.}}{{else}}quay.io{{end}}
 calicoctl:
@@ -18116,7 +18124,11 @@ kubernetesServiceEndpoint:
 const calicoV3315 = `installation:
   enabled: true
   kubernetesProvider: ""
-  registry: {{with .CNI.ImageRegistry}}{{.}}{{end}}
+  registry: {{with .CNI.ImageRegistry}}{{registryHost .}}/{{end}}
+  {{if registryPath .CNI.ImageRegistry}}
+  imagePath: {{registryPath .CNI.ImageRegistry}}
+  imagePrefix: calico-
+  {{end}}
   kubeletVolumePluginPath: "None"
   imagePullSecrets: []
   cni:
@@ -18236,7 +18248,7 @@ podLabels: {}
 dnsConfig: {}
 
 tigeraOperator:
-  image: tigera/operator
+  image: {{if registryPath .CNI.ImageRegistry}}tigera-operator{{else}}tigera/operator{{end}}
   version: v1.40.8
   registry: {{with .CNI.ImageRegistry}}{{.}}{{else}}quay.io{{end}}
 calicoctl:

@@ -81,7 +81,7 @@ func TestSyncMultiArchAuthenticatedTarget(t *testing.T) { //nolint:gocyclo,funle
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := OfficialSourcePrefix + "/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0"
+	source := OfficialSourcePrefix + "/package-bootstrap-kubeclipper:v2.0.0"
 	sourceRef, err := name.ParseReference(source)
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +120,7 @@ func TestSyncMultiArchAuthenticatedTarget(t *testing.T) { //nolint:gocyclo,funle
 		Registries: Registries{Package: OfficialSourcePrefix, Image: OfficialSourcePrefix},
 		Artifacts: []Artifact{{
 			Type: "package-image", Component: Component{Kind: "bootstrap", Name: "kubeclipper", Version: "v2.0.0"},
-			Source: source, Target: "kubeclipper/packages/bootstrap/kubeclipper:v2.0.0",
+			Source: source, Target: "package-bootstrap-kubeclipper:v2.0.0",
 			Platforms: []string{"linux/amd64", "linux/arm64"}, Digest: indexDigest.String(), SourceRevision: "release-revision",
 		}, {
 			Type: "runtime-image", Component: Component{Kind: "k8s", Name: "k8s", Version: "v1.36.1"},
@@ -142,7 +142,7 @@ func TestSyncMultiArchAuthenticatedTarget(t *testing.T) { //nolint:gocyclo,funle
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			artifact := manifest.Artifacts[0]
-			artifact.Target = "kubeclipper/packages/bootstrap/kubeclipper:" + test.arch
+			artifact.Target = "package-bootstrap-kubeclipper:" + test.arch
 			runtimeAMD64 := manifest.Artifacts[1]
 			runtimeARM64 := manifest.Artifacts[2]
 			runtimeAMD64.Target = "pause:" + test.arch
@@ -182,7 +182,7 @@ func TestSyncMultiArchAuthenticatedTarget(t *testing.T) { //nolint:gocyclo,funle
 
 	conflictManifest := *manifest
 	conflictArtifact := manifest.Artifacts[0]
-	conflictArtifact.Target = "kubeclipper/packages/bootstrap/kubeclipper:conflict"
+	conflictArtifact.Target = "package-bootstrap-kubeclipper:conflict"
 	conflictManifest.Artifacts = []Artifact{conflictArtifact}
 	destinationOptions, optionErr := config.CraneOptions(t.Context())
 	if optionErr != nil {

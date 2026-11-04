@@ -17,7 +17,7 @@ Usage:
   publish-resource-containerd.sh [flags]
 
 Builds and publishes:
-  <registry-prefix>/kubeclipper/packages/cri/containerd:<version>
+  <registry-prefix>/package-containerd:<version>
 
 Flags:
   --registry-prefix <ref>  Package Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.

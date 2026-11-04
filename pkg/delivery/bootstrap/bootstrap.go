@@ -21,7 +21,6 @@ package bootstrap
 import (
 	"context"
 	"fmt"
-	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -152,7 +151,7 @@ func refreshBootstrapInventory(ctx context.Context, indexer bootstrapInventoryIn
 	repositories := make([]string, 0, len(assets))
 	seen := make(map[string]struct{}, len(assets))
 	for _, asset := range assets {
-		repository := path.Join(deliveryapis.PackageRepositoryPrefix, "bootstrap", asset.PackageName)
+		repository := deliveryapis.PackageRepository("bootstrap", asset.PackageName)
 		if _, dup := seen[repository]; dup {
 			continue
 		}

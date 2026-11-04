@@ -48,7 +48,7 @@ func TestResolveBootstrapBinaryFromStores(t *testing.T) {
 						ContentProfile: ContentProfileBinary,
 						Transport: TransportRef{
 							Type:   TransportOCI,
-							Ref:    "registry.local/kubeclipper/packages/bootstrap/kubeclipper:v1.7.0",
+							Ref:    "registry.local/package-bootstrap-kubeclipper:v1.7.0",
 							Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 						},
 						Contents: []ArtifactContent{
@@ -108,7 +108,7 @@ func TestResolveExtensionArtifactFromStores(t *testing.T) {
 						ContentProfile: ContentProfileExtension,
 						Transport: TransportRef{
 							Type:   TransportOCI,
-							Ref:    "registry.local/kubeclipper/packages/extension/kubectl-terminal:v1.0.0",
+							Ref:    "registry.local/package-kubectl-terminal:v1.0.0",
 							Digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222",
 						},
 						Contents: []ArtifactContent{{Name: ContentConfigs, File: "configs.tar.gz", MediaType: MediaTypeConfigsLayer}},

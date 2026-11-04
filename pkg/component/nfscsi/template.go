@@ -117,7 +117,7 @@ spec:
         - operator: "Exists"
       containers:
         - name: liveness-probe
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/livenessprobe:v2.7.0
+          image: {{runtimeImage "docker.io/caas4/livenessprobe" .ImageRepoMirror}}:v2.7.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -133,7 +133,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: node-driver-registrar
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/csi-node-driver-registrar:v2.5.1
+          image: {{runtimeImage "docker.io/caas4/csi-node-driver-registrar" .ImageRepoMirror}}:v2.5.1
           args:
             - --v=2
             - --csi-address=/csi/csi.sock
@@ -170,7 +170,7 @@ spec:
             capabilities:
               add: ["SYS_ADMIN"]
             allowPrivilegeEscalation: true
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/nfsplugin:v4.1.0
+          image: {{runtimeImage "docker.io/caas4/nfsplugin" .ImageRepoMirror}}:v4.1.0
           args:
             - "-v=5"
             - "--nodeid=$(NODE_ID)"
@@ -265,7 +265,7 @@ spec:
           effect: "NoSchedule"
       containers:
         - name: csi-provisioner
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/csi-provisioner:v3.2.0
+          image: {{runtimeImage "docker.io/caas4/csi-provisioner" .ImageRepoMirror}}:v3.2.0
           args:
             - "-v=2"
             - "--csi-address=$(ADDRESS)"
@@ -285,7 +285,7 @@ spec:
               cpu: 10m
               memory: 20Mi
         - name: liveness-probe
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/livenessprobe:v2.7.0
+          image: {{runtimeImage "docker.io/caas4/livenessprobe" .ImageRepoMirror}}:v2.7.0
           args:
             - --csi-address=/csi/csi.sock
             - --probe-timeout=3s
@@ -302,7 +302,7 @@ spec:
               memory: 20Mi
         #add attacher to support rwo
         - name: csi-attacher
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/csi-attacher:v3.2.1
+          image: {{runtimeImage "docker.io/caas4/csi-attacher" .ImageRepoMirror}}:v3.2.1
           args:
             - "--v=5"
             - "--csi-address=$(ADDRESS)"
@@ -316,7 +316,7 @@ spec:
             - name: socket-dir
               mountPath: /csi
         - name: nfs
-          image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/nfsplugin:v4.1.0
+          image: {{runtimeImage "docker.io/caas4/nfsplugin" .ImageRepoMirror}}:v4.1.0
           securityContext:
             privileged: true
             capabilities:

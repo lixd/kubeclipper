@@ -1755,7 +1755,7 @@ spec:
           value: memberlist
         - name: METALLB_DEPLOYMENT
           value: controller
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/metallb-controller:{{.Version}}
+        image: {{runtimeImage "docker.io/caas4/metallb-controller" .ImageRepoMirror}}:{{.Version}}
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -1864,7 +1864,7 @@ spec:
         env:
         - name: TINI_SUBREAPER
           value: "true"
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/frr:v7.5.1
+        image: {{runtimeImage "docker.io/caas4/frr" .ImageRepoMirror}}:v7.5.1
         name: frr
         securityContext:
           capabilities:
@@ -1880,7 +1880,7 @@ spec:
           name: frr-conf
       - command:
         - /etc/frr_reloader/frr-reloader.sh
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/frr:v7.5.1
+        image: {{runtimeImage "docker.io/caas4/frr" .ImageRepoMirror}}:v7.5.1
         name: reloader
         volumeMounts:
         - mountPath: /var/run/frr
@@ -1893,7 +1893,7 @@ spec:
         - --metrics-port=7473
         command:
         - /etc/frr_metrics/frr-metrics
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/frr:v7.5.1
+        image: {{runtimeImage "docker.io/caas4/frr" .ImageRepoMirror}}:v7.5.1
         name: frr-metrics
         ports:
         - containerPort: 7473
@@ -1937,7 +1937,7 @@ spec:
             secretKeyRef:
               key: secretkey
               name: memberlist
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/metallb-speaker:{{.Version}}
+        image: {{runtimeImage "docker.io/caas4/metallb-speaker" .ImageRepoMirror}}:{{.Version}}
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -1985,7 +1985,7 @@ spec:
         - /bin/sh
         - -c
         - cp -rLf /tmp/frr/* /etc/frr/
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/frr:v7.5.1
+        image: {{runtimeImage "docker.io/caas4/frr" .ImageRepoMirror}}:v7.5.1
         name: cp-frr-files
         securityContext:
           runAsGroup: 101
@@ -1999,7 +1999,7 @@ spec:
         - /bin/sh
         - -c
         - cp -f /frr-reloader.sh /etc/frr_reloader/
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/metallb-speaker:{{.Version}}
+        image: {{runtimeImage "docker.io/caas4/metallb-speaker" .ImageRepoMirror}}:{{.Version}}
         name: cp-reloader
         volumeMounts:
         - mountPath: /etc/frr_reloader
@@ -2008,7 +2008,7 @@ spec:
         - /bin/sh
         - -c
         - cp -f /frr-metrics /etc/frr_metrics/
-        image: {{with .ImageRepoMirror}}{{.}}/{{end}}caas4/metallb-speaker:{{.Version}}
+        image: {{runtimeImage "docker.io/caas4/metallb-speaker" .ImageRepoMirror}}:{{.Version}}
         name: cp-metrics
         volumeMounts:
         - mountPath: /etc/frr_metrics

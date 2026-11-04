@@ -205,7 +205,7 @@ func validatePublishContents(profile string, contents []deliveryapis.ArtifactCon
 		ContentProfile: profile,
 		Transport: deliveryapis.TransportRef{
 			Type:   deliveryapis.TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/validation/validation:v0.0.0",
+			Ref:    "registry.local/package-validation:v0.0.0",
 			Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 		},
 		Contents: contents,
@@ -690,7 +690,7 @@ func inspectPackageContents(root, name, version, arch, profile string) ([]payloa
 }
 
 func repositoryRef(registry, kind, name, version string) string {
-	return fmt.Sprintf("%s/%s/%s/%s:%s", strings.TrimRight(registry, "/"), deliveryapis.PackageRepositoryPrefix, kind, name, version)
+	return fmt.Sprintf("%s/%s:%s", strings.TrimRight(registry, "/"), deliveryapis.PackageRepository(kind, name), version)
 }
 
 func expectedPayloadContents(profile string) []string {

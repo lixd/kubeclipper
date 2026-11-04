@@ -25,6 +25,8 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
 type AdvancedTemplate struct {
@@ -41,7 +43,11 @@ func funcMap() template.FuncMap {
 	f := sprig.TxtFuncMap()
 
 	// add extra functionality
-	extra := template.FuncMap{}
+	extra := template.FuncMap{
+		"runtimeImage": deliveryregistry.RuntimeImageRepository,
+		"registryHost": func(registry string) string { host, _ := deliveryregistry.SplitPrefix(registry); return host },
+		"registryPath": func(registry string) string { _, prefix := deliveryregistry.SplitPrefix(registry); return prefix },
+	}
 
 	for k, v := range extra {
 		f[k] = v

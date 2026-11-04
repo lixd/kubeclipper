@@ -31,8 +31,8 @@ registries:
 artifacts:
 - type: package-image
   component: {kind: bootstrap, name: kubeclipper, version: v2.0.0}
-  source: ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0
-  target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.0
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-kubeclipper:v2.0.0
+  target: package-bootstrap-kubeclipper:v2.0.0
   platforms: [linux/amd64, linux/arm64]
   digest: %s
   sourceRevision: abc123
@@ -57,8 +57,8 @@ func TestParseRejectsUnsafeAndUnknownValues(t *testing.T) {
 	}{
 		"unknown field":       {"  sourceRevision: abc123\n", "  sourceRevision: abc123\n  unexpected: true\n", "unknown field"},
 		"development version": {"  version: v2.0.0", "  version: v2.0.0-dirty", "stable"},
-		"foreign source":      {"ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages", "docker.io/example/packages", "must be under"},
-		"parent target":       {"  target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.0", "  target: ../kubeclipper:v2.0.0", "clean relative"},
+		"foreign source":      {"  source: ghcr.io/kubeclipper/kubeclipper/", "  source: docker.io/example/", "must be under"},
+		"parent target":       {"  target: package-bootstrap-kubeclipper:v2.0.0", "  target: ../kubeclipper:v2.0.0", "clean relative"},
 		"bad digest":          {testDigest, "sha256:nope", "digest is invalid"},
 		"revision mismatch":   {"  sourceRevision: abc123\nregistries:", "  sourceRevision: other\nregistries:", "does not match"},
 	}

@@ -20,13 +20,12 @@ package apis
 
 import (
 	"fmt"
-	"path"
 	"sort"
 	"strings"
 )
 
 const (
-	PackageRepositoryPrefix = "kubeclipper/packages"
+	PackageRepositoryPrefix = "package-"
 	ChartRepositoryPrefix   = "kubeclipper/charts"
 )
 
@@ -77,18 +76,18 @@ type PackageRef struct {
 	Digest     string
 }
 
-func ParsePackageRepository(repository string) (kind, name string, ok bool) {
-	repository = strings.Trim(repository, "/")
-	prefix := PackageRepositoryPrefix + "/"
-	if !strings.HasPrefix(repository, prefix) {
-		return "", "", false
+// PackageRepository returns the flat repository used by all package producers and consumers.
+func PackageRepository(kind, name string) string {
+	if kind == "bootstrap" {
+		return PackageRepositoryPrefix + "bootstrap-" + name
 	}
-	rest := strings.TrimPrefix(repository, prefix)
-	parts := strings.Split(rest, "/")
-	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
-		return "", "", false
-	}
-	return parts[0], parts[1], true
+	return PackageRepositoryPrefix + name
+}
+
+func IsPackageRepository(repository string) bool {
+	suffix, ok := strings.CutPrefix(repository, PackageRepositoryPrefix)
+	return ok && suffix != "" && !strings.Contains(suffix, "/") &&
+		suffix != "bootstrap-" && !strings.HasPrefix(suffix, "-")
 }
 
 func ResolveHelmChartComponent(repository string) (HelmChartComponent, bool) {
@@ -114,7 +113,7 @@ func ResolveHelmChartComponent(repository string) (HelmChartComponent, bool) {
 // registry-wide catalog permission for normal cluster operations.
 func SupportPolicyRepositories(policy *SupportPolicy) []string {
 	repositories := map[string]struct{}{
-		path.Join(PackageRepositoryPrefix, "k8s", "k8s"): {},
+		PackageRepository("k8s", "k8s"): {},
 	}
 	if policy == nil {
 		return sortedRepositoryKeys(repositories)
@@ -125,7 +124,7 @@ func SupportPolicyRepositories(policy *SupportPolicy) []string {
 				if option.Kind == "" || option.Name == "" {
 					continue
 				}
-				repositories[path.Join(PackageRepositoryPrefix, option.Kind, option.Name)] = struct{}{}
+				repositories[PackageRepository(option.Kind, option.Name)] = struct{}{}
 			}
 		}
 	}
@@ -209,14 +208,14 @@ func DerivePackageEntryFromManifest(ref PackageRef, manifest PackageManifest) (P
 	if !digestRegexp.MatchString(ref.Digest) {
 		return PackageEntry{}, fmt.Errorf("digest must be sha256:<64 hex>")
 	}
-	kind, name, ok := ParsePackageRepository(ref.Repository)
-	if !ok {
-		return PackageEntry{}, fmt.Errorf("repository %q is not under %s/{kind}/{name}", ref.Repository, PackageRepositoryPrefix)
+	kind, name := manifest.Kind, manifest.Name
+	if !IsPackageRepository(ref.Repository) || ref.Repository != PackageRepository(kind, name) {
+		return PackageEntry{}, fmt.Errorf("manifest identity %s/%s does not match package repository %q", kind, name, ref.Repository)
 	}
 	if manifest.SchemaVersion != 1 {
 		return PackageEntry{}, fmt.Errorf("unsupported package manifest schemaVersion %d", manifest.SchemaVersion)
 	}
-	if manifest.Kind != kind || manifest.Name != name || manifest.Version != ref.Tag {
+	if manifest.Version != ref.Tag {
 		return PackageEntry{}, fmt.Errorf("manifest identity %s/%s:%s does not match repository %s/%s:%s", manifest.Kind, manifest.Name, manifest.Version, kind, name, ref.Tag)
 	}
 	profile := manifest.ContentProfile

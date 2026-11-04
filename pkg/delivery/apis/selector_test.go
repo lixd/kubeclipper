@@ -111,7 +111,7 @@ func selectorPackage(kind, name, version, arch, profile string) PackageEntry {
 		ContentProfile: profile,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/" + kind + "/" + name + ":" + version,
+			Ref:    "registry.local/" + PackageRepository(kind, name) + ":" + version,
 			Digest: testDigest,
 		},
 		Contents: ContentsForProfile(profile),

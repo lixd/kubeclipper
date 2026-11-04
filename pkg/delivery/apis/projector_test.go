@@ -121,7 +121,7 @@ func TestProjectComponentMetaIgnoresInventoryPresentationFields(t *testing.T) {
 			ContentProfile: ContentProfileK8s,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/k8s/k8s:v1.36.0",
+				Ref:    "registry.local/package-k8s:v1.36.0",
 				Digest: testDigest,
 			},
 			Contents: ContentsForProfile(ContentProfileK8s),
@@ -134,7 +134,7 @@ func TestProjectComponentMetaIgnoresInventoryPresentationFields(t *testing.T) {
 			ContentProfile: ContentProfileRuntime,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local/package-containerd:2.1.0",
 				Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 			},
 			Contents: ContentsForProfile(ContentProfileRuntime),
@@ -147,7 +147,7 @@ func TestProjectComponentMetaIgnoresInventoryPresentationFields(t *testing.T) {
 			ContentProfile: ContentProfileAddon,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/cni/calico:v3.30.0",
+				Ref:    "registry.local/package-calico:v3.30.0",
 				Digest: testDigest,
 			},
 			Contents: ContentsForProfile(ContentProfileAddon),
@@ -313,7 +313,7 @@ func projectorCatalog() *PackageInventory {
 			ContentProfile: ContentProfileAddon,
 			Transport: TransportRef{
 				Type:   TransportOCI,
-				Ref:    "registry.local/kubeclipper/packages/csi/nfs:v4.1.0",
+				Ref:    "registry.local/package-nfs:v4.1.0",
 				Digest: testDigest,
 			},
 			Contents: ContentsForProfile(ContentProfileAddon),
@@ -331,7 +331,7 @@ func projectorPackage(name, kind, version, arch, profile string) PackageEntry {
 		ContentProfile: profile,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/kubeclipper/packages/" + kind + "/" + name + ":" + version,
+			Ref:    "registry.local/" + PackageRepository(kind, name) + ":" + version,
 			Digest: testDigest,
 		},
 		Contents: ContentsForProfile(profile),

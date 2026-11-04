@@ -116,7 +116,7 @@ func TestConfigWriteLoadAndResolveReference(t *testing.T) {
 		t.Fatalf("Load() password = %q, want secret", loaded.Password)
 	}
 	t.Setenv(ConfigPathEnv, path)
-	resolved, err := ResolveReference("harbor.example.com/kubeclipper/packages/k8s/k8s@sha256:deadbeef")
+	resolved, err := ResolveReference("harbor.example.com/kubeclipper/package-k8s@sha256:deadbeef")
 	if err != nil {
 		t.Fatalf("ResolveReference() error = %v", err)
 	}
@@ -139,10 +139,10 @@ func TestConfigRejectsDifferentRegistryAndReference(t *testing.T) {
 	if err := config.ValidateRegistry("harbor.example.com/team-b"); err == nil {
 		t.Fatal("ValidateRegistry() mismatch error = nil")
 	}
-	if err := config.ValidateReference("harbor.example.com/team-b/kubeclipper/packages/cri/containerd:2.2.4"); err == nil {
+	if err := config.ValidateReference("harbor.example.com/team-b/package-containerd:2.2.4"); err == nil {
 		t.Fatal("ValidateReference() mismatch error = nil")
 	}
-	if err := config.ValidateReference("harbor.example.com/team-a/kubeclipper/packages/cri/containerd:2.2.4"); err != nil {
+	if err := config.ValidateReference("harbor.example.com/team-a/package-containerd:2.2.4"); err != nil {
 		t.Fatalf("ValidateReference() matching reference error = %v", err)
 	}
 }

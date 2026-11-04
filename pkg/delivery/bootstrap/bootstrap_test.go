@@ -65,10 +65,10 @@ func TestRefreshBootstrapInventoryFallsBackWhenCatalogDenied(t *testing.T) {
 		t.Fatal("the fallback inventory was not used")
 	}
 	want := []string{
-		"kubeclipper/packages/bootstrap/kubeclipper",
-		"kubeclipper/packages/bootstrap/etcd",
-		"kubeclipper/packages/bootstrap/console",
-		"kubeclipper/packages/bootstrap/registry",
+		"package-bootstrap-kubeclipper",
+		"package-bootstrap-etcd",
+		"package-bootstrap-console",
+		"package-bootstrap-registry",
 	}
 	if len(fake.fallbackRepos) != len(want) {
 		t.Fatalf("fallback repositories = %v, want %v", fake.fallbackRepos, want)

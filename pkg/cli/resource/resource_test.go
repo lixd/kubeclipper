@@ -83,7 +83,7 @@ func TestResourceListFromRegistry(t *testing.T) {
 							Arch:    "amd64",
 							Transport: deliveryapis.TransportRef{
 								Type:   deliveryapis.TransportOCI,
-								Ref:    "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+								Ref:    "registry.local:5000/package-containerd:2.1.0",
 								Digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111",
 							},
 							Contents: []deliveryapis.ArtifactContent{
@@ -116,7 +116,7 @@ func TestResourceListFromRegistryRefreshesWhenRequested(t *testing.T) {
 					Arch:    "amd64",
 					Transport: deliveryapis.TransportRef{
 						Type: deliveryapis.TransportOCI,
-						Ref:  "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+						Ref:  "registry.local:5000/package-containerd:2.1.0",
 					},
 				}},
 			},
@@ -159,7 +159,7 @@ func TestResourceInspect(t *testing.T) {
 							Arch:    "amd64",
 							Transport: deliveryapis.TransportRef{
 								Type:   deliveryapis.TransportOCI,
-								Ref:    "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+								Ref:    "registry.local:5000/package-containerd:2.1.0",
 								Digest: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 							},
 							Contents: []deliveryapis.ArtifactContent{
@@ -206,7 +206,7 @@ func TestResourceRefreshFromRegistry(t *testing.T) {
 					Arch:    "amd64",
 					Transport: deliveryapis.TransportRef{
 						Type:   deliveryapis.TransportOCI,
-						Ref:    "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+						Ref:    "registry.local:5000/package-containerd:2.1.0",
 						Digest: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
 					},
 					Contents: []deliveryapis.ArtifactContent{
@@ -273,7 +273,7 @@ func TestResourceListUsesRegistryInventory(t *testing.T) {
 							Arch:    "amd64",
 							Transport: deliveryapis.TransportRef{
 								Type:   deliveryapis.TransportOCI,
-								Ref:    "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+								Ref:    "registry.local:5000/package-containerd:2.1.0",
 								Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 							},
 							Contents: []deliveryapis.ArtifactContent{
@@ -288,7 +288,7 @@ func TestResourceListUsesRegistryInventory(t *testing.T) {
 							Arch:    "arm64",
 							Transport: deliveryapis.TransportRef{
 								Type:   deliveryapis.TransportOCI,
-								Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.30.0",
+								Ref:    "registry.local:5000/package-calico:v3.30.0",
 								Digest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
 							},
 							Contents: []deliveryapis.ArtifactContent{
@@ -330,7 +330,7 @@ func TestResourceListFiltersRegistryResults(t *testing.T) {
 							Arch:    "amd64",
 							Transport: deliveryapis.TransportRef{
 								Type:   deliveryapis.TransportOCI,
-								Ref:    "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+								Ref:    "registry.local:5000/package-containerd:2.1.0",
 								Digest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
 							},
 							Contents: []deliveryapis.ArtifactContent{
@@ -345,7 +345,7 @@ func TestResourceListFiltersRegistryResults(t *testing.T) {
 							Arch:    "amd64",
 							Transport: deliveryapis.TransportRef{
 								Type:   deliveryapis.TransportOCI,
-								Ref:    "registry.local:5000/kubeclipper/packages/cni/calico:v3.30.0",
+								Ref:    "registry.local:5000/package-calico:v3.30.0",
 								Digest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
 							},
 							Contents: []deliveryapis.ArtifactContent{
@@ -388,7 +388,7 @@ func TestComponentMetasFromInventoryKeepsOCIPackageDespiteDeletedState(t *testin
 			Arch:    "amd64",
 			Transport: deliveryapis.TransportRef{
 				Type:   deliveryapis.TransportOCI,
-				Ref:    "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0",
+				Ref:    "registry.local:5000/package-containerd:2.1.0",
 				Digest: "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
 			},
 			Contents: []deliveryapis.ArtifactContent{

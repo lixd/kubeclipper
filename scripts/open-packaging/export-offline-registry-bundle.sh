@@ -162,7 +162,7 @@ if len(manifests) != 1 or not manifests[0].get("digest"):
 print(manifests[0]["digest"])
 PY
 )"
-    if [[ "$type" == "package-image" && "$target" == kubeclipper/packages/bootstrap/registry:* ]]; then
+    if [[ "$type" == "package-image" && "$target" == package-bootstrap-registry:* ]]; then
       mkdir -p "$(dirname "$registry_bootstrap_archive")"
       bootstrap_args=(copy)
       [[ "$insecure_source" == false ]] || bootstrap_args+=(--src-tls-verify=false)

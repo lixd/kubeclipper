@@ -40,36 +40,36 @@ registries:
 artifacts:
 - type: package-image
   component: {kind: bootstrap, name: kubeclipper, version: v2.0.0}
-  source: ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/kubeclipper:v2.0.0
-  target: kubeclipper/packages/bootstrap/kubeclipper:v2.0.0
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-kubeclipper:v2.0.0
+  target: package-bootstrap-kubeclipper:v2.0.0
   sourceRevision: 72589807386d3a8919e26e68782a02d717d17f4c
   digest: sha256:ca1f23cd9cfc48c0d594431d1b570148cd6a0178985c7050f1fb7cd980a946da
   platforms: ["linux/amd64"]
 - type: package-image
   component: {kind: bootstrap, name: etcd, version: 3.5.21}
-  source: ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/etcd:3.5.21
-  target: kubeclipper/packages/bootstrap/etcd:3.5.21
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-etcd:3.5.21
+  target: package-bootstrap-etcd:3.5.21
   sourceRevision: 72589807386d3a8919e26e68782a02d717d17f4c
   digest: sha256:ca1f23cd9cfc48c0d594431d1b570148cd6a0178985c7050f1fb7cd980a946db
   platforms: ["linux/amd64"]
 - type: package-image
   component: {kind: bootstrap, name: console, version: v1.6.0}
-  source: ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/console:v1.6.0
-  target: kubeclipper/packages/bootstrap/console:v1.6.0
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-console:v1.6.0
+  target: package-bootstrap-console:v1.6.0
   sourceRevision: 72589807386d3a8919e26e68782a02d717d17f4c
   digest: sha256:ca1f23cd9cfc48c0d594431d1b570148cd6a0178985c7050f1fb7cd980a946dc
   platforms: ["linux/amd64"]
 - type: package-image
   component: {kind: bootstrap, name: registry, version: 3.1.1}
-  source: ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/bootstrap/registry:3.1.1
-  target: kubeclipper/packages/bootstrap/registry:3.1.1
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-registry:3.1.1
+  target: package-bootstrap-registry:3.1.1
   sourceRevision: 72589807386d3a8919e26e68782a02d717d17f4c
   digest: sha256:ca1f23cd9cfc48c0d594431d1b570148cd6a0178985c7050f1fb7cd980a946dd
   platforms: ["linux/amd64"]
 - type: package-image
   component: {kind: k8s, name: k8s, version: v1.37.0}
-  source: ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0
-  target: kubeclipper/packages/k8s/k8s:v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0
+  target: package-k8s:v1.37.0
   sourceRevision: 72589807386d3a8919e26e68782a02d717d17f4c
   digest: sha256:e2ab0e717011d1a2906cec37da949756b368904e4c30a49cf2e2f5704d466468
   platforms: ["linux/amd64"]
@@ -117,8 +117,8 @@ func TestSyncDryRunPlan(t *testing.T) {
 	}
 	got := out.String()
 	for _, want := range []string{
-		"would copy ghcr.io/kubeclipper/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0",
-		"-> harbor.local/kubeclipper/kubeclipper/packages/k8s/k8s:v1.37.0",
+		"would copy ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0",
+		"-> harbor.local/kubeclipper/package-k8s:v1.37.0",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("dry-run output %q missing %q", got, want)

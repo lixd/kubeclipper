@@ -49,7 +49,7 @@ import (
 
 func TestRepositoryRef(t *testing.T) {
 	got := repositoryRef("registry.local:5000/", "cri", "containerd", "2.1.0")
-	want := "registry.local:5000/kubeclipper/packages/cri/containerd:2.1.0"
+	want := "registry.local:5000/package-containerd:2.1.0"
 	if got != want {
 		t.Fatalf("repositoryRef() = %q, want %q", got, want)
 	}
@@ -194,7 +194,7 @@ func TestPushPackageIndexStableTagIsIdempotentAndRejectsConflict(t *testing.T) {
 	defer server.Close()
 	registry := strings.TrimPrefix(server.URL, "http://")
 	config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
-	target := registry + "/kubeclipper/packages/cri/containerd:2.2.4"
+	target := registry + "/package-containerd:2.2.4"
 	firstImage := testPackageImage(t, "first")
 	firstDigest, err := firstImage.Digest()
 	if err != nil {
@@ -243,7 +243,7 @@ func TestPushPackageIndexConcurrentArchitectures(t *testing.T) {
 	defer server.Close()
 	registry := strings.TrimPrefix(server.URL, "http://")
 	config := &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}
-	target := registry + "/kubeclipper/packages/k8s/k8s:v1.36.1"
+	target := registry + "/package-k8s:v1.36.1"
 	images := map[string]v1.Image{
 		"amd64": testPackageImage(t, "amd64"),
 		"arm64": testPackageImage(t, "arm64"),
@@ -307,7 +307,7 @@ func TestPushPackageIndexAuthenticatedTLSMergesArchitectures(t *testing.T) {
 		Password: "token",
 		CA:       testServerCertificatePEM(t, server),
 	}
-	target := registry + "/kubeclipper/packages/cri/containerd:2.2.4"
+	target := registry + "/package-containerd:2.2.4"
 	for _, arch := range []string{"amd64", "arm64"} {
 		if err := pushPackageIndex(t.Context(), target, empty.Image, arch, config); err != nil {
 			t.Fatalf("pushPackageIndex(%s) error = %v", arch, err)
@@ -817,7 +817,7 @@ func TestPublishBootstrapRequiresSourceRevision(t *testing.T) {
 				Digest: "sha256:" + strings.Repeat("a", 64),
 				Transport: deliveryapis.TransportRef{
 					Type:   deliveryapis.TransportOCI,
-					Ref:    registry + "/kubeclipper/packages/binary/kubeclipper-server:v2.0.3-rc.9",
+					Ref:    registry + "/package-kubeclipper-server:v2.0.3-rc.9",
 					Digest: "sha256:" + strings.Repeat("a", 64),
 				},
 			}},

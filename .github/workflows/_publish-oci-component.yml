@@ -263,14 +263,14 @@ jobs:
           set -euo pipefail
           ref=""
           case "$COMPONENT" in
-            bootstrap-kubeclipper) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/kubeclipper:$VERSION" ;;
-            bootstrap-etcd) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/etcd:$VERSION" ;;
-            bootstrap-console) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/console:$VERSION" ;;
-            bootstrap-registry) ref="$REGISTRY_PREFIX/kubeclipper/packages/bootstrap/registry:$VERSION" ;;
-            resource-k8s) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s/k8s:$VERSION" ;;
-            resource-containerd) ref="$REGISTRY_PREFIX/kubeclipper/packages/cri/containerd:$VERSION" ;;
-            resource-k8s-extension) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s-extension/k8s-extension:$VERSION" ;;
-            resource-calico) ref="$REGISTRY_PREFIX/kubeclipper/packages/cni/calico:$VERSION" ;;
+            bootstrap-kubeclipper) ref="$REGISTRY_PREFIX/package-bootstrap-kubeclipper:$VERSION" ;;
+            bootstrap-etcd) ref="$REGISTRY_PREFIX/package-bootstrap-etcd:$VERSION" ;;
+            bootstrap-console) ref="$REGISTRY_PREFIX/package-bootstrap-console:$VERSION" ;;
+            bootstrap-registry) ref="$REGISTRY_PREFIX/package-bootstrap-registry:$VERSION" ;;
+            resource-k8s) ref="$REGISTRY_PREFIX/package-k8s:$VERSION" ;;
+            resource-containerd) ref="$REGISTRY_PREFIX/package-containerd:$VERSION" ;;
+            resource-k8s-extension) ref="$REGISTRY_PREFIX/package-k8s-extension:$VERSION" ;;
+            resource-calico) ref="$REGISTRY_PREFIX/package-calico:$VERSION" ;;
           esac
           if [[ -n "$ref" ]]; then
             for arch in $ARCHITECTURES; do

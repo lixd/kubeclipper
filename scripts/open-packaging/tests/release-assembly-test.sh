@@ -71,7 +71,7 @@ digest)
   ;;
 config)
   revision=dependency-revision
-  if [[ " $* " == *"/bootstrap/kubeclipper@"* ]]; then
+  if [[ " $* " == *"/package-bootstrap-kubeclipper@"* ]]; then
     revision=release-revision
   fi
   printf '{"config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}\n' "$revision"

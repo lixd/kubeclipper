@@ -26,17 +26,17 @@ Everything lives under one repository prefix, `kubeclipper/packages/`, keyed by
 a *slot* (what the artifact is) and a *name/version* pair:
 
 ```text
-<registry>/kubeclipper/packages/bootstrap/kubeclipper:<release>   kc-server/kcctl binaries
-<registry>/kubeclipper/packages/bootstrap/etcd:<ver>
-<registry>/kubeclipper/packages/bootstrap/registry:<ver>
-<registry>/kubeclipper/packages/bootstrap/console:<release>
-<registry>/kubeclipper/packages/k8s/k8s:v1.37.0                   kubeadm/kubelet/kubectl bundle
-<registry>/kubeclipper/packages/cri/containerd:<ver>
-<registry>/kubeclipper/packages/cni/calico:<ver>
-<registry>/kubeclipper/packages/k8s-extension/k8s-extension:v1    kubectl etc. (a cluster component)
-<registry>/kubeclipper/packages/csi/nfs:<ver>                     addon resource packages (csi/app kinds)
-<registry>/kubeclipper/packages/app/metallb:<ver>
-<registry>/kubeclipper/packages/extension/kubectl-terminal:<ver>  standalone extensions
+<registry>/package-bootstrap-kubeclipper:<release>   kc-server/kcctl binaries
+<registry>/package-bootstrap-etcd:<ver>
+<registry>/package-bootstrap-registry:<ver>
+<registry>/package-bootstrap-console:<release>
+<registry>/package-k8s:v1.37.0                   kubeadm/kubelet/kubectl bundle
+<registry>/package-containerd:<ver>
+<registry>/package-calico:<ver>
+<registry>/package-k8s-extension:v1    kubectl etc. (a cluster component)
+<registry>/package-nfs:<ver>                     addon resource packages (csi/app kinds)
+<registry>/package-metallb:<ver>
+<registry>/package-kubectl-terminal:<ver>  standalone extensions
 ```
 
 Runtime images (the `nfs` v4.1.0 / `metallb` v0.13.7 / k8s pause image sets,
@@ -98,7 +98,7 @@ Key properties:
 - `--package-registry` defaults to `ghcr.io/kubeclipper/kubeclipper`; the
   effective value and its source (flag / deploy config / built-in default) are
   logged.
-- A loud **precheck** verifies `<registry>/kubeclipper/packages/bootstrap/kubeclipper`
+- A loud **precheck** verifies `<registry>/package-bootstrap-kubeclipper`
   is reachable and lists tags before any remote mutation; on failure it tells
   you to mirror the release with `kcctl registry sync`.
 - Deploy uploads bootstrap materials to targets from the registry (no static
@@ -145,7 +145,7 @@ cache short-circuits the fetch (works fully offline).
 ### 4.3 Addons
 
 Charts are stored as `charts.tgz` inside standard component package images
-(for example, `<registry>/kubeclipper/packages/cni/calico:<ver>`). Agents verify
+(for example, `<registry>/package-calico:<ver>`). Agents verify
 and extract the package, then install the original archive with Helm. Runtime
 images remain separate and are pinned via runtime image sets. Native Helm OCI
 media types are not required. Registry repository naming restrictions, such as
@@ -238,4 +238,14 @@ Three supported shapes, from lightest to heaviest:
 | deploy precheck fails with `NAME_UNKNOWN` | release not published/synced for that registry | run `kcctl registry sync` or point `--package-registry` at the mirrored registry |
 | resolver "no artifact found for slot X" | tag missing from SupportPolicy/inventory | check ConfigMap `kubeclipper-delivery-policy` and `crane ls <repo>` |
 | agent task fails with digest mismatch | cache corruption or proxy rewriting | clear the node artifact cache; the fetcher never falls back to tag re-resolution by design |
-| re-deploy says "registry precheck: request timed out" | network to registry flapping | verify with `crane ls <registry>/kubeclipper/packages/bootstrap/kubeclipper` |
+| re-deploy says "registry precheck: request timed out" | network to registry flapping | verify with `crane ls <registry>/package-bootstrap-kubeclipper` |
+
+Package repositories use one flat name: `package-bootstrap-<name>` for platform
+bootstrap assets and `package-<name>` for component packages, including charts.
+For a namespace-scoped Registry such as
+`registry.cn-hangzhou.aliyuncs.com/kubeclipper-release`, runtime repositories are
+also flat (`calico-node`, `nfs-plugin`, `metallb-controller`, etc.). The publisher
+and agent templates share the aliases in
+`pkg/delivery/registry/image_repositories.json`. Registries configured without a
+namespace retain upstream runtime image paths; CoreDNS keeps its kubeadm name
+`coredns`. Package kind and platform are verified from the package manifest.

@@ -15,7 +15,7 @@ Usage:
   publish-bootstrap-registry.sh [flags]
 
 Publishes:
-  <registry-prefix>/kubeclipper/packages/bootstrap/registry:<version>
+  <registry-prefix>/package-bootstrap-registry:<version>
 
 Contents:
   registry

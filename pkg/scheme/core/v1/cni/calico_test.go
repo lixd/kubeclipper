@@ -306,6 +306,29 @@ func TestCalicoPreservesRepositoryPrefix(t *testing.T) {
 	}
 }
 
+func TestCalicoScopedMirrorUsesFlatRepositories(t *testing.T) {
+	for _, version := range []string{"v3.29.6", "v3.31.5"} {
+		t.Run(version, func(t *testing.T) {
+			repo := "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release"
+			r := CalicoRunnable{BaseCni: BaseCni{ResolvedImageRegistry: repo, CNI: v1.CNI{
+				ImageRegistry: repo, Version: version, Calico: defaultCalico(nil),
+			}}}
+			var out bytes.Buffer
+			if err := r.renderCalicoTo(&out); err != nil {
+				t.Fatal(err)
+			}
+			for _, field := range []string{"registry: registry.cn-hangzhou.aliyuncs.com/", "imagePath: kubeclipper-release", "imagePrefix: calico-", "image: tigera-operator"} {
+				if !strings.Contains(out.String(), field) {
+					t.Fatalf("missing %q in Calico values", field)
+				}
+			}
+			if strings.Contains(out.String(), "image: tigera/operator") {
+				t.Fatal("operator still uses a nested repository")
+			}
+		})
+	}
+}
+
 func TestCalicoUninstallSchedulesCleanupOnEveryNode(t *testing.T) {
 	runnable := &CalicoRunnable{BaseCni: BaseCni{CNI: v1.CNI{Type: "calico", Version: "v3.31.5", Calico: defaultCalico(nil)}}}
 	nodes := []v1.StepNode{{ID: "master"}, {ID: "worker"}}

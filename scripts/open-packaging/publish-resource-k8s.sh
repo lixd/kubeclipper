@@ -21,7 +21,7 @@ Usage:
   publish-resource-k8s.sh [flags]
 
 Builds and publishes:
-  <registry-prefix>/kubeclipper/packages/k8s/k8s:<version>
+  <registry-prefix>/package-k8s:<version>
   Kubernetes runtime images listed by kubeadm.
 
 Flags:

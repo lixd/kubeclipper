@@ -112,18 +112,7 @@ component_filter() {
 }
 
 target_image() {
-  local source=$1
-  local path="$source"
-  local first="${path%%/*}"
-  if [[ "$first" == *.* || "$first" == *:* || "$first" == "localhost" ]]; then
-    path="${path#*/}"
-  fi
-  case "$source" in
-  registry.k8s.io/coredns/coredns:*)
-    path="coredns:${source##*:}"
-    ;;
-  esac
-  echo "$image_registry/$path"
+  python3 "$(dirname "${BASH_SOURCE[0]}")/image_repository.py" "$1" "$image_registry"
 }
 
 seen_targets="$(mktemp -t kc-runtime-images.XXXXXX)"

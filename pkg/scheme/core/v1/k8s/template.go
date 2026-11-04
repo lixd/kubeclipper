@@ -235,7 +235,7 @@ spec:
     command:
     - /usr/bin/lvscare
     #image: fanux/lvscare:v1.1.1
-    image: {{with .ImageRegistry}}{{.}}/{{end}}fanux/lvscare:v1.1.1
+    image: {{runtimeImage "docker.io/fanux/lvscare" .ImageRegistry}}:v1.1.1
     imagePullPolicy: IfNotPresent
     name: kube-lvscare
     resources: {}
@@ -299,7 +299,7 @@ spec:
                 - ""
       serviceAccountName: kc-kubectl
       containers:
-        - image: {{with .ImageRegistryAddr}}{{.}}/{{end}}kubeclipper/kubectl
+        - image: {{runtimeImage "docker.io/kubeclipper/kubectl" .ImageRegistryAddr}}
           imagePullPolicy: IfNotPresent
           name: kc-kubectl
           resources:

@@ -81,7 +81,7 @@ fi
 output="${output:-$resource_dir/release-manifest.yaml}"
 mkdir -p "$(dirname "$output")"
 
-python3 - "$build_manifest" "$resource_dir" "$output" "$package_registry" "$image_registry" "$resolve_digests" "$insecure" "$include_bootstrap" "$arch_override" "$source_revision" <<'PY'
+python3 - "$build_manifest" "$resource_dir" "$output" "$package_registry" "$image_registry" "$resolve_digests" "$insecure" "$include_bootstrap" "$arch_override" "$source_revision" "$ROOT/scripts/open-packaging" <<'PY'
 import json
 import os
 import subprocess
@@ -92,7 +92,9 @@ try:
 except ImportError:
     raise SystemExit("PyYAML is required; install python3-yaml or pyyaml")
 
-build_manifest, resource_dir, output, package_override, image_override, resolve_raw, insecure_raw, include_bootstrap_raw, arch_override, source_revision = sys.argv[1:]
+build_manifest, resource_dir, output, package_override, image_override, resolve_raw, insecure_raw, include_bootstrap_raw, arch_override, source_revision, packaging_dir = sys.argv[1:]
+sys.path.insert(0, packaging_dir)
+from image_repository import target_image
 resolve_digests = resolve_raw == "true"
 insecure = insecure_raw == "true"
 include_bootstrap = include_bootstrap_raw == "true"
@@ -166,7 +168,7 @@ for component in sorted(os.listdir(resource_dir)):
                               for filename in ("configs.tar.gz", "charts.tgz"))
             if has_payload and component in package_map:
                 component_kind, name = package_map[component]
-                ref = f"{package_registry}/kubeclipper/packages/{component_kind}/{name}:{version}"
+                ref = f"{package_registry}/package-{name}:{version}"
                 package_groups.setdefault((component_kind, name, version, ref), []).append(platform)
 
 for (component_kind, name, version, ref), platforms in sorted(package_groups.items()):
@@ -195,8 +197,7 @@ with open(images_lock, "r", encoding="utf-8") as stream:
         if published and published.startswith(image_registry + "/"):
             target = published[len(image_registry) + 1:]
         else:
-            path = upstream.split("/", 1)[-1]
-            target = path
+            target = target_image(upstream, image_registry)[len(image_registry) + 1:]
         component_kind = {
             "k8s": "k8s",
             "calico": "cni",
@@ -236,7 +237,7 @@ if include_bootstrap:
     for name, version in bootstrap_refs:
         if not version:
             raise SystemExit(f"bootstrap.{name} version is required")
-        ref = f"{package_registry}/kubeclipper/packages/bootstrap/{name}:{version}"
+        ref = f"{package_registry}/package-bootstrap-{name}:{version}"
         add_artifact("package-image", "bootstrap", name, version, ref, ref[len(package_registry) + 1:], architectures)
 
 artifacts.sort(key=lambda item: (

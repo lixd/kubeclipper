@@ -43,7 +43,7 @@ const (
   OCI resource operation.
 
   Currently, you can list and inspect installation resource packages discovered from OCI Registry.
-  Uploading and deleting packages are native Registry operations; KubeClipper derives inventory by scanning kubeclipper/packages/.`
+  Uploading and deleting packages are native Registry operations; KubeClipper derives inventory by scanning package-*.`
 	resourceExample = `
   # List installation resource packages
   kcctl resource list --registry registry.local:5000
@@ -273,7 +273,7 @@ func (o *ResourceOptions) ValidateArgsRefresh(cmd *cobra.Command) error {
 }
 
 func (o *ResourceOptions) ResourcePkgRules() error {
-	logger.Info(">>> installation resources are discovered from OCI Registry under kubeclipper/packages/")
+	logger.Info(">>> installation resources are discovered from OCI Registry under package-*")
 	logger.Info(">>> use 'kcctl resource list --registry <registry>', 'kcctl resource inspect --registry <registry> --name <name> --version <version>', or 'kcctl resource refresh --registry <registry>'")
 	return nil
 }
