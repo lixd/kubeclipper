@@ -49,11 +49,12 @@ Publishing is split by content type:
 - `configs.tar.gz` becomes a standard OCI package image under
   `kubeclipper/packages/...`. The image filesystem stores files under
   `/opt/kubeclipper/resource/`.
-- `charts.tgz` becomes a native Helm OCI chart under `kubeclipper/charts/...`.
+- `charts.tgz` is included unchanged in the component package image under
+  `kubeclipper/packages/...`; it is extracted before Helm installation.
 - `images.lock` is copied with `crane` or `skopeo` by
   `push-runtime-images.sh`. It is release-side metadata and is never consumed
   by KubeClipper server during cluster creation.
-- `release-manifest.yaml` aggregates package images, Helm charts, and runtime
+- `release-manifest.yaml` aggregates package images and runtime
   images into one synchronization/verification input.
 
 Generate or regenerate the release manifest from an existing resource build:
@@ -394,11 +395,11 @@ scripts/open-packaging/publish-resource-metallb.sh \
   --version v0.13.7
 ```
 
-`publish-resource-calico.sh` publishes `charts.tgz` as the native Helm OCI
-chart `kubeclipper/charts/tigera-operator:<version>`. KubeClipper keeps
-`cni/calico:<version>` as the user-facing component name and maps it to that
-chart in the Registry inventory resolver; no manifest-only Calico package image
-is published.
+`publish-resource-calico.sh` publishes `charts.tgz` inside the standard package
+image `kubeclipper/packages/cni/calico:<version>`. The Registry inventory reads
+the package manifest and its architecture. Agents verify and extract the package,
+then pass the original chart archive to Helm. No native Helm OCI repository is
+required.
 
 Runtime images are mirrored separately from `images.lock`, also by component:
 
@@ -434,16 +435,11 @@ The publisher deliberately separates the old static-server payloads:
 - Runtime images are not embedded in package images. In the open build flow,
   `images.lock` is mirrored as normal runtime images with
   `push-runtime-images.sh`.
-- `charts.tgz` is pushed as a native Helm OCI chart under
-  `kubeclipper/charts/...`.
-- Chart publishing prefers `bin/helm-oci-publish` (or `HELM_OCI_PUBLISH_BIN`)
-  so HTTP/insecure registries work even when the installed Helm does not
-  support `--plain-http`; if that binary is unavailable, the script falls back
-  to `helm push`.
-- Chart-only components are resolved from Helm OCI directly. For example,
-  `cni/calico:v3.31.5` maps to
-  `kubeclipper/charts/tigera-operator:v3.31.5`; no empty package image is
-  needed.
+- `charts.tgz` is stored unchanged inside the component package image. Calico
+  uses `kubeclipper/packages/cni/calico:<version>`, with an architecture descriptor
+  and source revision like other packages. Agents extract and verify the chart
+  archive using the package fetcher before invoking Helm. The registry only needs
+  to support ordinary OCI image config and layer media types.
 - The old `kc-extension` and `kubectl-terminal` resource packages are replaced
   by the `kc-runtime` image list. It keeps `fanux/lvscare:v1.1.1` and
   `kubeclipper/kubectl:latest` separate from native Kubernetes images while

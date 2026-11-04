@@ -125,24 +125,11 @@ func SupportPolicyRepositories(policy *SupportPolicy) []string {
 				if option.Kind == "" || option.Name == "" {
 					continue
 				}
-				if chartRepository, ok := helmChartRepositoryForComponent(option.Kind, option.Name); ok {
-					repositories[chartRepository] = struct{}{}
-					continue
-				}
 				repositories[path.Join(PackageRepositoryPrefix, option.Kind, option.Name)] = struct{}{}
 			}
 		}
 	}
 	return sortedRepositoryKeys(repositories)
-}
-
-func helmChartRepositoryForComponent(kind, name string) (string, bool) {
-	for _, component := range helmChartComponents {
-		if component.Kind == kind && component.Name == name {
-			return path.Join(ChartRepositoryPrefix, component.ChartName), true
-		}
-	}
-	return "", false
 }
 
 func sortedRepositoryKeys(repositories map[string]struct{}) []string {

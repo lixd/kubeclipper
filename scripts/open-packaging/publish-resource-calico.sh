@@ -13,8 +13,6 @@ chart_name="tigera-operator"
 chart_version=""
 chart_file=""
 images_file=""
-chart_repository_prefix="kubeclipper/charts"
-helm_oci_publish_bin="${HELM_OCI_PUBLISH_BIN:-}"
 
 usage() {
   cat <<'EOF'
@@ -22,11 +20,11 @@ Usage:
   publish-resource-calico.sh [flags]
 
 Builds and publishes:
-  oci://<registry-prefix>/kubeclipper/charts/tigera-operator
+  <registry-prefix>/kubeclipper/packages/cni/calico:<version>
   Calico runtime images from the bundled image list.
 
 Flags:
-  --registry-prefix <ref>       Chart Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
+  --registry-prefix <ref>       Package Registry prefix. Default: ghcr.io/kubeclipper/kubeclipper.
   --image-registry-prefix <ref> Runtime image Registry prefix. Default: --registry-prefix.
   --version <vX.Y.Z>            Calico version. Default: v3.31.5.
   --arch <amd64|arm64>          Target architecture. Default: amd64.
@@ -82,8 +80,7 @@ init_resource_publish_workspace
 
 leaf="$(resource_leaf calico)"
 [[ -f "$leaf/charts.tgz" ]] || die "missing $leaf/charts.tgz"
-chart_descriptor="$(push_chart "calico" "$leaf/charts.tgz")"
-echo "published calico chart artifact: $chart_descriptor"
+publish_resource_package "calico" "cni" "calico" "addon" "$leaf"
 
 "$SCRIPT_DIR/push-runtime-images.sh" \
   --images-lock "$resource_dir/images.lock" \

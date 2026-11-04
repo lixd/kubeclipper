@@ -131,6 +131,7 @@ expected_packages = {
 expected_packages.update(("k8s", "k8s", version) for version in build["resources"]["k8s"]["versions"])
 expected_packages.update(("cri", "containerd", version) for version in build["resources"]["cri"]["containerd"]["versions"])
 expected_packages.update(("k8s-extension", "k8s-extension", version) for version in build["resources"]["k8sExtension"]["versions"])
+expected_packages.update(("cni", "calico", version) for version in build["resources"]["cni"]["calico"]["versions"])
 assert packages == expected_packages
 
 for item in artifacts:
@@ -139,14 +140,7 @@ for item in artifacts:
         assert item["sourceRevision"]
         assert item["digest"].startswith("sha256:")
 
-charts = {
-    (item["component"]["kind"], item["component"]["name"], item["component"]["version"])
-    for item in artifacts if item["type"] == "helm-chart"
-}
-assert charts == {
-    ("cni", "calico", version)
-    for version in build["resources"]["cni"]["calico"]["versions"]
-}
+assert not any(item["type"] == "helm-chart" for item in artifacts)
 
 runtime = {
     (item["component"]["name"], item["component"]["version"], item["platforms"][0])
@@ -169,7 +163,7 @@ expected_runtime = {
     for arch in build["architectures"]
 }
 assert runtime == expected_runtime
-assert len(artifacts) == len(expected_packages) + len(charts) + len(expected_runtime)
+assert len(artifacts) == len(expected_packages) + len(expected_runtime)
 PY
 
 PATH="$workdir/bin:$PATH" \

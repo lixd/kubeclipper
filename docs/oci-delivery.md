@@ -37,7 +37,6 @@ a *slot* (what the artifact is) and a *name/version* pair:
 <registry>/kubeclipper/packages/csi/nfs:<ver>                     addon resource packages (csi/app kinds)
 <registry>/kubeclipper/packages/app/metallb:<ver>
 <registry>/kubeclipper/packages/extension/kubectl-terminal:<ver>  standalone extensions
-<registry>/kubeclipper/charts/<chart>:<ver>                       Helm charts as OCI charts (calico, addons)
 ```
 
 Runtime images (the `nfs` v4.1.0 / `metallb` v0.13.7 / k8s pause image sets,
@@ -145,9 +144,12 @@ cache short-circuits the fetch (works fully offline).
 
 ### 4.3 Addons
 
-Helm addons are published as OCI charts (`oci://<registry>/kubeclipper/charts/...`)
-and their side-effect images are pinned via runtime image sets; install steps
-resolve charts from the same registry as everything else.
+Charts are stored as `charts.tgz` inside standard component package images
+(for example, `<registry>/kubeclipper/packages/cni/calico:<ver>`). Agents verify
+and extract the package, then install the original archive with Helm. Runtime
+images remain separate and are pinned via runtime image sets. Native Helm OCI
+media types are not required. Registry repository naming restrictions, such as
+ACR Personal Edition's single-level repository names, are a separate constraint.
 
 ### 4.4 Platform upgrade (`kcctl upgrade`)
 

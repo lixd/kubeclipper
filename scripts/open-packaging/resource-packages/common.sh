@@ -54,7 +54,7 @@ make_resource_package() {
 
   rm -rf "$root"
   mkdir -p "$root/$source_name/$version/$arch"
-  find "$source_path" -maxdepth 1 -type f ! -name images.tar.gz ! -name images.txt ! -name charts.tgz ! -name manifest.json -exec cp -f {} "$root/$source_name/$version/$arch/" \;
+  find "$source_path" -maxdepth 1 -type f ! -name images.tar.gz ! -name images.txt ! -name manifest.json -exec cp -f {} "$root/$source_name/$version/$arch/" \;
   tar -C "$root" -zcf "$pkg" "$source_name"
   echo "$pkg"
 }
@@ -62,7 +62,7 @@ make_resource_package() {
 has_package_payload_files() {
   local source_name=${2:-}
   local source_path=$1
-  find "$source_path" -maxdepth 1 -type f ! -name images.tar.gz ! -name images.txt ! -name charts.tgz ! -name manifest.json | grep -q .
+  find "$source_path" -maxdepth 1 -type f ! -name images.tar.gz ! -name images.txt ! -name manifest.json | grep -q .
 }
 
 publish_resource_package() {
@@ -103,62 +103,4 @@ publish_resource_package() {
     return 0
   fi
   "$ROOT/scripts/publish-oci-package.sh" "${args[@]}"
-}
-
-helm_chart_name() {
-  local source_name=$1
-  case "$source_name" in
-  calico)
-    echo "tigera-operator"
-    ;;
-  *)
-    echo "$source_name"
-    ;;
-  esac
-}
-
-chart_digest() {
-  local chart_archive=$1
-  if command -v sha256sum >/dev/null 2>&1; then
-    echo "sha256:$(sha256sum "$chart_archive" | awk '{print $1}')"
-  else
-    echo "sha256:$(shasum -a 256 "$chart_archive" | awk '{print $1}')"
-  fi
-}
-
-push_chart() {
-  local source_name=$1
-  local chart_archive=$2
-  local repository_prefix="${chart_repository_prefix:-}"
-  local resolved_chart_name repository ref digest descriptor bin
-
-  [[ -n "$repository_prefix" ]] || die "chart_repository_prefix must be set"
-  resolved_chart_name="${chart_name:-$(helm_chart_name "$source_name")}"
-  repository="$registry/$repository_prefix/$resolved_chart_name"
-  ref="oci://$registry/$repository_prefix"
-  echo "pushing helm chart: $chart_archive -> $ref" >&2
-  if [[ "${dry_run:-false}" != true ]]; then
-    bin="${helm_oci_publish_bin:-}"
-    if [[ -z "$bin" && -x "$ROOT/bin/helm-oci-publish" ]]; then
-      bin="$ROOT/bin/helm-oci-publish"
-    fi
-    if [[ -z "$bin" ]] && command -v helm-oci-publish >/dev/null 2>&1; then
-      bin="$(command -v helm-oci-publish)"
-    fi
-    if [[ -n "$bin" ]]; then
-      "$bin" --chart "$chart_archive" --registry "$registry" --repository-prefix "$repository_prefix" --name "$resolved_chart_name" >&2
-    else
-      command -v helm >/dev/null 2>&1 || die "helm or helm-oci-publish is required to push chart"
-      if ! helm push "$chart_archive" "$ref" >&2; then
-        if ! helm push "$chart_archive" "$ref" --plain-http >&2; then
-          die "push helm chart failed: $chart_archive"
-        fi
-      fi
-    fi
-  else
-    echo "dry-run: would publish helm chart $chart_archive to $ref with helm-oci-publish or helm push" >&2
-  fi
-  digest="$(chart_digest "$chart_archive")"
-  descriptor="name=charts,file=$(basename "$chart_archive"),mediaType=application/vnd.cncf.helm.chart.content.v1.tar+gzip,transport=helm-oci,ref=$repository,digest=$digest"
-  echo "$descriptor"
 }

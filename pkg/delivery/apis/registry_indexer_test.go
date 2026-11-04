@@ -50,7 +50,7 @@ func TestSupportPolicyRepositories(t *testing.T) {
 		},
 	}}
 	want := []string{
-		"kubeclipper/charts/tigera-operator",
+		"kubeclipper/packages/cni/calico",
 		"kubeclipper/packages/cri/containerd",
 		"kubeclipper/packages/extension/kubectl-terminal",
 		"kubeclipper/packages/k8s/k8s",

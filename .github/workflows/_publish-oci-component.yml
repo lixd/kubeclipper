@@ -196,9 +196,7 @@ jobs:
           tools_dir="$RUNNER_TEMP/kc-publish-tools"
           mkdir -p "$tools_dir"
           go build -o "$tools_dir/oci-publish" ./tools/oci-publish
-          go build -o "$tools_dir/helm-oci-publish" ./tools/helm-oci-publish
           echo "KC_OCI_PUBLISH_BIN=$tools_dir/oci-publish" >> "$GITHUB_ENV"
-          echo "HELM_OCI_PUBLISH_BIN=$tools_dir/helm-oci-publish" >> "$GITHUB_ENV"
 
       - name: Build and publish component
         env:
@@ -272,20 +270,16 @@ jobs:
             resource-k8s) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s/k8s:$VERSION" ;;
             resource-containerd) ref="$REGISTRY_PREFIX/kubeclipper/packages/cri/containerd:$VERSION" ;;
             resource-k8s-extension) ref="$REGISTRY_PREFIX/kubeclipper/packages/k8s-extension/k8s-extension:$VERSION" ;;
-            resource-calico) ref="$REGISTRY_PREFIX/kubeclipper/charts/tigera-operator:$VERSION" ;;
+            resource-calico) ref="$REGISTRY_PREFIX/kubeclipper/packages/cni/calico:$VERSION" ;;
           esac
           if [[ -n "$ref" ]]; then
-            if [[ "$COMPONENT" == "resource-calico" ]]; then
-              crane digest "$ref"
-            else
-              for arch in $ARCHITECTURES; do
-                crane digest --platform "linux/$arch" "$ref"
-                config="$(crane config --platform "linux/$arch" "$ref")"
-                jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" \
-                  '.config.Labels["org.opencontainers.image.source"] == $source and
-                   .config.Labels["org.opencontainers.image.revision"] == $revision' <<< "$config"
-              done
-            fi
+            for arch in $ARCHITECTURES; do
+              crane digest --platform "linux/$arch" "$ref"
+              config="$(crane config --platform "linux/$arch" "$ref")"
+              jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" \
+                '.config.Labels["org.opencontainers.image.source"] == $source and
+                 .config.Labels["org.opencontainers.image.revision"] == $revision' <<< "$config"
+            done
           fi
           if [[ -f "$KC_RESOURCE_DIR/images.lock" ]]; then
             while IFS=$'\t' read -r _resource _version arch _source target; do

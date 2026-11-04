@@ -86,7 +86,6 @@ import json
 import os
 import subprocess
 import sys
-import tarfile
 
 try:
     import yaml
@@ -142,9 +141,9 @@ package_map = {
     "k8s": ("k8s", "k8s"),
     "containerd": ("cri", "containerd"),
     "k8s-extension": ("k8s-extension", "k8s-extension"),
+    "calico": ("cni", "calico"),
 }
 package_groups = {}
-chart_groups = {}
 
 for component in sorted(os.listdir(resource_dir)):
     if component not in allowed_versions:
@@ -163,37 +162,16 @@ for component in sorted(os.listdir(resource_dir)):
             if not os.path.isdir(leaf):
                 continue
             platform = f"linux/{arch}"
-            if os.path.isfile(os.path.join(leaf, "configs.tar.gz")) and component in package_map:
+            has_payload = any(os.path.isfile(os.path.join(leaf, filename))
+                              for filename in ("configs.tar.gz", "charts.tgz"))
+            if has_payload and component in package_map:
                 component_kind, name = package_map[component]
                 ref = f"{package_registry}/kubeclipper/packages/{component_kind}/{name}:{version}"
                 package_groups.setdefault((component_kind, name, version, ref), []).append(platform)
-            chart_archive = os.path.join(leaf, "charts.tgz")
-            if os.path.isfile(chart_archive):
-                chart_name = component
-                chart_version = str(version).lstrip("v")
-                try:
-                    with tarfile.open(chart_archive, "r:gz") as archive:
-                        chart_yaml = next(
-                            member for member in archive.getmembers()
-                            if member.isfile() and member.name.count("/") == 1 and member.name.endswith("/Chart.yaml")
-                        )
-                        chart = yaml.safe_load(archive.extractfile(chart_yaml)) or {}
-                        chart_name = str(chart.get("name") or chart_name)
-                        chart_version = str(chart.get("version") or chart_version)
-                except (OSError, StopIteration, tarfile.TarError):
-                    pass
-                ref = f"{package_registry}/kubeclipper/charts/{chart_name}:{chart_version}"
-                component_kind = "cni" if component == "calico" else "addon"
-                component_name = "calico" if component == "calico" else component
-                chart_groups[(component_kind, component_name, version, ref)] = True
 
 for (component_kind, name, version, ref), platforms in sorted(package_groups.items()):
     target = ref[len(package_registry) + 1:]
     add_artifact("package-image", component_kind, name, version, ref, target, platforms)
-
-for component_kind, name, version, ref in sorted(chart_groups):
-    target = ref[len(package_registry) + 1:]
-    add_artifact("helm-chart", component_kind, name, version, ref, target)
 
 images_lock = os.path.join(resource_dir, "images.lock")
 if not os.path.isfile(images_lock):
