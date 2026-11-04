@@ -488,8 +488,8 @@ docker tag ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0 \
 docker push harbor.local/kubeclipper/package-k8s:v1.37.0
 ```
 
-Helm charts remain Helm OCI artifacts, but they were verified with
-`skopeo copy/sync` and can be mirrored with the same Registry tooling.
+Charts are included in ordinary package images such as `package-calico`, so
+they use the same Registry mirroring commands as other packages.
 
 For an official release, the preferred connected-site mirror command is:
 
@@ -509,7 +509,7 @@ skipped; an existing tag with a different digest is not overwritten.
 ### 3.2 Offline Registry Bundle
 
 For an air-gapped site, generate `release-manifest.yaml` with all required
-package images, Helm OCI charts, and runtime images, then export one
+package images (including charts) and runtime images, then export one
 architecture into a portable bundle:
 
 ```bash
@@ -519,23 +519,27 @@ scripts/open-packaging/export-offline-registry-bundle.sh \
   --output kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
 ```
 
-When the release manifest includes `bootstrap/registry`, the exported bundle is
-self-bootstrapping. It contains `bootstrap/registry-image.tar`, covered by the
+When the release manifest includes `package-bootstrap-registry`, the exported
+bundle is self-bootstrapping. It contains `bootstrap/registry-image.tar`, covered by the
 bundle `SHA256SUMS`, so a host without Docker, containerd, or an existing
 Registry can start the first Registry directly:
 
 ```bash
+sha256sum -c kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz.sha256
+tar -xzf kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz \
+  kubeclipper-offline-registry-bundle/bootstrap/registry-image.tar
 kcctl registry deploy \
   --node 10.0.0.10 \
-  --offline-bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
+  --pk-file ~/.ssh/id_ed25519 \
+  --registry-image-archive kubeclipper-offline-registry-bundle/bootstrap/registry-image.tar
 ```
 
 After the Registry is healthy, import the same bundle with the command below.
 No separate registry binary or second archive is required.
 
 The tarball contains lossless Registry seed data, the original release
-manifest, an artifact index, and SHA256 checksums. Package images and Helm
-charts use OCI Layout. Runtime images use Skopeo's lossless directory transport
+manifest, an artifact index, and SHA256 checksums. Package images, including
+charts, use OCI Layout. Runtime images use Skopeo's lossless directory transport
 because many upstream images still use Docker Schema 2 media types that cannot
 be read back from an OCI Layout without changing their digest. Shared
 content-addressed blobs are hard-linked before compression to avoid storing the
@@ -570,9 +574,10 @@ containers-auth configuration (`skopeo login`, Docker config, or an authfile).
 kcctl registry deploy \
   --node 10.0.0.10 \
   --registry-port 5000 \
-  --package-registry ghcr.io/kubeclipper/kubeclipper
+  --pk-file ~/.ssh/id_ed25519 \
+  --registry-image ghcr.io/kubeclipper/kubeclipper/package-bootstrap-registry:3.1.1
 
-# 2. Build and push Kubernetes/CRI/CNI package images, Helm charts, and runtime images.
+# 2. Build and push Kubernetes/CRI/CNI package images (including charts) and runtime images.
 scripts/open-packaging/build-offline-resources.sh \
   --manifest packaging/resources.yaml \
   --arch amd64 \
