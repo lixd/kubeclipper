@@ -69,9 +69,9 @@ const (
   Use docker engine API V2, visit the website(https://docs.docker.com/registry/spec/api/) for more information.`
 	registryExample = `
   kcctl registry deploy --node 10.0.0.10 --pk-file key --package-registry ghcr.io/kubeclipper/kubeclipper
-  kcctl registry export --manifest release-manifest.yaml --output kc-offline.tar.gz
-  kcctl registry deploy --node 10.0.0.10 --pk-file key --bundle registry-3.1.1.tar.gz
-  kcctl registry sync --bundle kc-offline.tar.gz --target 10.0.0.10:5000/kubeclipper --target-scheme http`
+  kcctl registry export
+  kcctl registry deploy --node 10.0.0.10 --pk-file key --bundle ./offline/registry-3.1.1.tar.gz
+  kcctl registry sync --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz --target 10.0.0.10:5000/kubeclipper --target-scheme http`
 	deployLongDescription = `Deploy Registry from the bootstrap/registry package, online or from its offline OCI bundle.`
 	deployExample         = `
   kcctl registry deploy --node 10.0.0.10 --pk-file key --package-registry registry.cn-hangzhou.aliyuncs.com/kubeclipper-release

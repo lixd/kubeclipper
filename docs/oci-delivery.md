@@ -188,16 +188,16 @@ Three supported shapes, from lightest to heaviest:
    kcctl registry sync --manifest release-manifest.json \
      --target registry.corp.example.com/kubeclipper \
      --arch amd64 \
-     --source-username <user> --source-password-file <token>
+     --source-username <user> --source-password <token>
    ```
    Copies are digest-preserving and idempotent (a second run reports `0`
    copied). `--dry-run` prints the copy plan. HTTP/private-CA targets are
    supported via `--target-scheme/--target-ca-file/--target-skip-tls-verify`.
-2. **Offline OCI bundles** — `kcctl registry export --manifest release-manifest.yaml
-   --output kc-offline.tar.gz` writes a complete multi-platform release archive
+2. **Offline OCI bundles** — `kcctl registry export` uses the release inventory
+   embedded in the standalone CLI and writes `kubeclipper-offline-<version>.tar.gz`
    and a separate small `registry-<version>.tar.gz`. Bootstrap using
    `kcctl registry deploy --bundle registry-<version>.tar.gz`, then import using
-   `kcctl registry sync --bundle kc-offline.tar.gz --target <registry-prefix>`.
+   `kcctl registry sync --bundle kubeclipper-offline-<version>.tar.gz --target <registry-prefix>`.
    Original indexes, manifests, compressed layers and digests are preserved;
    missing local content fails without online fallback. Export and import need
    only kcctl. See the [offline flow](../scripts/open-packaging/README.md#offline-release-export-and-import).

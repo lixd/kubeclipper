@@ -128,7 +128,7 @@ jobs:
             --acceptance-record "$RUNNER_TEMP/acceptance-$GITHUB_SHA.yaml"
 
   build-cli:
-    needs: release-gate
+    needs: manifest
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -138,6 +138,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Embed verified release inventory
+        uses: actions/download-artifact@v7
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: pkg/delivery/releasemanifest/embedded
       - name: Build kcctl
         run: KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
       - name: Package kcctl artifacts

@@ -122,10 +122,28 @@ func exportFixture(t *testing.T) (*Manifest, ExportResult) {
 		require.NoError(t, parseErr)
 		require.NoError(t, remote.WriteIndex(ref, index, remote.WithAuth(authn.Anonymous), remote.WithTransport(transport), remote.WithNondistributable))
 	}
-	result, err := Export(t.Context(), manifest, ExportOptions{Output: filepath.Join(t.TempDir(), "release.tar.gz"), SourceOptions: sourceOpts})
+	result, err := Export(t.Context(), manifest, ExportOptions{Output: filepath.Join(t.TempDir(), "offline"), SourceOptions: sourceOpts})
 	require.NoError(t, err)
 	server.Close() // Local import must work after the actual source has gone away.
 	return manifest, result
+}
+
+func TestExportOutputDirectory(t *testing.T) {
+	manifest, result := exportFixture(t)
+	require.Equal(t, "kubeclipper-offline-v2.0.11.tar.gz", filepath.Base(result.Bundle))
+	require.Equal(t, "registry-3.1.1.tar.gz", filepath.Base(result.RegistryBundle))
+	require.Equal(t, filepath.Dir(result.Bundle), filepath.Dir(result.RegistryBundle))
+	t.Chdir(t.TempDir())
+	defaults, _, err := exportPaths(manifest, "")
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join("offline", "kubeclipper-offline-v2.0.11.tar.gz"), defaults.Bundle)
+	require.Equal(t, filepath.Join("offline", "registry-3.1.1.tar.gz"), defaults.RegistryBundle)
+	_, _, err = exportPaths(manifest, filepath.Dir(result.Bundle))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "output already exists")
+	_, _, err = exportPaths(manifest, result.Bundle)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "output must be a directory")
 }
 
 func TestBundleMultiArchRoundTrip(t *testing.T) {

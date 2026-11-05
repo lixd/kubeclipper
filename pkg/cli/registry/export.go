@@ -17,31 +17,28 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/kubeclipper/kubeclipper/pkg/cli/utils"
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
 )
 
 func NewCmdRegistryExport(o *RegistryOptions) *cobra.Command {
-	var manifestPath, output, username, passwordFile string
+	var manifestPath, output, username, password string
 	cmd := &cobra.Command{
-		Use:   "export --manifest <release-manifest.yaml> --output <release.tar.gz>",
+		Use:   "export [--manifest <release-manifest.yaml>] [--output <directory>]",
 		Short: "export a complete multi-platform release and a separate Registry bootstrap bundle",
 		Long: `Export all artifacts and every platform referenced by their original image indexes.
-The output directory also receives registry-<version>.tar.gz for bootstrapping
+Release binaries use their embedded release manifest unless --manifest is provided.
+The output directory receives kubeclipper-offline-<version>.tar.gz and
+registry-<version>.tar.gz for bootstrapping
 the offline Registry. Neither export nor import requires a container runtime.`,
 		Args: cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
-			data, err := os.ReadFile(manifestPath)
+			manifest, err := releasemanifest.Load(manifestPath)
 			if err != nil {
 				return err
 			}
-			manifest, err := releasemanifest.Parse(data)
-			if err != nil {
-				return err
-			}
-			source, err := sourceRegistryOptions(ctx, username, passwordFile)
+			source, err := sourceRegistryOptions(ctx, username, password)
 			if err != nil {
 				return err
 			}
@@ -55,11 +52,9 @@ the offline Registry. Neither export nor import requires a container runtime.`,
 			return err
 		},
 	}
-	cmd.Flags().StringVar(&manifestPath, "manifest", "", "release manifest selecting the artifacts to export")
-	cmd.Flags().StringVar(&output, "output", "", "release .tar.gz output; the separate Registry bundle is written alongside it")
+	cmd.Flags().StringVar(&manifestPath, "manifest", "", "release manifest file overriding the embedded release inventory")
+	cmd.Flags().StringVar(&output, "output", "./offline", "output directory for the release and Registry bootstrap archives")
 	cmd.Flags().StringVar(&username, "source-username", "", "source registry username (default: anonymous)")
-	cmd.Flags().StringVar(&passwordFile, "source-password-file", "", "file containing the source registry password or token")
-	utils.CheckErr(cmd.MarkFlagRequired("manifest"))
-	utils.CheckErr(cmd.MarkFlagRequired("output"))
+	cmd.Flags().StringVar(&password, "source-password", "", "source registry password or token")
 	return cmd
 }

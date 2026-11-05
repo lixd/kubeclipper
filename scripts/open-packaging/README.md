@@ -511,14 +511,25 @@ skipped; an existing tag with a different digest is not overwritten.
 Use a kcctl binary from the release being exported. No Docker, containerd,
 Skopeo or Python installation is required for this flow.
 
+Release kcctl binaries embed the verified inventory with package and image
+references, platforms and digests. The release workflow builds the standalone
+CLI after those package digests are final. `--manifest <file>` selects an
+external inventory, available as `release-manifest-<version>.yaml` in the
+corresponding GitHub Release assets. Source builds without an embedded inventory
+use this explicit flag. The kcctl copy inside the bootstrap package also uses
+an external manifest because the inventory includes that package's own digest.
+For the current v2.0.11 test candidate, the
+[tested manifest](../../docs/testing/evidence/offline-bundles-20261105/release-manifest.yaml)
+records the validated ACR source references.
+
 ```bash
 # On a connected machine: export every artifact and its complete image index.
-kcctl registry export --manifest release-manifest.yaml --output kc-offline.tar.gz
+kcctl registry export
 ```
 
 This writes two independent OCI Image Layout archives:
 
-- `kc-offline.tar.gz`: all release package images, charts and runtime images.
+- `kubeclipper-offline-<version>.tar.gz`: all release package images, charts and runtime images.
 - `registry-<version>.tar.gz`: only the bootstrap/registry package, including
   its published architectures, for starting the first offline Registry.
 
@@ -527,18 +538,24 @@ The release archive contains `release-manifest.yaml`, `oci-layout`, `index.json`
 there is no custom TSV inventory. All original index and manifest bytes, media
 types and compressed layers are preserved. Complete source indexes may include
 platforms beyond Linux amd64/arm64; these are included to preserve their digests.
-Export rejects existing output paths. Credentials use the same
-`--source-username` and `--source-password-file` flags as online sync.
+The output directory defaults to `./offline` and is created when needed.
+Export rejects existing archive paths. Credentials use the same
+`--source-username` and `--source-password` flags as online sync.
+
+```bash
+kcctl registry export \
+  --source-username your-user --source-password 'your-password'
+```
 
 Copy kcctl and both archives into the offline environment:
 
 ```bash
 # Bootstrap from the small Registry-only archive.
 kcctl registry deploy --node 10.0.0.10 --pk-file ~/.ssh/id_ed25519 \
-  --bundle registry-3.1.1.tar.gz
+  --bundle ./offline/registry-3.1.1.tar.gz
 
 # Seed the Registry from the complete release archive.
-kcctl registry sync --bundle kc-offline.tar.gz \
+kcctl registry sync --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz \
   --target 10.0.0.10:5000/kubeclipper-release --target-scheme http
 
 # Install through the normal package Registry flow.

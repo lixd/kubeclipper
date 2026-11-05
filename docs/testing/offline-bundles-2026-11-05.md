@@ -4,6 +4,17 @@
 本轮验证 kcctl 的导出、Registry 自举和离线导入；不代表完整三机建群或全量用例重跑。
 未向上游写入，也未发布新的正式 Release。
 
+后续 CLI 将 `--output` 调整为目录，默认 `./offline`，源认证使用 `--source-password`
+直接传值。独立发布版 kcctl 在 package 摘要固定后嵌入清单，`export` 默认读取内置清单，
+`--manifest` 用于手动覆盖。当前参数用法见 [离线交付指南](../../scripts/open-packaging/README.md#offline-release-export-and-import)。
+以下实测命令和归档记录对应上述实现提交。
+
+后续参数与嵌入清单回归在 `sh-dev:/root/kc-registry-cli-20261105` 完成，9 个相关 Go 包
+通过，goimports 无差异，变更范围内 lint 为 0 问题，发布 workflow 回归通过。
+使用 v2.0.11 实测清单构建的独立 kcctl 在无网络容器的空目录中读取内置清单，正常进入
+输出目录类型预检，显式 `--manifest` 也正确覆盖内置清单。目录默认值、文件名、重复
+输出拒绝和通过真实 HTTP Basic Auth 传递直接密码的回归通过。
+
 ## 使用流程
 
 联网端准备对应版本的 kcctl 二进制和 ReleaseManifest，然后执行：

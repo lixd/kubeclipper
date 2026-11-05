@@ -52,7 +52,7 @@ const syncExample = `
   # Mirror with credentials on both sides and a single architecture
   kcctl registry sync --manifest release-manifest.yaml --target harbor.internal/kubeclipper \
     --target-username robot --target-password-file /tmp/harbor.pw \
-    --source-username user --source-password-file /tmp/src.pw --arch amd64
+    --source-username user --source-password token --arch amd64
 
   # Import the full release after bootstrapping from registry-<version>.tar.gz
   kcctl registry sync --bundle kc-offline.tar.gz --target registry.internal/kubeclipper
@@ -63,14 +63,14 @@ const syncExample = `
 type SyncOptions struct {
 	options.IOStreams
 
-	BundlePath    string
-	ManifestPath  string
-	Target        string
-	Arch          string
-	DryRun        bool
-	TargetFiles   deliveryregistry.FileOptions
-	SourceUser    string
-	SourcePassFil string
+	BundlePath     string
+	ManifestPath   string
+	Target         string
+	Arch           string
+	DryRun         bool
+	TargetFiles    deliveryregistry.FileOptions
+	SourceUser     string
+	SourcePassword string
 }
 
 func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
@@ -98,7 +98,7 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 	cmd.Flags().StringVar(&opts.TargetFiles.CAFile, "target-ca-file", "", "PEM CA file used to verify the target registry")
 	cmd.Flags().BoolVar(&opts.TargetFiles.SkipTLSVerify, "target-skip-tls-verify", false, "skip target TLS verification (not recommended)")
 	cmd.Flags().StringVar(&opts.SourceUser, "source-username", "", "source registry username (default: anonymous)")
-	cmd.Flags().StringVar(&opts.SourcePassFil, "source-password-file", "", "file containing the source registry password or token")
+	cmd.Flags().StringVar(&opts.SourcePassword, "source-password", "", "source registry password or token")
 
 	utils.CheckErr(cmd.MarkFlagRequired("target"))
 	return cmd
@@ -108,7 +108,7 @@ func (o *SyncOptions) ValidateArgs() error {
 	if (o.ManifestPath == "") == (o.BundlePath == "") {
 		return fmt.Errorf("exactly one of --manifest or --bundle is required")
 	}
-	if o.BundlePath != "" && (o.SourceUser != "" || o.SourcePassFil != "") {
+	if o.BundlePath != "" && (o.SourceUser != "" || o.SourcePassword != "") {
 		return fmt.Errorf("source credentials cannot be used with --bundle")
 	}
 	if o.Target == "" {
@@ -146,12 +146,7 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 			return fmt.Errorf("a release bundle is required for sync; the Registry bootstrap bundle is only for registry deploy")
 		}
 	} else {
-		var data []byte
-		data, err = os.ReadFile(o.ManifestPath)
-		if err != nil {
-			return fmt.Errorf("read manifest: %w", err)
-		}
-		manifest, err = releasemanifest.Parse(data)
+		manifest, err = releasemanifest.Load(o.ManifestPath)
 		if err != nil {
 			return err
 		}
@@ -192,20 +187,17 @@ func (o *SyncOptions) resolveTargetConfig() (*deliveryregistry.Config, error) {
 }
 
 func (o *SyncOptions) sourceCraneOptions(ctx context.Context) ([]crane.Option, error) {
-	return sourceRegistryOptions(ctx, o.SourceUser, o.SourcePassFil)
+	return sourceRegistryOptions(ctx, o.SourceUser, o.SourcePassword)
 }
 
-func sourceRegistryOptions(ctx context.Context, username, passwordFile string) ([]crane.Option, error) {
+func sourceRegistryOptions(ctx context.Context, username, password string) ([]crane.Option, error) {
+	if (username == "") != (password == "") {
+		return nil, fmt.Errorf("--source-username and --source-password must be specified together")
+	}
 	opts := []crane.Option{crane.WithContext(ctx), crane.WithAuth(authn.Anonymous)}
 	if username != "" {
-		password, err := os.ReadFile(passwordFile)
-		if err != nil {
-			return nil, fmt.Errorf("read source password file: %w", err)
-		}
 		opts = []crane.Option{crane.WithContext(ctx),
-			crane.WithAuth(&authn.Basic{Username: username, Password: string(password)})}
-	} else if passwordFile != "" {
-		return nil, fmt.Errorf("--source-password-file requires --source-username")
+			crane.WithAuth(&authn.Basic{Username: username, Password: password})}
 	}
 	return opts, nil
 }

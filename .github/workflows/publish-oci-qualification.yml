@@ -128,7 +128,20 @@ jobs:
           path: ${{ runner.temp }}/kc-manifest
 
       - name: Build kcctl
-        run: go build -o "$RUNNER_TEMP/kcctl" ./cmd/kcctl
+        run: |
+          cp "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" pkg/delivery/releasemanifest/embedded/release-manifest.yaml
+          go build -o "$RUNNER_TEMP/kcctl" ./cmd/kcctl
+
+      - name: Verify embedded export inventory
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/export-not-a-directory"
+          touch "$output"
+          if "$RUNNER_TEMP/kcctl" registry export --output "$output" > "$RUNNER_TEMP/export-default.log" 2>&1; then
+            echo "export accepted a regular file as its output directory" >&2
+            exit 1
+          fi
+          grep -Fq 'output must be a directory' "$RUNNER_TEMP/export-default.log"
 
       - name: Start local sync target registry
         run: |
@@ -142,12 +155,10 @@ jobs:
 
       - name: Sync release from ghcr into local registry
         run: |
-          install -m 600 /dev/null "$RUNNER_TEMP/ghcr-token.pw"
-          printf '%s' "$GITHUB_TOKEN" > "$RUNNER_TEMP/ghcr-token.pw"
           "$RUNNER_TEMP/kcctl" registry sync \
             --manifest "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" \
             --source-username "$GITHUB_ACTOR" \
-            --source-password-file "$RUNNER_TEMP/ghcr-token.pw" \
+            --source-password "$GITHUB_TOKEN" \
             --target 127.0.0.1:5000 \
             --target-scheme http \
             --arch amd64 \
@@ -159,7 +170,7 @@ jobs:
           "$RUNNER_TEMP/kcctl" registry sync \
             --manifest "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" \
             --source-username "$GITHUB_ACTOR" \
-            --source-password-file "$RUNNER_TEMP/ghcr-token.pw" \
+            --source-password "$GITHUB_TOKEN" \
             --target 127.0.0.1:5000 \
             --target-scheme http \
             --arch amd64 \
@@ -168,7 +179,3 @@ jobs:
 
       - name: Show synced catalog
         run: curl -sf http://127.0.0.1:5000/v2/_catalog | head -c 2000
-
-      - name: Remove ghcr credential file
-        if: always()
-        run: rm -f "$RUNNER_TEMP/ghcr-token.pw"

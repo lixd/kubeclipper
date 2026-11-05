@@ -46,6 +46,18 @@ manifest_download = next(
 assert manifest_download["pattern"] == "oci-release-manifest-*"
 assert manifest_download["run-id"] == "${{ needs.release-gate.outputs.qualification_run_id }}"
 
+cli = jobs["build-cli"]
+assert cli["needs"] == "manifest"
+embedded = next(step["with"] for step in cli["steps"]
+                if step.get("name") == "Embed verified release inventory")
+assert embedded["name"] == "release-manifest-${{ github.run_id }}"
+assert embedded["path"] == "pkg/delivery/releasemanifest/embedded"
+qualification = yaml.safe_load((Path(sys.argv[1]).parent / "publish-oci-qualification.yml").read_text())
+steps = qualification["jobs"]["sync-roundtrip"]["steps"]
+build = next(step["run"] for step in steps if step.get("name") == "Build kcctl")
+assert "pkg/delivery/releasemanifest/embedded/release-manifest.yaml" in build
+assert any(step.get("name") == "Verify embedded export inventory" for step in steps)
+
 release = jobs["github-release"]
 stamp = next(step["run"] for step in release["steps"] if step.get("name") == "Stamp installer version")
 root = Path(sys.argv[1]).resolve().parents[2]

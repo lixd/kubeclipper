@@ -143,15 +143,23 @@ func exportPaths(manifest *Manifest, output string) (ExportResult, string, error
 			registryTarget = artifact.Target
 		}
 	}
-	if registryTarget == "" || output == "" {
-		return result, "", fmt.Errorf("output path and bootstrap/registry artifact are required")
+	if registryTarget == "" {
+		return result, "", fmt.Errorf("bootstrap/registry artifact is required")
+	}
+	if output == "" {
+		output = "./offline"
+	}
+	if info, statErr := os.Stat(output); statErr == nil && !info.IsDir() {
+		return result, "", fmt.Errorf("output must be a directory: %s", output)
+	} else if statErr != nil && !os.IsNotExist(statErr) {
+		return result, "", statErr
 	}
 	registryTag, err := imagename.NewTag("bundle.invalid/" + registryTarget)
 	if err != nil {
 		return result, "", err
 	}
-	result.Bundle = output
-	result.RegistryBundle = filepath.Join(filepath.Dir(output), "registry-"+registryTag.TagStr()+".tar.gz")
+	result.Bundle = filepath.Join(output, "kubeclipper-offline-"+manifest.Metadata.Version+".tar.gz")
+	result.RegistryBundle = filepath.Join(output, "registry-"+registryTag.TagStr()+".tar.gz")
 	if checkErr := checkExportPaths(result); checkErr != nil {
 		return result, "", checkErr
 	}
@@ -159,9 +167,6 @@ func exportPaths(manifest *Manifest, output string) (ExportResult, string, error
 }
 
 func checkExportPaths(result ExportResult) error {
-	if filepath.Clean(result.Bundle) == filepath.Clean(result.RegistryBundle) {
-		return fmt.Errorf("release and Registry bundle output paths must differ")
-	}
 	for _, path := range []string{result.Bundle, result.RegistryBundle} {
 		if _, err := os.Stat(path); err == nil {
 			return fmt.Errorf("output already exists: %s", path)
