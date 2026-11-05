@@ -1,0 +1,2 @@
+Removed "/etc/systemd/system/multi-user.target.wants/kc-registry.service".
+{}{}PASS task service removed; original binary/config and shared Registries preserved

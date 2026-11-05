@@ -1,0 +1,14 @@
+{
+  "complete": true,
+  "registryBinaryRestoredSHA256": "3162d930aa134685fbbe53f85d28183d4d58f7f73487db8982b764464c07f31a",
+  "cliConfigMatchesReconstructedBaseline": true,
+  "configBaselineProvenance": "retained original entry; removed task entry and restored original current; not an independent pre-test byte backup",
+  "testServiceLoadState": "not-found",
+  "testPort5617Closed": true,
+  "sharedRegistryHTTPStatuses": {
+    "5003": 200,
+    "5605": 200
+  },
+  "oldR3ConfigurationPreserved": true,
+  "taskTmpfsDirectoryRemoved": true
+}

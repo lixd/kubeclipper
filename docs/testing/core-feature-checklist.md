@@ -219,7 +219,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-16 | `kcctl upgrade all --manifest/--version` | ✅ | B1 按 OCI 契约重写并移除旧 `--pkg/--online`：`--manifest` 三机实测通过（幂等复跑全 skip、降级明确拒绝、错 digest 拒绝，R7 报告 §11；R19-R23 各轮平台升级持续复跑）；`--version` 在线正向下载 R20（§12.16）以本地 GitHub 镜像法闭环（自签 CA 进系统信任 + /etc/hosts + 443 HTTPS，URL 与真实 release 同构；全链路 rc=0、`.sha256` 篡改报 checksum mismatch 拒绝、临时证书即用即删） **R42 续测（2026-10-13）**：离线 upgrade all --manifest 已完整通过1.3-07；在线 --version 仍受1.3-09 upstream Release 下载源限制。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 3-17 | `kcctl upgrade server/agent/console/kcctl` | ✅ | `server`/`agent` 独立升级实测通过（节点级幂等：已达标 revision 跳过，不重启）；`console`/`kcctl` step 2 已于 R19（§12.15）实施并真机验证（console：停服→备份→替换→起服→HTTP 探活；kcctl：替换后 `kcctl version` 校验；同版本重装幂等、降级拒绝），R22/R23 各轮 `upgrade all` 四组件链路持续复跑 **R42 续测（2026-10-13）**：同 1.3-10：正式 CLI 独立 Server/Agent/Console/kcctl 升级均已现场验证。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 **R42 再补测（2026-10-13）**：kcctl registry sync 对 7 个真实制品执行 HTTP 与严格 CA/账号认证 HTTPS 同步成功，并验证幂等与目标 tag 冲突拒绝。清单为本轮资格测试清单，不代表正式 Release。 详见 R42 台账与续测报告。 |
-| 3-19 | `kcctl registry list/deploy/clean/push/delete` | ✅ | R6/R7 list/image/非法 push/`--registry-port`；**R24 补验**：repository 列表（`--node` + `--registry-port 5003`，只读）、delete 不存在 tag → fetch-first 干净报错（`MANIFEST_UNKNOWN`，零变更）。边界：对共享 5003 的真实 clean/delete 受"只增 tag"约束未做（策略性排除） **R42 再补测（2026-10-13）**：dev4 隔离 Registry 由 kcctl deploy 创建；真实 pause 镜像 archive push、list、delete 成功，删除后 manifest 404；kcctl clean 成功，服务 inactive、配置/数据目录消失。 详见 R42 台账与续测报告。 |
+| 3-19 | `kcctl registry list/deploy/clean/delete` | ✅ | R6/R7 list/image/非法 push/`--registry-port`；**R24 补验**：repository 列表（`--node` + `--registry-port 5003`，只读）、delete 不存在 tag → fetch-first 干净报错（`MANIFEST_UNKNOWN`，零变更）。边界：对共享 5003 的真实 clean/delete 受"只增 tag"约束未做（策略性排除） **R42 再补测（2026-10-13）**：dev4 隔离 Registry 由 kcctl deploy 创建；真实 pause 镜像 archive push、list、delete 成功，删除后 manifest 404；kcctl clean 成功，服务 inactive、配置/数据目录消失。 详见 R42 台账与续测报告。 **2026-11-05**：旧 `push` 已移除，原生离线导出与导入见 3-29。 |
 | 3-20 | `kcctl resource list` | ✅ | R3/R4：14 个 OCI package；R7 复测（新候选包同步后仍 14 个，digest 为新构建） |
 | 3-21 | `kcctl resource inspect` | ✅ | R3/R4：指定 package 可展示 repository、tag、digest、platform 和内容画像 |
 | 3-22 | `kcctl resource refresh` | ✅ | R3/R4：强制扫描指定 Registry，输出 `refreshed 14 OCI packages`；不将其解释为持久缓存更新 |
@@ -229,6 +229,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-26 | `kcctl status` | ✅ | R4：准确报告三台 `kc-server`、三台 `kc-etcd`、三台 `kc-agent`，平台 Healthy |
 | 3-27 | `kcctl deploy config` | ✅ | R6/R7 生成/非法 YAML 拒绝；**R24 补验**：生成模板 OK、非法 YAML 秒级干净报错、顶层 initialPassword 拒绝（R23 文案）、authentication 段零值回填（R24 单测 + 平台配置实证，见 4-18） |
 | 3-28 | `kcctl version` | ✅ | client/server 版本和 Git revision 准确 |
+| 3-29 | `kcctl registry export`、`registry sync --bundle` 与独立 Registry 自举小包 | ✅ | 2026-11-05：实现 63d05737；完整 61 tag 多架构导出，公网受限进程中小包自举、全量导入 61 copied、最终包重复导入 61 skipped；277 manifest 和 698 唯一 blob 全量读取核对。仅交付链路专项验证，非全量用例重跑；见 [实测报告](offline-bundles-2026-11-05.md)。 |
 
 ## 4. 其他核心平台功能
 

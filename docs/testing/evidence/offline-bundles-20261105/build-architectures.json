@@ -1,0 +1,10 @@
+[
+  {
+    "file": "kcctl",
+    "elfMachine": 62
+  },
+  {
+    "file": "kcctl-linux-arm64",
+    "elfMachine": 183
+  }
+]

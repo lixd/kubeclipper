@@ -1,0 +1,1 @@
+Stopped redundant resync deliberately; final-producer bundle resync will verify all 61 skips

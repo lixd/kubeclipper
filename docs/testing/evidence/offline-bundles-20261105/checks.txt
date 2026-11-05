@@ -1,0 +1,18 @@
+Implementation: 63d057378ce74a16aa78d00d8c005868866f2f89
+Environment: sh-dev, Docker kc-chart-package-tools:20261104, Go 1.26.1, Linux
+Command: go test ./pkg/delivery/... ./pkg/cli/registry/...
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/apis	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/bootstrap	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/fetcher	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/indexer	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/publisher	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/registry	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest	0.587s
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/registry	(cached)
+ok  	github.com/kubeclipper/kubeclipper/pkg/cli/registry/client	(cached)
+
+Goimports: no files listed
+Scoped golangci-lint 2.12.2:
+0 issues.
+
+Local: Bash syntax, workflow YAML, check-open-packaging-sources.sh, git diff --check passed
