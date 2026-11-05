@@ -37,6 +37,7 @@ type SyncOptions struct {
 	Config        *registryconfig.Config
 	Out           io.Writer
 	SourceOptions []crane.Option
+	Bundle        *Bundle
 }
 
 type SyncResult struct {
@@ -93,7 +94,17 @@ func Sync(ctx context.Context, manifest *Manifest, options *SyncOptions) (SyncRe
 			continue
 		}
 		destination := options.Registry + "/" + group.Target
-		expected, content, err := loadAndValidateSource(group.Source, selected, options.Arch, sourceOptions)
+		var expected string
+		var content any
+		if options.Bundle != nil {
+			var source *artifactSource
+			source, err = options.Bundle.source(group.Target)
+			if err == nil {
+				expected, content, err = validateSource(source, selected, options.Arch)
+			}
+		} else {
+			expected, content, err = loadAndValidateSource(group.Source, selected, options.Arch, sourceOptions)
+		}
 		if err != nil {
 			return result, fmt.Errorf("validate source %s: %w", group.Source, err)
 		}
@@ -160,17 +171,21 @@ func selectedArtifacts(artifacts []Artifact, arch string) []Artifact {
 	return result
 }
 
-//nolint:gocyclo // OCI indexes and manifests require distinct digest and provenance paths.
 func loadAndValidateSource(
 	source string,
 	artifacts []Artifact,
 	arch string,
 	sourceOptions []crane.Option,
 ) (digest string, content any, err error) {
-	descriptor, err := crane.Get(source, sourceOptions...)
+	descriptor, err := remoteSource(source, sourceOptions)
 	if err != nil {
 		return "", nil, err
 	}
+	return validateSource(descriptor, artifacts, arch)
+}
+
+//nolint:gocyclo // OCI indexes and manifests require distinct digest and provenance paths.
+func validateSource(descriptor *artifactSource, artifacts []Artifact, arch string) (digest string, content any, err error) {
 	isIndex := descriptor.MediaType == types.OCIImageIndex || descriptor.MediaType == types.DockerManifestList
 	if arch == ArchAll || len(artifacts[0].Platforms) == 0 {
 		if artifacts[0].Type != ArtifactTypeRuntime && descriptor.Digest.String() != artifacts[0].Digest {
@@ -228,7 +243,7 @@ func loadAndValidateSource(
 	return child.Digest.String(), image, nil
 }
 
-func validateRuntimeDigests(descriptor *remote.Descriptor, artifacts []Artifact) error {
+func validateRuntimeDigests(descriptor *artifactSource, artifacts []Artifact) error {
 	if descriptor.MediaType != types.OCIImageIndex && descriptor.MediaType != types.DockerManifestList {
 		if len(artifacts) != 1 || descriptor.Digest.String() != artifacts[0].Digest {
 			return fmt.Errorf("runtime image digest mismatch")
@@ -252,7 +267,7 @@ func validateRuntimeDigests(descriptor *remote.Descriptor, artifacts []Artifact)
 	return nil
 }
 
-func validatePackageProvenance(descriptor *remote.Descriptor, artifact *Artifact) error {
+func validatePackageProvenance(descriptor *artifactSource, artifact *Artifact) error {
 	if descriptor.MediaType != types.OCIImageIndex && descriptor.MediaType != types.DockerManifestList {
 		image, err := descriptor.Image()
 		if err != nil {
@@ -321,6 +336,8 @@ func destinationDigest(reference string, options []crane.Option) (digest string,
 
 func writeContent(reference string, content any, options []crane.Option) error {
 	parsed := crane.GetOptions(options...)
+	// Air-gapped mirrors must include foreign layers rather than depend on their external URLs.
+	parsed.Remote = append(parsed.Remote, remote.WithNondistributable)
 	target, err := name.ParseReference(reference, parsed.Name...)
 	if err != nil {
 		return err

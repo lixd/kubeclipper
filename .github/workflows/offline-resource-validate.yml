@@ -7,6 +7,9 @@ on:
   pull_request:
     paths:
       - "packaging/**"
+      - "pkg/cli/registry/**"
+      - "pkg/delivery/releasemanifest/**"
+      - "pkg/delivery/bootstrap/**"
       - "scripts/open-packaging/**"
       - "scripts/get-kubeclipper.sh"
       - ".github/workflows/release.yml"
@@ -133,8 +136,8 @@ jobs:
           }
           PY
 
-      - name: Offline Registry bundle export test
-        run: scripts/open-packaging/tests/export-offline-registry-bundle-test.sh
+      - name: Native multi-architecture offline bundle and Registry tests
+        run: go test ./pkg/delivery/releasemanifest ./pkg/delivery/bootstrap ./pkg/cli/registry/...
 
       - name: Release manifest provenance test
         run: scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh

@@ -336,7 +336,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 ### R46 完整离线 bundle 前置条件
 
-`1.1-03` 的导出机和导入机均须安装 `skopeo`；导出脚本还需要 Python 3 和 PyYAML。先同步当前候选完整 manifest 选择的目标架构制品，再运行仓库自带 `export-offline-registry-bundle.sh`，跨机复制并核对 bundle SHA256，用 `import-offline-registry-bundle.sh` 导入专用 Registry。按架构同步后的子 manifest digest 可能与原始多架构 index digest 不同，须保留原 CI 清单和选定架构摘要，不得随意跳过校验。真实断网测试前移除 Agent/containerd 的公网代理配置并关闭测试反向代理隧道，内网节点 IP、Registry、集群网段和 SSH 保持可达；记录出口规则及清理动作。
+`1.1-03` 使用候选 kcctl 的 `registry export --manifest ... --output ...` 导出完整多架构 OCI 归档和独立 Registry 自举小包；导出、导入均不依赖 Skopeo、Python 或容器运行时。离线端先用 `registry deploy --bundle registry-<version>.tar.gz` 启动专用 Registry，再用 `registry sync --bundle ... --target ...` 导入全量物料。逐一验证原始索引、amd64/arm64 子 manifest 和层摘要，重复导入应跳过，冲突、缺失或损坏的本地内容必须报错。真实断网测试需保留 SSH、内网 Registry 和集群网段可达，并记录出口隔离及清理证据。
 
 ### R46 离线 master 角色转换与节点移除
 

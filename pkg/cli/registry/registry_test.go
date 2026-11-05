@@ -21,7 +21,10 @@ package registry
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/sha256"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -34,135 +37,48 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 )
 
-func TestNewCmdRegistryDeployDoesNotExposeLegacyPackageFlag(t *testing.T) {
+func TestRegistryCommandsUseUnifiedDelivery(t *testing.T) {
 	cmd := NewCmdRegistryDeploy(NewRegistryOptions(options.IOStreams{}))
-	if cmd.Flags().Lookup("pkg") != nil {
-		t.Fatalf("registry deploy should not expose package flag")
+	for _, name := range []string{"pkg", "registry-image", "registry-image-archive", "registry-binary", "component-registry", "version"} {
+		if cmd.Flags().Lookup(name) != nil {
+			t.Fatalf("obsolete flag --%s remains", name)
+		}
 	}
-	for _, name := range []string{"registry-image", "registry-image-archive", "registry-binary", "component-registry"} {
+	for _, name := range []string{"bundle", "package-registry"} {
 		if cmd.Flags().Lookup(name) == nil {
-			t.Fatalf("registry deploy missing --%s flag", name)
+			t.Fatalf("missing --%s", name)
+		}
+	}
+	root := NewCmdRegistry(options.IOStreams{})
+	for _, child := range root.Commands() {
+		if child.Name() == "push" {
+			t.Fatal("obsolete registry push command remains")
 		}
 	}
 }
 
-func TestNewCmdRegistryPushDoesNotExposePackageFlag(t *testing.T) {
-	cmd := NewCmdRegistryPush(NewRegistryOptions(options.IOStreams{}))
-	if cmd.Flags().Lookup("pkg") != nil {
-		t.Fatalf("registry push should not expose package flag")
-	}
-	if cmd.Flags().Lookup("image-archive") == nil {
-		t.Fatalf("registry push missing --image-archive flag")
-	}
-}
-
-func TestValidateArgsPushRequiresImageArchive(t *testing.T) {
-	o := NewRegistryOptions(options.IOStreams{})
-	o.Node = "10.0.0.1"
-
-	err := o.ValidateArgsPush()
-	if err == nil {
-		t.Fatalf("ValidateArgsPush() expected error")
-	}
-	if got, want := err.Error(), "--image-archive must be specified"; !contains(got, want) {
-		t.Fatalf("ValidateArgsPush() error = %q, want containing %q", got, want)
-	}
-
-	o.ImageArchive = "images.tar.gz"
-	if err = o.ValidateArgsPush(); err != nil {
-		t.Fatalf("ValidateArgsPush() error = %+v", err)
-	}
-}
-
-func TestValidateArgsDeployAcceptsDefaultRegistryImage(t *testing.T) {
+func TestValidateRegistryDeploySources(t *testing.T) {
 	o := NewRegistryOptions(options.IOStreams{})
 	o.Node = "10.0.0.1"
 	o.SSHConfig.PkFile = "/tmp/id_rsa"
-
 	if err := o.ValidateArgsDeploy(); err != nil {
-		t.Fatalf("ValidateArgsDeploy() error = %+v", err)
+		t.Fatal(err)
 	}
-}
-
-func TestValidateArgsDeployRejectsMultipleSources(t *testing.T) {
-	o := NewRegistryOptions(options.IOStreams{})
-	o.Node = "10.0.0.1"
-	o.SSHConfig.PkFile = "/tmp/id_rsa"
-	o.RegistryImage = "docker.io/kubeclipper/registry:v1.8.0"
-	o.RegistryBinary = "./registry"
-
-	err := o.ValidateArgsDeploy()
-	if err == nil {
-		t.Fatalf("ValidateArgsDeploy() expected error")
+	o.BundlePath = "registry.tar.gz"
+	if err := o.ValidateArgsDeploy(); err != nil {
+		t.Fatal(err)
 	}
-	if got, want := err.Error(), "mutually exclusive"; !contains(got, want) {
-		t.Fatalf("ValidateArgsDeploy() error = %q, want containing %q", got, want)
+	o.PackageRegistry = "registry.example/kubeclipper"
+	if err := o.ValidateArgsDeploy(); err == nil {
+		t.Fatal("mixed online and offline sources accepted")
 	}
-}
-
-func TestResolveRegistryImage(t *testing.T) {
-	o := NewRegistryOptions(options.IOStreams{})
-	o.Version = "v1.8.0"
-
-	ref, err := o.resolveRegistryImage()
-	if err != nil {
-		t.Fatalf("resolveRegistryImage() error = %+v", err)
-	}
-	if ref != "docker.io/kubeclipper/registry:v1.8.0" {
-		t.Fatalf("resolveRegistryImage() = %q", ref)
-	}
-
-	o.ComponentRegistry = "harbor.example.com/kubeclipper/"
-	ref, err = o.resolveRegistryImage()
-	if err != nil {
-		t.Fatalf("resolveRegistryImage() error = %+v", err)
-	}
-	if ref != "harbor.example.com/kubeclipper/registry:v1.8.0" {
-		t.Fatalf("resolveRegistryImage() = %q", ref)
-	}
-}
-
-func TestNormalizeRegistryBinaryAlwaysNamesFileRegistry(t *testing.T) {
-	dir := t.TempDir()
-	src := filepath.Join(dir, "registry-linux-amd64")
-	if err := os.WriteFile(src, []byte("registry"), 0644); err != nil {
-		t.Fatalf("WriteFile() error = %+v", err)
-	}
-
-	path, cleanup, err := normalizeRegistryBinary(src)
-	if cleanup != nil {
-		defer cleanup()
-	}
-	if err != nil {
-		t.Fatalf("normalizeRegistryBinary() error = %+v", err)
-	}
-	if filepath.Base(path) != "registry" {
-		t.Fatalf("normalizeRegistryBinary() path = %q, want basename registry", path)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("ReadFile() error = %+v", err)
-	}
-	if string(data) != "registry" {
-		t.Fatalf("normalized binary content = %q", string(data))
-	}
-}
-
-func TestExtractRegistryBinaryUsesAllowedPath(t *testing.T) {
-	img := testRegistryImage(t, "/usr/local/bin/registry", "registry-binary")
-	dst := filepath.Join(t.TempDir(), "registry")
-
-	if err := extractRegistryBinary(img, dst); err != nil {
-		t.Fatalf("extractRegistryBinary() error = %+v", err)
-	}
-	data, err := os.ReadFile(dst)
-	if err != nil {
-		t.Fatalf("ReadFile() error = %+v", err)
-	}
-	if string(data) != "registry-binary" {
-		t.Fatalf("extracted binary = %q", string(data))
+	o.PackageRegistry = ""
+	o.Arch = "riscv64"
+	if err := o.ValidateArgsDeploy(); err == nil {
+		t.Fatal("unsupported target architecture accepted")
 	}
 }
 
@@ -229,4 +145,51 @@ func testRegistryImage(t *testing.T, binaryPath, content string) containerv1.Ima
 
 func contains(s, substr string) bool {
 	return strings.Contains(s, substr)
+}
+
+func TestRegistryPackageChecksPlatformAndBinaryDigest(t *testing.T) {
+	for _, test := range []struct {
+		name, arch, digest string
+		valid              bool
+	}{
+		{"valid", "amd64", fmt.Sprintf("sha256:%x", sha256.Sum256([]byte("binary"))), true},
+		{"wrong architecture", "arm64", fmt.Sprintf("sha256:%x", sha256.Sum256([]byte("binary"))), false},
+		{"wrong payload", "amd64", "sha256:" + strings.Repeat("0", 64), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			image := testRegistryImage(t, "/opt/kubeclipper/resource/registry", "binary")
+			manifest := deliveryapis.PackageManifest{SchemaVersion: 1, Kind: "bootstrap", Name: "registry", Version: "3.1.1",
+				Platform: deliveryapis.PackageManifestPlatform{OS: "linux", Arch: test.arch},
+				Contents: []deliveryapis.PackageManifestFile{{Name: "registry", File: "registry", Digest: test.digest}},
+			}
+			data, err := json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var buf bytes.Buffer
+			tw := tar.NewWriter(&buf)
+			if headerErr := tw.WriteHeader(&tar.Header{Name: "opt/kubeclipper/resource/kc-package-manifest.json", Mode: 0600, Size: int64(len(data))}); headerErr != nil {
+				t.Fatal(headerErr)
+			}
+			if _, err = tw.Write(data); err != nil {
+				t.Fatal(err)
+			}
+			_ = tw.Close()
+			layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(buf.Bytes())), nil })
+			if err != nil {
+				t.Fatal(err)
+			}
+			image, err = mutate.AppendLayers(image, layer)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, cleanup, err := extractRegistryPackageBinary(image, "amd64")
+			if cleanup != nil {
+				defer cleanup()
+			}
+			if (err == nil) != test.valid {
+				t.Fatalf("extract package error=%v, valid=%v", err, test.valid)
+			}
+		})
+	}
 }

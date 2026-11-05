@@ -396,8 +396,8 @@ FS/S3 记录与制品删除一致；重复删除、缓存变化、控制器重�
 Registry 单测有覆盖，但断公网、真实部署消费侧认证、节点故障和 arm64
 运行证据不足，性质是未完成验收，不能统一断言相关功能没有实现。
 
-入口：[离线导出](../../scripts/open-packaging/export-offline-registry-bundle.sh)、
-[离线导入](../../scripts/open-packaging/import-offline-registry-bundle.sh)、
+入口：[离线导出](../../pkg/cli/registry/export.go)、
+[离线导入](../../pkg/cli/registry/sync.go)、
 [Registry sync](../../pkg/cli/registry/sync.go)、[E2E](../../test/e2e/)、
 [qualification](../../.github/workflows/publish-oci-qualification.yml)。
 

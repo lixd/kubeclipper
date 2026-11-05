@@ -213,7 +213,7 @@ func selectBootstrapPackage(
 	sourceRevision string,
 ) (deliveryapis.PackageEntry, bool) {
 	sourceRevision = strings.TrimSpace(sourceRevision)
-	if inventory == nil || sourceRevision == "" {
+	if inventory == nil || (packageName == bootstrapPackageKubeClipper && sourceRevision == "") {
 		return deliveryapis.PackageEntry{}, false
 	}
 	var candidates []deliveryapis.PackageEntry
@@ -299,4 +299,38 @@ func selectedBootstrapContents(contents []deliveryapis.ArtifactContent, assets [
 		}
 	}
 	return result
+}
+
+// FetchRegistryBinary reuses bootstrap discovery, package selection and verified
+// acquisition without requiring KubeClipper to have been installed first.
+func FetchRegistryBinary(
+	ctx context.Context, registry, arch string, cfg *deliveryregistry.Config,
+) (binaryPath string, release func(), err error) {
+	indexer := deliveryindexer.NewRegistryPackageInventoryIndexerWithConfig(cfg)
+	inventory, err := indexer.IndexRepositories(ctx, registry, []string{deliveryapis.PackageRepository("bootstrap", "registry")})
+	if err != nil {
+		return "", nil, err
+	}
+	components, missing := resolveBootstrapAssetComponents(inventory, []bootstrapAsset{{PackageName: "registry", Name: "registry"}}, arch, "")
+	if len(missing) != 0 {
+		return "", nil, fmt.Errorf("package registry %s is missing bootstrap/registry for linux/%s", registry, arch)
+	}
+	result, err := deliveryfetcher.NewOCIArtifactFetcherWithConfig(false, cfg).Fetch(ctx, &deliveryapis.ResolvedArtifactPlan{
+		OS: "linux", Arch: arch, Components: components,
+	})
+	if err != nil {
+		return "", nil, err
+	}
+	cleanup := func() {
+		if releaseErr := result.Release(); releaseErr != nil {
+			logger.Warnf("release Registry package: %v", releaseErr)
+		}
+	}
+	for i := range result.Components {
+		if binary := result.Components[i].Files["registry"]; binary != "" {
+			return binary, cleanup, nil
+		}
+	}
+	cleanup()
+	return "", nil, fmt.Errorf("registry package has no registry binary")
 }

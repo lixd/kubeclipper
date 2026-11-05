@@ -40,7 +40,7 @@ Output:
 
 Notes:
   kcctl registry deploy should normally bootstrap the first Registry from a
-  registry image such as registry:2. The registry binary artifact is optional
+  standard package-bootstrap-registry package. The binary artifact is optional
   here and only built when a local file is provided.
 EOF
 }

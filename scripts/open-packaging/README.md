@@ -103,7 +103,7 @@ Verification is optional and does not block `kcctl create cluster`:
 
 ```bash
 scripts/open-packaging/verify-release-manifest.sh \
-  --manifest kubeclipper-offline-registry-bundle-v2.0.0-amd64-release-manifest.yaml \
+  --manifest release-manifest.yaml \
   --registry 10.0.0.10:5000 \
   --arch amd64 \
   --insecure
@@ -495,77 +495,68 @@ For an official release, the preferred connected-site mirror command is:
 
 ```bash
 kcctl registry sync \
-  --registry harbor.example.com/kubeclipper \
-  --registry-username 'robot$kubeclipper-writer' \
-  --registry-password-file harbor-token \
-  --registry-ca-file harbor-ca.pem
+  --manifest release-manifest.yaml \
+  --target harbor.example.com/kubeclipper \
+  --target-username 'robot$kubeclipper-writer' \
+  --target-password-file harbor-token \
+  --target-ca-file harbor-ca.pem
 ```
 
-The command downloads the release manifest matching the `kcctl` version and
-verifies its SHA256 file, source digests, and package `sourceRevision`.
-`--manifest <file>` selects a local manifest. A matching target digest is
+The command reads the selected release manifest and verifies source digests
+and package `sourceRevision`. A matching target digest is
 skipped; an existing tag with a different digest is not overwritten.
 
-### 3.2 Offline Registry Bundle
+## Offline release export and import
 
-For an air-gapped site, generate `release-manifest.yaml` with all required
-package images (including charts) and runtime images, then export one
-architecture into a portable bundle:
-
-```bash
-scripts/open-packaging/export-offline-registry-bundle.sh \
-  --manifest /data/kc-resource/release-manifest.yaml \
-  --arch amd64 \
-  --output kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz
-```
-
-When the release manifest includes `package-bootstrap-registry`, the exported
-bundle is self-bootstrapping. It contains `bootstrap/registry-image.tar`, covered by the
-bundle `SHA256SUMS`, so a host without Docker, containerd, or an existing
-Registry can start the first Registry directly:
+Use a kcctl binary from the release being exported. No Docker, containerd,
+Skopeo or Python installation is required for this flow.
 
 ```bash
-sha256sum -c kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz.sha256
-tar -xzf kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz \
-  kubeclipper-offline-registry-bundle/bootstrap/registry-image.tar
-kcctl registry deploy \
-  --node 10.0.0.10 \
-  --pk-file ~/.ssh/id_ed25519 \
-  --registry-image-archive kubeclipper-offline-registry-bundle/bootstrap/registry-image.tar
+# On a connected machine: export every artifact and its complete image index.
+kcctl registry export --manifest release-manifest.yaml --output kc-offline.tar.gz
 ```
 
-After the Registry is healthy, import the same bundle with the command below.
-No separate registry binary or second archive is required.
+This writes two independent OCI Image Layout archives:
 
-The tarball contains lossless Registry seed data, the original release
-manifest, an artifact index, and SHA256 checksums. Package images, including
-charts, use OCI Layout. Runtime images use Skopeo's lossless directory transport
-because many upstream images still use Docker Schema 2 media types that cannot
-be read back from an OCI Layout without changing their digest. Shared
-content-addressed blobs are hard-linked before compression to avoid storing the
-same layer repeatedly. This is not a legacy KubeClipper Resource package and
-does not embed `images.tar.gz` in another image.
+- `kc-offline.tar.gz`: all release package images, charts and runtime images.
+- `registry-<version>.tar.gz`: only the bootstrap/registry package, including
+  its published architectures, for starting the first offline Registry.
 
-After carrying the tarball into the offline environment, deploy KubeClipper's
-Registry or prepare Harbor, then import every object while preserving its
-repository path, tag, media type, and digest:
+The release archive contains `release-manifest.yaml`, `oci-layout`, `index.json`,
+`blobs/` and `SHA256SUMS`. Repository/tag mappings use OCI reference annotations;
+there is no custom TSV inventory. All original index and manifest bytes, media
+types and compressed layers are preserved. Complete source indexes may include
+platforms beyond Linux amd64/arm64; these are included to preserve their digests.
+Export rejects existing output paths. Credentials use the same
+`--source-username` and `--source-password-file` flags as online sync.
+
+Copy kcctl and both archives into the offline environment:
 
 ```bash
-scripts/open-packaging/import-offline-registry-bundle.sh \
-  --bundle kubeclipper-offline-registry-bundle-v2.0.0-amd64.tar.gz \
-  --registry registry.local:5000 \
-  --insecure-destination
+# Bootstrap from the small Registry-only archive.
+kcctl registry deploy --node 10.0.0.10 --pk-file ~/.ssh/id_ed25519 \
+  --bundle registry-3.1.1.tar.gz
 
-scripts/open-packaging/verify-release-manifest.sh \
-  --manifest /data/kc-resource/release-manifest.yaml \
-  --registry registry.local:5000 \
-  --arch amd64 \
-  --insecure
+# Seed the Registry from the complete release archive.
+kcctl registry sync --bundle kc-offline.tar.gz \
+  --target 10.0.0.10:5000/kubeclipper-release --target-scheme http
+
+# Install through the normal package Registry flow.
+kcctl deploy --deploy-config deploy.yaml \
+  --package-registry 10.0.0.10:5000/kubeclipper-release \
+  --package-registry-scheme http
 ```
 
-Both scripts use `skopeo`, so Docker/containerd does not need to be running on
-the export or import host. Registry credentials continue to use normal
-containers-auth configuration (`skopeo login`, Docker config, or an authfile).
+Registry deploy detects the target architecture over SSH; `--arch` can specify
+amd64 or arm64 explicitly. Online deploy selects the standard bootstrap/registry
+package using `--package-registry` (the official Registry by default).
+Local archives must contain all referenced blobs. Missing or corrupt content
+fails without falling back to any online source. Offline sync shares online
+sync's target authentication, digest verification, identical-content skip and
+conflicting-tag rejection. Use `--arch all` (the default) to preserve complete
+multi-platform indexes. The Registry-only archive is not a release sync source.
+The obsolete `registry push` command and loose-binary/Docker-archive bootstrap
+source flags have been removed.
 
 ## 4. Typical End-to-End Flow
 
@@ -575,7 +566,7 @@ kcctl registry deploy \
   --node 10.0.0.10 \
   --registry-port 5000 \
   --pk-file ~/.ssh/id_ed25519 \
-  --registry-image ghcr.io/kubeclipper/kubeclipper/package-bootstrap-registry:3.1.1
+  --package-registry ghcr.io/kubeclipper/kubeclipper
 
 # 2. Build and push Kubernetes/CRI/CNI package images (including charts) and runtime images.
 scripts/open-packaging/build-offline-resources.sh \
@@ -626,11 +617,6 @@ kcctl deploy \
   --package-registry-password-file harbor-robot-token \
   --package-registry-ca-file harbor-ca.pem
 
-go run ./tools/oci-verify \
-  --registry harbor.example.com/kubeclipper \
-  --registry-username 'robot$kubeclipper-reader' \
-  --registry-password-file harbor-robot-token \
-  --registry-ca-file harbor-ca.pem
 ```
 
 For `kcctl registry sync`, grant a project-scoped writer robot only repository

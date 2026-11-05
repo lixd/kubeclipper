@@ -193,9 +193,14 @@ Three supported shapes, from lightest to heaviest:
    Copies are digest-preserving and idempotent (a second run reports `0`
    copied). `--dry-run` prints the copy plan. HTTP/private-CA targets are
    supported via `--target-scheme/--target-ca-file/--target-skip-tls-verify`.
-2. **Offline registry bundle** — `export-offline-registry-bundle.sh` produces a
-   tarball of the registry content; `import-offline-registry-bundle.sh` restores
-   it into a local `registry:2` (what the AIO/qualification pipelines run).
+2. **Offline OCI bundles** — `kcctl registry export --manifest release-manifest.yaml
+   --output kc-offline.tar.gz` writes a complete multi-platform release archive
+   and a separate small `registry-<version>.tar.gz`. Bootstrap using
+   `kcctl registry deploy --bundle registry-<version>.tar.gz`, then import using
+   `kcctl registry sync --bundle kc-offline.tar.gz --target <registry-prefix>`.
+   Original indexes, manifests, compressed layers and digests are preserved;
+   missing local content fails without online fallback. Export and import need
+   only kcctl. See the [offline flow](../scripts/open-packaging/README.md#offline-release-export-and-import).
 3. **Build-from-source** — `scripts/open-packaging/build-offline-resources.sh`
    rebuilds resource packages when the official release does not cover your
    matrix.

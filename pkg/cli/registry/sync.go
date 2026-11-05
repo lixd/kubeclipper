@@ -54,12 +54,16 @@ const syncExample = `
     --target-username robot --target-password-file /tmp/harbor.pw \
     --source-username user --source-password-file /tmp/src.pw --arch amd64
 
+  # Import the full release after bootstrapping from registry-<version>.tar.gz
+  kcctl registry sync --bundle kc-offline.tar.gz --target registry.internal/kubeclipper
+
   # Show what would be copied without touching any registry
   kcctl registry sync --manifest release-manifest.yaml --target harbor.internal/kubeclipper --dry-run`
 
 type SyncOptions struct {
 	options.IOStreams
 
+	BundlePath    string
 	ManifestPath  string
 	Target        string
 	Arch          string
@@ -72,7 +76,7 @@ type SyncOptions struct {
 func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 	opts := &SyncOptions{IOStreams: o.IOStreams}
 	cmd := &cobra.Command{
-		Use:     "sync (--manifest <release-manifest.yaml>) (--target <registry>) [flags]",
+		Use:     "sync (--manifest <release-manifest.yaml> | --bundle <release.tar.gz>) --target <registry> [flags]",
 		Short:   "mirror a release manifest into another registry",
 		Long:    syncLongDescription,
 		Example: syncExample,
@@ -83,7 +87,8 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "", "release manifest YAML to sync. Required.")
+	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "", "release manifest YAML to sync from online registries.")
+	cmd.Flags().StringVar(&opts.BundlePath, "bundle", "", "offline OCI release bundle exported by kcctl registry export.")
 	cmd.Flags().StringVar(&opts.Target, "target", "", "target registry prefix, e.g. harbor.internal/kubeclipper. Required.")
 	cmd.Flags().StringVar(&opts.Arch, "arch", "all", "architecture to sync: amd64, arm64 or all")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "print the copy plan without contacting registries")
@@ -95,14 +100,16 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 	cmd.Flags().StringVar(&opts.SourceUser, "source-username", "", "source registry username (default: anonymous)")
 	cmd.Flags().StringVar(&opts.SourcePassFil, "source-password-file", "", "file containing the source registry password or token")
 
-	utils.CheckErr(cmd.MarkFlagRequired("manifest"))
 	utils.CheckErr(cmd.MarkFlagRequired("target"))
 	return cmd
 }
 
 func (o *SyncOptions) ValidateArgs() error {
-	if o.ManifestPath == "" {
-		return fmt.Errorf("--manifest is required")
+	if (o.ManifestPath == "") == (o.BundlePath == "") {
+		return fmt.Errorf("exactly one of --manifest or --bundle is required")
+	}
+	if o.BundlePath != "" && (o.SourceUser != "" || o.SourcePassFil != "") {
+		return fmt.Errorf("source credentials cannot be used with --bundle")
 	}
 	if o.Target == "" {
 		return fmt.Errorf("--target is required")
@@ -112,20 +119,42 @@ func (o *SyncOptions) ValidateArgs() error {
 	default:
 		return fmt.Errorf("--arch must be amd64, arm64 or all")
 	}
-	if _, err := os.Stat(o.ManifestPath); err != nil {
+	source := o.ManifestPath
+	if o.BundlePath != "" {
+		source = o.BundlePath
+	}
+	if _, err := os.Stat(source); err != nil {
 		return fmt.Errorf("read manifest: %w", err)
 	}
 	return nil
 }
 
 func (o *SyncOptions) Run(_ *cobra.Command) error {
-	data, err := os.ReadFile(o.ManifestPath)
-	if err != nil {
-		return fmt.Errorf("read manifest: %w", err)
-	}
-	manifest, err := releasemanifest.Parse(data)
-	if err != nil {
-		return err
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	var manifest *releasemanifest.Manifest
+	var bundle *releasemanifest.Bundle
+	var err error
+	if o.BundlePath != "" {
+		bundle, err = releasemanifest.OpenBundle(ctx, o.BundlePath)
+		if err != nil {
+			return err
+		}
+		defer bundle.Close()
+		manifest = bundle.Manifest
+		if manifest == nil {
+			return fmt.Errorf("a release bundle is required for sync; the Registry bootstrap bundle is only for registry deploy")
+		}
+	} else {
+		var data []byte
+		data, err = os.ReadFile(o.ManifestPath)
+		if err != nil {
+			return fmt.Errorf("read manifest: %w", err)
+		}
+		manifest, err = releasemanifest.Parse(data)
+		if err != nil {
+			return err
+		}
 	}
 	if o.DryRun {
 		return printSyncPlan(o.IOStreams.Out, manifest, o.Target, o.Arch)
@@ -135,9 +164,6 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
-
 	sourceOptions, err := o.sourceCraneOptions(ctx)
 	if err != nil {
 		return err
@@ -149,6 +175,7 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 		Config:        targetConfig,
 		Out:           o.IOStreams.Out,
 		SourceOptions: sourceOptions,
+		Bundle:        bundle,
 	})
 	if err != nil {
 		return err
@@ -165,15 +192,19 @@ func (o *SyncOptions) resolveTargetConfig() (*deliveryregistry.Config, error) {
 }
 
 func (o *SyncOptions) sourceCraneOptions(ctx context.Context) ([]crane.Option, error) {
+	return sourceRegistryOptions(ctx, o.SourceUser, o.SourcePassFil)
+}
+
+func sourceRegistryOptions(ctx context.Context, username, passwordFile string) ([]crane.Option, error) {
 	opts := []crane.Option{crane.WithContext(ctx), crane.WithAuth(authn.Anonymous)}
-	if o.SourceUser != "" {
-		password, err := os.ReadFile(o.SourcePassFil)
+	if username != "" {
+		password, err := os.ReadFile(passwordFile)
 		if err != nil {
 			return nil, fmt.Errorf("read source password file: %w", err)
 		}
 		opts = []crane.Option{crane.WithContext(ctx),
-			crane.WithAuth(&authn.Basic{Username: o.SourceUser, Password: string(password)})}
-	} else if o.SourcePassFil != "" {
+			crane.WithAuth(&authn.Basic{Username: username, Password: string(password)})}
+	} else if passwordFile != "" {
 		return nil, fmt.Errorf("--source-password-file requires --source-username")
 	}
 	return opts, nil

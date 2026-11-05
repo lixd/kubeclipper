@@ -81,7 +81,7 @@ func TestSyncValidateArgs(t *testing.T) {
 		o    SyncOptions
 		want string
 	}{
-		{"no manifest", SyncOptions{Target: "harbor.local/kc"}, "--manifest is required"},
+		{"no manifest", SyncOptions{Target: "harbor.local/kc"}, "exactly one of --manifest or --bundle"},
 		{"no target", SyncOptions{ManifestPath: "x"}, "--target is required"},
 		{"bad arch", SyncOptions{ManifestPath: "x", Target: "t", Arch: "riscv"}, "--arch must be"},
 	}
