@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: curl ... | bash -s -- --mirror cn
-# --mirror cn selects the domestic download site for this invocation only.
+# Usage: export KCZONE=cn; curl ... | bash
+# KCZONE selects the download zone; KC_DOWNLOAD_URL overrides its release base URL.
 # KC_BIN_DIR selects the install directory; ARCH overrides architecture detection.
 # The release workflow stamps DEFAULT_VERSION before publishing this script.
 DEFAULT_VERSION="v2.0.9"
+DEFAULT_DOWNLOAD_URL="https://github.com/kubeclipper/kubeclipper/releases/download"
+DEFAULT_CN_DOWNLOAD_URL="https://release.kubeclipper.io/kc"
 KC_VERSION="${KC_VERSION:-$DEFAULT_VERSION}"
 BIN_DIR="${KC_BIN_DIR:-/usr/local/bin}"
 
@@ -23,21 +25,27 @@ case "${ARCH:-$(uname -m)}" in
   *) fatal 'Only amd64 and arm64 are supported' ;;
 esac
 
-DOWNLOAD_URL="https://github.com/kubeclipper/kubeclipper/releases/download"
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --mirror)
-      [[ $# -ge 2 && "$2" == cn ]] || fatal '--mirror requires cn'
-      DOWNLOAD_URL="https://release.kubeclipper.io/kc"
-      shift 2
-      ;;
     -h|--help)
-      echo 'Usage: bash get-kubeclipper.sh [--mirror cn]'
+      echo 'Usage: [KCZONE=cn] [KC_DOWNLOAD_URL=<release-base-url>] bash get-kubeclipper.sh'
       exit 0
       ;;
     *) fatal "Unknown argument: $1" ;;
   esac
 done
+
+case "${KCZONE:-global}" in
+  global) DOWNLOAD_URL="$DEFAULT_DOWNLOAD_URL" ;;
+  cn) DOWNLOAD_URL="$DEFAULT_CN_DOWNLOAD_URL" ;;
+  *) fatal 'KCZONE must be global or cn' ;;
+esac
+DOWNLOAD_URL="${KC_DOWNLOAD_URL:-$DOWNLOAD_URL}"
+[[ -n "$DOWNLOAD_URL" ]] || fatal 'Download source is not configured; set KC_DOWNLOAD_URL'
+case "$DOWNLOAD_URL" in
+  https://*|http://*) ;;
+  *) fatal 'KC_DOWNLOAD_URL must be an HTTP or HTTPS release base URL' ;;
+esac
 
 if command -v curl >/dev/null 2>&1; then
   DOWNLOADER=curl

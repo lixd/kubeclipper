@@ -171,19 +171,21 @@ You can download the latest version of `kcctl` directly with the following comma
 # Download kcctl from GitHub Releases by default
 curl -fsSL https://github.com/kubeclipper/kubeclipper/releases/latest/download/get-kubeclipper.sh | bash
 # In China, download both the installer and kcctl from OSS
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | bash -s -- --mirror cn
+export KCZONE=cn
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | bash
 # Download a specific OCI release
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_VERSION=v2.0.9 bash -s -- --mirror cn
+curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_VERSION=v2.0.9 bash
 ```
 
-The installer verifies SHA256. Set `KC_BIN_DIR` to choose the install directory.
-`--mirror cn` selects only this invocation's kcctl download source. Platform materials
+The installer verifies SHA256. Set `KC_BIN_DIR` to choose the install directory and
+`KCZONE=cn` to select its domestic download source. `KC_DOWNLOAD_URL` overrides the
+version download base URL, for example `https://downloads.example.com/kc`. Platform materials
 are fetched from OCI; use `kcctl deploy --package-registry <registry>` for an internal registry.
 
 For platform upgrades between OCI releases, manifests are downloaded from GitHub by default; binary
 payloads come from the OCI registry named in the manifest. To download manifests and checksums from
 OSS, use `kcctl upgrade all --version vX.Y.Z --release-base-url https://release.kubeclipper.io/kc`,
-replacing `vX.Y.Z` with a published target version. `--mirror cn` does not affect upgrades. See
+replacing `vX.Y.Z` with a published target version. Upgrade manifest downloads use `--release-base-url`. See
 [OCI upgrade instructions](docs/oci-delivery.md#44-platform-upgrade-kcctl-upgrade).
 
 > It is highly recommended that you install the latest release to experience more features. You can

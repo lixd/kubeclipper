@@ -9,6 +9,7 @@ import sys
 import hashlib
 import os
 from pathlib import Path
+import shlex
 import subprocess
 import tempfile
 
@@ -59,18 +60,52 @@ assert "pkg/delivery/releasemanifest/embedded/release-manifest.yaml" in build
 assert any(step.get("name") == "Verify embedded export inventory" for step in steps)
 
 release = jobs["github-release"]
-stamp = next(step["run"] for step in release["steps"] if step.get("name") == "Stamp installer version")
+stamp_step = next(step for step in release["steps"]
+                  if step.get("name") == "Stamp installer release sources")
+assert stamp_step["env"]["OSS_DOWNLOAD_URL"] == "${{ vars.OSS_DOWNLOAD_URL }}"
+stamp = stamp_step["run"]
 root = Path(sys.argv[1]).resolve().parents[2]
 with tempfile.TemporaryDirectory() as tmp:
     Path(tmp, "release").mkdir()
-    env = dict(os.environ, RUNNER_TEMP=tmp, GITHUB_REF_NAME="v9.8.7")
-    subprocess.run(["bash", "-eu", "-c", stamp], cwd=root, env=env, check=True)
-    published = Path(tmp, "release/get-kubeclipper.sh").read_text()
-    assert 'DEFAULT_VERSION="v9.8.7"' in published
+    for repository, domestic, expected in (
+        ("kubeclipper/kubeclipper", "", "https://release.kubeclipper.io/kc"),
+        ("fixture/repo", "", ""),
+        ("fixture/repo", "https://downloads.example.com/kc/", "https://downloads.example.com/kc"),
+    ):
+        env = dict(os.environ, RUNNER_TEMP=tmp, GITHUB_REF_NAME="v9.8.7",
+                   GITHUB_REPOSITORY=repository, OSS_DOWNLOAD_URL=domestic)
+        subprocess.run(["bash", "-eu", "-c", stamp], cwd=root, env=env, check=True)
+        published = Path(tmp, "release/get-kubeclipper.sh").read_text()
+        assert 'DEFAULT_VERSION=v9.8.7' in published
+        assert f'DEFAULT_DOWNLOAD_URL=https://github.com/{repository}/releases/download' in published
+        assert f'DEFAULT_CN_DOWNLOAD_URL={shlex.quote(expected)}' in published
+        subprocess.run(["bash", "-n", str(Path(tmp, "release/get-kubeclipper.sh"))], check=True)
+    for invalid in ("http://downloads.example.com/kc", "https://user:secret@example.com/kc",
+                    "https://example.com/kc?token=value", "https://example.com/kc#anchor",
+                    "https://example.com/kc\nmalformed"):
+        env["OSS_DOWNLOAD_URL"] = invalid
+        result = subprocess.run(["bash", "-eu", "-c", stamp], cwd=root, env=env, capture_output=True)
+        assert result.returncode != 0, "invalid public download URL must fail"
 
 oss = jobs["oss-release"]
 assert oss["needs"] == "github-release"
-assert oss["if"] == "github.repository == 'kubeclipper/kubeclipper'"
+condition = "github.repository == 'kubeclipper/kubeclipper' || vars.OSS_RELEASE_ENABLED == 'true'"
+assert oss["if"] == condition
+preflight = next(step for step in jobs["prepare"]["steps"]
+                 if step.get("name") == "Validate OSS release configuration")
+assert preflight["if"] == condition
+required = ("OSS_ENDPOINT", "OSS_BUCKET", "OSS_ACCESS_KEY", "OSS_ACCESS_SECRET")
+assert all(preflight["env"][name] == "${{ secrets." + name + " }}" for name in required)
+env = dict(os.environ, GITHUB_REPOSITORY="fixture/repo",
+           OSS_ENDPOINT="fixture-endpoint", OSS_BUCKET="fixture-bucket",
+           OSS_ACCESS_KEY="fixture-key", OSS_ACCESS_SECRET="fixture-secret",
+           OSS_DOWNLOAD_URL="https://downloads.example.com/kc")
+subprocess.run(["bash", "-eu", "-c", preflight["run"]], env=env, check=True)
+for missing in (*required, "OSS_DOWNLOAD_URL"):
+    result = subprocess.run(["bash", "-eu", "-c", preflight["run"]],
+                            env=dict(env, **{missing: ""}), capture_output=True)
+    assert result.returncode != 0, f"missing {missing} must fail before publishing"
+    assert missing.encode() in result.stderr
 upload = next(step["run"] for step in oss["steps"] if step.get("name") == "Upload release files and publish installer last")
 # Execute the upload command with a recording ossutil, not a real OSS endpoint.
 with tempfile.TemporaryDirectory() as tmp:
@@ -78,7 +113,8 @@ with tempfile.TemporaryDirectory() as tmp:
     (dest / "oss-release").mkdir()
     log = dest / "uploads"
     tool = dest / "ossutil"
-    tool.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UPLOAD_LOG"\n')
+    tool.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$*" >> "$UPLOAD_LOG"\n'
+                    '[[ -z "${FAIL_UPLOAD:-}" || "$3" != "$FAIL_UPLOAD" ]]\n')
     tool.chmod(0o755)
     env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}", RUNNER_TEMP=tmp,
                GITHUB_REF_NAME="v9.8.7", OSS_BUCKET="fixture-bucket", UPLOAD_LOG=str(log))
@@ -86,12 +122,18 @@ with tempfile.TemporaryDirectory() as tmp:
     commands = log.read_text().splitlines()
     assets = {"kcctl-linux-amd64", "kcctl-linux-arm64", "kcctl-darwin-amd64",
               "kcctl-darwin-arm64", "kcctl-checksums.txt",
-              "release-manifest-v9.8.7.yaml", "release-manifest-v9.8.7.yaml.sha256"}
-    assert len(commands) == 8
+              "release-manifest-v9.8.7.yaml", "release-manifest-v9.8.7.yaml.sha256",
+              "get-kubeclipper.sh"}
+    assert len(commands) == 9
     assert {line.split()[-1] for line in commands[:-1]} == {
         f"oss://fixture-bucket/kc/v9.8.7/{asset}" for asset in assets
     }
     assert commands[-1] == 'cp -f get-kubeclipper.sh oss://fixture-bucket/get-kubeclipper.sh'
+    log.write_text("")
+    result = subprocess.run(["bash", "-eu", "-c", upload],
+                            env=dict(env, FAIL_UPLOAD="kcctl-linux-arm64"), capture_output=True)
+    assert result.returncode != 0
+    assert commands[-1] not in log.read_text().splitlines(), "failed upload must not update root installer"
 # Both files must be requested from the same published GitHub release.
 download = next(step["run"] for step in oss["steps"] if step.get("name") == "Download the published GitHub assets")
 with tempfile.TemporaryDirectory() as tmp:
@@ -103,7 +145,7 @@ with tempfile.TemporaryDirectory() as tmp:
                GITHUB_REF_NAME="v9.8.7", GITHUB_REPOSITORY="fixture/repo", DOWNLOAD_LOG=str(log))
     subprocess.run(["bash", "-eu", "-c", download], env=env, check=True)
     args = log.read_text().splitlines()
-    assert {args[i + 1] for i, value in enumerate(args) if value == "--pattern"} == assets | {"get-kubeclipper.sh"}
+    assert {args[i + 1] for i, value in enumerate(args) if value == "--pattern"} == assets
 
 verify = next(step["run"] for step in oss["steps"] if step.get("name") == "Verify release checksums")
 with tempfile.TemporaryDirectory() as tmp:

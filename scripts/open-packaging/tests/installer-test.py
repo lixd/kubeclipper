@@ -20,16 +20,17 @@ class InstallerTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        self.script = SCRIPT
         self.bin = self.root / 'bin'
         self.bin.mkdir()
         self.existing = self.bin / 'kcctl'
         self.existing.write_bytes(b'existing-install')
         self.env = {k: v for k, v in os.environ.items()
-                    if not k.startswith('KC_') and k != 'ARCH'}
+                    if not k.startswith('KC_') and k not in ('ARCH', 'KCZONE')}
         self.env.update(KC_BIN_DIR=str(self.bin), KC_VERSION='v9.8.7', ARCH='amd64')
 
     def run_installer(self, *args):
-        return subprocess.run(['bash', str(SCRIPT), *args], env=self.env,
+        return subprocess.run(['bash', str(self.script), *args], env=self.env,
                               capture_output=True, text=True)
 
     def serve(self, bad_checksum=False, missing_binary=False):
@@ -59,13 +60,7 @@ class InstallerTest(unittest.TestCase):
         worker.start()
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
-        tools = self.root / 'http-tools'
-        tools.mkdir()
-        curl = tools / 'curl'
-        curl.write_text('#!/usr/bin/env bash\nargs=("$@")\nlast=$((${#args[@]}-1))\nurl=${args[$last]}\nargs[$last]="$TEST_HTTP_ROOT/${url##*/v9.8.7/}"\nexec /usr/bin/curl "${args[@]}"\n')
-        curl.chmod(0o755)
-        self.env.update(PATH=f'{tools}:{self.env["PATH"]}',
-                        TEST_HTTP_ROOT=f'http://127.0.0.1:{server.server_port}/v9.8.7')
+        self.env['KC_DOWNLOAD_URL'] = f'http://127.0.0.1:{server.server_port}'
         return requests
 
     def test_install_verifies_and_replaces_binary(self):
@@ -117,24 +112,53 @@ esac
         curl.chmod(0o755)
         self.env.update(PATH=f'{stub}:{self.env["PATH"]}', TEST_URL_LOG=str(log),
                         TEST_CHECKSUMS=str(checksums), TEST_PAYLOAD=str(fixture))
-        for args, expected in (
-            ((), 'https://github.com/kubeclipper/kubeclipper/releases/download'),
-            (('--mirror', 'cn'), 'https://release.kubeclipper.io/kc'),
+        for settings, expected in (
+            ({}, 'https://github.com/kubeclipper/kubeclipper/releases/download'),
+            ({'KCZONE': 'global'}, 'https://github.com/kubeclipper/kubeclipper/releases/download'),
+            ({'KCZONE': 'cn'}, 'https://release.kubeclipper.io/kc'),
+            ({'KC_DOWNLOAD_URL': 'https://download.example.com/kc/'}, 'https://download.example.com/kc'),
+            ({'KCZONE': 'cn', 'KC_DOWNLOAD_URL': 'https://download.example.com/kc'}, 'https://download.example.com/kc'),
         ):
-            with self.subTest(args=args):
+            with self.subTest(settings=settings):
+                self.env.pop('KCZONE', None)
+                self.env.pop('KC_DOWNLOAD_URL', None)
+                self.env.update(settings)
                 self.env.update(ARCH='aarch64')
                 log.write_text('')
-                result = self.run_installer(*args)
+                result = self.run_installer()
                 self.assertEqual(result.returncode, 0, result.stderr)
                 urls = log.read_text().splitlines()
                 self.assertEqual(len(urls), 2)
                 self.assertTrue(all(u.startswith(expected + '/v9.8.7/') for u in urls))
                 self.assertTrue(urls[0].endswith('-arm64'))
 
-    def test_invalid_mirror_is_rejected_without_replacing_binary(self):
-        result = self.run_installer('--mirror', 'unknown')
+    def test_invalid_zone_is_rejected_without_replacing_binary(self):
+        self.env['KCZONE'] = 'unknown'
+        result = self.run_installer()
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn('--mirror requires cn', result.stderr)
+        self.assertIn('KCZONE must be global or cn', result.stderr)
+        self.assertEqual(self.existing.read_bytes(), b'existing-install')
+
+    def test_missing_domestic_source_requires_explicit_download_url(self):
+        self.script = self.root / 'get-kubeclipper.sh'
+        self.script.write_text(SCRIPT.read_text().replace(
+            'DEFAULT_CN_DOWNLOAD_URL="https://release.kubeclipper.io/kc"',
+            'DEFAULT_CN_DOWNLOAD_URL=""'))
+        self.env['KCZONE'] = 'cn'
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Download source is not configured', result.stderr)
+        self.assertEqual(self.existing.read_bytes(), b'existing-install')
+        self.serve()
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.existing.read_bytes(), PAYLOAD)
+
+    def test_invalid_download_url_is_rejected_without_replacing_binary(self):
+        self.env['KC_DOWNLOAD_URL'] = 'file:///tmp/kcctl'
+        result = self.run_installer()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('HTTP or HTTPS release base URL', result.stderr)
         self.assertEqual(self.existing.read_bytes(), b'existing-install')
 
 

@@ -168,15 +168,31 @@ kcctl upgrade all --version vX.Y.Z \
 
 `--release-base-url` only selects the manifest download endpoint. Server, Agent, Console and kcctl
 payloads come from the OCI registry named in that manifest and are verified before rollout.
-`--mirror cn` only affects the installation script; it is not an upgrade flag. For offline
+The installation script uses `KCZONE=cn` to select its domestic binary download source and
+accepts `KC_DOWNLOAD_URL` to override the release base URL. Upgrade manifest downloads use
+`--release-base-url`. For offline
 upgrades, sync the artifacts and use a local manifest pointing to the internal registry with
 `--manifest`.
 
 The stable release workflow verifies the kcctl and manifest checksums before uploading to OSS, then
 updates the root installer script after all versioned files have been uploaded. It reuses the
 existing `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET` repository secrets.
-The existing `release.kubeclipper.io/kc` download mapping must serve the bucket's `kc/` prefix;
-`oss.kubeclipper.io/get-kubeclipper.sh` must serve its root installer script.
+The version directory contains the four kcctl binaries, `kcctl-checksums.txt`,
+`release-manifest-<version>.yaml`, its `.sha256` file, and `get-kubeclipper.sh`.
+The root `get-kubeclipper.sh` is updated after all versioned uploads succeed.
+
+The official repository enables OSS publishing by default. Forks enable publishing to their
+own bucket by setting repository variable `OSS_RELEASE_ENABLED=true`, supplying the four
+Secrets above, and setting repository variable `OSS_DOWNLOAD_URL` to the public HTTPS base
+URL serving that bucket's `kc/` prefix, for example `https://downloads.example.com/kc`.
+The same download site must expose the bucket's root `get-kubeclipper.sh`.
+
+Each released installer is stamped with its version, its own GitHub repository's Release
+download URL, and the configured domestic base URL. A fork's domestic base URL is supplied
+by `OSS_DOWNLOAD_URL`; a missing URL produces a configuration error when `KCZONE=cn` is
+selected. Users can also supply an explicit `KC_DOWNLOAD_URL` when running the installer.
+For official releases, the default `release.kubeclipper.io/kc` mapping serves `kc/`, and
+`oss.kubeclipper.io/get-kubeclipper.sh` serves the root installer script.
 
 ## 5. Air-gapped and offline delivery
 

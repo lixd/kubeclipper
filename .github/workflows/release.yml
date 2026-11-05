@@ -20,6 +20,26 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Validate OSS release configuration
+        if: github.repository == 'kubeclipper/kubeclipper' || vars.OSS_RELEASE_ENABLED == 'true'
+        env:
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY }}
+          OSS_ACCESS_SECRET: ${{ secrets.OSS_ACCESS_SECRET }}
+          OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL }}
+        run: |
+          set -euo pipefail
+          for name in OSS_ENDPOINT OSS_BUCKET OSS_ACCESS_KEY OSS_ACCESS_SECRET; do
+            [[ -n "${!name}" ]] || {
+              echo "$name is required for OSS publishing" >&2
+              exit 1
+            }
+          done
+          if [[ "$GITHUB_REPOSITORY" != kubeclipper/kubeclipper && -z "$OSS_DOWNLOAD_URL" ]]; then
+            echo "OSS_DOWNLOAD_URL is required for fork OSS publishing" >&2
+            exit 1
+          fi
       - name: Validate release tag and package policy
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -226,10 +246,42 @@ jobs:
         with:
           name: release-manifest-${{ github.run_id }}
           path: ${{ runner.temp }}/release
-      - name: Stamp installer version
+      - name: Stamp installer release sources
+        env:
+          OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL }}
         run: |
-          sed "s/^DEFAULT_VERSION=.*/DEFAULT_VERSION=\"${GITHUB_REF_NAME}\"/" \
-            scripts/get-kubeclipper.sh > "$RUNNER_TEMP/release/get-kubeclipper.sh"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import re
+          import shlex
+          from urllib.parse import urlsplit
+
+          repository = os.environ["GITHUB_REPOSITORY"]
+          domestic = os.environ.get("OSS_DOWNLOAD_URL", "").rstrip("/")
+          if repository == "kubeclipper/kubeclipper" and not domestic:
+              domestic = "https://release.kubeclipper.io/kc"
+          if domestic:
+              url = urlsplit(domestic)
+              if (any(char.isspace() for char in domestic)
+                      or url.scheme != "https" or not url.hostname or url.username is not None
+                      or url.password is not None or url.query or url.fragment):
+                  raise SystemExit("OSS_DOWNLOAD_URL must be a public HTTPS release base URL")
+          values = {
+              "DEFAULT_VERSION": os.environ["GITHUB_REF_NAME"],
+              "DEFAULT_DOWNLOAD_URL": f"https://github.com/{repository}/releases/download",
+              "DEFAULT_CN_DOWNLOAD_URL": domestic,
+          }
+          script = Path("scripts/get-kubeclipper.sh").read_text()
+          for name, value in values.items():
+              script, count = re.subn(
+                  rf"^{name}=.*$", lambda match: f"{name}={shlex.quote(value)}",
+                  script, flags=re.MULTILINE,
+              )
+              if count != 1:
+                  raise SystemExit(f"expected exactly one {name} assignment")
+          Path(os.environ["RUNNER_TEMP"], "release/get-kubeclipper.sh").write_text(script)
+          PY
       - name: Name manifest assets for version downloads
         run: |
           set -euo pipefail
@@ -245,8 +297,8 @@ jobs:
 
   oss-release:
     needs: github-release
-    # Fork releases must not overwrite the official download channel.
-    if: github.repository == 'kubeclipper/kubeclipper'
+    # Forks opt in with their own bucket credentials and public download URL.
+    if: github.repository == 'kubeclipper/kubeclipper' || vars.OSS_RELEASE_ENABLED == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Download the published GitHub assets
@@ -279,7 +331,7 @@ jobs:
           cd "$RUNNER_TEMP/oss-release"
           for asset in kcctl-linux-amd64 kcctl-linux-arm64 kcctl-darwin-amd64 kcctl-darwin-arm64 \
             kcctl-checksums.txt "release-manifest-${GITHUB_REF_NAME}.yaml" \
-            "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"; do
+            "release-manifest-${GITHUB_REF_NAME}.yaml.sha256" get-kubeclipper.sh; do
             ossutil cp -f "$asset" "oss://${OSS_BUCKET}/kc/${GITHUB_REF_NAME}/$asset"
           done
           ossutil cp -f get-kubeclipper.sh "oss://${OSS_BUCKET}/get-kubeclipper.sh"
