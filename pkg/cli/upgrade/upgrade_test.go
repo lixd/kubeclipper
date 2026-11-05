@@ -26,6 +26,7 @@ import (
 	"strings"
 	"testing"
 
+	cmdoptions "github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
 )
@@ -338,5 +339,35 @@ func TestLoadManifestReleaseBaseURL(t *testing.T) {
 				t.Fatalf("expected manifest and checksum requests, got %v", requested)
 			}
 		})
+	}
+}
+
+func TestLoadManifestUsesDomesticRegistryAndExplicitOverride(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".sha256") {
+			_, _ = fmt.Fprintf(w, "%x  release-manifest-v2.0.3.yaml\n", sha256.Sum256([]byte(testReleaseManifest)))
+			return
+		}
+		_, _ = fmt.Fprint(w, testReleaseManifest)
+	}))
+	defer server.Close()
+	t.Setenv("KCZONE", "cn")
+	t.Setenv("KC_DOWNLOAD_URL", server.URL)
+	for _, test := range []struct {
+		explicit, saved, want string
+	}{
+		{"", "", "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release"},
+		{"docker.io/kubeclipper", "", "docker.io/kubeclipper"},
+		{"", "harbor.example.com/saved", "harbor.example.com/saved"},
+		{"docker.io/kubeclipper", "harbor.example.com/saved", "docker.io/kubeclipper"},
+	} {
+		o := &UpgradeOptions{version: "v2.0.3", packageRegistry: test.explicit,
+			deployConfig: &cmdoptions.DeployConfig{PackageRegistry: test.saved}}
+		if err := o.loadManifest(); err != nil {
+			t.Fatal(err)
+		}
+		if o.manifest.Registries.Package != test.want {
+			t.Fatalf("manifest registry = %s, want %s", o.manifest.Registries.Package, test.want)
+		}
 	}
 }

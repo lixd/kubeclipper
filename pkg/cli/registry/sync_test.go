@@ -81,9 +81,10 @@ func TestSyncValidateArgs(t *testing.T) {
 		o    SyncOptions
 		want string
 	}{
-		{"no manifest", SyncOptions{Target: "harbor.local/kc"}, "exactly one of --manifest or --bundle"},
+		{"both sources", SyncOptions{ManifestPath: "x", BundlePath: "y", Target: "harbor.local/kc"}, "mutually exclusive"},
 		{"no target", SyncOptions{ManifestPath: "x"}, "--target is required"},
 		{"bad arch", SyncOptions{ManifestPath: "x", Target: "t", Arch: "riscv"}, "--arch must be"},
+		{"bundle source override", SyncOptions{BundlePath: "x", Target: "t", PackageRegistry: "docker.io/kubeclipper"}, "source registry options"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -92,6 +93,31 @@ func TestSyncValidateArgs(t *testing.T) {
 				t.Fatalf("ValidateArgs() = %v, want error containing %q", err, tt.want)
 			}
 		})
+	}
+	if err := (&SyncOptions{Target: "harbor.local/kc", Arch: "all"}).ValidateArgs(); err != nil {
+		t.Fatalf("embedded manifest arguments: %v", err)
+	}
+}
+
+func TestSyncDryRunUsesZoneAndExplicitRegistry(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "manifest.yaml")
+	if err := os.WriteFile(path, []byte(syncTestManifest), 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("KCZONE", "cn")
+	for _, registry := range []string{"", "harbor.example.com/custom"} {
+		out := &bytes.Buffer{}
+		o := &SyncOptions{IOStreams: options.IOStreams{Out: out}, ManifestPath: path,
+			Target: "target.example.com/kc", Arch: "all", DryRun: true, PackageRegistry: registry}
+		if err := o.Run(nil); err != nil {
+			t.Fatal(err)
+		}
+		if registry == "" {
+			registry = "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release"
+		}
+		if !strings.Contains(out.String(), "would copy "+registry+"/package-k8s:v1.37.0") {
+			t.Fatalf("unexpected source plan: %s", out.String())
+		}
 	}
 }
 

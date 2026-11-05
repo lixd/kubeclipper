@@ -30,6 +30,7 @@ func TestRegistryExportDirectoryAndCredentials(t *testing.T) {
 		NewCmdRegistrySync(NewRegistryOptions(options.IOStreams{})),
 	} {
 		require.NotNil(t, cmd.Flags().Lookup("source-password"))
+		require.NotNil(t, cmd.Flags().Lookup("package-registry"))
 		require.Nil(t, cmd.Flags().Lookup("source-password-file"))
 	}
 	cmd := NewCmdRegistryExport(NewRegistryOptions(options.IOStreams{}))

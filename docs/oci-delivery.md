@@ -95,9 +95,10 @@ Key properties:
 
 ### 4.1 Platform deployment (`kcctl deploy`)
 
-- `--package-registry` defaults to `ghcr.io/kubeclipper/kubeclipper`; the
-  effective value and its source (flag / deploy config / built-in default) are
-  logged.
+- Release kcctl binaries use their verified release inventory's GHCR prefix by
+  default. `KCZONE=cn` selects `registry.cn-hangzhou.aliyuncs.com/kubeclipper-release`.
+  `--package-registry` and a saved deploy configuration take precedence over this
+  preset. The effective value and its source are logged.
 - A loud **precheck** verifies `<registry>/package-bootstrap-kubeclipper`
   is reachable and lists tags before any remote mutation; on failure it tells
   you to mirror the release with `kcctl registry sync`.
@@ -108,8 +109,8 @@ Key properties:
 
 ### Default cluster image registry
 
-Deploy uses `ghcr.io/kubeclipper/kubeclipper` unless `--package-registry` is
-provided. It creates the `kc-package-registry` Registry with the configured
+Deploy resolves its package registry from the explicit flag, deployment configuration,
+or zone preset. It creates the `kc-package-registry` Registry with the configured
 host, repository prefix, authentication and TLS settings, and records its name
 as `defaultImageRegistry` in the deploy configuration. An identical Registry
 is reused; a conflicting resource is rejected without deleting or replacing it.
@@ -154,25 +155,23 @@ ACR Personal Edition's single-level repository names, are a separate constraint.
 ### 4.4 Platform upgrade (`kcctl upgrade`)
 
 For upgrades between OCI releases, `--version` downloads `release-manifest-<version>.yaml` and its
-`.sha256` file from GitHub Releases by default. The OSS release mirror contains these same files
+`.sha256` file from GitHub Releases by default and OSS with `KCZONE=cn`. OSS contains the same files
 under `kc/<version>/`, alongside the kcctl binaries and checksums. Both channels serve identical
 release files; the manifest is not rewritten for the mirror.
 
 ```bash
 # Replace vX.Y.Z with the published target version.
 kcctl upgrade all --version vX.Y.Z
-# Download the manifest and its checksum from OSS instead of GitHub.
-kcctl upgrade all --version vX.Y.Z \
-  --release-base-url https://release.kubeclipper.io/kc
+# Use OSS for manifests and the domestic OCI preset.
+KCZONE=cn kcctl upgrade all --version vX.Y.Z
 ```
 
-`--release-base-url` only selects the manifest download endpoint. Server, Agent, Console and kcctl
-payloads come from the OCI registry named in that manifest and are verified before rollout.
-The installation script uses `KCZONE=cn` to select its domestic binary download source and
-accepts `KC_DOWNLOAD_URL` to override the release base URL. Upgrade manifest downloads use
-`--release-base-url`. For offline
-upgrades, sync the artifacts and use a local manifest pointing to the internal registry with
-`--manifest`.
+The shared installation script is served from OSS. It selects GitHub or OSS binaries using
+`KCZONE`. `KC_DOWNLOAD_URL` overrides the installer's binary download base and upgrade manifest
+download base. Upgrade's explicit `--release-base-url` takes precedence over that variable.
+Package locations use an explicit `--package-registry`, the existing deployment registry,
+or the zone preset. Digests and provenance are verified before rollout. Offline upgrades use
+`--manifest` and can explicitly select their local `--package-registry`.
 
 The stable release workflow verifies the kcctl and manifest checksums before uploading to OSS, then
 updates the root installer script after all versioned files have been uploaded. It reuses the
@@ -181,18 +180,20 @@ The version directory contains the four kcctl binaries, `kcctl-checksums.txt`,
 `release-manifest-<version>.yaml`, its `.sha256` file, and `get-kubeclipper.sh`.
 The root `get-kubeclipper.sh` is updated after all versioned uploads succeed.
 
-The official repository enables OSS publishing by default. Forks enable publishing to their
-own bucket by setting repository variable `OSS_RELEASE_ENABLED=true`, supplying the four
-Secrets above, and setting repository variable `OSS_DOWNLOAD_URL` to the public HTTPS base
-URL serving that bucket's `kc/` prefix, for example `https://downloads.example.com/kc`.
-The same download site must expose the bucket's root `get-kubeclipper.sh`.
+OSS publishing is a required release job because the common installation entry is hosted there.
+The existing bucket is `kubeclipper` in `oss-ap-southeast-1`. Its public HTTPS endpoint serves
+the root `get-kubeclipper.sh` and the existing `kc/<version>/` directories. The workflow defaults
+to that bucket and endpoint, with `OSS_BUCKET` and `OSS_ENDPOINT` Secrets available as overrides.
+Publishing requires `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET`. Repository variable
+`OSS_DOWNLOAD_URL` can override the version download base, whose default is
+`https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc`.
 
 Each released installer is stamped with its version, its own GitHub repository's Release
-download URL, and the configured domestic base URL. A fork's domestic base URL is supplied
-by `OSS_DOWNLOAD_URL`; a missing URL produces a configuration error when `KCZONE=cn` is
-selected. Users can also supply an explicit `KC_DOWNLOAD_URL` when running the installer.
-For official releases, the default `release.kubeclipper.io/kc` mapping serves `kc/`, and
-`oss.kubeclipper.io/get-kubeclipper.sh` serves the root installer script.
+download URL, and the OSS download base. The standalone kcctl embeds these same HTTP defaults
+and the verified inventory's global OCI prefix. The package locations in a manifest can be
+resolved against `KCZONE` or `--package-registry`, preserving repository names, platforms and
+digests. Existing deployment and cluster registry selections remain authoritative for their
+operations.
 
 ## 5. Air-gapped and offline delivery
 

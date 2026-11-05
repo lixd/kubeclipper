@@ -56,6 +56,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/source"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 
@@ -258,7 +259,11 @@ func (d *DeployOptions) Complete() error {
 		logger.Infof("run in aio mode.")
 	}
 	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
-		d.deployConfig.PackageRegistry = deliveryregistry.DefaultPackageRegistry
+		var err error
+		d.deployConfig.PackageRegistry, err = source.Registry("")
+		if err != nil {
+			return err
+		}
 		d.packageRegistryDefaulted = true
 	}
 	{
@@ -317,7 +322,11 @@ func (d *DeployOptions) ValidateArgs() error {
 		return fmt.Errorf("invalid node ip detect method,suppot [first-found,interface=xxx,cidr=xxx] now")
 	}
 	if strings.TrimSpace(d.deployConfig.PackageRegistry) == "" {
-		d.deployConfig.PackageRegistry = deliveryregistry.DefaultPackageRegistry
+		var err error
+		d.deployConfig.PackageRegistry, err = source.Registry("")
+		if err != nil {
+			return err
+		}
 		d.packageRegistryDefaulted = true
 	}
 	if strings.TrimSpace(d.deployConfig.TempDir) == "" {
@@ -1888,6 +1897,8 @@ func clientCertList(pki, caName string, altNames, organization []string, commonN
 // packageRegistrySource reports where the effective package registry came from.
 func (d *DeployOptions) packageRegistrySource() string {
 	switch {
+	case d.packageRegistryDefaulted && os.Getenv("KCZONE") != "":
+		return "KCZONE"
 	case d.packageRegistryDefaulted:
 		return "default"
 	case d.packageRegistryFlag != "" || d.packageRegistryFiles.Specified():

@@ -58,6 +58,7 @@ import (
 	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
 	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/source"
 	"github.com/kubeclipper/kubeclipper/pkg/utils/sshutils"
 )
 
@@ -197,7 +198,7 @@ func NewCmdRegistryDeploy(o *RegistryOptions) *cobra.Command {
 
 	options.AddFlagsToSSH(o.SSHConfig, cmd.Flags())
 	cmd.Flags().StringVar(&o.Node, "node", o.Node, "node to deploy registry.")
-	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", "", "package registry prefix; defaults to the official registry")
+	cmd.Flags().StringVar(&o.PackageRegistry, "package-registry", "", "package registry prefix overriding the KCZONE preset")
 	cmd.Flags().StringVar(&o.BundlePath, "bundle", "", "separate Registry bootstrap OCI bundle")
 	cmd.Flags().StringVar(&o.Arch, "arch", "", "target architecture: amd64 or arm64; detected over SSH when omitted")
 	cmd.Flags().StringVar(&o.PackageRegistryFiles.Scheme, "package-registry-scheme", "", "package registry scheme: https or http")
@@ -711,12 +712,11 @@ func (o *RegistryOptions) obtainRegistryBinary() (string, func(), error) {
 		}
 		return extractRegistryPackageBinary(image, o.Arch)
 	}
-	registry := strings.TrimRight(o.PackageRegistry, "/")
-	if registry == "" {
-		registry = deliveryregistry.DefaultPackageRegistry
+	registry, err := source.Registry(o.PackageRegistry)
+	if err != nil {
+		return "", nil, err
 	}
 	var cfg *deliveryregistry.Config
-	var err error
 	if o.PackageRegistryFiles.Specified() {
 		cfg, err = o.PackageRegistryFiles.Resolve(registry)
 	} else {

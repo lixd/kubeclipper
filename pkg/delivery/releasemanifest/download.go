@@ -18,9 +18,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
-)
 
-const defaultReleaseBaseURL = "https://github.com/kubeclipper/kubeclipper/releases/download"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/source"
+)
 
 const maxErrorResponseSize = 64 << 10
 
@@ -37,9 +37,9 @@ func (d Downloader) Download(ctx context.Context, version string) ([]byte, error
 	if client == nil {
 		client = http.DefaultClient
 	}
-	baseURL := strings.TrimRight(d.BaseURL, "/")
-	if baseURL == "" {
-		baseURL = defaultReleaseBaseURL
+	baseURL, err := source.ReleaseBaseURL(d.BaseURL)
+	if err != nil {
+		return nil, err
 	}
 	filename := "release-manifest-" + version + ".yaml"
 	manifestURL := baseURL + "/" + version + "/" + filename

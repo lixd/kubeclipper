@@ -158,23 +158,23 @@ KubeClipper 本身并不会占用太多资源，但是为了后续更好的运�
 KubeClipper 提供了命令行工具🔧 kcctl 以简化运维工作，您可以直接使用以下命令下载最新版 kcctl：
 
 ```bash
-# 默认从 GitHub Release 下载 kcctl
-curl -fsSL https://github.com/kubeclipper/kubeclipper/releases/latest/download/get-kubeclipper.sh | bash
-# 国内从 OSS 获取脚本和 kcctl
+# 脚本统一从 OSS 获取，kcctl 默认从 GitHub Release 下载
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+# 国内用户从 OSS 下载 kcctl，OCI 物料使用阿里云仓库
 export KCZONE=cn
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | bash
-# 下载指定的 OCI 发布版本
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_VERSION=v2.0.9 bash
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+# 下载指定版本，请将 vX.Y.Z 替换为已发布版本
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | KC_VERSION=vX.Y.Z bash
 ```
 
 安装脚本会校验 SHA256。`KC_BIN_DIR` 可指定安装目录，`KCZONE=cn` 选择脚本的国内下载源，
 `KC_DOWNLOAD_URL` 可覆盖版本下载前缀，例如 `https://downloads.example.com/kc`。
-平台安装物料从 OCI 仓库获取；内网部署通过 `kcctl deploy --package-registry <仓库>` 指定物料源。
+`KCZONE=cn` 同时选择阿里云 OCI 仓库。部署、Registry 部署、导出、同步和升级均使用该预设。
+显式 `--package-registry <仓库>` 可以覆盖仓库地址；部署配置中的已有仓库优先于环境预设。
 
-OCI 版本之间的平台升级默认从 GitHub 下载发布清单，二进制物料从清单指定的 OCI 仓库获取。 国内可使用
-`kcctl upgrade all --version vX.Y.Z --release-base-url https://release.kubeclipper.io/kc` 从 OSS
-下载清单及校验文件；请将 `vX.Y.Z` 替换为已发布的目标版本。升级命令通过 `--release-base-url`
-选择清单下载地址。详见
+OCI 平台升级默认从 GitHub 下载发布清单，`KCZONE=cn` 时从 OSS 下载。
+`KC_DOWNLOAD_URL` 可同时覆盖安装脚本和升级清单的下载前缀，升级命令的 `--release-base-url`
+优先于该环境变量。升级复用已有部署配置中的仓库，`--package-registry` 可显式覆盖。详见
 [OCI 升级说明](docs/oci-delivery.md#44-platform-upgrade-kcctl-upgrade)。
 
 > 强烈建议您安装最新的发布版本，体验更多功能特性。\

@@ -115,7 +115,7 @@ esac
         for settings, expected in (
             ({}, 'https://github.com/kubeclipper/kubeclipper/releases/download'),
             ({'KCZONE': 'global'}, 'https://github.com/kubeclipper/kubeclipper/releases/download'),
-            ({'KCZONE': 'cn'}, 'https://release.kubeclipper.io/kc'),
+            ({'KCZONE': 'cn'}, 'https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc'),
             ({'KC_DOWNLOAD_URL': 'https://download.example.com/kc/'}, 'https://download.example.com/kc'),
             ({'KCZONE': 'cn', 'KC_DOWNLOAD_URL': 'https://download.example.com/kc'}, 'https://download.example.com/kc'),
         ):
@@ -142,7 +142,7 @@ esac
     def test_missing_domestic_source_requires_explicit_download_url(self):
         self.script = self.root / 'get-kubeclipper.sh'
         self.script.write_text(SCRIPT.read_text().replace(
-            'DEFAULT_CN_DOWNLOAD_URL="https://release.kubeclipper.io/kc"',
+            'DEFAULT_CN_DOWNLOAD_URL="https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc"',
             'DEFAULT_CN_DOWNLOAD_URL=""'))
         self.env['KCZONE'] = 'cn'
         result = self.run_installer()

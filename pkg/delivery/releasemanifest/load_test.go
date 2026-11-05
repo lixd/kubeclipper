@@ -28,3 +28,24 @@ func TestLoadManifestOverride(t *testing.T) {
 	_, err = Load(path)
 	require.Error(t, err)
 }
+
+func TestManifestRegistrySelectionPreservesContentIdentity(t *testing.T) {
+	t.Setenv("KCZONE", "")
+	manifest, err := Parse([]byte(validManifestYAML()))
+	require.NoError(t, err)
+	original := manifest.Artifacts[0]
+	resolved, err := manifest.WithRegistry("")
+	require.NoError(t, err)
+	require.Same(t, manifest, resolved)
+	t.Setenv("KCZONE", "cn")
+	resolved, err = manifest.WithRegistry("")
+	require.NoError(t, err)
+	require.Equal(t, "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/"+original.Target, resolved.Artifacts[0].Source)
+	require.Equal(t, original, manifest.Artifacts[0])
+	require.Equal(t, original.Digest, resolved.Artifacts[0].Digest)
+	require.Equal(t, original.Platforms, resolved.Artifacts[0].Platforms)
+	resolved, err = manifest.WithRegistry("docker.io/kubeclipper")
+	require.NoError(t, err)
+	require.Equal(t, "docker.io/kubeclipper/"+original.Target, resolved.Artifacts[0].Source)
+	require.Equal(t, "docker.io/kubeclipper", resolved.Registries.Image)
+}

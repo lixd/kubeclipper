@@ -175,7 +175,8 @@ kcctl  kubeclipper-agent  kubeclipper-server
 Deploy kcctl
 
 ```bash
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | bash -s -- --mirror cn
+export KCZONE=cn
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
 ```
 
 Deploy KC with AIO mode

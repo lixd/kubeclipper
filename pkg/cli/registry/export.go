@@ -21,7 +21,7 @@ import (
 )
 
 func NewCmdRegistryExport(o *RegistryOptions) *cobra.Command {
-	var manifestPath, output, username, password string
+	var manifestPath, output, username, password, packageRegistry string
 	cmd := &cobra.Command{
 		Use:   "export [--manifest <release-manifest.yaml>] [--output <directory>]",
 		Short: "export a complete multi-platform release and a separate Registry bootstrap bundle",
@@ -35,6 +35,10 @@ the offline Registry. Neither export nor import requires a container runtime.`,
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
 			manifest, err := releasemanifest.Load(manifestPath)
+			if err != nil {
+				return err
+			}
+			manifest, err = manifest.WithRegistry(packageRegistry)
 			if err != nil {
 				return err
 			}
@@ -53,6 +57,7 @@ the offline Registry. Neither export nor import requires a container runtime.`,
 		},
 	}
 	cmd.Flags().StringVar(&manifestPath, "manifest", "", "release manifest file overriding the embedded release inventory")
+	cmd.Flags().StringVar(&packageRegistry, "package-registry", "", "source registry prefix overriding KCZONE and manifest locations")
 	cmd.Flags().StringVar(&output, "output", "./offline", "output directory for the release and Registry bootstrap archives")
 	cmd.Flags().StringVar(&username, "source-username", "", "source registry username (default: anonymous)")
 	cmd.Flags().StringVar(&password, "source-password", "", "source registry password or token")

@@ -168,24 +168,26 @@ KubeClipper provides command line tools 🔧 kcctl to simplify operations.
 You can download the latest version of `kcctl` directly with the following command:
 
 ```bash
-# Download kcctl from GitHub Releases by default
-curl -fsSL https://github.com/kubeclipper/kubeclipper/releases/latest/download/get-kubeclipper.sh | bash
-# In China, download both the installer and kcctl from OSS
+# Fetch the shared installer from OSS; kcctl defaults to GitHub Releases
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+# In China, fetch kcctl from OSS and OCI artifacts from Aliyun
 export KCZONE=cn
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | bash
-# Download a specific OCI release
-curl -fsSL https://oss.kubeclipper.io/get-kubeclipper.sh | KC_VERSION=v2.0.9 bash
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+# Download a specific published release (replace vX.Y.Z)
+curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | KC_VERSION=vX.Y.Z bash
 ```
 
 The installer verifies SHA256. Set `KC_BIN_DIR` to choose the install directory and
 `KCZONE=cn` to select its domestic download source. `KC_DOWNLOAD_URL` overrides the
-version download base URL, for example `https://downloads.example.com/kc`. Platform materials
-are fetched from OCI; use `kcctl deploy --package-registry <registry>` for an internal registry.
+version download base URL, for example `https://downloads.example.com/kc`.
+`KCZONE=cn` also selects the Aliyun OCI registry for deploy, Registry deploy, export, sync and
+upgrade. Explicit `--package-registry <registry>` overrides the registry, and a saved deployment
+registry takes precedence over the environment preset.
 
-For platform upgrades between OCI releases, manifests are downloaded from GitHub by default; binary
-payloads come from the OCI registry named in the manifest. To download manifests and checksums from
-OSS, use `kcctl upgrade all --version vX.Y.Z --release-base-url https://release.kubeclipper.io/kc`,
-replacing `vX.Y.Z` with a published target version. Upgrade manifest downloads use `--release-base-url`. See
+For OCI platform upgrades, manifests are downloaded from GitHub by default and OSS with `KCZONE=cn`.
+`KC_DOWNLOAD_URL` overrides both installer and upgrade manifest download bases. The upgrade flag
+`--release-base-url` takes precedence over that variable. Upgrades reuse the saved deployment
+registry, with an explicit `--package-registry` override available. See
 [OCI upgrade instructions](docs/oci-delivery.md#44-platform-upgrade-kcctl-upgrade).
 
 > It is highly recommended that you install the latest release to experience more features. You can

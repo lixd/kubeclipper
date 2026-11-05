@@ -63,20 +63,21 @@ const syncExample = `
 type SyncOptions struct {
 	options.IOStreams
 
-	BundlePath     string
-	ManifestPath   string
-	Target         string
-	Arch           string
-	DryRun         bool
-	TargetFiles    deliveryregistry.FileOptions
-	SourceUser     string
-	SourcePassword string
+	BundlePath      string
+	ManifestPath    string
+	PackageRegistry string
+	Target          string
+	Arch            string
+	DryRun          bool
+	TargetFiles     deliveryregistry.FileOptions
+	SourceUser      string
+	SourcePassword  string
 }
 
 func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 	opts := &SyncOptions{IOStreams: o.IOStreams}
 	cmd := &cobra.Command{
-		Use:     "sync (--manifest <release-manifest.yaml> | --bundle <release.tar.gz>) --target <registry> [flags]",
+		Use:     "sync [--manifest <release-manifest.yaml> | --bundle <release.tar.gz>] --target <registry> [flags]",
 		Short:   "mirror a release manifest into another registry",
 		Long:    syncLongDescription,
 		Example: syncExample,
@@ -87,7 +88,8 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "", "release manifest YAML to sync from online registries.")
+	cmd.Flags().StringVar(&opts.ManifestPath, "manifest", "", "release manifest file overriding the embedded release inventory")
+	cmd.Flags().StringVar(&opts.PackageRegistry, "package-registry", "", "source registry prefix overriding KCZONE and manifest locations")
 	cmd.Flags().StringVar(&opts.BundlePath, "bundle", "", "offline OCI release bundle exported by kcctl registry export.")
 	cmd.Flags().StringVar(&opts.Target, "target", "", "target registry prefix, e.g. harbor.internal/kubeclipper. Required.")
 	cmd.Flags().StringVar(&opts.Arch, "arch", "all", "architecture to sync: amd64, arm64 or all")
@@ -105,11 +107,11 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 }
 
 func (o *SyncOptions) ValidateArgs() error {
-	if (o.ManifestPath == "") == (o.BundlePath == "") {
-		return fmt.Errorf("exactly one of --manifest or --bundle is required")
+	if o.ManifestPath != "" && o.BundlePath != "" {
+		return fmt.Errorf("--manifest and --bundle are mutually exclusive")
 	}
-	if o.BundlePath != "" && (o.SourceUser != "" || o.SourcePassword != "") {
-		return fmt.Errorf("source credentials cannot be used with --bundle")
+	if o.BundlePath != "" && (o.SourceUser != "" || o.SourcePassword != "" || o.PackageRegistry != "") {
+		return fmt.Errorf("source registry options cannot be used with --bundle")
 	}
 	if o.Target == "" {
 		return fmt.Errorf("--target is required")
@@ -122,6 +124,9 @@ func (o *SyncOptions) ValidateArgs() error {
 	source := o.ManifestPath
 	if o.BundlePath != "" {
 		source = o.BundlePath
+	}
+	if source == "" {
+		return nil
 	}
 	if _, err := os.Stat(source); err != nil {
 		return fmt.Errorf("read manifest: %w", err)
@@ -147,6 +152,10 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 		}
 	} else {
 		manifest, err = releasemanifest.Load(o.ManifestPath)
+		if err != nil {
+			return err
+		}
+		manifest, err = manifest.WithRegistry(o.PackageRegistry)
 		if err != nil {
 			return err
 		}

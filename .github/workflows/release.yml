@@ -11,6 +11,9 @@ permissions:
   contents: read
   packages: read
 
+env:
+  OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL || 'https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc' }}
+
 jobs:
   prepare:
     runs-on: ubuntu-24.04
@@ -21,25 +24,30 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Validate OSS release configuration
-        if: github.repository == 'kubeclipper/kubeclipper' || vars.OSS_RELEASE_ENABLED == 'true'
         env:
-          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT || 'oss-ap-southeast-1.aliyuncs.com' }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET || 'kubeclipper' }}
           OSS_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY }}
           OSS_ACCESS_SECRET: ${{ secrets.OSS_ACCESS_SECRET }}
-          OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL }}
         run: |
           set -euo pipefail
-          for name in OSS_ENDPOINT OSS_BUCKET OSS_ACCESS_KEY OSS_ACCESS_SECRET; do
+          for name in OSS_ENDPOINT OSS_BUCKET OSS_ACCESS_KEY OSS_ACCESS_SECRET OSS_DOWNLOAD_URL; do
             [[ -n "${!name}" ]] || {
               echo "$name is required for OSS publishing" >&2
               exit 1
             }
           done
-          if [[ "$GITHUB_REPOSITORY" != kubeclipper/kubeclipper && -z "$OSS_DOWNLOAD_URL" ]]; then
-            echo "OSS_DOWNLOAD_URL is required for fork OSS publishing" >&2
-            exit 1
-          fi
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlsplit
+
+          value = os.environ["OSS_DOWNLOAD_URL"]
+          url = urlsplit(value)
+          if (any(char.isspace() for char in value)
+                  or url.scheme != "https" or not url.hostname or url.username is not None
+                  or url.password is not None or url.query or url.fragment):
+              raise SystemExit("OSS_DOWNLOAD_URL must be a public HTTPS release base URL")
+          PY
       - name: Validate release tag and package policy
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -164,7 +172,13 @@ jobs:
           name: release-manifest-${{ github.run_id }}
           path: pkg/delivery/releasemanifest/embedded
       - name: Build kcctl
-        run: KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
+        run: |
+          set -euo pipefail
+          package_registry="$(awk '$1 == "package:" {print $2; exit}' pkg/delivery/releasemanifest/embedded/release-manifest.yaml)"
+          test -n "$package_registry"
+          source_package=github.com/kubeclipper/kubeclipper/pkg/delivery/source
+          export GOLDFLAGS="-s -w -buildid= -X $source_package.GlobalPackageRegistry=$package_registry -X $source_package.GlobalReleaseBaseURL=https://github.com/${GITHUB_REPOSITORY}/releases/download -X $source_package.CNReleaseBaseURL=${OSS_DOWNLOAD_URL%/}"
+          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
       - name: Package kcctl artifacts
         run: |
           set -euo pipefail
@@ -247,26 +261,15 @@ jobs:
           name: release-manifest-${{ github.run_id }}
           path: ${{ runner.temp }}/release
       - name: Stamp installer release sources
-        env:
-          OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL }}
         run: |
           python3 - <<'PY'
           import os
           from pathlib import Path
           import re
           import shlex
-          from urllib.parse import urlsplit
 
           repository = os.environ["GITHUB_REPOSITORY"]
-          domestic = os.environ.get("OSS_DOWNLOAD_URL", "").rstrip("/")
-          if repository == "kubeclipper/kubeclipper" and not domestic:
-              domestic = "https://release.kubeclipper.io/kc"
-          if domestic:
-              url = urlsplit(domestic)
-              if (any(char.isspace() for char in domestic)
-                      or url.scheme != "https" or not url.hostname or url.username is not None
-                      or url.password is not None or url.query or url.fragment):
-                  raise SystemExit("OSS_DOWNLOAD_URL must be a public HTTPS release base URL")
+          domestic = os.environ["OSS_DOWNLOAD_URL"].rstrip("/")
           values = {
               "DEFAULT_VERSION": os.environ["GITHUB_REF_NAME"],
               "DEFAULT_DOWNLOAD_URL": f"https://github.com/{repository}/releases/download",
@@ -297,8 +300,6 @@ jobs:
 
   oss-release:
     needs: github-release
-    # Forks opt in with their own bucket credentials and public download URL.
-    if: github.repository == 'kubeclipper/kubeclipper' || vars.OSS_RELEASE_ENABLED == 'true'
     runs-on: ubuntu-24.04
     steps:
       - name: Download the published GitHub assets
@@ -320,12 +321,12 @@ jobs:
       - name: Setup ossutil
         uses: manyuanrong/setup-ossutil@v3.0
         with:
-          endpoint: ${{ secrets.OSS_ENDPOINT }}
+          endpoint: ${{ secrets.OSS_ENDPOINT || 'oss-ap-southeast-1.aliyuncs.com' }}
           access-key-id: ${{ secrets.OSS_ACCESS_KEY }}
           access-key-secret: ${{ secrets.OSS_ACCESS_SECRET }}
       - name: Upload release files and publish installer last
         env:
-          OSS_BUCKET: ${{ secrets.OSS_BUCKET }}
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET || 'kubeclipper' }}
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/oss-release"

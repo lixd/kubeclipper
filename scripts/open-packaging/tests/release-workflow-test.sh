@@ -62,14 +62,14 @@ assert any(step.get("name") == "Verify embedded export inventory" for step in st
 release = jobs["github-release"]
 stamp_step = next(step for step in release["steps"]
                   if step.get("name") == "Stamp installer release sources")
-assert stamp_step["env"]["OSS_DOWNLOAD_URL"] == "${{ vars.OSS_DOWNLOAD_URL }}"
+assert "vars.OSS_DOWNLOAD_URL" in workflow["env"]["OSS_DOWNLOAD_URL"]
+assert "kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc" in workflow["env"]["OSS_DOWNLOAD_URL"]
 stamp = stamp_step["run"]
 root = Path(sys.argv[1]).resolve().parents[2]
 with tempfile.TemporaryDirectory() as tmp:
     Path(tmp, "release").mkdir()
     for repository, domestic, expected in (
-        ("kubeclipper/kubeclipper", "", "https://release.kubeclipper.io/kc"),
-        ("fixture/repo", "", ""),
+        ("kubeclipper/kubeclipper", "https://downloads.example.com/kc", "https://downloads.example.com/kc"),
         ("fixture/repo", "https://downloads.example.com/kc/", "https://downloads.example.com/kc"),
     ):
         env = dict(os.environ, RUNNER_TEMP=tmp, GITHUB_REF_NAME="v9.8.7",
@@ -80,22 +80,37 @@ with tempfile.TemporaryDirectory() as tmp:
         assert f'DEFAULT_DOWNLOAD_URL=https://github.com/{repository}/releases/download' in published
         assert f'DEFAULT_CN_DOWNLOAD_URL={shlex.quote(expected)}' in published
         subprocess.run(["bash", "-n", str(Path(tmp, "release/get-kubeclipper.sh"))], check=True)
-    for invalid in ("http://downloads.example.com/kc", "https://user:secret@example.com/kc",
-                    "https://example.com/kc?token=value", "https://example.com/kc#anchor",
-                    "https://example.com/kc\nmalformed"):
-        env["OSS_DOWNLOAD_URL"] = invalid
-        result = subprocess.run(["bash", "-eu", "-c", stamp], cwd=root, env=env, capture_output=True)
-        assert result.returncode != 0, "invalid public download URL must fail"
+
+build_release = next(step["run"] for step in cli["steps"] if step.get("name") == "Build kcctl")
+with tempfile.TemporaryDirectory() as tmp:
+    dest = Path(tmp)
+    inventory = dest / "pkg/delivery/releasemanifest/embedded/release-manifest.yaml"
+    inventory.parent.mkdir(parents=True)
+    inventory.write_text("registries:\n  package: ghcr.io/fixture/kubeclipper/qualification-rev\n")
+    log = dest / "build-flags"
+    make = dest / "make"
+    make.write_text('#!/usr/bin/env bash\nprintf "%s\\n%s\\n" "$GOLDFLAGS" "$KUBE_BUILD_PLATFORMS" > "$BUILD_LOG"\n')
+    make.chmod(0o755)
+    env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}", BUILD_LOG=str(log),
+               GITHUB_REPOSITORY="fixture/repo", OSS_DOWNLOAD_URL="https://downloads.example.com/kc/")
+    subprocess.run(["bash", "-eu", "-c", build_release], cwd=dest, env=env, check=True)
+    flags, platforms = log.read_text().splitlines()
+    for assignment in (
+        "GlobalPackageRegistry=ghcr.io/fixture/kubeclipper/qualification-rev",
+        "GlobalReleaseBaseURL=https://github.com/fixture/repo/releases/download",
+        "CNReleaseBaseURL=https://downloads.example.com/kc",
+    ):
+        assert "github.com/kubeclipper/kubeclipper/pkg/delivery/source." + assignment in shlex.split(flags)
+    assert platforms == "linux/amd64 linux/arm64 darwin/amd64 darwin/arm64"
 
 oss = jobs["oss-release"]
 assert oss["needs"] == "github-release"
-condition = "github.repository == 'kubeclipper/kubeclipper' || vars.OSS_RELEASE_ENABLED == 'true'"
-assert oss["if"] == condition
+assert "if" not in oss, "the shared installer entry requires OSS publishing"
 preflight = next(step for step in jobs["prepare"]["steps"]
                  if step.get("name") == "Validate OSS release configuration")
-assert preflight["if"] == condition
+assert "if" not in preflight
 required = ("OSS_ENDPOINT", "OSS_BUCKET", "OSS_ACCESS_KEY", "OSS_ACCESS_SECRET")
-assert all(preflight["env"][name] == "${{ secrets." + name + " }}" for name in required)
+assert all("secrets." + name in preflight["env"][name] for name in required)
 env = dict(os.environ, GITHUB_REPOSITORY="fixture/repo",
            OSS_ENDPOINT="fixture-endpoint", OSS_BUCKET="fixture-bucket",
            OSS_ACCESS_KEY="fixture-key", OSS_ACCESS_SECRET="fixture-secret",
@@ -106,6 +121,12 @@ for missing in (*required, "OSS_DOWNLOAD_URL"):
                             env=dict(env, **{missing: ""}), capture_output=True)
     assert result.returncode != 0, f"missing {missing} must fail before publishing"
     assert missing.encode() in result.stderr
+for invalid in ("http://downloads.example.com/kc", "https://user:secret@example.com/kc",
+                "https://example.com/kc?token=value", "https://example.com/kc#anchor",
+                "https://example.com/kc\nmalformed"):
+    result = subprocess.run(["bash", "-eu", "-c", preflight["run"]],
+                            env=dict(env, OSS_DOWNLOAD_URL=invalid), capture_output=True)
+    assert result.returncode != 0, "invalid public download URL must fail before publishing"
 upload = next(step["run"] for step in oss["steps"] if step.get("name") == "Upload release files and publish installer last")
 # Execute the upload command with a recording ossutil, not a real OSS endpoint.
 with tempfile.TemporaryDirectory() as tmp:

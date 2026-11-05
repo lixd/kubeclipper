@@ -125,11 +125,12 @@ type UpgradeOptions struct {
 	SSHConfig    *sshutils.SSH
 	cmdoptions.IOStreams
 
-	component      string
-	version        string
-	manifestPath   string
-	releaseBaseURL string
-	registryOpts   deliveryregistry.FileOptions
+	component       string
+	version         string
+	manifestPath    string
+	releaseBaseURL  string
+	packageRegistry string
+	registryOpts    deliveryregistry.FileOptions
 
 	manifest          *releasemanifest.Manifest
 	requiredArtifacts []*releasemanifest.Artifact
@@ -168,7 +169,9 @@ func NewCmdUpgrade(stream cmdoptions.IOStreams) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&o.version, "version", o.version, "Stable release version to upgrade to, e.g. v2.0.4; the release manifest is downloaded and checksum-verified")
-	cmd.Flags().StringVar(&o.releaseBaseURL, "release-base-url", o.releaseBaseURL, "Release download base URL for --version (default https://github.com/kubeclipper/kubeclipper/releases/download)")
+	cmd.Flags().StringVar(&o.releaseBaseURL, "release-base-url", o.releaseBaseURL,
+		"Release download base URL overriding KC_DOWNLOAD_URL and KCZONE")
+	cmd.Flags().StringVar(&o.packageRegistry, "package-registry", "", "package registry prefix overriding saved configuration and KCZONE")
 	cmd.Flags().StringVar(&o.manifestPath, "manifest", o.manifestPath, "Path to a local release manifest file; the supported path for offline Package Registries")
 	cmd.Flags().StringVar(&o.registryOpts.Scheme, "package-registry-scheme", o.registryOpts.Scheme,
 		"Package Registry transport scheme: https or http (default https)")
@@ -261,32 +264,34 @@ func (o *UpgradeOptions) Validate(cmd *cobra.Command, args []string) error {
 }
 
 func (o *UpgradeOptions) loadManifest() error {
+	var data []byte
+	var err error
 	if o.manifestPath != "" {
-		data, err := os.ReadFile(o.manifestPath)
+		data, err = os.ReadFile(o.manifestPath)
 		if err != nil {
 			return fmt.Errorf("read release manifest: %w", err)
 		}
-		manifest, err := releasemanifest.Parse(data)
-		if err != nil {
-			return err
+	} else {
+		if !releasemanifest.IsStableVersion(o.version) {
+			return fmt.Errorf("--version %q is not a stable vX.Y.Z release; download the release manifest and use --manifest instead", o.version)
 		}
-		o.manifest = manifest
-		return nil
-	}
-	if !releasemanifest.IsStableVersion(o.version) {
-		return fmt.Errorf("--version %q is not a stable vX.Y.Z release; download the release manifest and use --manifest instead", o.version)
-	}
-	downloader := releasemanifest.Downloader{BaseURL: o.releaseBaseURL}
-	data, err := downloader.Download(context.Background(), o.version)
-	if err != nil {
-		return fmt.Errorf("download release manifest for %s: %w (offline environments must sync the release bundle and use --manifest)", o.version, err)
+		downloader := releasemanifest.Downloader{BaseURL: o.releaseBaseURL}
+		data, err = downloader.Download(context.Background(), o.version)
+		if err != nil {
+			return fmt.Errorf("download release manifest for %s: %w (offline environments must sync the release bundle and use --manifest)",
+				o.version, err)
+		}
 	}
 	manifest, err := releasemanifest.Parse(data)
 	if err != nil {
 		return err
 	}
-	o.manifest = manifest
-	return nil
+	registry := o.packageRegistry
+	if registry == "" && o.manifestPath == "" && o.deployConfig != nil {
+		registry = o.deployConfig.PackageRegistry
+	}
+	o.manifest, err = manifest.WithRegistry(registry)
+	return err
 }
 
 // requiredArtifactsFor decides which bootstrap package artifacts a component

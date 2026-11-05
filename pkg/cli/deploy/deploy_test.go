@@ -798,3 +798,23 @@ func TestExplicitPackageRegistryOverridesDeployConfig(t *testing.T) {
  require.Equal(t, "flag.example.com/team", d.deployConfig.PackageRegistry)
  require.Equal(t, "flag", d.packageRegistrySource())
 }
+
+func TestDeployUsesZoneWithExplicitRegistryOverride(t *testing.T) {
+	t.Setenv("KCZONE", "cn")
+	for _, test := range []struct {
+		explicit, saved, want, source string
+	}{
+		{"", "", "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release", "KCZONE"},
+		{"harbor.example.com/kc", "", "harbor.example.com/kc", "flag"},
+		{"", "harbor.example.com/saved", "harbor.example.com/saved", "deploy-config"},
+		{"harbor.example.com/kc", "harbor.example.com/saved", "harbor.example.com/kc", "flag"},
+	} {
+		d := NewDeployOptions(options.IOStreams{})
+		d.deployConfig.ServerIPs = []string{"192.0.2.10"}
+		d.deployConfig.PackageRegistry = test.saved
+		d.packageRegistryFlag = test.explicit
+		require.NoError(t, d.Complete())
+		require.Equal(t, test.want, d.deployConfig.PackageRegistry)
+		require.Equal(t, test.source, d.packageRegistrySource())
+	}
+}

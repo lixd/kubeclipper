@@ -7,7 +7,7 @@ set -euo pipefail
 # The release workflow stamps DEFAULT_VERSION before publishing this script.
 DEFAULT_VERSION="v2.0.9"
 DEFAULT_DOWNLOAD_URL="https://github.com/kubeclipper/kubeclipper/releases/download"
-DEFAULT_CN_DOWNLOAD_URL="https://release.kubeclipper.io/kc"
+DEFAULT_CN_DOWNLOAD_URL="https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc"
 KC_VERSION="${KC_VERSION:-$DEFAULT_VERSION}"
 BIN_DIR="${KC_BIN_DIR:-/usr/local/bin}"
 

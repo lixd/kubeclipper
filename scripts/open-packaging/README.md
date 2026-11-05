@@ -525,6 +525,10 @@ records the validated ACR source references.
 ```bash
 # On a connected machine: export every artifact and its complete image index.
 kcctl registry export
+# Use the domestic mirror with the same embedded inventory.
+KCZONE=cn kcctl registry export
+# Override the source registry explicitly.
+kcctl registry export --package-registry harbor.example.com/kubeclipper
 ```
 
 This writes two independent OCI Image Layout archives:
@@ -541,6 +545,10 @@ platforms beyond Linux amd64/arm64; these are included to preserve their digests
 The output directory defaults to `./offline` and is created when needed.
 Export rejects existing archive paths. Credentials use the same
 `--source-username` and `--source-password` flags as online sync.
+
+Online `kcctl registry sync --target <registry-prefix>` also defaults to the embedded inventory.
+`KCZONE=cn` selects the Aliyun source, while `--package-registry <registry-prefix>` explicitly
+selects another source. Local bundle import reads the archive's manifest and content directly.
 
 ```bash
 kcctl registry export \

@@ -43,6 +43,32 @@ func TestDownloaderVerifiesChecksum(t *testing.T) {
 	}
 }
 
+func TestDownloaderUsesZoneDownloadOverride(t *testing.T) {
+	data := []byte(validManifestYAML())
+	digest := sha256.Sum256(data)
+	var paths []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.URL.Path)
+		if strings.HasSuffix(r.URL.Path, ".sha256") {
+			_, _ = fmt.Fprintf(w, "%x  release-manifest-v2.0.0.yaml\n", digest)
+			return
+		}
+		if _, err := w.Write(data); err != nil {
+			t.Errorf("write manifest response: %v", err)
+		}
+	}))
+	defer server.Close()
+	t.Setenv("KCZONE", "cn")
+	t.Setenv("KC_DOWNLOAD_URL", server.URL+"/kc")
+	got, err := (Downloader{}).Download(t.Context(), "v2.0.0")
+	if err != nil || !bytes.Equal(got, data) {
+		t.Fatalf("Download() = %q, %v", got, err)
+	}
+	if len(paths) != 2 || paths[0] != "/kc/v2.0.0/release-manifest-v2.0.0.yaml" {
+		t.Fatalf("download paths = %v", paths)
+	}
+}
+
 func TestDownloaderRejectsDevelopmentVersionAndChecksumMismatch(t *testing.T) {
 	if _, err := (Downloader{}).Download(t.Context(), "v2.0.0-dirty"); err == nil || !strings.Contains(err.Error(), "use --manifest") {
 		t.Fatalf("Download() error = %v", err)

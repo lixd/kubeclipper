@@ -12,6 +12,9 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"slices"
+
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/source"
 )
 
 //go:embed embedded
@@ -33,4 +36,25 @@ func Load(path string) (*Manifest, error) {
 		return nil, fmt.Errorf("read release manifest: %w", err)
 	}
 	return Parse(data)
+}
+
+// WithRegistry resolves mirror locations without changing the caller's manifest.
+func (m *Manifest) WithRegistry(configured string) (*Manifest, error) {
+	registry, err := source.RegistryOverride(configured)
+	if err != nil {
+		return nil, err
+	}
+	if registry == "" {
+		return m, nil
+	}
+	resolved := *m
+	resolved.Registries = Registries{Package: registry, Image: registry}
+	resolved.Artifacts = slices.Clone(m.Artifacts)
+	for i := range resolved.Artifacts {
+		resolved.Artifacts[i].Source = registry + "/" + resolved.Artifacts[i].Target
+	}
+	if err := resolved.Validate(); err != nil {
+		return nil, err
+	}
+	return &resolved, nil
 }
