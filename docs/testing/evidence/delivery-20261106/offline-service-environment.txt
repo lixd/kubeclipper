@@ -1,0 +1,8 @@
+kc-server
+Environment=HOME=/root KCZONE=cn KUBECLIPPER_CACHE_DIR=/root/kc-twohost-4ececf5c-20261106.GbZZSR/cache-offline/kc-server HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= "NO_PROXY=*" "no_proxy=*"
+
+kc-agent
+Environment=HOME=/root KCZONE=cn KUBECLIPPER_CACHE_DIR=/root/kc-twohost-4ececf5c-20261106.GbZZSR/cache-offline/kc-agent HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= http_proxy= https_proxy= all_proxy= "NO_PROXY=*" "no_proxy=*"
+
+containerd
+Environment=HTTP_PROXY= HTTPS_PROXY= "NO_PROXY=*" ALL_PROXY= http_proxy= https_proxy= all_proxy= "no_proxy=*"

@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-11-06T14:41:14.057862+00:00",
+  "target": "172.16.131.146:5627/kubeclipper-negative-4d8",
+  "cases": [
+    {
+      "name": "missing-bundle",
+      "exit": 1,
+      "expected_error": "read manifest:",
+      "error": "read manifest: stat /root/kc-twohost-4ececf5c-20261106.GbZZSR/materials/not-present.tar.gz: no such file or directory"
+    },
+    {
+      "name": "unsupported-arch",
+      "exit": 1,
+      "expected_error": "--arch must be amd64, arm64 or all",
+      "error": "--arch must be amd64, arm64 or all"
+    },
+    {
+      "name": "corrupt-bundle",
+      "exit": 1,
+      "expected_error": "gzip: invalid header",
+      "error": "gzip: invalid header"
+    },
+    {
+      "name": "small-bundle-as-release",
+      "exit": 1,
+      "expected_error": "a release bundle is required for import",
+      "error": "a release bundle is required for import; the Registry bootstrap bundle is only for registry deploy"
+    },
+    {
+      "name": "target-tag-conflict",
+      "exit": 1,
+      "expected_error": "target tag conflict:",
+      "error": "target tag conflict: 172.16.131.146:5627/kubeclipper-negative-4d8/package-bootstrap-kubeclipper:v2.0.11 expected=sha256:3d28f842dc70fab2b4a220a513522041197253a2db60b4f9395a493cd590af1c actual=sha256:dff9de10919148711140d349bf03f1a99eb06f94b03e51715ccebfa7cdc518e2",
+      "target_digest_before": "sha256:dff9de10919148711140d349bf03f1a99eb06f94b03e51715ccebfa7cdc518e2",
+      "target_digest_after": "sha256:dff9de10919148711140d349bf03f1a99eb06f94b03e51715ccebfa7cdc518e2",
+      "main_release_digest": "sha256:35337f374186282a46a412a5b29edb73fcda15c46b7b918663fc6751e0378083",
+      "fixture_removed": true
+    }
+  ],
+  "complete": true,
+  "completed_at": "2026-11-06T14:45:41.770938+00:00"
+}

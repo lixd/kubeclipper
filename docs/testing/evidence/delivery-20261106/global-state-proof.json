@@ -1,0 +1,78 @@
+{
+  "phase": "global",
+  "checked_at": "2026-11-06T13:37:04.508602+00:00",
+  "candidate": "4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f",
+  "cluster": {
+    "name": "delivery-global-4d8bf810",
+    "phase": "Running",
+    "version": "v1.37.0",
+    "image_registry": "kc-package-registry"
+  },
+  "operations": [
+    {
+      "name": "sync-kubeconfig-bb40f4e4-dec9-403b-b1d6-3a1b2d168a7d",
+      "action": "SyncKubeConfig",
+      "phase": "Succeeded"
+    },
+    {
+      "name": "bd980bc7-9e94-4178-89d9-295cdc17b086",
+      "action": "CreateCluster",
+      "phase": "Succeeded"
+    }
+  ],
+  "nodes": [
+    {
+      "name": "lixd-dev-3",
+      "uid": "6a5fb5d5-f4b5-426d-b2dd-75bb86325b19",
+      "kubelet": "v1.37.0",
+      "runtime": "containerd://2.2.4"
+    },
+    {
+      "name": "lixd-dev-4",
+      "uid": "919918ce-6729-4f13-9f05-b58fb065eaf9",
+      "kubelet": "v1.37.0",
+      "runtime": "containerd://2.2.4"
+    }
+  ],
+  "pods_ready": 18,
+  "images": [
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/calico-apiserver:v3.31.5",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/calico-cni:v3.31.5",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/calico-kube-controllers:v3.31.5",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/calico-node:v3.31.5",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/calico-pod2daemon-flexvol:v3.31.5",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/calico-typha:v3.31.5",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/coredns:v1.14.6",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/etcd:3.7.0-0",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/kube-apiserver:v1.37.0",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/kube-controller-manager:v1.37.0",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/kube-proxy:v1.37.0",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/kube-scheduler:v1.37.0",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/kubectl",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/netshoot:v0.13",
+    "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/tigera-operator:v1.40.8"
+  ],
+  "binaries": [
+    {
+      "service": "kc-server",
+      "pid": 3317468,
+      "sha256": "9942923c0e9f8af916cfdc37deb2f4b2a1de1a7d2ef60d36ec1b0b38a058131b",
+      "version": "kubeclipper server version: version.Info{Major:\"2\", Minor:\"0\", GitVersion:\"v2.0.11\", GitCommit:\"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f\", GitTreeState:\"clean\", BuildDate:\"2026-11-06T12:40:24Z\", GoVersion:\"go1.24.2\", Compiler:\"gc\", Platform:\"linux/amd64\"}"
+    },
+    {
+      "service": "kc-agent",
+      "pid": 3317489,
+      "sha256": "bd12f8b439be72dc8aa2ba91338cfe50ce6c49f1a7dfc5b288ba6458266412bc",
+      "version": "ki agent version: version.Info{Major:\"2\", Minor:\"0\", GitVersion:\"v2.0.11\", GitCommit:\"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f\", GitTreeState:\"clean\", BuildDate:\"2026-11-06T12:40:24Z\", GoVersion:\"go1.24.2\", Compiler:\"gc\", Platform:\"linux/amd64\"}"
+    }
+  ],
+  "console_http": 200,
+  "etcd_health": [
+    {
+      "endpoint": "https://172.16.131.146:12379",
+      "health": true,
+      "took": "18.327332ms"
+    }
+  ],
+  "etcd_write_read_delete": true
+}

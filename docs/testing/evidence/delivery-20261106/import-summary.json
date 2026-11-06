@@ -1,0 +1,57 @@
+{
+  "online_global_verify": {
+    "copied": 0,
+    "skipped": 61
+  },
+  "online_cn_repeat": {
+    "copied": 0,
+    "skipped": 61
+  },
+  "offline_first": {
+    "copied": 61,
+    "skipped": 0
+  },
+  "offline_repeat": {
+    "copied": 0,
+    "skipped": 61
+  },
+  "local_repository_count": 35,
+  "local_repositories": [
+    "kubeclipper-release/calico-apiserver",
+    "kubeclipper-release/calico-cni",
+    "kubeclipper-release/calico-csi",
+    "kubeclipper-release/calico-kube-controllers",
+    "kubeclipper-release/calico-node",
+    "kubeclipper-release/calico-node-driver-registrar",
+    "kubeclipper-release/calico-pod2daemon-flexvol",
+    "kubeclipper-release/calico-typha",
+    "kubeclipper-release/coredns",
+    "kubeclipper-release/etcd",
+    "kubeclipper-release/kube-apiserver",
+    "kubeclipper-release/kube-controller-manager",
+    "kubeclipper-release/kube-proxy",
+    "kubeclipper-release/kube-scheduler",
+    "kubeclipper-release/kubectl",
+    "kubeclipper-release/lvscare",
+    "kubeclipper-release/metallb-controller",
+    "kubeclipper-release/metallb-frr",
+    "kubeclipper-release/metallb-speaker",
+    "kubeclipper-release/netshoot",
+    "kubeclipper-release/nfs-csi-attacher",
+    "kubeclipper-release/nfs-csi-node-driver-registrar",
+    "kubeclipper-release/nfs-csi-provisioner",
+    "kubeclipper-release/nfs-livenessprobe",
+    "kubeclipper-release/nfs-plugin",
+    "kubeclipper-release/package-bootstrap-console",
+    "kubeclipper-release/package-bootstrap-etcd",
+    "kubeclipper-release/package-bootstrap-kubeclipper",
+    "kubeclipper-release/package-bootstrap-registry",
+    "kubeclipper-release/package-calico",
+    "kubeclipper-release/package-containerd",
+    "kubeclipper-release/package-k8s",
+    "kubeclipper-release/package-k8s-extension",
+    "kubeclipper-release/pause",
+    "kubeclipper-release/tigera-operator"
+  ],
+  "checked_at": "2026-11-06T15:29:07.832417+00:00"
+}

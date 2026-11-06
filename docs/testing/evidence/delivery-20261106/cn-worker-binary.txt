@@ -1,0 +1,3 @@
+bd12f8b439be72dc8aa2ba91338cfe50ce6c49f1a7dfc5b288ba6458266412bc  /usr/local/bin/kubeclipper-agent
+bd12f8b439be72dc8aa2ba91338cfe50ce6c49f1a7dfc5b288ba6458266412bc  /proc/2902907/exe
+ki agent version: version.Info{Major:"2", Minor:"0", GitVersion:"v2.0.11", GitCommit:"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f", GitTreeState:"clean", BuildDate:"2026-11-06T12:40:24Z", GoVersion:"go1.24.2", Compiler:"gc", Platform:"linux/amd64"}

@@ -1,0 +1,23 @@
+{
+  "checked_at": "2026-11-06T14:17:13.910027+00:00",
+  "source": "sh-dev-4",
+  "destination": "sh-dev-3",
+  "transport": "SSH/SCP",
+  "candidate": "4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f",
+  "cli_sha256": "bfcc8d08a6f1deb2ef78675d68eb966c4b2cfb28e02d4a9f09c3c286d5dcd160",
+  "archives": [
+    {
+      "file": "offline/kubeclipper-offline-v2.0.11.tar.gz",
+      "sha256": "a3f2203943fac471b1c3be8a0f96fcd4ab8b789b48697ed8b9ac726c5d2808f7",
+      "bytes": 7625787966
+    },
+    {
+      "file": "offline/registry-3.1.1.tar.gz",
+      "sha256": "b00c3cb6e79c3d3e00eb2ee89f6b04448c368bfbe2bfaa32c46e00965c14ab1f",
+      "bytes": 34613370
+    }
+  ],
+  "archive_checksum_verification": true,
+  "export_unique_tags": 61,
+  "export_source": "KCZONE=cn"
+}

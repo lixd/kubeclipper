@@ -1,0 +1,116 @@
+{
+  "checked_at": "2026-11-06T14:59:47.872885+00:00",
+  "reason": "DiskPressure during offline network acceptance",
+  "evicted_pod_status": {
+    "message": "Pod was rejected: The node had condition: [DiskPressure]. ",
+    "observedGeneration": 1,
+    "phase": "Failed",
+    "qosClass": "BestEffort",
+    "reason": "Evicted",
+    "startTime": "2026-11-06T14:51:21Z"
+  },
+  "node_conditions_before": [
+    {
+      "lastHeartbeatTime": "2026-11-06T14:50:51Z",
+      "lastTransitionTime": "2026-11-06T14:50:51Z",
+      "message": "Calico is running on this node",
+      "reason": "CalicoIsUp",
+      "status": "False",
+      "type": "NetworkUnavailable"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T14:56:30Z",
+      "lastTransitionTime": "2026-11-06T14:49:31Z",
+      "message": "kubelet has sufficient memory available",
+      "reason": "KubeletHasSufficientMemory",
+      "status": "False",
+      "type": "MemoryPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T14:56:30Z",
+      "lastTransitionTime": "2026-11-06T14:49:43Z",
+      "message": "kubelet has disk pressure",
+      "reason": "KubeletHasDiskPressure",
+      "status": "True",
+      "type": "DiskPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T14:56:30Z",
+      "lastTransitionTime": "2026-11-06T14:49:31Z",
+      "message": "kubelet has sufficient PID available",
+      "reason": "KubeletHasSufficientPID",
+      "status": "False",
+      "type": "PIDPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T14:56:30Z",
+      "lastTransitionTime": "2026-11-06T14:50:44Z",
+      "message": "kubelet is posting ready status",
+      "reason": "KubeletReady",
+      "status": "True",
+      "type": "Ready"
+    }
+  ],
+  "deleted_duplicate": {
+    "path": "/root/kc-twohost-4ececf5c-20261106.GbZZSR/materials/offline/kubeclipper-offline-v2.0.11.tar.gz",
+    "bytes": 7625787966,
+    "sha256": "a3f2203943fac471b1c3be8a0f96fcd4ab8b789b48697ed8b9ac726c5d2808f7"
+  },
+  "retained_original": "sh-dev-4:/root/kc-twohost-4ececf5c-20261106.U2WULM/export/offline/kubeclipper-offline-v2.0.11.tar.gz",
+  "free_bytes_before": 32574517248,
+  "free_bytes_after": 40200306688,
+  "kubelet_thresholds": {
+    "evictionHard": {
+      "imagefs.available": "15%",
+      "imagefs.inodesFree": "5%",
+      "memory.available": "100Mi",
+      "nodefs.available": "10%",
+      "nodefs.inodesFree": "5%"
+    },
+    "evictionPressureTransitionPeriod": "5m0s",
+    "imageGCHighThresholdPercent": 85,
+    "imageGCLowThresholdPercent": 80
+  },
+  "node_conditions_after": [
+    {
+      "lastHeartbeatTime": "2026-11-06T14:50:51Z",
+      "lastTransitionTime": "2026-11-06T14:50:51Z",
+      "message": "Calico is running on this node",
+      "reason": "CalicoIsUp",
+      "status": "False",
+      "type": "NetworkUnavailable"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T15:19:15Z",
+      "lastTransitionTime": "2026-11-06T14:49:31Z",
+      "message": "kubelet has sufficient memory available",
+      "reason": "KubeletHasSufficientMemory",
+      "status": "False",
+      "type": "MemoryPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T15:19:15Z",
+      "lastTransitionTime": "2026-11-06T15:04:42Z",
+      "message": "kubelet has no disk pressure",
+      "reason": "KubeletHasNoDiskPressure",
+      "status": "False",
+      "type": "DiskPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T15:19:15Z",
+      "lastTransitionTime": "2026-11-06T14:49:31Z",
+      "message": "kubelet has sufficient PID available",
+      "reason": "KubeletHasSufficientPID",
+      "status": "False",
+      "type": "PIDPressure"
+    },
+    {
+      "lastHeartbeatTime": "2026-11-06T15:19:15Z",
+      "lastTransitionTime": "2026-11-06T14:50:44Z",
+      "message": "kubelet is posting ready status",
+      "reason": "KubeletReady",
+      "status": "True",
+      "type": "Ready"
+    }
+  ]
+}

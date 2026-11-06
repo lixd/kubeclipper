@@ -1,0 +1,14 @@
+{
+  "checked_at": "2026-11-06T15:23:57.763964+00:00",
+  "host": "lixd-dev-3",
+  "removed_tables": [
+    "kc_delivery_4d8",
+    "kc_delivery_peer_guard"
+  ],
+  "public_acr_http": 401,
+  "registry_http": {
+    "5003": 200,
+    "5605": 200,
+    "5627": 200
+  }
+}

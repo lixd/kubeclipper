@@ -1,0 +1,29 @@
+{
+  "phase": "cn",
+  "checked_at": "2026-11-06T14:03:08.872573+00:00",
+  "image": "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/netshoot:v0.13",
+  "checks": [
+    {
+      "pod": "http-0",
+      "node": "lixd-dev-3",
+      "ip": "172.25.232.72",
+      "peer": "lixd-dev-4",
+      "ping": "PING 172.25.123.194 (172.25.123.194) 56(84) bytes of data.\n64 bytes from 172.25.123.194: icmp_seq=1 ttl=62 time=1.78 ms\n64 bytes from 172.25.123.194: icmp_seq=2 ttl=62 time=1.20 ms\n64 bytes from 172.25.123.194: icmp_seq=3 ttl=62 time=1.19 ms\n\n--- 172.25.123.194 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 2004ms\nrtt min/avg/max/mdev = 1.193/1.392/1.783/0.276 ms",
+      "direct_http": "lixd-dev-4",
+      "service_http": "lixd-dev-4",
+      "dns": "10.96.0.1",
+      "api_health": "ok"
+    },
+    {
+      "pod": "http-1",
+      "node": "lixd-dev-4",
+      "ip": "172.25.123.194",
+      "peer": "lixd-dev-3",
+      "ping": "PING 172.25.232.72 (172.25.232.72) 56(84) bytes of data.\n64 bytes from 172.25.232.72: icmp_seq=1 ttl=62 time=1.23 ms\n64 bytes from 172.25.232.72: icmp_seq=2 ttl=62 time=1.08 ms\n64 bytes from 172.25.232.72: icmp_seq=3 ttl=62 time=1.13 ms\n\n--- 172.25.232.72 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 2003ms\nrtt min/avg/max/mdev = 1.081/1.145/1.230/0.062 ms",
+      "direct_http": "lixd-dev-3",
+      "service_http": "lixd-dev-4",
+      "dns": "10.96.0.1",
+      "api_health": "ok"
+    }
+  ]
+}

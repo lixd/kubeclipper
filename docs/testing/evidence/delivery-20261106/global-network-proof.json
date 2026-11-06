@@ -1,0 +1,29 @@
+{
+  "phase": "global",
+  "checked_at": "2026-11-06T13:24:16.842048+00:00",
+  "image": "ghcr.io/lixd/kubeclipper/qualification-4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f/netshoot:v0.13",
+  "checks": [
+    {
+      "pod": "http-0",
+      "node": "lixd-dev-3",
+      "ip": "172.25.232.71",
+      "peer": "lixd-dev-4",
+      "ping": "PING 172.25.123.193 (172.25.123.193) 56(84) bytes of data.\n64 bytes from 172.25.123.193: icmp_seq=1 ttl=62 time=1.35 ms\n64 bytes from 172.25.123.193: icmp_seq=2 ttl=62 time=0.861 ms\n64 bytes from 172.25.123.193: icmp_seq=3 ttl=62 time=1.12 ms\n\n--- 172.25.123.193 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 2003ms\nrtt min/avg/max/mdev = 0.861/1.112/1.353/0.201 ms",
+      "direct_http": "lixd-dev-4",
+      "service_http": "lixd-dev-4",
+      "dns": "10.96.0.1",
+      "api_health": "ok"
+    },
+    {
+      "pod": "http-1",
+      "node": "lixd-dev-4",
+      "ip": "172.25.123.193",
+      "peer": "lixd-dev-3",
+      "ping": "PING 172.25.232.71 (172.25.232.71) 56(84) bytes of data.\n64 bytes from 172.25.232.71: icmp_seq=1 ttl=62 time=0.769 ms\n64 bytes from 172.25.232.71: icmp_seq=2 ttl=62 time=0.792 ms\n64 bytes from 172.25.232.71: icmp_seq=3 ttl=62 time=0.684 ms\n\n--- 172.25.232.71 ping statistics ---\n3 packets transmitted, 3 received, 0% packet loss, time 2036ms\nrtt min/avg/max/mdev = 0.684/0.748/0.792/0.046 ms",
+      "direct_http": "lixd-dev-3",
+      "service_http": "lixd-dev-4",
+      "dns": "10.96.0.1",
+      "api_health": "ok"
+    }
+  ]
+}

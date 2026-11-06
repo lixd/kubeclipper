@@ -3,7 +3,7 @@
 本文档是平台核心功能的**长期测试基准**：每轮验证（E2E、回归、发布前）都应以此清单为
 起点圈定范围，测完回填状态。它不属于某一次测试计划，而是所有测试轮次共同维护的覆盖台账。
 
-当前 R46 清单共 **192 项：通过 190、范围外 2、部分/失败/阻塞/待执行均为 0**。2026-10-14 按用户要求删除同一 Addon 多实例 `4-04` 和 IPv4/IPv6 双栈 `2.1-32`，其他编号保持不变，已删除编号不复用；历史报告保留原统计。
+当前基准共 **194 项**，逐项结果保留各轮实测证据。R46 历史轮次覆盖 192 项，通过 190、范围外 2。后续新增 `3-29` 多架构离线交付及 `1.1-11` 国内在线部署。2026-10-14 按用户要求删除同一 Addon 多实例 `4-04` 和 IPv4/IPv6 双栈 `2.1-32`，其他编号保持不变，已删除编号不复用；历史报告保留原统计。
 
 功能基线为 **OCI 交付架构合并后的 KubeClipper**。OCI Registry、Delivery Policy、
 PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正常工作方式，不作为一套
@@ -11,7 +11,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 ## 使用说明
 
-- **当前结果与证据**：[R46 报告](status-2026-10-14-r46.md)和 [R46 逐项台账](r46-case-ledger.md)。下表状态列已按 R46 回填，备注中旧轮次为历史证据；当前缺口以 R46 台账为准。
+- 国外在线、国内在线及完整离线场景按[交付场景测试步骤](delivery-scenarios.md)执行，逐步登记结果和证据。
+- 2026-11-06 交付专项见[两机实测报告](delivery-twohost-2026-11-06.md)，候选 `4d8bf810`，目标为 sh-dev-3/-4。
+
+- **历史全量结果与证据**。[R46 报告](status-2026-10-14-r46.md)和 [R46 逐项台账](r46-case-ledger.md)保留历史全量结果。下表以 R46 为基础，后续实测按条目更新状态并追加日期与报告链接。交付专项的当前缺口见 2026-11-06 两机报告。
 - R42 历史覆盖快照（2026-10-13）：194 Case 中 162 ✅ / 14 ⚠️ / 0 ❌ / 16 阻塞 / 2 ➖。未闭环 Case 的复测条件、验收标准和清理步骤集中在 [R42 Case 前置条件矩阵](r42-case-prerequisites.md)，按本清单编号查找。
 - **编号即身份**：本文已随 OCI 合并基线完成一次性重整；自本基线起，`x.y-NN` 一经分配
   不再变更或复用。功能下线时把状态标为 `🗑 废弃` 并保留编号，新增 Case 在小节末尾追加。
@@ -44,16 +47,17 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 | 编号 | 功能 | 状态 | 备注 |
 |---|---|---|---|
-| 1.1-01 | 在线部署：GHCR 直装（当前允许 fork 制品） | ✅ | R43（2026-10-13）：用户允许 fork 制品。当前候选 b4a5886e 配套 kcctl 从 fork qualification GHCR 直接部署成功，系统 CA 信任链校验开启，无额外 CA 文件；纳管后 doctor 19/0/0。官方默认 v2.0.3 的 manifest unknown 尚未修复，不把 fork 成功写成官方路径成功。 详见 [R43 报告](status-2026-10-13-r43.md)。 |
-| 1.1-02 | 半离线：ghcr → `kcctl registry sync` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） **R42 续测（2026-10-13）**：真实 GitHub Release v2.0.3（474ba45d）GHCR 源经正式 registry sync 复制 61 个 amd64 制品至隔离仓库；配套 Release kcctl 从目标仓库完整 deploy，doctor 15/0/0。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
-| 1.1-03 | 纯离线：bundle export → 拷贝 → import 进仓库 → deploy | ✅ | R13-C5（2026-09-22，rc.8 三机）：5003 export（skopeo --preserve-digests，5 制品 368MB）→ scp 离线拷贝 → 空白 9443 registry import ×2 → iptables 断公网（外网 DNS/连接全 REJECT，REJECT 计数实证）→ componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖），calico/coredns 全 Running **R42 续测（2026-10-13）**：真实 4 个 bootstrap 组件 export→跨机拷贝 SHA 校验→import；CLI 与部署节点公共 IPv4 出口阻断、无 IPv6 默认路由时完整 deploy，doctor 15/0/0；规则已撤销。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
+| 1.1-01 | 在线部署：GHCR 直装（当前允许 fork 制品） | ⚠️ | R43（2026-10-13）：用户允许 fork 制品。当前候选 b4a5886e 配套 kcctl 从 fork qualification GHCR 直接部署成功，系统 CA 信任链校验开启，无额外 CA 文件；纳管后 doctor 19/0/0。官方默认 v2.0.3 的 manifest unknown 尚未修复，不把 fork 成功写成官方路径成功。 详见 [R43 报告](status-2026-10-13-r43.md)。 **本轮补测** 2026-11-06：候选 `4d8bf810` 经代理完成 GHCR Registry/KC/join/双节点建群及网络、etcd 验收。正式 v2.0.11 下载附件待发布。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
+| 1.1-02 | 在线镜像 GHCR → `kcctl registry import` → 本地仓库 → deploy | ✅ | R3 全链路（5 copied/56 skipped 幂等） **R42 续测（2026-10-13）**：真实 GitHub Release v2.0.3（474ba45d）GHCR 源经正式 registry sync 复制 61 个 amd64 制品至隔离仓库；配套 Release kcctl 从目标仓库完整 deploy，doctor 15/0/0。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
+| 1.1-03 | 联网 export → 跨机传输 → 小包部署 Registry → 大包 import → 离线部署和建群 | ✅ | R13-C5（2026-09-22，rc.8 三机）：5003 export（skopeo --preserve-digests，5 制品 368MB）→ scp 离线拷贝 → 空白 9443 registry import ×2 → iptables 断公网（外网 DNS/连接全 REJECT，REJECT 计数实证）→ componentmeta 9443 → 建群 Running（9443 拉取 183 条，五类仓库全覆盖），calico/coredns 全 Running **R42 续测（2026-10-13）**：真实 4 个 bootstrap 组件 export→跨机拷贝 SHA 校验→import；CLI 与部署节点公共 IPv4 出口阻断、无 IPv6 默认路由时完整 deploy，doctor 15/0/0；规则已撤销。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 **本轮补测** 2026-11-06：内置清单从阿里云导出 61 tag，跨机 SHA 校验、小包 Registry、完整导入和双节点离线建群完成。两机公网出站阻断下网络与 etcd 验收通过。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
 | 1.1-04 | 私有仓库 http | ✅ | R3 全程 :5003 |
 | 1.1-05 | 私有仓库 https + 自签 CA | ✅ | R12（2026-09-22，rc.8 三机）：dev-2 自建 distribution 3.0.0（HTTPS+自签 CA SAN=IP），三节点 `package-registry.json`（0600）配 CA 后建群成功、三节点 Ready，agent 真实拉取 **R42 续测（2026-10-13）**：严格自签 CA HTTPS Registry（skipTLS=false）完整 deploy、join 与真实 1M/1W 建群通过；Registry 记录三个客户端实际认证拉取，节点 Ready。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 1.1-06 | Package Registry 账号密码认证（deploy/join/agent 消费侧） | ✅ | R12：htpasswd 基本认证；正确凭据建群成功；错误密码 → Operation Failed、错误消息 `UNAUTHORIZED: authentication required`（不含凭据），修正后 retry Succeeded；日志/operation 全文 grep 错误与真实密码均 0 泄漏。R13-C4 补 join 入口：join 下发 0600 凭据、扩容节点 agent 直连认证拉取 9×200、错误口令 join EXIT=1 可读报错零残留 **R42 续测（2026-10-13）**：真实 htpasswd Package Registry 完整 deploy/join/Agent 包消费通过；使用专用账号、0600 密码文件，1M/1W 建群 Operation Succeeded；保留前轮错误密码拒绝证据。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
-| 1.1-07 | `registry sync` 重复同步幂等 | ✅ | R3：5 copied / 56 skipped；digest 不变 **R42 再补测（2026-10-13）**：隔离 HTTP Registry 同步 7 个真实 OCI 制品：首次 7 copied/0 skipped，第二次 0 copied/7 skipped；全部 digest 不变。 详见 R42 台账与续测报告。 |
-| 1.1-08 | 离线 bundle 重复 import 幂等 | ✅ | R13-C5：空白 9443 连续 import ×2，两次 Inventory 对比逐字节全等（digest 不变） **R42 再补测（2026-10-13）**：真实 export 的 bundle 连续 import 两次；7 个制品校验和及导入后的选定架构 digest 均匹配。 详见 R42 台账与续测报告。 |
+| 1.1-07 | 在线 `registry import` 重复导入幂等 | ✅ | R3：5 copied / 56 skipped；digest 不变 **R42 再补测（2026-10-13）**：隔离 HTTP Registry 同步 7 个真实 OCI 制品：首次 7 copied/0 skipped，第二次 0 copied/7 skipped；全部 digest 不变。 详见 R42 台账与续测报告。 **本轮补测** 2026-11-06：同候选分别从国外源和 KCZONE=cn 原生校验阿里云目标，均 0 copied / 61 skipped。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
+| 1.1-08 | 离线 bundle 重复 import 幂等 | ✅ | R13-C5：空白 9443 连续 import ×2，两次 Inventory 对比逐字节全等（digest 不变） **R42 再补测（2026-10-13）**：真实 export 的 bundle 连续 import 两次；7 个制品校验和及导入后的选定架构 digest 均匹配。 详见 R42 台账与续测报告。 **本轮补测** 2026-11-06：完整双架构大包首次 61 copied / 0 skipped，重复导入 0 copied / 61 skipped。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
 | 1.1-09 | 错误仓库地址、凭据、CA 或缺失制品 | ✅ | 四类全闭环：凭据/CA=R12（UNAUTHORIZED/x509 明确失败、retry 可恢复、不泄凭据）；错误仓库地址=R13-C2 探针 A（dial refused 明确失败、零残留；服务端 500 透传原始错误，质量低于 400 typed 路径，已记录观察项）；缺失制品=R13-C2 探针 B（空仓库 rules=0 → `ArtifactNotPublished` typed 400）；修正后重试（PUT 回 5003 → 建群成功→删除）R13-C2 实证 **R42 再补测（2026-10-13）**：隔离 Registry 的错误地址、密码、CA、缺制品分支均 exit=1；deploy 在预检拒绝，无半部署；密码未写入日志。 详见 R42 台账与续测报告。 |
 | 1.1-10 | HTTPS 公共 CA 信任路径（合并至 1.1-01） | ➖ | R43 用户确认合并至 GHCR 直装，不单独建设公共 CA 私有仓库；当前 fork GHCR 直装已验证系统默认公共 CA 信任链。 详见 [R43 报告](status-2026-10-13-r43.md)。 |
+| 1.1-11 | 国内在线 `KCZONE=cn`，阿里云直连部署 Registry、KC 和 Kubernetes | ⚠️ | 2026-11-06：候选 `4d8bf810` 无代理完成 Registry、KC、第二 Agent join、双节点建群及网络和 etcd 验收。正式 OSS 下载附件待发布，doctor 证书上下文限制保留。见[实测报告](delivery-twohost-2026-11-06.md)。 |
 
 ### 1.2 部署拓扑
 
@@ -75,10 +79,10 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 1.3-02 | etcd 冷启动竞态（写探针+重试） | ✅ | R3 **R42 续测（2026-10-13）**：隔离 Server 先启动、etcd 延迟 5 秒后恢复；另在真实 deploy 中阻断 CLI→etcd，日志记录 write probe 超时与 waitEtcdReady 重试，连接恢复后 deploy 成功、doctor 15/0/0。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 1.3-03 | clean --all 后重 deploy 幂等 | ✅ | R3 ×2 |
 | 1.3-04 | 不 clean 直接重复 deploy 的行为与平台安全性 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17） rc.11 复测一致：不带 clean 再次 deploy → 三节点 kc-etcd.service already exists PRECHECK FAILED（逐节点列出）+"clean old environment before deploying"，零触碰、平台保持 Healthy（doctor 25/25） |
-| 1.3-05 | `kcctl join` 独立纳管新节点 | ✅ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready。R13-C4（2026-09-22）补认证/负向：join 下发 0600 `package-registry.json`（凭据经 base64 落盘）、被加入节点直连认证拉取、错误口令 join EXIT=1 可读 `UNAUTHORIZED` 且零部分安装；多网卡需 `--ip-detect interface=<nic>`（first-found 触发交互确认，后台 EOF 崩溃，见 R13-C4 过程发现） |
+| 1.3-05 | `kcctl join` 独立纳管新节点 | ✅ | R6：dev4 空闲节点独立 join 成功，Package Registry HTTP 地址生效并恢复 Ready。R13-C4（2026-09-22）补认证/负向：join 下发 0600 `package-registry.json`（凭据经 base64 落盘）、被加入节点直连认证拉取、错误口令 join EXIT=1 可读 `UNAUTHORIZED` 且零部分安装；多网卡需 `--ip-detect interface=<nic>`（first-found 触发交互确认，后台 EOF 崩溃，见 R13-C4 过程发现） **本轮补测** 2026-11-06：国外、国内和离线三轮均通过原生 join 纳管第二 Agent，继承所在场景 Package Registry。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
 | 1.3-06 | `clean --all --force --deploy-config` 异常恢复 | ✅ | R21（2026-09-25，rc.11，R7 报告 §12.17）：两轮 clean --all --force --deploy-config（3+3 拓扑与分离拓扑各一）——清理后三节点 kc-server/kc-agent/kc-etcd/kc-console 全 inactive、二进制/配置//var/lib/kc-etcd 移除、端口释放，零半残；随后重部署均成功（含 etcd 重建） |
 | 1.3-07 | **`kcctl upgrade all --manifest` 平台离线升级（OCI manifest + 内网 Registry）** | ✅ | B1 E2E（2026-09-20，R7 报告 §11）：三机 server+agent 实际升级 rc.3→`057f45e1`，逐台 stop→backup→install→start→healthz，成功后 staging 清理；错 digest/repointed tag 在触碰节点前拒绝；升级后 Healthy、doctor 25/25、配置数据保留。R19（rc.10 `c356fbaf`）：all 语义扩展至四组件 12 槽位（server×3→agent×3→console×3→kcctl×3）~106s 全成功，platform API 报 rc.10、doctor 25/25（R7 报告 §12.15） **R42 续测（2026-10-13）**：完整 bootstrap bundle 导出/传递/import 后，阻断三机公共出口，正式 upgrade all --manifest 从真实 rc.33 升至 rc.34；Server/2 Agents/Console/kcctl 全完成，doctor 17/0/0、节点身份保持。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
-| 1.3-08 | `kcctl doctor` | ✅ | R3/R4（R4：25 项） |
+| 1.3-08 | `kcctl doctor` | ⚠️ | R3/R4（R4：25 项） **本轮补测** 2026-11-06：口令登录上下文缺少直接探测 etcd 所需 CA/客户端证书，三轮 doctor 均为 Unknown，16 passed / 1 failed。独立 etcd 读写删除及集群健康通过，诊断限制待处理。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
 | 1.3-09 | **`kcctl upgrade all --version` 在线升级（ReleaseManifest 下载）** | ✅ | 下载器行为已经代理隧道实测：可达 GitHub、不存在的版本正确返回 404+离线指引。另：设 `HTTPS_PROXY` 必须配 `NO_PROXY` 排除平台内网地址，否则平台 API 请求也被送进代理而失败。**R20（rc.11 `9a1dbb75`，2026-09-24）正向下载+checksum 闭环**（R7 报告 §12.16）：本地 GitHub 镜像法——dev-2 自签 CA 进系统信任（/usr/local/share/ca-certificates + update-ca-certificates）+ SNI 证书 SAN=github.com + /etc/hosts + 443 HTTPS，供给与真实 release 同构的 `…/releases/download/v2.0.3/release-manifest-v2.0.3.yaml(+.sha256)`；`kcctl upgrade all --version v2.0.3` 全链路 rc=0（"manifest downloaded for v2.0.3"→sha256 校验→版本策略幂等→9 槽位 skip→platform API 复核）；负向：`.sha256` 篡改报 `release manifest checksum mismatch` 拒绝。镜像拆除：443 释放、hosts 恢复、CA 移除 + update-ca-certificates --fresh（临时证书即用即删）。`--manifest` 离线路径见 1.3-07/1.3-10 **R42 续测（2026-10-13）**：实际 fork v2.0.3 Release 可下载，CLI --version 下载器固定 upstream kubeclipper/kubeclipper，该 upstream v2.0.3 Release 不存在。需 upstream 正式发布或明确支持可配置 Release 源，不能将本地 --manifest 算在线升级。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 1.3-10 | `kcctl upgrade server/agent/console/kcctl` 组件独立升级 | ✅ | `server`/`agent` 独立升级三机实测（B1 E2E：server 先、agent 后，逐台替换，只更新目标组件）。R19（rc.10 `c356fbaf`，2026-09-24）console/kcctl 闭环（R7 报告 §12.15）：`upgrade kcctl` 同 revision 三节点幂等 skip；`upgrade console` 同版本幂等重装（dist/caddy sha256 前后一致、ConsolePort HTTP 2xx 探测）；负向：缺 bootstrap/console artifact 的 manifest EXIT=1、console 错 digest 触碰节点前拒绝（repointed tag 防护）、console 版本策略豁免（v1.6.0 独立版本流与平台 semver 不可比，sourceRevision mismatch 仅警告）。**R20（rc.11 `9a1dbb75`）故障注入矩阵四场景**（R7 报告 §12.16）：T-A server 安装+启动成功但健康探测被 iptables 阻断 → waitServerHealthy 180s 超时 → restoreNodeBinary 自动恢复 rc.10 基线、后续槽位停止（EXIT=1）；T-C staging kcctl 腐化 → 替换后 probe 失败 → restoreKcctl（三节点 md5=基线）；T-D console 探针 180s 超时（错误信息明示 probing http port 80）→ restoreConsole（caddy md5+dist 树哈希逐字节一致、console 200）；T-B 中断后重跑 upgrade all → 已完成节点 skip、余下补齐、platform API 复核 + doctor 25/25 **R42 续测（2026-10-13）**：真实 rc.33 基线通过正式 CLI 分别升级 Server、2 Agents、kcctl 至 rc.34；Console 正式独立升级完成；版本/revision 与日志齐全。手工部署补丁另列，不计本项。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 1.3-11 | SSH key/password、非 root sudo 与自定义端口 | ✅ | R22（rc.15,2026-09-25,commit `9f61c944`+`a064cffe`,R7 报告 §12.18）两缺陷修复并复验：①无 sudo 用户——非交互 sudo 前置探测+提示上限 3 次+非交互 stdin 快速失败（1s 内干净报错,不再死循环刷日志）；②非 root+NOPASSWD sudo join——sudo 前置探测通过后免提示,中转文件改用户 home 相对路径（kc-transit/,/tmp 非 1777 的主机也可用）,join 15s 完成。R42 临时密码用户、NOPASSWD sudo、端口 2222 在 dev2/dev4 完成 join；3/3 Agent Healthy，临时账户、sudoers 和 sshd 配置已清理 |
@@ -96,7 +100,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 2.1-04 | 版本矩阵 v1.35.8 / v1.36.4 / v1.37.0 | ✅ | R2/R3 |
 | 2.1-05 | CRI containerd 1.7.29 / 2.2.4 | ✅ | R2/R3 |
 | 2.1-06 | CNI calico v3.29.6 / v3.31.5 | ✅ | R2/R3 |
-| 2.1-07 | 镜像/物料 100% 来自指定仓库（离线保证） | ✅ | R3 验证法可复用；R42：屏蔽 dev3/dev4 公网出口、保留内网 Registry 后，离线建群及 v1.36.4→v1.37.0 升级成功，packagePlan 所有 refs 均指向 `172.16.131.146:5003` |
+| 2.1-07 | 镜像/物料 100% 来自指定仓库（离线保证） | ✅ | R3 验证法可复用；R42：屏蔽 dev3/dev4 公网出口、保留内网 Registry 后，离线建群及 v1.36.4→v1.37.0 升级成功，packagePlan 所有 refs 均指向 `172.16.131.146:5003` **本轮补测** 2026-11-06：国外/国内/离线三轮 packagePlan 和全部 Pod 镜像前缀匹配指定源。离线两机公网阻断，目标 277 manifest、831 仓库 blob 链接及 698 去重 blob 全量 SHA 校验通过。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
 | 2.1-08 | proxyMode ipvs | ✅ | R2/R3；R7 复测 kube-proxy ConfigMap `mode: ipvs` |
 | 2.1-09 | proxyMode iptables | ✅ | R6：API dry-run 与真实创建均接受 `proxyMode=iptables`；CreateCluster `a16b1a64-02cb-46ce-bdf1-f2a6ff46df87` 成功，kube-proxy ConfigMap 的 `mode` 为 `iptables`。当前 CLI 未暴露该参数，因此用 API 验证，删除已完成 |
 | 2.1-10 | 创建集群时拒绝支持矩阵外版本 | ✅ | R3；同版本/降级属于升级校验，见 2.3-08 |
@@ -218,7 +222,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-15 | `kcctl drain` | ✅ | R6 空闲 Agent drain；R24 used 保护与不存在节点报错；**R26 文案/交互修正**（"drainded"→"drained"、`-y` 生效、无 TTY 干净拒绝）；**R27 完整生命周期闭环（rc.24）**：drain dev-4 → "agent node drain completed"（2/3）；**重复 drain 同 ID** → 无 `-y` 时确认提示+干净非交互提示，`-y` 时 `drain agent node failed: ... not found`（幂等）；`kcctl join`（server 侧执行，`--ip-detect interface=ens3 --node-ip-detect cidr=... --package-registry-scheme http`）重新纳管 → **新 Node ID**（4e362f79→a1ac1855）、3/3 agents Healthy、**doctor 25/25**。边界：`-F` 强制删在用节点未单独跑（R18 master remove 已覆盖同族强制路径） |
 | 3-16 | `kcctl upgrade all --manifest/--version` | ✅ | B1 按 OCI 契约重写并移除旧 `--pkg/--online`：`--manifest` 三机实测通过（幂等复跑全 skip、降级明确拒绝、错 digest 拒绝，R7 报告 §11；R19-R23 各轮平台升级持续复跑）；`--version` 在线正向下载 R20（§12.16）以本地 GitHub 镜像法闭环（自签 CA 进系统信任 + /etc/hosts + 443 HTTPS，URL 与真实 release 同构；全链路 rc=0、`.sha256` 篡改报 checksum mismatch 拒绝、临时证书即用即删） **R42 续测（2026-10-13）**：离线 upgrade all --manifest 已完整通过1.3-07；在线 --version 仍受1.3-09 upstream Release 下载源限制。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
 | 3-17 | `kcctl upgrade server/agent/console/kcctl` | ✅ | `server`/`agent` 独立升级实测通过（节点级幂等：已达标 revision 跳过，不重启）；`console`/`kcctl` step 2 已于 R19（§12.15）实施并真机验证（console：停服→备份→替换→起服→HTTP 探活；kcctl：替换后 `kcctl version` 校验；同版本重装幂等、降级拒绝），R22/R23 各轮 `upgrade all` 四组件链路持续复跑 **R42 续测（2026-10-13）**：同 1.3-10：正式 CLI 独立 Server/Agent/Console/kcctl 升级均已现场验证。 最新逐项状态见 [R46 台账](r46-case-ledger.md)。 |
-| 3-18 | `kcctl registry sync` | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 **R42 再补测（2026-10-13）**：kcctl registry sync 对 7 个真实制品执行 HTTP 与严格 CA/账号认证 HTTPS 同步成功，并验证幂等与目标 tag 冲突拒绝。清单为本轮资格测试清单，不代表正式 Release。 详见 R42 台账与续测报告。 |
+| 3-18 | `kcctl registry import` 在线镜像与离线导入 | ✅ | R2/R3；Release Manifest、首次/增量同步、认证和 digest 一致 **R42 再补测（2026-10-13）**：kcctl registry sync 对 7 个真实制品执行 HTTP 与严格 CA/账号认证 HTTPS 同步成功，并验证幂等与目标 tag 冲突拒绝。清单为本轮资格测试清单，不代表正式 Release。 详见 R42 台账与续测报告。 **本轮补测** 2026-11-06：原生在线 import、离线首次和重复 import 完成，五项负例均核对非零退出码与预期错误。见[实测报告](delivery-twohost-2026-11-06.md)。 |
 | 3-19 | `kcctl registry list/deploy/clean/delete` | ✅ | R6/R7 list/image/非法 push/`--registry-port`；**R24 补验**：repository 列表（`--node` + `--registry-port 5003`，只读）、delete 不存在 tag → fetch-first 干净报错（`MANIFEST_UNKNOWN`，零变更）。边界：对共享 5003 的真实 clean/delete 受"只增 tag"约束未做（策略性排除） **R42 再补测（2026-10-13）**：dev4 隔离 Registry 由 kcctl deploy 创建；真实 pause 镜像 archive push、list、delete 成功，删除后 manifest 404；kcctl clean 成功，服务 inactive、配置/数据目录消失。 详见 R42 台账与续测报告。 **2026-11-05**：旧 `push` 已移除，原生离线导出与导入见 3-29。 |
 | 3-20 | `kcctl resource list` | ✅ | R3/R4：14 个 OCI package；R7 复测（新候选包同步后仍 14 个，digest 为新构建） |
 | 3-21 | `kcctl resource inspect` | ✅ | R3/R4：指定 package 可展示 repository、tag、digest、platform 和内容画像 |
@@ -229,7 +233,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 | 3-26 | `kcctl status` | ✅ | R4：准确报告三台 `kc-server`、三台 `kc-etcd`、三台 `kc-agent`，平台 Healthy |
 | 3-27 | `kcctl deploy config` | ✅ | R6/R7 生成/非法 YAML 拒绝；**R24 补验**：生成模板 OK、非法 YAML 秒级干净报错、顶层 initialPassword 拒绝（R23 文案）、authentication 段零值回填（R24 单测 + 平台配置实证，见 4-18） |
 | 3-28 | `kcctl version` | ✅ | client/server 版本和 Git revision 准确 |
-| 3-29 | `kcctl registry export`、`registry sync --bundle` 与独立 Registry 自举小包 | ✅ | 2026-11-05：实现 63d05737；完整 61 tag 多架构导出，公网受限进程中小包自举、全量导入 61 copied、最终包重复导入 61 skipped；277 manifest 和 698 唯一 blob 全量读取核对。仅交付链路专项验证，非全量用例重跑；见 [实测报告](offline-bundles-2026-11-05.md)。 |
+| 3-29 | `kcctl registry export/import` 多架构交付与独立 Registry 自举小包 | ✅ | 2026-11-05：实现 63d05737；完整 61 tag 多架构导出，公网受限进程中小包自举、全量导入 61 copied、最终包重复导入 61 skipped；277 manifest 和 698 唯一 blob 全量读取核对。仅交付链路专项验证，非全量用例重跑；见 [实测报告](offline-bundles-2026-11-05.md)。 **本轮补测** 2026-11-06：独立小包 amd64/arm64 ELF 及包内摘要一致，完整 61 tag 原样导入和重复导入完成，另在两机完成真实离线部署及建群。 见[实测报告](delivery-twohost-2026-11-06.md)。 |
 
 ## 4. 其他核心平台功能
 
@@ -337,7 +341,7 @@ PackageInventory、PackagePlan 和 Agent 按 digest 消费制品属于平台正�
 
 ### R46 完整离线 bundle 前置条件
 
-`1.1-03` 使用候选 kcctl 的 `registry export --manifest ... --output ...` 导出完整多架构 OCI 归档和独立 Registry 自举小包；导出、导入均不依赖 Skopeo、Python 或容器运行时。离线端先用 `registry deploy --bundle registry-<version>.tar.gz` 启动专用 Registry，再用 `registry sync --bundle ... --target ...` 导入全量物料。逐一验证原始索引、amd64/arm64 子 manifest 和层摘要，重复导入应跳过，冲突、缺失或损坏的本地内容必须报错。真实断网测试需保留 SSH、内网 Registry 和集群网段可达，并记录出口隔离及清理证据。
+`1.1-03` 使用候选 kcctl 的 `registry export` 从内置清单导出完整多架构 OCI 归档和独立 Registry 自举小包，默认输出至 `./offline`；导出、导入均不依赖 Skopeo、Python 或容器运行时。离线端先用 `registry deploy --bundle registry-<version>.tar.gz` 启动专用 Registry，再用 `registry import --bundle ... --target ...` 导入全量物料。逐一验证原始索引、amd64/arm64 子 manifest 和层摘要，重复导入应跳过，冲突、缺失或损坏的本地内容必须报错。真实断网测试需保留 SSH、内网 Registry 和集群网段可达，并记录出口隔离及清理证据。
 
 ### R46 离线 master 角色转换与节点移除
 

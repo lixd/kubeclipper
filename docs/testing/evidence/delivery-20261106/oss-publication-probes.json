@@ -1,0 +1,25 @@
+{
+  "checked_at": "2026-11-06T13:56:03.735292+00:00",
+  "mode": "read-only",
+  "version": "v2.0.11",
+  "probes": [
+    {
+      "url": "https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc/v2.0.11/kcctl-linux-amd64",
+      "curl_exit": 0,
+      "http_status": "404",
+      "error": ""
+    },
+    {
+      "url": "https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc/v2.0.11/kcctl-checksums.txt",
+      "curl_exit": 0,
+      "http_status": "404",
+      "error": ""
+    },
+    {
+      "url": "https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc/v2.0.11/release-manifest-v2.0.11.yaml",
+      "curl_exit": 0,
+      "http_status": "404",
+      "error": ""
+    }
+  ]
+}

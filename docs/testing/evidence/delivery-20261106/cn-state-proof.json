@@ -1,0 +1,89 @@
+{
+  "phase": "cn",
+  "checked_at": "2026-11-06T14:03:14.233840+00:00",
+  "candidate": "4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f",
+  "cluster": {
+    "name": "delivery-cn-4d8bf810",
+    "phase": "Running",
+    "version": "v1.37.0",
+    "image_registry": "kc-package-registry"
+  },
+  "package_refs": [
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/package-k8s:v1.37.0",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/package-containerd:2.2.4",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/package-calico:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/package-k8s-extension:v1"
+  ],
+  "registry": {
+    "scheme": "https",
+    "host": "registry.cn-hangzhou.aliyuncs.com",
+    "repositoryPrefix": "kubeclipper-release"
+  },
+  "operations": [
+    {
+      "name": "sync-kubeconfig-3a76bedd-eb91-4f66-9067-edd6f93a6f32",
+      "action": "SyncKubeConfig",
+      "phase": "Succeeded"
+    },
+    {
+      "name": "58adbb32-9408-4973-b3d8-3c8f3ff768d9",
+      "action": "CreateCluster",
+      "phase": "Succeeded"
+    }
+  ],
+  "nodes": [
+    {
+      "name": "lixd-dev-3",
+      "uid": "9d330d66-6c27-4b6b-ae00-feb59727032a",
+      "kubelet": "v1.37.0",
+      "runtime": "containerd://2.2.4"
+    },
+    {
+      "name": "lixd-dev-4",
+      "uid": "f0e434ec-3e83-42b7-a8fa-161029b2cf49",
+      "kubelet": "v1.37.0",
+      "runtime": "containerd://2.2.4"
+    }
+  ],
+  "pods_ready": 18,
+  "images": [
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/calico-apiserver:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/calico-cni:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/calico-kube-controllers:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/calico-node:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/calico-pod2daemon-flexvol:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/calico-typha:v3.31.5",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/coredns:v1.14.6",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/etcd:3.7.0-0",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/kube-apiserver:v1.37.0",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/kube-controller-manager:v1.37.0",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/kube-proxy:v1.37.0",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/kube-scheduler:v1.37.0",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/kubectl",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/netshoot:v0.13",
+    "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/tigera-operator:v1.40.8"
+  ],
+  "binaries": [
+    {
+      "service": "kc-server",
+      "pid": 3348493,
+      "sha256": "9942923c0e9f8af916cfdc37deb2f4b2a1de1a7d2ef60d36ec1b0b38a058131b",
+      "version": "kubeclipper server version: version.Info{Major:\"2\", Minor:\"0\", GitVersion:\"v2.0.11\", GitCommit:\"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f\", GitTreeState:\"clean\", BuildDate:\"2026-11-06T12:40:24Z\", GoVersion:\"go1.24.2\", Compiler:\"gc\", Platform:\"linux/amd64\"}"
+    },
+    {
+      "service": "kc-agent",
+      "pid": 3349193,
+      "sha256": "bd12f8b439be72dc8aa2ba91338cfe50ce6c49f1a7dfc5b288ba6458266412bc",
+      "version": "ki agent version: version.Info{Major:\"2\", Minor:\"0\", GitVersion:\"v2.0.11\", GitCommit:\"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f\", GitTreeState:\"clean\", BuildDate:\"2026-11-06T12:40:24Z\", GoVersion:\"go1.24.2\", Compiler:\"gc\", Platform:\"linux/amd64\"}"
+    }
+  ],
+  "console_http": 200,
+  "etcd_health": [
+    {
+      "endpoint": "https://172.16.131.146:12379",
+      "health": true,
+      "took": "132.265248ms"
+    }
+  ],
+  "etcd_write_read_delete": true
+}

@@ -1,0 +1,9 @@
+{
+  "applied_at": "2026-11-06T14:01:24.097345+00:00",
+  "target": "sh-dev-3",
+  "table": "inet kc_delivery_peer_guard",
+  "incoming_source": "old HA peer",
+  "tcp_destination_port": 12380,
+  "observed_old_peer_warning_lines_in_30s": 694,
+  "restore_command": "nft delete table inet kc_delivery_peer_guard"
+}

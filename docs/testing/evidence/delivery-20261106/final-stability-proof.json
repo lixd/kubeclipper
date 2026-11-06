@@ -1,0 +1,95 @@
+{
+  "started_at": "2026-11-06T15:25:04.672839+00:00",
+  "network_restored": true,
+  "initial_restarts": {
+    "calico-system/calico-apiserver-7c65697654-6rjbw": 0,
+    "calico-system/calico-apiserver-7c65697654-f5v64": 0,
+    "calico-system/calico-kube-controllers-7bb94d9cf5-cmccz": 0,
+    "calico-system/calico-node-xmfh7": 0,
+    "calico-system/calico-node-xs4z7": 0,
+    "calico-system/calico-typha-5cf9c99689-6zkfl": 0,
+    "kube-system/coredns-7b887dd984-7tn5g": 0,
+    "kube-system/coredns-7b887dd984-g2ttg": 0,
+    "kube-system/etcd-lixd-dev-3": 0,
+    "kube-system/kc-kubectl-5df4687f7d-wjdgl": 0,
+    "kube-system/kube-apiserver-lixd-dev-3": 0,
+    "kube-system/kube-controller-manager-lixd-dev-3": 1,
+    "kube-system/kube-proxy-9c5wj": 0,
+    "kube-system/kube-proxy-b8m6d": 0,
+    "kube-system/kube-scheduler-lixd-dev-3": 1,
+    "tigera-operator/tigera-operator-7647fd5f7c-8xhdb": 1
+  },
+  "checks": [
+    {
+      "iteration": 0,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.709
+    },
+    {
+      "iteration": 1,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.706
+    },
+    {
+      "iteration": 2,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.674
+    },
+    {
+      "iteration": 3,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 3.669
+    },
+    {
+      "iteration": 4,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.796
+    }
+  ],
+  "final_restarts": {
+    "calico-system/calico-apiserver-7c65697654-6rjbw": 0,
+    "calico-system/calico-apiserver-7c65697654-f5v64": 0,
+    "calico-system/calico-kube-controllers-7bb94d9cf5-cmccz": 0,
+    "calico-system/calico-node-xmfh7": 0,
+    "calico-system/calico-node-xs4z7": 0,
+    "calico-system/calico-typha-5cf9c99689-6zkfl": 0,
+    "kube-system/coredns-7b887dd984-7tn5g": 0,
+    "kube-system/coredns-7b887dd984-g2ttg": 0,
+    "kube-system/etcd-lixd-dev-3": 0,
+    "kube-system/kc-kubectl-5df4687f7d-wjdgl": 0,
+    "kube-system/kube-apiserver-lixd-dev-3": 0,
+    "kube-system/kube-controller-manager-lixd-dev-3": 1,
+    "kube-system/kube-proxy-9c5wj": 0,
+    "kube-system/kube-proxy-b8m6d": 0,
+    "kube-system/kube-scheduler-lixd-dev-3": 1,
+    "tigera-operator/tigera-operator-7647fd5f7c-8xhdb": 1
+  },
+  "nodes": [
+    {
+      "name": "lixd-dev-3",
+      "conditions": {
+        "NetworkUnavailable": "False",
+        "MemoryPressure": "False",
+        "DiskPressure": "False",
+        "PIDPressure": "False",
+        "Ready": "True"
+      }
+    },
+    {
+      "name": "lixd-dev-4",
+      "conditions": {
+        "NetworkUnavailable": "False",
+        "MemoryPressure": "False",
+        "DiskPressure": "False",
+        "PIDPressure": "False",
+        "Ready": "True"
+      }
+    }
+  ],
+  "completed_at": "2026-11-06T15:26:31.912183+00:00"
+}

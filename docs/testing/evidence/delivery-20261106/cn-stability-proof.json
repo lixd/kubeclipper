@@ -1,0 +1,76 @@
+{
+  "started_at": "2026-11-06T14:04:26.474391+00:00",
+  "initial_restarts": {
+    "calico-system/calico-apiserver-c9bd8f668-4642x": 0,
+    "calico-system/calico-apiserver-c9bd8f668-h49rz": 0,
+    "calico-system/calico-kube-controllers-587956746d-qvwnc": 0,
+    "calico-system/calico-node-42rjs": 0,
+    "calico-system/calico-node-jk9ph": 0,
+    "calico-system/calico-typha-65f9f58c96-ngxwh": 0,
+    "delivery-cn-check/http-0": 0,
+    "delivery-cn-check/http-1": 0,
+    "kube-system/coredns-7f45b49487-cdswx": 0,
+    "kube-system/coredns-7f45b49487-qzsgv": 0,
+    "kube-system/etcd-lixd-dev-3": 0,
+    "kube-system/kc-kubectl-5b459b8f9f-729gz": 0,
+    "kube-system/kube-apiserver-lixd-dev-3": 0,
+    "kube-system/kube-controller-manager-lixd-dev-3": 2,
+    "kube-system/kube-proxy-bfjxz": 0,
+    "kube-system/kube-proxy-ckpzx": 0,
+    "kube-system/kube-scheduler-lixd-dev-3": 1,
+    "tigera-operator/tigera-operator-64858876c4-fbbjx": 1
+  },
+  "checks": [
+    {
+      "iteration": 0,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.725
+    },
+    {
+      "iteration": 1,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.768
+    },
+    {
+      "iteration": 2,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 1.442
+    },
+    {
+      "iteration": 3,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 0.799
+    },
+    {
+      "iteration": 4,
+      "readyz": "ok",
+      "api_write_read_delete": true,
+      "elapsed_seconds": 1.169
+    }
+  ],
+  "final_restarts": {
+    "calico-system/calico-apiserver-c9bd8f668-4642x": 0,
+    "calico-system/calico-apiserver-c9bd8f668-h49rz": 0,
+    "calico-system/calico-kube-controllers-587956746d-qvwnc": 0,
+    "calico-system/calico-node-42rjs": 0,
+    "calico-system/calico-node-jk9ph": 0,
+    "calico-system/calico-typha-65f9f58c96-ngxwh": 0,
+    "delivery-cn-check/http-0": 0,
+    "delivery-cn-check/http-1": 0,
+    "kube-system/coredns-7f45b49487-cdswx": 0,
+    "kube-system/coredns-7f45b49487-qzsgv": 0,
+    "kube-system/etcd-lixd-dev-3": 0,
+    "kube-system/kc-kubectl-5b459b8f9f-729gz": 0,
+    "kube-system/kube-apiserver-lixd-dev-3": 0,
+    "kube-system/kube-controller-manager-lixd-dev-3": 2,
+    "kube-system/kube-proxy-bfjxz": 0,
+    "kube-system/kube-proxy-ckpzx": 0,
+    "kube-system/kube-scheduler-lixd-dev-3": 1,
+    "tigera-operator/tigera-operator-64858876c4-fbbjx": 1
+  },
+  "completed_at": "2026-11-06T14:05:51.949524+00:00"
+}

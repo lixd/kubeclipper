@@ -1,0 +1,88 @@
+{
+  "phase": "final",
+  "checked_at": "2026-11-06T15:26:37.316255+00:00",
+  "candidate": "4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f",
+  "cluster": {
+    "name": "delivery-offline-4d8bf810",
+    "phase": "Running",
+    "version": "v1.37.0",
+    "image_registry": "kc-package-registry"
+  },
+  "package_refs": [
+    "172.16.131.146:5627/kubeclipper-release/package-k8s:v1.37.0",
+    "172.16.131.146:5627/kubeclipper-release/package-containerd:2.2.4",
+    "172.16.131.146:5627/kubeclipper-release/package-calico:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/package-k8s-extension:v1"
+  ],
+  "registry": {
+    "scheme": "http",
+    "host": "172.16.131.146:5627",
+    "repositoryPrefix": "kubeclipper-release"
+  },
+  "operations": [
+    {
+      "name": "sync-kubeconfig-807c1d71-9bdb-4974-8afc-462d4dc6a683",
+      "action": "SyncKubeConfig",
+      "phase": "Succeeded"
+    },
+    {
+      "name": "7bd7afe7-de57-4dde-b316-1666c77bcee5",
+      "action": "CreateCluster",
+      "phase": "Succeeded"
+    }
+  ],
+  "nodes": [
+    {
+      "name": "lixd-dev-3",
+      "uid": "d9acf966-1f61-4a78-89bc-9efda9cf44a6",
+      "kubelet": "v1.37.0",
+      "runtime": "containerd://2.2.4"
+    },
+    {
+      "name": "lixd-dev-4",
+      "uid": "4f31bc30-602d-4eeb-b4dd-16c075fb7afd",
+      "kubelet": "v1.37.0",
+      "runtime": "containerd://2.2.4"
+    }
+  ],
+  "pods_ready": 16,
+  "images": [
+    "172.16.131.146:5627/kubeclipper-release/calico-apiserver:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/calico-cni:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/calico-kube-controllers:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/calico-node:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/calico-pod2daemon-flexvol:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/calico-typha:v3.31.5",
+    "172.16.131.146:5627/kubeclipper-release/coredns:v1.14.6",
+    "172.16.131.146:5627/kubeclipper-release/etcd:3.7.0-0",
+    "172.16.131.146:5627/kubeclipper-release/kube-apiserver:v1.37.0",
+    "172.16.131.146:5627/kubeclipper-release/kube-controller-manager:v1.37.0",
+    "172.16.131.146:5627/kubeclipper-release/kube-proxy:v1.37.0",
+    "172.16.131.146:5627/kubeclipper-release/kube-scheduler:v1.37.0",
+    "172.16.131.146:5627/kubeclipper-release/kubectl",
+    "172.16.131.146:5627/kubeclipper-release/tigera-operator:v1.40.8"
+  ],
+  "binaries": [
+    {
+      "service": "kc-server",
+      "pid": 3383015,
+      "sha256": "9942923c0e9f8af916cfdc37deb2f4b2a1de1a7d2ef60d36ec1b0b38a058131b",
+      "version": "kubeclipper server version: version.Info{Major:\"2\", Minor:\"0\", GitVersion:\"v2.0.11\", GitCommit:\"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f\", GitTreeState:\"clean\", BuildDate:\"2026-11-06T12:40:24Z\", GoVersion:\"go1.24.2\", Compiler:\"gc\", Platform:\"linux/amd64\"}"
+    },
+    {
+      "service": "kc-agent",
+      "pid": 3383348,
+      "sha256": "bd12f8b439be72dc8aa2ba91338cfe50ce6c49f1a7dfc5b288ba6458266412bc",
+      "version": "ki agent version: version.Info{Major:\"2\", Minor:\"0\", GitVersion:\"v2.0.11\", GitCommit:\"4d8bf810d8f3d1ebb73fe7423398fca0b8aa670f\", GitTreeState:\"clean\", BuildDate:\"2026-11-06T12:40:24Z\", GoVersion:\"go1.24.2\", Compiler:\"gc\", Platform:\"linux/amd64\"}"
+    }
+  ],
+  "console_http": 200,
+  "etcd_health": [
+    {
+      "endpoint": "https://172.16.131.146:12379",
+      "health": true,
+      "took": "19.947522ms"
+    }
+  ],
+  "etcd_write_read_delete": true
+}

@@ -1,0 +1,60 @@
+{
+  "checked_at": "2026-11-06T15:19:42.111897+00:00",
+  "namespace": "delivery-offline-check",
+  "records": [
+    {
+      "pod": "http-0",
+      "resolv_conf": "search delivery-offline-check.svc.cluster.local svc.cluster.local cluster.local openstacklocal\nnameserver 10.96.0.10\noptions ndots:5\n",
+      "checks": [
+        {
+          "name": "absolute",
+          "exit": 0,
+          "body": "lixd-dev-3",
+          "error": "",
+          "elapsed_seconds": 0.298
+        },
+        {
+          "name": "short",
+          "exit": 0,
+          "body": "lixd-dev-4",
+          "error": "",
+          "elapsed_seconds": 0.25
+        },
+        {
+          "name": "search-expanded",
+          "exit": 6,
+          "body": "",
+          "error": "curl: (6) Could not resolve host: delivery-http.delivery-offline-check.svc.cluster.local\ncommand terminated with exit code 6",
+          "elapsed_seconds": 6.239
+        }
+      ]
+    },
+    {
+      "pod": "http-1",
+      "resolv_conf": "search delivery-offline-check.svc.cluster.local svc.cluster.local cluster.local openstacklocal\nnameserver 10.96.0.10\noptions ndots:5\n",
+      "checks": [
+        {
+          "name": "absolute",
+          "exit": 0,
+          "body": "lixd-dev-3",
+          "error": "",
+          "elapsed_seconds": 0.351
+        },
+        {
+          "name": "short",
+          "exit": 0,
+          "body": "lixd-dev-4",
+          "error": "",
+          "elapsed_seconds": 0.797
+        },
+        {
+          "name": "search-expanded",
+          "exit": 6,
+          "body": "",
+          "error": "curl: (6) Could not resolve host: delivery-http.delivery-offline-check.svc.cluster.local\ncommand terminated with exit code 6",
+          "elapsed_seconds": 4.287
+        }
+      ]
+    }
+  ]
+}

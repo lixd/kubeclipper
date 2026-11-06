@@ -1,0 +1,18 @@
+[
+  {
+    "platform": "linux/amd64",
+    "elfMachine": 62,
+    "imageConfigOS": "",
+    "imageConfigArch": "",
+    "binaryDigest": "sha256:3162d930aa134685fbbe53f85d28183d4d58f7f73487db8982b764464c07f31a",
+    "packageManifestDigestMatches": true
+  },
+  {
+    "platform": "linux/arm64",
+    "elfMachine": 183,
+    "imageConfigOS": "",
+    "imageConfigArch": "",
+    "binaryDigest": "sha256:669f0d9892da6ccd44a40954f39a3b929f4455d7ed02a806828346feac572834",
+    "packageManifestDigestMatches": true
+  }
+]

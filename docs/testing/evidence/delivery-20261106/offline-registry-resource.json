@@ -1,0 +1,5 @@
+{
+  "scheme": "http",
+  "host": "172.16.131.146:5627",
+  "repositoryPrefix": "kubeclipper-release"
+}

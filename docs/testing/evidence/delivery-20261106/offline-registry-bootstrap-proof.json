@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-11-06T14:27:03.160614+00:00",
+  "bundle": "registry-3.1.1.tar.gz",
+  "platform": "linux/amd64",
+  "expected_binary_digest": "sha256:3162d930aa134685fbbe53f85d28183d4d58f7f73487db8982b764464c07f31a",
+  "running_binary_digest": "sha256:3162d930aa134685fbbe53f85d28183d4d58f7f73487db8982b764464c07f31a",
+  "empty_catalog_before_import": true,
+  "registry_http_port": 5627,
+  "data_root": "/root/kc-twohost-4ececf5c-20261106.GbZZSR/registry-offline"
+}

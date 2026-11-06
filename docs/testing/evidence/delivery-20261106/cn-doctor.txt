@@ -1,0 +1,25 @@
+KubeClipper Doctor
+
+Overall: Unknown
+Checked: 2026-11-06T13:45:43Z (15.5s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[UNKNOWN] kc-etcd       1/1 member services running; etcd is healthy
+[OK]  kc-agent      2/2 agents healthy
+
+Problems
+
+[1] etcd client credentials are unavailable
+
+Evidence:
+  certificate authority is unavailable
+  172.16.131.146 Filesystem     1024-blocks      Used Available Capacity Mounted on
+  172.16.131.146 /dev/vda1        222365936 172218616  50130936      78% /
+
+Next steps:
+  ssh -i '/root/kc-twohost-4ececf5c-20261106.GbZZSR/private/ssh-key' root@172.16.131.146 "timeout 10 df -P '/var/lib/kc-etcd'"
+  ssh -i '/root/kc-twohost-4ececf5c-20261106.GbZZSR/private/ssh-key' root@172.16.131.146 "systemctl status kc-etcd --no-pager -l"
+  ssh -i '/root/kc-twohost-4ececf5c-20261106.GbZZSR/private/ssh-key' root@172.16.131.146 "journalctl -u kc-etcd --since '15 min ago' --no-pager"
+
+Summary: 16 passed, 0 warnings, 1 failed, 0 skipped

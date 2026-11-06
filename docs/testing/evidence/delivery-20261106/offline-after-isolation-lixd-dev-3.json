@@ -1,0 +1,223 @@
+{
+  "phase": "after",
+  "host": "lixd-dev-3",
+  "checked_at": "2026-11-06T15:16:28.899895+00:00",
+  "public_checks": [
+    {
+      "domain": "ghcr.io",
+      "resolved_address": "20.205.243.164",
+      "curl_exit": 7,
+      "http_status": "000",
+      "error": "curl: (7) Failed to connect to ghcr.io port 443 after 0 ms: Couldn't connect to server"
+    },
+    {
+      "domain": "registry.cn-hangzhou.aliyuncs.com",
+      "resolved_address": "120.55.105.209",
+      "curl_exit": 7,
+      "http_status": "000",
+      "error": "curl: (7) Failed to connect to registry.cn-hangzhou.aliyuncs.com port 443 after 0 ms: Couldn't connect to server"
+    },
+    {
+      "domain": "kubeclipper.oss-ap-southeast-1.aliyuncs.com",
+      "resolved_address": "47.79.48.161",
+      "curl_exit": 7,
+      "http_status": "000",
+      "error": "curl: (7) Failed to connect to kubeclipper.oss-ap-southeast-1.aliyuncs.com port 443 after 0 ms: Couldn't connect to server"
+    }
+  ],
+  "private_registry_http": 200,
+  "ipv6_default_routes": "",
+  "inet_rules": {
+    "nftables": [
+      {
+        "metainfo": {
+          "version": "1.0.9",
+          "release_name": "Old Doc Yak #3",
+          "json_schema_version": 1
+        }
+      },
+      {
+        "table": {
+          "family": "inet",
+          "name": "kc_delivery_4d8",
+          "handle": 1090
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "name": "allowed_egress",
+          "handle": 1
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "name": "host_output",
+          "handle": 2,
+          "type": "filter",
+          "hook": "output",
+          "prio": -10,
+          "policy": "accept"
+        }
+      },
+      {
+        "chain": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "name": "pod_forward",
+          "handle": 3,
+          "type": "filter",
+          "hook": "forward",
+          "prio": -10,
+          "policy": "accept"
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "chain": "allowed_egress",
+          "handle": 4,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "meta": {
+                    "key": "oifname"
+                  }
+                },
+                "right": "lo"
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "chain": "allowed_egress",
+          "handle": 5,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "ct": {
+                    "key": "direction"
+                  }
+                },
+                "right": "reply"
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "chain": "allowed_egress",
+          "handle": 7,
+          "expr": [
+            {
+              "match": {
+                "op": "==",
+                "left": {
+                  "payload": {
+                    "protocol": "ip",
+                    "field": "daddr"
+                  }
+                },
+                "right": {
+                  "set": [
+                    {
+                      "prefix": {
+                        "addr": "10.96.0.0",
+                        "len": 12
+                      }
+                    },
+                    "169.254.169.100",
+                    "172.16.131.146",
+                    "172.16.131.230",
+                    {
+                      "prefix": {
+                        "addr": "172.25.0.0",
+                        "len": 16
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "accept": null
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "chain": "allowed_egress",
+          "handle": 8,
+          "expr": [
+            {
+              "counter": {
+                "packets": 157,
+                "bytes": 11632
+              }
+            },
+            {
+              "reject": {
+                "type": "icmpx",
+                "expr": "admin-prohibited"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "chain": "host_output",
+          "handle": 9,
+          "expr": [
+            {
+              "jump": {
+                "target": "allowed_egress"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "rule": {
+          "family": "inet",
+          "table": "kc_delivery_4d8",
+          "chain": "pod_forward",
+          "handle": 10,
+          "expr": [
+            {
+              "jump": {
+                "target": "allowed_egress"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

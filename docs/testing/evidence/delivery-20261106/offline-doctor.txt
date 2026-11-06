@@ -1,0 +1,30 @@
+KubeClipper Doctor
+
+Overall: Unknown
+Checked: 2026-11-06T14:47:46Z (2.5s)
+
+[OK]  kcctl         connected to KubeClipper API
+[OK]  kc-server     1/1 instances healthy; all subsystems ready
+[UNKNOWN] kc-etcd       1/1 member services running; etcd is healthy
+[OK]  kc-agent      2/2 agents healthy
+
+Problems
+
+[1] etcd client credentials are unavailable
+
+Evidence:
+  certificate authority is unavailable
+  172.16.131.146 Filesystem     1024-blocks      Used Available Capacity Mounted on
+  172.16.131.146 /dev/vda1        222365936 188852188  33497364      85% /
+
+Recent logs:
+  2026-11-06T14:47:23+00:00 lixd-dev-3 etcd[3382729]: {"level":"warn","ts":"2026-11-06T14:47:23.872564Z","caller":"v3rpc/interceptor.go:197","msg":"request stats","start time":"2026-11-06T14:47:22.806919Z","time spent":"1.06554215s","remote":"172.16.131.146:45290","response type":"/etcdserverpb.KV/Txn","request count":1,"request size":691,"response count":0,"response size":39,"request content":"compare:<target:MOD key:\"/registry/kc-server/iam.kubeclipper.io/tokens/admin-QcppxA\" mod_revision:0 > success:<request_put:<key:\"/registry/kc-server/iam.kubeclipper.io/tokens/admin-QcppxA\" value_size:625 >> failure:<>"}
+  2026-11-06T14:47:23+00:00 lixd-dev-3 etcd[3382729]: {"level":"warn","ts":"2026-11-06T14:47:23.872907Z","caller":"v3rpc/interceptor.go:197","msg":"request stats","start time":"2026-11-06T14:47:22.808232Z","time spent":"1.064580401s","remote":"172.16.131.146:45290","response type":"/etcdserverpb.KV/Txn","request count":1,"request size":722,"response count":0,"response size":39,"request content":"compare:<target:MOD key:\"/registry/kc-server/iam.kubeclipper.io/tokens/admin-wQbgpz\" mod_revision:186 > success:<request_put:<key:\"/registry/kc-server/iam.kubeclipper.io/tokens/admin-wQbgpz\" value_size:656 >> failure:<request_range:<key:\"/registry/kc-server/iam.kubeclipper.io/tokens/admin-wQbgpz\" > >"}
+  2026-11-06T14:47:30+00:00 lixd-dev-3 etcd[3382729]: {"level":"warn","ts":"2026-11-06T14:47:30.640227Z","caller":"v3rpc/interceptor.go:197","msg":"request stats","start time":"2026-11-06T14:47:30.174812Z","time spent":"465.333354ms","remote":"172.16.131.146:45416","response type":"/etcdserverpb.KV/Txn","request count":1,"request size":497,"response count":0,"response size":39,"request content":"compare:<target:MOD key:\"/registry/kc-server/core.kubeclipper.io/leases/default/nodelifecycle-controller\" mod_revision:195 > success:<request_put:<key:\"/registry/kc-server/core.kubeclipper.io/leases/default/nodelifecycle-controller\" value_size:410 >> failure:<request_range:<key:\"/registry/kc-server/core.kubeclipper.io/leases/default/nodelifecycle-controller\" > >"}
+
+Next steps:
+  ssh -i '/root/kc-twohost-4ececf5c-20261106.GbZZSR/private/ssh-key' root@172.16.131.146 "timeout 10 df -P '/var/lib/kc-etcd'"
+  ssh -i '/root/kc-twohost-4ececf5c-20261106.GbZZSR/private/ssh-key' root@172.16.131.146 "systemctl status kc-etcd --no-pager -l"
+  ssh -i '/root/kc-twohost-4ececf5c-20261106.GbZZSR/private/ssh-key' root@172.16.131.146 "journalctl -u kc-etcd --since '15 min ago' --no-pager"
+
+Summary: 16 passed, 0 warnings, 1 failed, 0 skipped
