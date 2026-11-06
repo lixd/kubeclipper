@@ -62,11 +62,15 @@ component_workflow = yaml.safe_load((Path(sys.argv[1]).parent / "_publish-oci-co
 component_steps = component_workflow["jobs"]["publish"]["steps"]
 component_publish = next(step for step in component_steps if step.get("name") == "Build and publish component")
 assert component_publish["env"]["CANONICAL_REGISTRY_PREFIX"] == "ghcr.io/${{ github.repository_owner }}/kubeclipper"
-assert "publish-bootstrap-etcd-release.sh" in component_publish["run"]
-assert "bootstrap-etcd" in component_workflow["concurrency"]["group"]
-assert "'canonical'" in component_workflow["concurrency"]["group"]
-etcd_workflow = yaml.safe_load((Path(sys.argv[1]).parent / "publish-bootstrap-etcd.yml").read_text())
-assert etcd_workflow["jobs"]["publish"]["with"]["architecture"] == "all"
+assert "publish-component-release.sh" in component_publish["run"]
+assert component_publish["env"]["VERSIONED_PACKAGE"] == "${{ steps.settings.outputs.versioned_package }}"
+assert component_workflow["concurrency"]["group"] == "publish-${{ inputs.component }}-${{ inputs.version }}"
+for component in ("bootstrap-etcd", "bootstrap-console", "bootstrap-registry", "resource-k8s",
+                  "resource-containerd", "resource-k8s-extension", "resource-calico"):
+    publish_workflow = yaml.safe_load((Path(sys.argv[1]).parent / f"publish-{component}.yml").read_text())
+    assert publish_workflow["jobs"]["publish"]["with"]["architecture"] == "all"
+qemu = next(step for step in component_steps if step.get("name") == "Set up QEMU for cross-architecture builds")
+assert qemu["if"] == "inputs.component == 'resource-k8s-extension'"
 steps = qualification["jobs"]["sync-roundtrip"]["steps"]
 build = next(step["run"] for step in steps if step.get("name") == "Build kcctl")
 assert "pkg/delivery/releasemanifest/embedded/release-manifest.yaml" in build
@@ -79,6 +83,28 @@ assert "vars.OSS_DOWNLOAD_URL" in workflow["env"]["OSS_DOWNLOAD_URL"]
 assert "kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc" in workflow["env"]["OSS_DOWNLOAD_URL"]
 stamp = stamp_step["run"]
 root = Path(sys.argv[1]).resolve().parents[2]
+with tempfile.TemporaryDirectory() as tmp:
+    checkout = Path(tmp)
+    inventory = checkout / "pkg/delivery/releasemanifest/embedded"
+    inventory.mkdir(parents=True)
+    (inventory / ".gitignore").write_bytes((root / "pkg/delivery/releasemanifest/embedded/.gitignore").read_bytes())
+    (checkout / "version.sh").write_bytes((root / "hack/lib/version.sh").read_bytes())
+    for args in (("init", "-q"), ("add", "."),
+                 ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"),
+                 ("tag", "v9.8.7")):
+        subprocess.run(["git", *args], cwd=checkout, check=True, capture_output=True)
+    (inventory / "release-manifest.yaml").write_text("kind: ReleaseManifest\n")
+    (inventory / "release-manifest.yaml.sha256").write_text("checksum fixture\n")
+    env = {key: value for key, value in os.environ.items() if not key.startswith("KUBE_GIT_")}
+    env["KUBE_ROOT"] = str(checkout)
+    version_command = ['bash', '-eu', '-c',
+                       'source ./version.sh; kube::version::get_version_vars; printf "%s %s" "$KUBE_GIT_VERSION" "$KUBE_GIT_TREE_STATE"']
+    actual = subprocess.check_output(version_command, cwd=checkout, env=env, text=True)
+    assert actual == "v9.8.7 clean", actual
+    with (checkout / "version.sh").open("a") as stream:
+        stream.write("\n# tracked source change\n")
+    actual = subprocess.check_output(version_command, cwd=checkout, env=env, text=True)
+    assert actual == "v9.8.7-dirty dirty", actual
 with tempfile.TemporaryDirectory() as tmp:
     Path(tmp, "release").mkdir()
     for repository, domestic, expected in (

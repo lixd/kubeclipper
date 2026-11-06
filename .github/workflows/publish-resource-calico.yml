@@ -8,12 +8,6 @@ on:
         required: true
         default: v3.31.5
         type: string
-      architecture:
-        description: Target architecture.
-        required: true
-        default: amd64
-        type: choice
-        options: [amd64, arm64, all]
       registry_prefix:
         description: GHCR prefix. Defaults to ghcr.io/<repository-owner>/kubeclipper.
         required: false
@@ -29,6 +23,6 @@ jobs:
     with:
       component: resource-calico
       version: ${{ inputs.version }}
-      architecture: ${{ inputs.architecture }}
+      architecture: all
       registry_prefix: ${{ inputs.registry_prefix }}
     secrets: inherit

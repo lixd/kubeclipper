@@ -97,7 +97,7 @@ func Export(ctx context.Context, manifest *Manifest, opts ExportOptions) (Export
 		return result, checkErr
 	}
 	// Write the small bootstrap archive first so it is available independently.
-	if checkErr := writeBundleArchive(ctx, string(small), result.RegistryBundle); checkErr != nil {
+	if checkErr := writeRegistryBundle(ctx, string(small), result.RegistryBundle, registryTarget, registry.Digest); checkErr != nil {
 		return result, checkErr
 	}
 	if checkErr := writeBundleArchive(ctx, string(full), result.Bundle); checkErr != nil {
@@ -167,12 +167,46 @@ func exportPaths(manifest *Manifest, output string) (ExportResult, string, error
 }
 
 func checkExportPaths(result ExportResult) error {
-	for _, path := range []string{result.Bundle, result.RegistryBundle} {
-		if _, err := os.Stat(path); err == nil {
-			return fmt.Errorf("output already exists: %s", path)
-		} else if !os.IsNotExist(err) {
-			return err
+	if _, err := os.Lstat(result.Bundle); err == nil {
+		return fmt.Errorf("output already exists: %s", result.Bundle)
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func writeRegistryBundle(ctx context.Context, dir, output, ref string, expected v1.Hash) error {
+	if _, err := os.Lstat(output); os.IsNotExist(err) {
+		if writeErr := writeBundleArchive(ctx, dir, output); !errors.Is(writeErr, os.ErrExist) {
+			return writeErr
 		}
+	} else if err != nil {
+		return err
+	}
+	// A prior export may have completed the Registry archive before failing to
+	// write the full bundle. Verify every blob and the exact root before reuse.
+	bundle, err := OpenBundle(ctx, output)
+	if err != nil {
+		return fmt.Errorf("reuse Registry bundle %s: %w", output, err)
+	}
+	defer bundle.Close()
+	index, err := bundle.path.ImageIndex()
+	if err != nil {
+		return err
+	}
+	roots, err := index.IndexManifest()
+	if err != nil {
+		return err
+	}
+	if len(roots.Manifests) != 1 {
+		return fmt.Errorf("registry bundle %s must contain exactly one package", output)
+	}
+	source, err := bundle.source(ref)
+	if err != nil {
+		return fmt.Errorf("reuse Registry bundle %s: %w", output, err)
+	}
+	if source.Digest != expected {
+		return fmt.Errorf("registry bundle digest mismatch: %s expected=%s actual=%s", output, expected, source.Digest)
 	}
 	return nil
 }
@@ -557,7 +591,9 @@ func writeBundleArchive(ctx context.Context, dir, output string) error {
 	if checkErr := file.Close(); checkErr != nil {
 		return checkErr
 	}
-	return os.Rename(file.Name(), output)
+	// The temporary file shares the output filesystem. Linking publishes it
+	// atomically and fails if another exporter has already created the output.
+	return os.Link(file.Name(), output)
 }
 
 func writeBundleEntry(ctx context.Context, tw *tar.Writer, root *os.Root, relative string) error {

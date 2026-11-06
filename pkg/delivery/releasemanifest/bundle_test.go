@@ -29,6 +29,7 @@ import (
 	registryserver "github.com/google/go-containerregistry/pkg/registry"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/layout"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -74,6 +75,15 @@ func bundleTestImage(t *testing.T, arch string) v1.Image {
 }
 
 func exportFixture(t *testing.T) (*Manifest, ExportResult) {
+	t.Helper()
+	manifest, sourceOpts, shutdown := bundleSourceFixture(t)
+	result, err := Export(t.Context(), manifest, ExportOptions{Output: filepath.Join(t.TempDir(), "offline"), SourceOptions: sourceOpts})
+	require.NoError(t, err)
+	shutdown() // Local import must work after the actual source has gone away.
+	return manifest, result
+}
+
+func bundleSourceFixture(t *testing.T) (*Manifest, []crane.Option, func()) {
 	t.Helper()
 	server := httptest.NewTLSServer(registryserver.New())
 	t.Cleanup(server.Close)
@@ -122,10 +132,102 @@ func exportFixture(t *testing.T) (*Manifest, ExportResult) {
 		require.NoError(t, parseErr)
 		require.NoError(t, remote.WriteIndex(ref, index, remote.WithAuth(authn.Anonymous), remote.WithTransport(transport), remote.WithNondistributable))
 	}
-	result, err := Export(t.Context(), manifest, ExportOptions{Output: filepath.Join(t.TempDir(), "offline"), SourceOptions: sourceOpts})
+	return manifest, sourceOpts, server.Close
+}
+
+type cancelAfterRegistryBundle struct {
+	context.Context
+	cancel context.CancelFunc
+	path   string
+}
+
+func (c cancelAfterRegistryBundle) Err() error {
+	if _, err := os.Stat(c.path); err == nil {
+		c.cancel()
+	}
+	return c.Context.Err()
+}
+
+func TestExportRetriesAfterRegistryBundleIsWritten(t *testing.T) {
+	manifest, sourceOpts, _ := bundleSourceFixture(t)
+	opts := ExportOptions{Output: filepath.Join(t.TempDir(), "offline"), SourceOptions: sourceOpts}
+	paths, _, err := exportPaths(manifest, opts.Output)
 	require.NoError(t, err)
-	server.Close() // Local import must work after the actual source has gone away.
-	return manifest, result
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	_, err = Export(cancelAfterRegistryBundle{Context: ctx, cancel: cancel, path: paths.RegistryBundle}, manifest, opts)
+	require.ErrorIs(t, err, context.Canceled)
+	require.FileExists(t, paths.RegistryBundle)
+	require.NoFileExists(t, paths.Bundle)
+	temporary, globErr := filepath.Glob(filepath.Join(opts.Output, ".kc-bundle-*"))
+	require.NoError(t, globErr)
+	require.Empty(t, temporary)
+	before, err := os.ReadFile(paths.RegistryBundle)
+	require.NoError(t, err)
+	beforeInfo, err := os.Stat(paths.RegistryBundle)
+	require.NoError(t, err)
+
+	result, err := Export(t.Context(), manifest, opts)
+	require.NoError(t, err)
+	after, err := os.ReadFile(result.RegistryBundle)
+	require.NoError(t, err)
+	afterInfo, err := os.Stat(result.RegistryBundle)
+	require.NoError(t, err)
+	require.Equal(t, before, after)
+	require.True(t, os.SameFile(beforeInfo, afterInfo))
+	require.Equal(t, beforeInfo.ModTime(), afterInfo.ModTime())
+	bundle, err := OpenBundle(t.Context(), result.Bundle)
+	require.NoError(t, err)
+	defer bundle.Close()
+	require.Equal(t, manifest, bundle.Manifest)
+}
+
+func TestExportRejectsInvalidExistingRegistryBundle(t *testing.T) {
+	manifest, sourceOpts, _ := bundleSourceFixture(t)
+	for _, mode := range []string{"corrupt", "different-digest", "different-reference"} {
+		t.Run(mode, func(t *testing.T) {
+			opts := ExportOptions{Output: filepath.Join(t.TempDir(), "offline"), SourceOptions: sourceOpts}
+			paths, target, pathErr := exportPaths(manifest, opts.Output)
+			require.NoError(t, pathErr)
+			require.NoError(t, os.MkdirAll(opts.Output, 0700))
+			if mode == "corrupt" {
+				require.NoError(t, os.WriteFile(paths.RegistryBundle, []byte("corrupt"), 0600))
+			} else {
+				local, layoutErr := layout.Write(t.TempDir(), empty.Index)
+				require.NoError(t, layoutErr)
+				if mode == "different-reference" {
+					target = "package-bootstrap-etcd:3.5.21"
+				}
+				require.NoError(t, appendBundleContent(local, target, bundleTestImage(t, ArchAMD64)))
+				require.NoError(t, writeBundleArchive(t.Context(), string(local), paths.RegistryBundle))
+			}
+			before, readErr := os.ReadFile(paths.RegistryBundle)
+			require.NoError(t, readErr)
+			_, exportErr := Export(t.Context(), manifest, opts)
+			require.Error(t, exportErr)
+			if mode == "different-digest" {
+				require.Contains(t, exportErr.Error(), "registry bundle digest mismatch")
+			}
+			after, readErr := os.ReadFile(paths.RegistryBundle)
+			require.NoError(t, readErr)
+			require.Equal(t, before, after)
+			require.NoFileExists(t, paths.Bundle)
+		})
+	}
+}
+
+func TestWriteBundleArchiveDoesNotOverwriteExistingOutput(t *testing.T) {
+	_, result := exportFixture(t)
+	bundle, err := OpenBundle(t.Context(), result.RegistryBundle)
+	require.NoError(t, err)
+	defer bundle.Close()
+	output := filepath.Join(t.TempDir(), "existing.tar.gz")
+	require.NoError(t, os.WriteFile(output, []byte("existing output"), 0600))
+	err = writeBundleArchive(t.Context(), string(bundle.path), output)
+	require.ErrorIs(t, err, os.ErrExist)
+	data, readErr := os.ReadFile(output)
+	require.NoError(t, readErr)
+	require.Equal(t, "existing output", string(data))
 }
 
 func TestExportOutputDirectory(t *testing.T) {

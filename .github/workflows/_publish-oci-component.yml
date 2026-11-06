@@ -30,7 +30,7 @@ permissions:
 concurrency:
   # Serialize every writer for one target component/version even when a retry
   # comes from a different ref. OCI Distribution tags have no portable CAS.
-  group: publish-${{ inputs.component == 'bootstrap-etcd' && 'canonical' || inputs.registry_prefix }}-${{ inputs.component }}-${{ inputs.version }}
+  group: publish-${{ inputs.component }}-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
@@ -62,7 +62,7 @@ jobs:
         uses: imjasonh/setup-crane@v0.4
 
       - name: Set up QEMU for cross-architecture builds
-        if: inputs.component == 'resource-k8s-extension' && (inputs.architecture == 'arm64' || inputs.architecture == 'all')
+        if: inputs.component == 'resource-k8s-extension'
         uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
@@ -92,10 +92,13 @@ jobs:
             all) architectures="amd64 arm64" ;;
             *) echo "unsupported architecture: $architecture" >&2; exit 1 ;;
           esac
-          # etcd is shared across KC releases as one complete immutable index.
-          if [[ "$component" == bootstrap-etcd ]]; then
-            architectures="amd64 arm64"
-          fi
+          versioned_package=false
+          case "$component" in
+            bootstrap-etcd|bootstrap-console|bootstrap-registry|resource-k8s|resource-containerd|resource-k8s-extension|resource-calico)
+              versioned_package=true
+              architectures="amd64 arm64"
+              ;;
+          esac
           if [[ -z "$version" ]]; then
             if [[ "$component" != "bootstrap-kubeclipper" ]]; then
               echo "version is required for $component" >&2
@@ -140,6 +143,7 @@ jobs:
             echo "version=$version"
             echo "architectures=$architectures"
             echo "registry_prefix=${registry_prefix%/}"
+            echo "versioned_package=$versioned_package"
           } >> "$GITHUB_OUTPUT"
 
       - name: Checkout pinned Console source
@@ -209,6 +213,7 @@ jobs:
           ARCHITECTURES: ${{ steps.settings.outputs.architectures }}
           REGISTRY_PREFIX: ${{ steps.settings.outputs.registry_prefix }}
           CANONICAL_REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper
+          VERSIONED_PACKAGE: ${{ steps.settings.outputs.versioned_package }}
           KC_DOWNLOAD_RETRIES: "5"
           KC_DOWNLOAD_MAX_TIME: "1800"
           KC_RESOURCE_DIR: ${{ runner.temp }}/kc-resource
@@ -217,33 +222,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$KC_RESOURCE_DIR"
-          if [[ "$COMPONENT" == bootstrap-etcd ]]; then
-            scripts/open-packaging/publish-bootstrap-etcd-release.sh \
-              "${CANONICAL_REGISTRY_PREFIX,,}" "$REGISTRY_PREFIX" "$VERSION"
+          if [[ "$VERSIONED_PACKAGE" == true ]]; then
+            scripts/open-packaging/publish-component-release.sh \
+              "$COMPONENT" "${CANONICAL_REGISTRY_PREFIX,,}" "$REGISTRY_PREFIX" "$VERSION"
             exit 0
           fi
           for arch in $ARCHITECTURES; do
             case "$COMPONENT" in
               bootstrap-kubeclipper)
                 scripts/open-packaging/publish-bootstrap-kubeclipper.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              bootstrap-console)
-                scripts/open-packaging/publish-bootstrap-console.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              bootstrap-registry)
-                scripts/open-packaging/publish-bootstrap-registry.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              resource-k8s)
-                scripts/open-packaging/publish-resource-k8s.sh --registry-prefix "$REGISTRY_PREFIX" --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              resource-containerd)
-                scripts/open-packaging/publish-resource-containerd.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              resource-k8s-extension)
-                scripts/open-packaging/publish-resource-k8s-extension.sh --registry-prefix "$REGISTRY_PREFIX" --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              resource-calico)
-                scripts/open-packaging/publish-resource-calico.sh --registry-prefix "$REGISTRY_PREFIX" --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
                 ;;
               resource-kc-runtime)
                 scripts/open-packaging/publish-resource-kc-runtime.sh --image-registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
@@ -259,6 +246,7 @@ jobs:
 
       - name: Verify published component
         env:
+          VERSIONED_PACKAGE: ${{ steps.settings.outputs.versioned_package }}
           KC_SOURCE_REVISION: ${{ github.sha }}
           KC_SOURCE_URL: ${{ github.server_url }}/${{ github.repository }}
           COMPONENT: ${{ steps.settings.outputs.component }}
@@ -283,9 +271,9 @@ jobs:
             for arch in $ARCHITECTURES; do
               crane digest --platform "linux/$arch" "$ref"
               config="$(crane config --platform "linux/$arch" "$ref")"
-              jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" --arg component "$COMPONENT" \
+              jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" --arg reusable "$VERSIONED_PACKAGE" \
                 '.config.Labels["org.opencontainers.image.source"] == $source and
-                 (if $component == "bootstrap-etcd" then
+                 (if $reusable == "true" then
                     (.config.Labels["org.opencontainers.image.revision"] | test("^[0-9a-f]{40}$"))
                   else .config.Labels["org.opencontainers.image.revision"] == $revision end)' <<< "$config"
             done

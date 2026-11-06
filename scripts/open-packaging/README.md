@@ -309,10 +309,11 @@ Kubernetes images and are still mirrored as normal runtime images.
 
 ## 2. Publish Bootstrap Package Images
 
-Release workflows use `publish-bootstrap-etcd-release.sh <canonical-prefix>
-<target-prefix> <version>` to reuse the complete versioned etcd index and its
-original provenance. `publish-bootstrap-etcd.sh` remains its per-platform build
-helper for the first publication of a new etcd version.
+Fixed-version package workflows use `publish-component-release.sh <component>
+<canonical-prefix> <target-prefix> <version>` to reuse the original package
+index and provenance. Each shared package contains Linux amd64 and arm64.
+Resource builders continue preparing runtime image lists when a package is
+reused. Package content updates require a new component package version.
 
 Build and publish the four standard OCI package images independently. Each
 script prepares its own inputs from source or public release assets, then pushes
@@ -548,7 +549,9 @@ there is no custom TSV inventory. All original index and manifest bytes, media
 types and compressed layers are preserved. Complete source indexes may include
 platforms beyond Linux amd64/arm64; these are included to preserve their digests.
 The output directory defaults to `./offline` and is created when needed.
-Export rejects existing archive paths. Credentials use the same
+Export rejects an existing full release archive. On retry, an existing
+Registry-only archive is verified and reused when its reference and digest match
+the requested release. Credentials use the same
 `--source-username` and `--source-password` flags as online import.
 
 Online `kcctl registry import --target <registry-prefix>` also defaults to the embedded inventory.

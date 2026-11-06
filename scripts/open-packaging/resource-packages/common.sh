@@ -73,6 +73,15 @@ publish_resource_package() {
   local source_path=$5
   shift 5
 
+  if [[ -n "${KC_PUBLISHED_PACKAGE_DIGEST:-}" ]]; then
+    local target="$registry/package-$name:$version"
+    local digest
+    digest="$(crane digest "$target")"
+    [[ "$digest" == "$KC_PUBLISHED_PACKAGE_DIGEST" ]] || die "published package digest mismatch: $target"
+    echo "reusing verified resource package: $target@$digest"
+    return
+  fi
+
   local pkg=""
   if has_package_payload_files "$source_path" "$source_name"; then
     pkg="$(make_resource_package "$source_name" "$source_path")"
