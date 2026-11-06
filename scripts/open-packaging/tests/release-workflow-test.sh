@@ -54,9 +54,9 @@ assert manifest_download["run-id"] == "${{ needs.release-gate.outputs.qualificat
 cli = jobs["build-cli"]
 assert cli["needs"] == "manifest"
 embedded = next(step["with"] for step in cli["steps"]
-                if step.get("name") == "Embed verified release inventory")
+                if step.get("name") == "Download verified release inventory")
 assert embedded["name"] == "release-manifest-${{ github.run_id }}"
-assert embedded["path"] == "pkg/delivery/releasemanifest/embedded"
+assert embedded["path"] == "${{ runner.temp }}/kc-build-manifest"
 qualification = yaml.safe_load((Path(sys.argv[1]).parent / "publish-oci-qualification.yml").read_text())
 component_workflow = yaml.safe_load((Path(sys.argv[1]).parent / "_publish-oci-component.yml").read_text())
 component_steps = component_workflow["jobs"]["publish"]["steps"]
@@ -73,7 +73,8 @@ qemu = next(step for step in component_steps if step.get("name") == "Set up QEMU
 assert qemu["if"] == "inputs.component == 'resource-k8s-extension'"
 steps = qualification["jobs"]["sync-roundtrip"]["steps"]
 build = next(step["run"] for step in steps if step.get("name") == "Build kcctl")
-assert "pkg/delivery/releasemanifest/embedded/release-manifest.yaml" in build
+assert "source.GlobalPackageRegistry=$REGISTRY_PREFIX" in build
+assert "cp " not in build
 assert any(step.get("name") == "Verify embedded export inventory" for step in steps)
 
 release = jobs["github-release"]
@@ -87,14 +88,12 @@ with tempfile.TemporaryDirectory() as tmp:
     checkout = Path(tmp)
     inventory = checkout / "pkg/delivery/releasemanifest/embedded"
     inventory.mkdir(parents=True)
-    (inventory / ".gitignore").write_bytes((root / "pkg/delivery/releasemanifest/embedded/.gitignore").read_bytes())
+    (inventory / "release-manifest.yaml").write_bytes((root / "pkg/delivery/releasemanifest/embedded/release-manifest.yaml").read_bytes())
     (checkout / "version.sh").write_bytes((root / "hack/lib/version.sh").read_bytes())
     for args in (("init", "-q"), ("add", "."),
                  ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"),
                  ("tag", "v9.8.7")):
         subprocess.run(["git", *args], cwd=checkout, check=True, capture_output=True)
-    (inventory / "release-manifest.yaml").write_text("kind: ReleaseManifest\n")
-    (inventory / "release-manifest.yaml.sha256").write_text("checksum fixture\n")
     env = {key: value for key, value in os.environ.items() if not key.startswith("KUBE_GIT_")}
     env["KUBE_ROOT"] = str(checkout)
     version_command = ['bash', '-eu', '-c',
@@ -123,7 +122,7 @@ with tempfile.TemporaryDirectory() as tmp:
 build_release = next(step["run"] for step in cli["steps"] if step.get("name") == "Build kcctl")
 with tempfile.TemporaryDirectory() as tmp:
     dest = Path(tmp)
-    inventory = dest / "pkg/delivery/releasemanifest/embedded/release-manifest.yaml"
+    inventory = dest / "kc-build-manifest/release-manifest.yaml"
     inventory.parent.mkdir(parents=True)
     inventory.write_text("registries:\n  package: ghcr.io/fixture/kubeclipper/qualification-rev\n")
     log = dest / "build-flags"
@@ -131,7 +130,7 @@ with tempfile.TemporaryDirectory() as tmp:
     make.write_text('#!/usr/bin/env bash\nprintf "%s\\n%s\\n" "$GOLDFLAGS" "$KUBE_BUILD_PLATFORMS" > "$BUILD_LOG"\n')
     make.chmod(0o755)
     env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}", BUILD_LOG=str(log),
-               GITHUB_REPOSITORY="fixture/repo", OSS_DOWNLOAD_URL="https://downloads.example.com/kc/")
+               GITHUB_REPOSITORY="fixture/repo", OSS_DOWNLOAD_URL="https://downloads.example.com/kc/", RUNNER_TEMP=str(dest))
     subprocess.run(["bash", "-eu", "-c", build_release], cwd=dest, env=env, check=True)
     flags, platforms = log.read_text().splitlines()
     for assignment in (

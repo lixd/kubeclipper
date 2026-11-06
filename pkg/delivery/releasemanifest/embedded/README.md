@@ -1,9 +1,11 @@
-Release and qualification CLI builds copy the verified `release-manifest.yaml`
-into this directory before compiling kcctl. Go embeds that inventory in the
-standalone binary. The generated file is ignored by Git.
+`release-manifest.yaml` is the checked-in tag inventory for the release. Every
+kcctl build embeds it, including the copy inside the bootstrap package.
 
-Package publication runs first so the inventory contains final image digests.
-Bootstrap package builds precede this step to avoid including their own digest
-in the kcctl binary inside the package.
+Regenerate it from the complete resource build using
+`scripts/open-packaging/generate-release-manifest.sh --include-bootstrap --arch all`
+and the desired `--output` path. Qualification compares the assembled inventory
+with this file and verifies every published tag and platform. Release builds
+bind their global registry prefix through the existing source configuration.
 
-Source builds without the generated inventory use an explicit `--manifest`.
+The inventory records versions and tags. OCI content digests and offline
+checksums are computed and verified during transport.

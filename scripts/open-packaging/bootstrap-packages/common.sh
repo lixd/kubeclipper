@@ -141,8 +141,17 @@ kubeclipper_build_ldflags() (
   if is_semver_package_version; then
     export KUBE_GIT_VERSION="$version"
   fi
+  if [[ -z "${SOURCE_DATE_EPOCH:-}" ]]; then
+    SOURCE_DATE_EPOCH="$(git -C "$ROOT" show -s --format=%ct "$KC_SOURCE_REVISION")" || die "cannot resolve source commit time"
+    export SOURCE_DATE_EPOCH
+  fi
   source "$ROOT/hack/lib/version.sh"
-  kube::version::ldflags
+  local source_package=github.com/kubeclipper/kubeclipper/pkg/delivery/source
+  local release_base="${KC_SOURCE_URL:-https://github.com/kubeclipper/kubeclipper}"
+  printf '%s -X %s.GlobalPackageRegistry=%s -X %s.GlobalReleaseBaseURL=%s/releases/download -X %s.CNReleaseBaseURL=%s\n' \
+    "$(kube::version::ldflags)" "$source_package" "${registry_prefix:-$DEFAULT_REGISTRY_PREFIX}" \
+    "$source_package" "${release_base%/}" "$source_package" \
+    "${OSS_DOWNLOAD_URL:-https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc}"
 )
 
 verify_core_binary_metadata() {

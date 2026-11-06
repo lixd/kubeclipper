@@ -67,7 +67,8 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 download() {
   info "Downloading $2"
   case "$DOWNLOADER" in
-    curl) curl --fail --location --show-error --connect-timeout 15 -o "$1" "$2" ;;
+    curl) curl --fail --location --show-error --connect-timeout 15 --max-time 300 \
+      --retry 3 --retry-delay 2 -o "$1" "$2" ;;
     wget) wget --timeout=30 -O "$1" "$2" ;;
   esac || fatal "Download failed: $2"
 }

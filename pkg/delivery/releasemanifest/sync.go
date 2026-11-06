@@ -28,6 +28,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 
+	deliveryindexer "github.com/kubeclipper/kubeclipper/pkg/delivery/indexer"
 	registryconfig "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
 
@@ -188,7 +189,7 @@ func loadAndValidateSource(
 func validateSource(descriptor *artifactSource, artifacts []Artifact, arch string) (digest string, content any, err error) {
 	isIndex := descriptor.MediaType == types.OCIImageIndex || descriptor.MediaType == types.DockerManifestList
 	if arch == ArchAll || len(artifacts[0].Platforms) == 0 {
-		if artifacts[0].Type != ArtifactTypeRuntime && descriptor.Digest.String() != artifacts[0].Digest {
+		if artifacts[0].Type != ArtifactTypeRuntime && artifacts[0].Digest != "" && descriptor.Digest.String() != artifacts[0].Digest {
 			return "", nil, fmt.Errorf("digest mismatch: manifest=%s source=%s", artifacts[0].Digest, descriptor.Digest)
 		}
 		if artifacts[0].Type == ArtifactTypeRuntime {
@@ -211,10 +212,15 @@ func validateSource(descriptor *artifactSource, artifacts []Artifact, arch strin
 
 	platform := "linux/" + arch
 	if !isIndex {
-		if descriptor.Digest.String() != artifacts[0].Digest {
+		if artifacts[0].Digest != "" && descriptor.Digest.String() != artifacts[0].Digest {
 			return "", nil, fmt.Errorf("digest mismatch: manifest=%s source=%s", artifacts[0].Digest, descriptor.Digest)
 		}
 		image, imageErr := descriptor.Image()
+		if imageErr == nil && artifacts[0].Type == ArtifactTypePackage {
+			imageErr = validateImageIdentity(image, &artifacts[0], platform)
+		} else if imageErr == nil && artifacts[0].Type == ArtifactTypeRuntime && artifacts[0].Digest == "" {
+			imageErr = validateImagePlatform(image, &artifacts[0], platform)
+		}
 		return descriptor.Digest.String(), image, imageErr
 	}
 	index, err := descriptor.ImageIndex()
@@ -225,18 +231,23 @@ func validateSource(descriptor *artifactSource, artifacts []Artifact, arch strin
 	if err != nil {
 		return "", nil, err
 	}
-	if artifacts[0].Type == ArtifactTypeRuntime && child.Digest.String() != artifacts[0].Digest {
+	if artifacts[0].Type == ArtifactTypeRuntime && artifacts[0].Digest != "" && child.Digest.String() != artifacts[0].Digest {
 		return "", nil, fmt.Errorf("platform %s digest mismatch: manifest=%s source=%s", platform, artifacts[0].Digest, child.Digest)
 	}
 	image, err := index.Image(child.Digest)
 	if err != nil {
 		return "", nil, err
 	}
+	if artifacts[0].Type == ArtifactTypeRuntime && artifacts[0].Digest == "" {
+		if err := validateImagePlatform(image, &artifacts[0], platform); err != nil {
+			return "", nil, err
+		}
+	}
 	if artifacts[0].Type == ArtifactTypePackage {
-		if descriptor.Digest.String() != artifacts[0].Digest {
+		if artifacts[0].Digest != "" && descriptor.Digest.String() != artifacts[0].Digest {
 			return "", nil, fmt.Errorf("index digest mismatch: manifest=%s source=%s", artifacts[0].Digest, descriptor.Digest)
 		}
-		if err := validateImageRevision(image, artifacts[0].SourceRevision, platform); err != nil {
+		if err := validateImageIdentity(image, &artifacts[0], platform); err != nil {
 			return "", nil, err
 		}
 	}
@@ -245,8 +256,15 @@ func validateSource(descriptor *artifactSource, artifacts []Artifact, arch strin
 
 func validateRuntimeDigests(descriptor *artifactSource, artifacts []Artifact) error {
 	if descriptor.MediaType != types.OCIImageIndex && descriptor.MediaType != types.DockerManifestList {
-		if len(artifacts) != 1 || descriptor.Digest.String() != artifacts[0].Digest {
+		if len(artifacts) != 1 || (artifacts[0].Digest != "" && descriptor.Digest.String() != artifacts[0].Digest) {
 			return fmt.Errorf("runtime image digest mismatch")
+		}
+		if artifacts[0].Digest == "" {
+			image, err := descriptor.Image()
+			if err != nil {
+				return err
+			}
+			return validateImagePlatform(image, &artifacts[0], artifacts[0].Platforms[0])
 		}
 		return nil
 	}
@@ -260,8 +278,17 @@ func validateRuntimeDigests(descriptor *artifactSource, artifacts []Artifact) er
 		if err != nil {
 			return err
 		}
-		if child.Digest.String() != artifact.Digest {
+		if artifact.Digest != "" && child.Digest.String() != artifact.Digest {
 			return fmt.Errorf("platform %s digest mismatch: manifest=%s source=%s", artifact.Platforms[0], artifact.Digest, child.Digest)
+		}
+		if artifact.Digest == "" {
+			image, err := index.Image(child.Digest)
+			if err != nil {
+				return err
+			}
+			if err := validateImagePlatform(image, artifact, artifact.Platforms[0]); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -269,11 +296,14 @@ func validateRuntimeDigests(descriptor *artifactSource, artifacts []Artifact) er
 
 func validatePackageProvenance(descriptor *artifactSource, artifact *Artifact) error {
 	if descriptor.MediaType != types.OCIImageIndex && descriptor.MediaType != types.DockerManifestList {
+		if len(artifact.Platforms) != 1 {
+			return fmt.Errorf("source package image does not contain all requested platforms")
+		}
 		image, err := descriptor.Image()
 		if err != nil {
 			return err
 		}
-		return validateImageRevision(image, artifact.SourceRevision, artifact.Platforms[0])
+		return validateImageIdentity(image, artifact, artifact.Platforms[0])
 	}
 	index, err := descriptor.ImageIndex()
 	if err != nil {
@@ -288,21 +318,49 @@ func validatePackageProvenance(descriptor *artifactSource, artifact *Artifact) e
 		if err != nil {
 			return err
 		}
-		if err := validateImageRevision(image, artifact.SourceRevision, platform); err != nil {
+		if err := validateImageIdentity(image, artifact, platform); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func validateImageRevision(image v1.Image, expected, platform string) error {
+func validateImageIdentity(image v1.Image, artifact *Artifact, platform string) error {
 	config, err := image.ConfigFile()
 	if err != nil {
-		return fmt.Errorf("read package provenance for %s: %w", platform, err)
+		return fmt.Errorf("read package identity for %s: %w", platform, err)
 	}
-	actual := config.Config.Labels["org.opencontainers.image.revision"]
-	if actual != expected {
-		return fmt.Errorf("package sourceRevision mismatch for %s: expected=%s actual=%s", platform, expected, actual)
+	labels := config.Config.Labels
+	if artifact.SourceRevision != "" && labels["org.opencontainers.image.revision"] != artifact.SourceRevision {
+		return fmt.Errorf("package sourceRevision mismatch for %s: expected=%s actual=%s",
+			platform, artifact.SourceRevision, labels["org.opencontainers.image.revision"])
+	}
+	if artifact.Digest == "" {
+		if labels["org.opencontainers.image.version"] != artifact.Component.Version ||
+			labels["org.opencontainers.image.title"] != artifact.Component.Kind+"/"+artifact.Component.Name {
+			return fmt.Errorf("package identity mismatch for %s: expected %s/%s:%s", platform,
+				artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version)
+		}
+		return validateImagePlatform(image, artifact, platform)
+	}
+	return nil
+}
+
+func validateImagePlatform(image v1.Image, artifact *Artifact, platform string) error {
+	config, err := image.ConfigFile()
+	if err != nil {
+		return err
+	}
+	actual := config.OS + "/" + config.Architecture
+	if artifact.Type == ArtifactTypePackage && config.Architecture == "" {
+		manifest, err := deliveryindexer.ReadPackageManifest(image)
+		if err != nil {
+			return err
+		}
+		actual = manifest.Platform.OS + "/" + manifest.Platform.Arch
+	}
+	if actual != platform {
+		return fmt.Errorf("source platform mismatch: expected=%s actual=%s", platform, actual)
 	}
 	return nil
 }

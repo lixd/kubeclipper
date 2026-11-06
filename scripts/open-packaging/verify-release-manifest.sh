@@ -89,7 +89,7 @@ for index, artifact in enumerate(document.get("artifacts") or []):
     platforms = [str(value) for value in artifact.get("platforms") or []]
     if arch and platforms and f"linux/{arch}" not in platforms:
         continue
-    digest = str(artifact.get("digest") or "")
+    digest = str(artifact.get("digest") or "-")
     artifact_type = str(artifact.get("type") or "")
     platform = "-"
     if artifact_type == "runtime-image":
@@ -154,7 +154,7 @@ PY
     ;;
   *) die "unsupported tool: $tool" ;;
   esac
-  if [[ -n "$expected_digest" && "$expected_digest" != "$actual_digest" ]]; then
+  if [[ "$expected_digest" != "-" && "$expected_digest" != "$actual_digest" ]]; then
     echo "digest mismatch: $ref expected=$expected_digest actual=$actual_digest" >&2
     failed=$((failed + 1))
     continue

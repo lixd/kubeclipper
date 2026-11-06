@@ -65,26 +65,16 @@ scripts/open-packaging/generate-release-manifest.sh \
   --resource-dir /data/kc-resource
 ```
 
-After all artifacts are published, release CI can pin their Registry digests:
+The release inventory records package and runtime image tags for both Linux
+architectures. The checked-in `pkg/delivery/releasemanifest/embedded/release-manifest.yaml`
+is embedded in every kcctl build, including the bootstrap package. Regenerate
+that file with `--include-bootstrap --arch all` when release contents change.
+Qualification compares the assembled inventory with the embedded inventory and
+checks that every advertised tag and platform is available.
 
-```bash
-scripts/open-packaging/generate-release-manifest.sh \
-  --build-manifest packaging/resources.yaml \
-  --resource-dir /data/kc-resource \
-  --resolve-digests \
-  --source-revision "$(git rev-parse HEAD)"
-```
-
-Package publishing records `KC_SOURCE_REVISION` in both the package manifest
-and the standard `org.opencontainers.image.revision` OCI label. Component
-workflows set it to `github.sha` automatically. Release assembly must pass the
-kcctl release commit to `--source-revision`; generation then requires every
-package platform to expose provenance, rejects mixed revisions inside a
-multi-architecture tag, and requires `bootstrap/kubeclipper` to match that
-release commit. Independently maintained third-party packages may come from a
-different recorded commit. The provenance gate requires `--resolve-digests`
-because it verifies the actual remote image config rather than trusting a local
-declaration.
+Package publishing records `KC_SOURCE_REVISION` and `KC_SOURCE_URL` as build
+provenance. Release inventories identify components by tag. OCI clients compute
+and verify content digests while downloading, copying and reading offline bundles.
 
 `KC_SOURCE_URL` supplies the `org.opencontainers.image.source` OCI label.
 Component workflows set it to the publishing GitHub repository URL, including

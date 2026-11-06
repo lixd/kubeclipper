@@ -9,6 +9,7 @@
 package releasemanifest
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -48,4 +49,24 @@ func TestManifestRegistrySelectionPreservesContentIdentity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "docker.io/kubeclipper/"+original.Target, resolved.Artifacts[0].Source)
 	require.Equal(t, "docker.io/kubeclipper", resolved.Registries.Image)
+}
+
+func TestEmbeddedManifestUsesTagsWithoutReleaseHashes(t *testing.T) {
+	t.Setenv("KCZONE", "cn")
+	manifest, err := Load("")
+	require.NoError(t, err)
+	require.True(t, IsStableVersion(manifest.Metadata.Version))
+	require.NotEmpty(t, manifest.Artifacts)
+	require.Equal(t, manifest.Metadata.Version, manifest.BootstrapKubeClipperArtifact().Component.Version)
+	for _, artifact := range manifest.Artifacts {
+		require.Empty(t, artifact.Digest)
+		require.Empty(t, artifact.SourceRevision)
+		require.Contains(t, artifact.Target, ":")
+		require.NotContains(t, artifact.Target, "@")
+		require.Equal(t, "registry.cn-hangzhou.aliyuncs.com/kubeclipper-release/"+artifact.Target, artifact.Source)
+	}
+	data, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	require.NotContains(t, string(data), `"digest"`)
+	require.NotContains(t, string(data), `"sourceRevision"`)
 }

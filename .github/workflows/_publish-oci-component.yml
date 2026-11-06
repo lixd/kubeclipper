@@ -38,6 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KC_CONSOLE_RELEASE_REPOSITORY: ${{ vars.KC_CONSOLE_RELEASE_REPOSITORY || format('{0}/console', github.repository_owner) }}
+      OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL || 'https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7

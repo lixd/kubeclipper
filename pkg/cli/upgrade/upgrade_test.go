@@ -19,15 +19,29 @@
 package upgrade
 
 import (
+	"archive/tar"
+	"bytes"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/google/go-containerregistry/pkg/crane"
+	registryserver "github.com/google/go-containerregistry/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/stretchr/testify/require"
+
 	cmdoptions "github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	deliveryregistry "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
 )
 
@@ -103,26 +117,26 @@ artifacts:
 `
 
 func TestEvaluateVersionPolicyDowngradeRefused(t *testing.T) {
-	err := evaluateVersionPolicy("v2.0.4", "rev-new", "v2.0.3", "rev-old")
+	err := evaluateVersionPolicy("v2.0.4", "v2.0.3")
 	if err == nil || !strings.Contains(err.Error(), "refusing implicit downgrade") {
 		t.Fatalf("expected downgrade refusal, got %v", err)
 	}
 }
 
-func TestEvaluateVersionPolicySameRevisionIdempotent(t *testing.T) {
-	if err := evaluateVersionPolicy("v2.0.3-rc.4", "rev-1", "v2.0.3-rc.4", "rev-1"); err != nil {
-		t.Fatalf("same revision must be an idempotent no-op, got %v", err)
+func TestEvaluateVersionPolicySameVersionIdempotent(t *testing.T) {
+	if err := evaluateVersionPolicy("v2.0.3-rc.4", "v2.0.3-rc.4"); err != nil {
+		t.Fatalf("same version must be an idempotent no-op, got %v", err)
 	}
 }
 
-func TestEvaluateVersionPolicySameVersionDifferentRevision(t *testing.T) {
-	if err := evaluateVersionPolicy("v2.0.3-rc.3", "rev-3", "v2.0.3-rc.4", "rev-4"); err != nil {
+func TestEvaluateVersionPolicyCandidateUpgradeAllowed(t *testing.T) {
+	if err := evaluateVersionPolicy("v2.0.3-rc.3", "v2.0.3-rc.4"); err != nil {
 		t.Fatalf("same-version re-install must be allowed, got %v", err)
 	}
 }
 
 func TestEvaluateVersionPolicyUpgradeAllowed(t *testing.T) {
-	if err := evaluateVersionPolicy("v2.0.3", "rev-3", "v2.0.4", "rev-4"); err != nil {
+	if err := evaluateVersionPolicy("v2.0.3", "v2.0.4"); err != nil {
 		t.Fatalf("forward upgrade must be allowed, got %v", err)
 	}
 }
@@ -276,17 +290,17 @@ func TestManifestArtifactKeepsTargetPathAndTag(t *testing.T) {
 
 func TestDedupNodes(t *testing.T) {
 	nodes := []nodePlan{
-		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"},
-		{role: roleServer, host: "10.0.0.2", arch: "amd64", currentRevision: "rev-1"},
-		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentRevision: ""},     // duplicate, probe glitch
-		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"}, // same host, other role: keep
-		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentRevision: "rev-1"}, // duplicate
+		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentVersion: "rev-1"},
+		{role: roleServer, host: "10.0.0.2", arch: "amd64", currentVersion: "rev-1"},
+		{role: roleServer, host: "10.0.0.1", arch: "amd64", currentVersion: ""},     // duplicate, probe glitch
+		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentVersion: "rev-1"}, // same host, other role: keep
+		{role: roleAgent, host: "10.0.0.1", arch: "amd64", currentVersion: "rev-1"}, // duplicate
 	}
 	kept := dedupNodes(nodes)
 	if len(kept) != 3 {
 		t.Fatalf("expected 3 nodes after dedup, got %d: %+v", len(kept), kept)
 	}
-	if kept[0].role != roleServer || kept[0].host != "10.0.0.1" || kept[0].currentRevision != "rev-1" {
+	if kept[0].role != roleServer || kept[0].host != "10.0.0.1" || kept[0].currentVersion != "rev-1" {
 		t.Fatalf("first occurrence must win, got %+v", kept[0])
 	}
 	if kept[2].role != roleAgent {
@@ -294,10 +308,10 @@ func TestDedupNodes(t *testing.T) {
 	}
 }
 
-func TestEvaluateVersionPolicySameRevisionLowerVersionRefused(t *testing.T) {
+func TestEvaluateVersionPolicyPrereleaseDowngradeRefused(t *testing.T) {
 	// A manifest pinning the current revision but claiming an older version
 	// must be refused as a downgrade, not treated as an idempotent re-run.
-	err := evaluateVersionPolicy("v2.0.3-rc.4", "rev-1", "v2.0.2", "rev-1")
+	err := evaluateVersionPolicy("v2.0.3-rc.4", "v2.0.2")
 	if err == nil || !strings.Contains(err.Error(), "refusing implicit downgrade") {
 		t.Fatalf("expected downgrade refusal despite matching revision, got %v", err)
 	}
@@ -370,4 +384,84 @@ func TestLoadManifestUsesDomesticRegistryAndExplicitOverride(t *testing.T) {
 			t.Fatalf("manifest registry = %s, want %s", o.manifest.Registries.Package, test.want)
 		}
 	}
+}
+
+func TestLocalManifestUsesSavedOfflineRegistry(t *testing.T) {
+	t.Setenv("KCZONE", "cn")
+	file := filepath.Join(t.TempDir(), "release-manifest.yaml")
+	if err := os.WriteFile(file, []byte(testReleaseManifest), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, explicit := range []string{"", "docker.io/kubeclipper"} {
+		saved := "offline.local:5000/kubeclipper"
+		o := &UpgradeOptions{manifestPath: file, packageRegistry: explicit,
+			deployConfig: &cmdoptions.DeployConfig{PackageRegistry: saved}}
+		if err := o.loadManifest(); err != nil {
+			t.Fatal(err)
+		}
+		want := saved
+		if explicit != "" {
+			want = explicit
+		}
+		if got := o.manifest.Registries.Package; got != want {
+			t.Fatalf("local manifest registry = %s, want %s", got, want)
+		}
+	}
+}
+
+func TestFetchConsoleFromSingleArchitectureMirrorUsesTag(t *testing.T) {
+	server := httptest.NewServer(registryserver.New())
+	defer server.Close()
+	registry := strings.TrimPrefix(server.URL, "http://") + "/mirror"
+	version := "v1.6.1"
+	payload := []byte("console binary fixture")
+	manifest := deliveryapis.PackageManifest{
+		SchemaVersion: 1, Kind: "bootstrap", Name: "console", Version: version,
+		SourceRevision: strings.Repeat("a", 40), ContentProfile: "binary",
+		Platform: deliveryapis.PackageManifestPlatform{OS: "linux", Arch: "amd64"},
+		Contents: []deliveryapis.PackageManifestFile{{Name: "caddy", File: "caddy",
+			Digest: fmt.Sprintf("sha256:%x", sha256.Sum256(payload))}},
+	}
+	data, err := json.Marshal(manifest)
+	require.NoError(t, err)
+	var archive bytes.Buffer
+	tw := tar.NewWriter(&archive)
+	for _, file := range []struct {
+		name string
+		data []byte
+	}{{"opt/kubeclipper/resource/kc-package-manifest.json", data}, {"opt/kubeclipper/resource/caddy", payload}} {
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: file.name, Mode: 0755, Size: int64(len(file.data))}))
+		_, err = tw.Write(file.data)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tw.Close())
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewReader(archive.Bytes())), nil
+	})
+	require.NoError(t, err)
+	image, err := mutate.AppendLayers(empty.Image, layer)
+	require.NoError(t, err)
+	config, err := image.ConfigFile()
+	require.NoError(t, err)
+	config.OS, config.Architecture = "linux", "amd64"
+	config.Config.Labels = map[string]string{
+		"org.opencontainers.image.title":    "bootstrap/console",
+		"org.opencontainers.image.version":  version,
+		"org.opencontainers.image.revision": strings.Repeat("a", 40),
+	}
+	image, err = mutate.ConfigFile(image, config)
+	require.NoError(t, err)
+	target := "package-bootstrap-console:" + version
+	require.NoError(t, crane.Push(image, registry+"/"+target, crane.Insecure))
+	o := &UpgradeOptions{registry: registry, targetVersion: "v2.0.11",
+		registryConfig: &deliveryregistry.Config{Registry: registry, Scheme: deliveryregistry.SchemeHTTP}}
+	artifact := &releasemanifest.Artifact{Type: releasemanifest.ArtifactTypePackage,
+		Component: releasemanifest.Component{Kind: "bootstrap", Name: "console", Version: version},
+		Source:    registry + "/" + target, Target: target, Platforms: []string{"linux/amd64", "linux/arm64"}}
+	result, err := o.fetchPackageFiles(t.Context(), artifact, "amd64")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, result.Release()) })
+	actual, err := os.ReadFile(result.Components[0].Files["caddy"])
+	require.NoError(t, err)
+	require.Equal(t, payload, actual)
 }

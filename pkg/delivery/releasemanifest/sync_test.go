@@ -11,8 +11,10 @@
 package releasemanifest
 
 import (
+	"archive/tar"
 	"bytes"
 	"encoding/pem"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -27,6 +29,9 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/stretchr/testify/require"
 
 	registryconfig "github.com/kubeclipper/kubeclipper/pkg/delivery/registry"
 )
@@ -212,4 +217,72 @@ func revisionImage(t *testing.T, revision string) v1.Image {
 		t.Fatal(err)
 	}
 	return image
+}
+
+func TestTagSourcesRejectWrongOrMissingPlatforms(t *testing.T) {
+	for _, artifactType := range []string{ArtifactTypePackage, ArtifactTypeRuntime} {
+		t.Run(artifactType, func(t *testing.T) {
+			config, err := empty.Image.ConfigFile()
+			require.NoError(t, err)
+			config.OS, config.Architecture = "linux", "amd64"
+			config.Config.Labels = map[string]string{
+				"org.opencontainers.image.title":   "bootstrap/kubeclipper",
+				"org.opencontainers.image.version": "v2.0.11",
+			}
+			image, err := mutate.ConfigFile(empty.Image, config)
+			require.NoError(t, err)
+			source := &artifactSource{Descriptor: v1.Descriptor{MediaType: types.DockerManifestSchema2}, image: image}
+			artifact := Artifact{Type: artifactType,
+				Component: Component{Kind: "bootstrap", Name: "kubeclipper", Version: "v2.0.11"},
+				Platforms: []string{PlatformARM64}}
+			_, _, err = validateSource(source, []Artifact{artifact}, ArchARM64)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "platform mismatch")
+			index := mutate.AppendManifests(empty.Index, mutate.IndexAddendum{Add: image,
+				Descriptor: v1.Descriptor{Platform: &v1.Platform{OS: "linux", Architecture: ArchARM64}}})
+			indexed := &artifactSource{Descriptor: v1.Descriptor{MediaType: types.OCIImageIndex}, index: index}
+			_, _, err = validateSource(indexed, []Artifact{artifact}, ArchARM64)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "platform mismatch")
+			artifacts := []Artifact{artifact}
+			if artifactType == ArtifactTypeRuntime {
+				amd64 := artifact
+				amd64.Platforms = []string{PlatformAMD64}
+				artifacts = append(artifacts, amd64)
+			} else {
+				artifacts[0].Platforms = []string{PlatformAMD64, PlatformARM64}
+			}
+			_, _, err = validateSource(source, artifacts, ArchAll)
+			require.Error(t, err)
+		})
+	}
+}
+
+func TestTagPackageReadsPlatformFromPayload(t *testing.T) {
+	var payload bytes.Buffer
+	tw := tar.NewWriter(&payload)
+	body := []byte(`{"platform":{"os":"linux","arch":"arm64"}}`)
+	require.NoError(t, tw.WriteHeader(&tar.Header{
+		Name: "opt/kubeclipper/resource/kc-package-manifest.json", Mode: 0600, Size: int64(len(body)),
+	}))
+	_, err := tw.Write(body)
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	layer, err := tarball.LayerFromOpener(func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(payload.Bytes())), nil })
+	require.NoError(t, err)
+	image, err := mutate.AppendLayers(empty.Image, layer)
+	require.NoError(t, err)
+	image, err = mutate.Config(image, v1.Config{Labels: map[string]string{
+		"org.opencontainers.image.title": "bootstrap/kubeclipper", "org.opencontainers.image.version": "v2.0.11",
+	}})
+	require.NoError(t, err)
+	source := &artifactSource{Descriptor: v1.Descriptor{MediaType: types.DockerManifestSchema2}, image: image}
+	artifact := Artifact{Type: ArtifactTypePackage,
+		Component: Component{Kind: "bootstrap", Name: "kubeclipper", Version: "v2.0.11"},
+		Platforms: []string{PlatformAMD64, PlatformARM64}}
+	_, _, err = validateSource(source, []Artifact{artifact}, ArchARM64)
+	require.NoError(t, err)
+	_, _, err = validateSource(source, []Artifact{artifact}, ArchAMD64)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "platform mismatch")
 }

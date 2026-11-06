@@ -59,11 +59,11 @@ Conventions that the tooling enforces:
   for release assembly. A first publication verifies both architectures before
   promoting the shared tag. Package content updates require a new component
   package version. The KubeClipper bootstrap package follows the KC release.
-- A **release manifest** (`release-manifest.json`) lists, for one release, every
-  artifact's `repository:tag` plus its resolved digest (multi-arch included).
-  `generate-release-manifest.sh --resolve-digests` produces it;
-  `verify-release-manifest.sh` re-validates digests, provenance labels and
-  policy rules (`tools/release-policy-verify`).
+- A **release manifest** (`release-manifest.yaml`) lists every artifact by
+  `repository:tag` and platform. Every kcctl build embeds the checked-in tag
+  inventory. `generate-release-manifest.sh` rebuilds it from resource inputs.
+  Qualification compares it with the embedded inventory and verifies tag and
+  platform availability. OCI transport verifies content digests internally.
 
 ## 3. Resolution pipeline (server side)
 
@@ -177,7 +177,7 @@ The shared installation script is served from OSS. It selects GitHub or OSS bina
 `KCZONE`. `KC_DOWNLOAD_URL` overrides the installer's binary download base and upgrade manifest
 download base. Upgrade's explicit `--release-base-url` takes precedence over that variable.
 Package locations use an explicit `--package-registry`, the existing deployment registry,
-or the zone preset. Digests and provenance are verified before rollout. Offline upgrades use
+or the zone preset. Package versions and payload integrity are verified before rollout. Offline upgrades use
 `--manifest` and can explicitly select their local `--package-registry`.
 
 The stable release workflow verifies the kcctl and manifest checksums before uploading to OSS.
@@ -221,8 +221,8 @@ Publishing requires `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET`. Repository variabl
 Each released installer is stamped with its version, its own GitHub repository's Release
 download URL, and the OSS download base. The standalone kcctl embeds these same HTTP defaults
 and the verified inventory's global OCI prefix. The package locations in a manifest can be
-resolved against `KCZONE` or `--package-registry`, preserving repository names, platforms and
-digests. Existing deployment and cluster registry selections remain authoritative for their
+resolved against `KCZONE` or `--package-registry`, preserving repository names, tags and
+platforms. Existing deployment and cluster registry selections remain authoritative for their
 operations.
 
 ## 5. Air-gapped and offline delivery

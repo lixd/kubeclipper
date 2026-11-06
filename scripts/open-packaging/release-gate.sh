@@ -5,8 +5,7 @@
 # Checks (fail closed on any problem):
 #   1. the release tag is a stable vX.Y.Z version;
 #   2. the qualification manifest is a ReleaseManifest for that tag whose
-#      sourceRevision and bootstrap/kubeclipper artifact revisions match the
-#      candidate commit;
+#      bootstrap/kubeclipper artifact uses the release tag;
 #   3. an acceptance record docs/testing/acceptance/<candidate-sha>.yaml
 #      exists, records result: passed, and pins the sha256 of exactly this
 #      qualification manifest.
@@ -143,12 +142,6 @@ version = metadata.get("version")
 if not isinstance(version, str) or version != release_tag:
     die(f"qualification manifest version {version!r} does not match release tag {release_tag!r}; "
         "re-run qualification on the release commit")
-revision = metadata.get("sourceRevision")
-if not isinstance(revision, str):
-    die(f"qualification manifest metadata.sourceRevision is missing or malformed ({revision!r}); "
-        "re-run qualification so provenance is recorded")
-if revision != candidate_sha:
-    die(f"qualification manifest sourceRevision {revision!r} does not match candidate commit {candidate_sha!r}")
 bootstrap = [
     artifact
     for artifact in (doc.get("artifacts") or [])
@@ -160,11 +153,11 @@ bootstrap = [
 if not bootstrap:
     die("qualification manifest lists no bootstrap/kubeclipper artifact")
 for artifact in bootstrap:
-    got = artifact.get("sourceRevision")
-    if not isinstance(got, str) or got != candidate_sha:
-        die(f"bootstrap/kubeclipper artifact sourceRevision {got!r} does not match candidate commit {candidate_sha!r}")
-print(f"[release-gate] manifest ok: version={version} "
-      f"sourceRevision={revision[:12]} bootstrap_artifacts={len(bootstrap)}")
+    component = artifact["component"]
+    expected = f"package-bootstrap-kubeclipper:{release_tag}"
+    if component.get("version") != release_tag or artifact.get("target") != expected:
+        die(f"bootstrap/kubeclipper must use release tag {release_tag}")
+print(f"[release-gate] manifest ok: version={version} bootstrap_artifacts={len(bootstrap)}")
 PY
 }
 

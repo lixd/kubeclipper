@@ -1,0 +1,1109 @@
+apiVersion: delivery.kubeclipper.io/v1alpha1
+kind: ReleaseManifest
+metadata:
+  name: kubeclipper-resources
+  version: v2.0.11
+registries:
+  package: ghcr.io/kubeclipper/kubeclipper
+  image: ghcr.io/kubeclipper/kubeclipper
+artifacts:
+- type: package-image
+  component:
+    kind: bootstrap
+    name: console
+    version: v1.6.1-oci.94bac83
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-console:v1.6.1-oci.94bac83
+  target: package-bootstrap-console:v1.6.1-oci.94bac83
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: bootstrap
+    name: etcd
+    version: 3.5.21
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-etcd:3.5.21
+  target: package-bootstrap-etcd:3.5.21
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: bootstrap
+    name: kubeclipper
+    version: v2.0.11
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-kubeclipper:v2.0.11
+  target: package-bootstrap-kubeclipper:v2.0.11
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: bootstrap
+    name: registry
+    version: 3.1.1
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-registry:3.1.1
+  target: package-bootstrap-registry:3.1.1
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/package-calico:v3.29.6
+  target: package-calico:v3.29.6
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/package-calico:v3.31.5
+  target: package-calico:v3.31.5
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: cri
+    name: containerd
+    version: 1.7.29
+  source: ghcr.io/kubeclipper/kubeclipper/package-containerd:1.7.29
+  target: package-containerd:1.7.29
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: cri
+    name: containerd
+    version: 2.2.4
+  source: ghcr.io/kubeclipper/kubeclipper/package-containerd:2.2.4
+  target: package-containerd:2.2.4
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.35.8
+  target: package-k8s:v1.35.8
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.36.4
+  target: package-k8s:v1.36.4
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/package-k8s:v1.37.0
+  target: package-k8s:v1.37.0
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: package-image
+  component:
+    kind: k8s-extension
+    name: k8s-extension
+    version: v1
+  source: ghcr.io/kubeclipper/kubeclipper/package-k8s-extension:v1
+  target: package-k8s-extension:v1
+  platforms:
+  - linux/amd64
+  - linux/arm64
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/kubeclipper/kubeclipper/metallb-controller:v0.13.7
+  target: metallb-controller:v0.13.7
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/metallb-controller:v0.13.7
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/kubeclipper/kubeclipper/metallb-controller:v0.13.7
+  target: metallb-controller:v0.13.7
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/metallb-controller:v0.13.7
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/kubeclipper/kubeclipper/metallb-frr:v7.5.1
+  target: metallb-frr:v7.5.1
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/frr:v7.5.1
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/kubeclipper/kubeclipper/metallb-frr:v7.5.1
+  target: metallb-frr:v7.5.1
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/frr:v7.5.1
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/kubeclipper/kubeclipper/metallb-speaker:v0.13.7
+  target: metallb-speaker:v0.13.7
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/metallb-speaker:v0.13.7
+- type: runtime-image
+  component:
+    kind: addon
+    name: metallb
+    version: v0.13.7
+  source: ghcr.io/kubeclipper/kubeclipper/metallb-speaker:v0.13.7
+  target: metallb-speaker:v0.13.7
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/metallb-speaker:v0.13.7
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-csi-attacher:v3.2.1
+  target: nfs-csi-attacher:v3.2.1
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/csi-attacher:v3.2.1
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-csi-attacher:v3.2.1
+  target: nfs-csi-attacher:v3.2.1
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/csi-attacher:v3.2.1
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-csi-node-driver-registrar:v2.5.1
+  target: nfs-csi-node-driver-registrar:v2.5.1
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/csi-node-driver-registrar:v2.5.1
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-csi-node-driver-registrar:v2.5.1
+  target: nfs-csi-node-driver-registrar:v2.5.1
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/csi-node-driver-registrar:v2.5.1
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-csi-provisioner:v3.2.0
+  target: nfs-csi-provisioner:v3.2.0
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/csi-provisioner:v3.2.0
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-csi-provisioner:v3.2.0
+  target: nfs-csi-provisioner:v3.2.0
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/csi-provisioner:v3.2.0
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-livenessprobe:v2.7.0
+  target: nfs-livenessprobe:v2.7.0
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/livenessprobe:v2.7.0
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-livenessprobe:v2.7.0
+  target: nfs-livenessprobe:v2.7.0
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/livenessprobe:v2.7.0
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-plugin:v4.1.0
+  target: nfs-plugin:v4.1.0
+  platforms:
+  - linux/amd64
+  upstream: docker.io/caas4/nfsplugin:v4.1.0
+- type: runtime-image
+  component:
+    kind: addon
+    name: nfs
+    version: v4.1.0
+  source: ghcr.io/kubeclipper/kubeclipper/nfs-plugin:v4.1.0
+  target: nfs-plugin:v4.1.0
+  platforms:
+  - linux/arm64
+  upstream: docker.io/caas4/nfsplugin:v4.1.0
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-apiserver:v3.29.6
+  target: calico-apiserver:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/apiserver:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-apiserver:v3.29.6
+  target: calico-apiserver:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/apiserver:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-cni:v3.29.6
+  target: calico-cni:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/cni:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-cni:v3.29.6
+  target: calico-cni:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/cni:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-csi:v3.29.6
+  target: calico-csi:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/csi:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-csi:v3.29.6
+  target: calico-csi:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/csi:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-kube-controllers:v3.29.6
+  target: calico-kube-controllers:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/kube-controllers:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-kube-controllers:v3.29.6
+  target: calico-kube-controllers:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/kube-controllers:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node-driver-registrar:v3.29.6
+  target: calico-node-driver-registrar:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node-driver-registrar:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node-driver-registrar:v3.29.6
+  target: calico-node-driver-registrar:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node-driver-registrar:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node:v3.29.6
+  target: calico-node:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node:v3.29.6
+  target: calico-node:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-pod2daemon-flexvol:v3.29.6
+  target: calico-pod2daemon-flexvol:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-pod2daemon-flexvol:v3.29.6
+  target: calico-pod2daemon-flexvol:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-typha:v3.29.6
+  target: calico-typha:v3.29.6
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/typha:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/calico-typha:v3.29.6
+  target: calico-typha:v3.29.6
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/typha:v3.29.6
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/tigera-operator:v1.36.14
+  target: tigera-operator:v1.36.14
+  platforms:
+  - linux/amd64
+  upstream: quay.io/tigera/operator:v1.36.14
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.29.6
+  source: ghcr.io/kubeclipper/kubeclipper/tigera-operator:v1.36.14
+  target: tigera-operator:v1.36.14
+  platforms:
+  - linux/arm64
+  upstream: quay.io/tigera/operator:v1.36.14
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-apiserver:v3.31.5
+  target: calico-apiserver:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/apiserver:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-apiserver:v3.31.5
+  target: calico-apiserver:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/apiserver:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-cni:v3.31.5
+  target: calico-cni:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/cni:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-cni:v3.31.5
+  target: calico-cni:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/cni:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-csi:v3.31.5
+  target: calico-csi:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/csi:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-csi:v3.31.5
+  target: calico-csi:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/csi:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-kube-controllers:v3.31.5
+  target: calico-kube-controllers:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/kube-controllers:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-kube-controllers:v3.31.5
+  target: calico-kube-controllers:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/kube-controllers:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node-driver-registrar:v3.31.5
+  target: calico-node-driver-registrar:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node-driver-registrar:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node-driver-registrar:v3.31.5
+  target: calico-node-driver-registrar:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node-driver-registrar:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node:v3.31.5
+  target: calico-node:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/node:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-node:v3.31.5
+  target: calico-node:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/node:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-pod2daemon-flexvol:v3.31.5
+  target: calico-pod2daemon-flexvol:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-pod2daemon-flexvol:v3.31.5
+  target: calico-pod2daemon-flexvol:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/pod2daemon-flexvol:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-typha:v3.31.5
+  target: calico-typha:v3.31.5
+  platforms:
+  - linux/amd64
+  upstream: docker.io/calico/typha:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/calico-typha:v3.31.5
+  target: calico-typha:v3.31.5
+  platforms:
+  - linux/arm64
+  upstream: docker.io/calico/typha:v3.31.5
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/tigera-operator:v1.40.8
+  target: tigera-operator:v1.40.8
+  platforms:
+  - linux/amd64
+  upstream: quay.io/tigera/operator:v1.40.8
+- type: runtime-image
+  component:
+    kind: cni
+    name: calico
+    version: v3.31.5
+  source: ghcr.io/kubeclipper/kubeclipper/tigera-operator:v1.40.8
+  target: tigera-operator:v1.40.8
+  platforms:
+  - linux/arm64
+  upstream: quay.io/tigera/operator:v1.40.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/coredns:v1.13.1
+  target: coredns:v1.13.1
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/coredns/coredns:v1.13.1
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/coredns:v1.13.1
+  target: coredns:v1.13.1
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/coredns/coredns:v1.13.1
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/etcd:3.6.6-0
+  target: etcd:3.6.6-0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/etcd:3.6.6-0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/etcd:3.6.6-0
+  target: etcd:3.6.6-0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/etcd:3.6.6-0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-apiserver:v1.35.8
+  target: kube-apiserver:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-apiserver:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-apiserver:v1.35.8
+  target: kube-apiserver:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-apiserver:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-controller-manager:v1.35.8
+  target: kube-controller-manager:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-controller-manager:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-controller-manager:v1.35.8
+  target: kube-controller-manager:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-controller-manager:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-proxy:v1.35.8
+  target: kube-proxy:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-proxy:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-proxy:v1.35.8
+  target: kube-proxy:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-proxy:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-scheduler:v1.35.8
+  target: kube-scheduler:v1.35.8
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-scheduler:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/kube-scheduler:v1.35.8
+  target: kube-scheduler:v1.35.8
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-scheduler:v1.35.8
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/pause:3.10.1
+  target: pause:3.10.1
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/pause:3.10.1
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.35.8
+  source: ghcr.io/kubeclipper/kubeclipper/pause:3.10.1
+  target: pause:3.10.1
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/pause:3.10.1
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/coredns:v1.14.2
+  target: coredns:v1.14.2
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.2
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/coredns:v1.14.2
+  target: coredns:v1.14.2
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.2
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/etcd:3.6.8-0
+  target: etcd:3.6.8-0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/etcd:3.6.8-0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/etcd:3.6.8-0
+  target: etcd:3.6.8-0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/etcd:3.6.8-0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-apiserver:v1.36.4
+  target: kube-apiserver:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-apiserver:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-apiserver:v1.36.4
+  target: kube-apiserver:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-apiserver:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-controller-manager:v1.36.4
+  target: kube-controller-manager:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-controller-manager:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-controller-manager:v1.36.4
+  target: kube-controller-manager:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-controller-manager:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-proxy:v1.36.4
+  target: kube-proxy:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-proxy:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-proxy:v1.36.4
+  target: kube-proxy:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-proxy:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-scheduler:v1.36.4
+  target: kube-scheduler:v1.36.4
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-scheduler:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/kube-scheduler:v1.36.4
+  target: kube-scheduler:v1.36.4
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-scheduler:v1.36.4
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/pause:3.10.2
+  target: pause:3.10.2
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/pause:3.10.2
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.36.4
+  source: ghcr.io/kubeclipper/kubeclipper/pause:3.10.2
+  target: pause:3.10.2
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/pause:3.10.2
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/coredns:v1.14.6
+  target: coredns:v1.14.6
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.6
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/coredns:v1.14.6
+  target: coredns:v1.14.6
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/coredns/coredns:v1.14.6
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/etcd:3.7.0-0
+  target: etcd:3.7.0-0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/etcd:3.7.0-0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/etcd:3.7.0-0
+  target: etcd:3.7.0-0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/etcd:3.7.0-0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-apiserver:v1.37.0
+  target: kube-apiserver:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-apiserver:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-apiserver:v1.37.0
+  target: kube-apiserver:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-apiserver:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-controller-manager:v1.37.0
+  target: kube-controller-manager:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-controller-manager:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-controller-manager:v1.37.0
+  target: kube-controller-manager:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-controller-manager:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-proxy:v1.37.0
+  target: kube-proxy:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-proxy:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-proxy:v1.37.0
+  target: kube-proxy:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-proxy:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-scheduler:v1.37.0
+  target: kube-scheduler:v1.37.0
+  platforms:
+  - linux/amd64
+  upstream: registry.k8s.io/kube-scheduler:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s
+    name: k8s
+    version: v1.37.0
+  source: ghcr.io/kubeclipper/kubeclipper/kube-scheduler:v1.37.0
+  target: kube-scheduler:v1.37.0
+  platforms:
+  - linux/arm64
+  upstream: registry.k8s.io/kube-scheduler:v1.37.0
+- type: runtime-image
+  component:
+    kind: k8s-extension
+    name: k8s-extension
+    version: v1
+  source: ghcr.io/kubeclipper/kubeclipper/netshoot:v0.13
+  target: netshoot:v0.13
+  platforms:
+  - linux/amd64
+  upstream: nicolaka/netshoot:v0.13
+- type: runtime-image
+  component:
+    kind: k8s-extension
+    name: k8s-extension
+    version: v1
+  source: ghcr.io/kubeclipper/kubeclipper/netshoot:v0.13
+  target: netshoot:v0.13
+  platforms:
+  - linux/arm64
+  upstream: nicolaka/netshoot:v0.13
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/kubeclipper/kubeclipper/kubectl:latest
+  target: kubectl:latest
+  platforms:
+  - linux/amd64
+  upstream: kubeclipper/kubectl:latest
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/kubeclipper/kubeclipper/kubectl:latest
+  target: kubectl:latest
+  platforms:
+  - linux/arm64
+  upstream: kubeclipper/kubectl:latest
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/kubeclipper/kubeclipper/lvscare:v1.1.1
+  target: lvscare:v1.1.1
+  platforms:
+  - linux/amd64
+  upstream: fanux/lvscare:v1.1.1
+- type: runtime-image
+  component:
+    kind: kc-runtime
+    name: kc-runtime
+    version: v2.0.0
+  source: ghcr.io/kubeclipper/kubeclipper/lvscare:v1.1.1
+  target: lvscare:v1.1.1
+  platforms:
+  - linux/arm64
+  upstream: fanux/lvscare:v1.1.1

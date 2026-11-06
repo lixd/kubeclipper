@@ -31,7 +31,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/crane"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
 
@@ -57,7 +56,7 @@ const (
 
   The upgrade consumes the same artifacts the platform is deployed from: a
   ReleaseManifest plus the bootstrap package images it pins. kcctl resolves the
-  target revision from the manifest, downloads and digest-verifies every
+  target version from the manifest, downloads and verifies every
   artifact for every target node architecture BEFORE stopping any service, and
   then replaces the platform components one node at a time with a health check
   between nodes. A failed node is restored from its backup and the rollout
@@ -138,9 +137,7 @@ type UpgradeOptions struct {
 	registryConfig    *deliveryregistry.Config
 
 	platformVersion string
-	platformRev     string
 	targetVersion   string
-	targetRevision  string
 }
 
 func NewUpgradeOptions(stream cmdoptions.IOStreams) *UpgradeOptions {
@@ -238,7 +235,6 @@ func (o *UpgradeOptions) Validate(cmd *cobra.Command, args []string) error {
 	// The primary artifact decides the reported target version: the console
 	// version for a console-only upgrade, the platform version otherwise.
 	o.targetVersion = required[0].Component.Version
-	o.targetRevision = o.manifest.Metadata.SourceRevision
 
 	if o.component == cmdoptions.UpgradeConsole {
 		// The console dist versions independently of the platform (console
@@ -287,7 +283,7 @@ func (o *UpgradeOptions) loadManifest() error {
 		return err
 	}
 	registry := o.packageRegistry
-	if registry == "" && o.manifestPath == "" && o.deployConfig != nil {
+	if registry == "" && o.deployConfig != nil {
 		registry = o.deployConfig.PackageRegistry
 	}
 	o.manifest, err = manifest.WithRegistry(registry)
@@ -328,33 +324,19 @@ func (o *UpgradeOptions) checkVersionPolicy() error {
 		return fmt.Errorf("query platform version: %w", err)
 	}
 	o.platformVersion = versionInfo.GitVersion
-	o.platformRev = versionInfo.GitCommit
-	return evaluateVersionPolicy(o.platformVersion, o.platformRev, o.targetVersion, o.targetRevision)
+	return evaluateVersionPolicy(o.platformVersion, o.targetVersion)
 }
 
-// evaluateVersionPolicy implements the version contract of the upgrade:
-// identical revisions are an idempotent no-op, implicit downgrades are
-// refused, and same-version/different-revision re-installs are allowed.
-// The downgrade check runs BEFORE the revision idempotency short-circuit:
-// a manifest that pins the current revision but claims an older version
-// must not slip through as an idempotent re-run.
-func evaluateVersionPolicy(platformVersion, platformRevision, targetVersion, targetRevision string) error {
+// evaluateVersionPolicy refuses downgrades. Each node is checked against the
+// requested package version immediately before replacement.
+func evaluateVersionPolicy(platformVersion, targetVersion string) error {
 	cmp, comparable := deliveryapis.CompareVersions(platformVersion, targetVersion)
 	if comparable && cmp > 0 {
 		return fmt.Errorf("refusing implicit downgrade: platform %s is newer than target %s", platformVersion, targetVersion)
 	}
-	if platformRevision != "" && platformRevision == targetRevision {
-		logger.Infof("platform API already reports revision %s; nodes are verified individually", platformRevision)
-		return nil
+	if !comparable && platformVersion != targetVersion {
+		logger.Warnf("cannot compare platform version %q with target %q; proceeding with upgrade", platformVersion, targetVersion)
 	}
-	if comparable {
-		return nil
-	}
-	if platformVersion == targetVersion {
-		// Same version, different revision: a re-install of the same release.
-		return nil
-	}
-	logger.Warnf("cannot compare platform version %q with target %q; proceeding with upgrade", platformVersion, targetVersion)
 	return nil
 }
 
@@ -366,10 +348,10 @@ func (o *UpgradeOptions) resolveRegistryConfig() (*deliveryregistry.Config, erro
 }
 
 type nodePlan struct {
-	role            string
-	host            string
-	arch            string
-	currentRevision string
+	role           string
+	host           string
+	arch           string
+	currentVersion string
 }
 
 type rolloutPlan struct {
@@ -492,10 +474,10 @@ func (o *UpgradeOptions) appendNode(plan *rolloutPlan, role, host string) error 
 		return err
 	}
 	plan.nodes = append(plan.nodes, nodePlan{
-		role:            role,
-		host:            host,
-		arch:            arch,
-		currentRevision: o.probeNodeRevision(host, role),
+		role:           role,
+		host:           host,
+		arch:           arch,
+		currentVersion: o.probeNodeVersion(host, role),
 	})
 	return nil
 }
@@ -522,7 +504,7 @@ func normalizeUnameArch(arch string) (string, error) {
 	}
 }
 
-func (o *UpgradeOptions) probeNodeRevision(host, role string) string {
+func (o *UpgradeOptions) probeNodeVersion(host, role string) string {
 	result, err := sshutils.SSHCmdWithSudo(o.SSHConfig, host, fmt.Sprintf("/usr/local/bin/%s version -o json", binaryForRole(role)))
 	if err != nil || result.ExitCode != 0 {
 		return ""
@@ -531,7 +513,7 @@ func (o *UpgradeOptions) probeNodeRevision(host, role string) string {
 	if err != nil {
 		return ""
 	}
-	return info.GitCommit
+	return info.GitVersion
 }
 
 // parseVersionJSON extracts the version Info from command output. The platform
@@ -604,9 +586,9 @@ func binaryForRole(role string) string {
 }
 
 func (o *UpgradeOptions) printPlan(plan *rolloutPlan) {
-	logger.Infof("upgrade plan: target %s (revision %s) from manifest %s, registry %s", o.targetVersion, shortRev(o.targetRevision), manifestName(o), o.registry)
+	logger.Infof("upgrade plan: target %s from manifest %s, registry %s", o.targetVersion, manifestName(o), o.registry)
 	for _, node := range plan.nodes {
-		logger.Infof("  node %s role=%s arch=%s current=%s", node.host, node.role, node.arch, nodeRevisionLabel(node.currentRevision))
+		logger.Infof("  node %s role=%s arch=%s current=%s", node.host, node.role, node.arch, nodeVersionLabel(node.currentVersion))
 	}
 }
 
@@ -617,27 +599,17 @@ func manifestName(o *UpgradeOptions) string {
 	return "downloaded for " + o.version
 }
 
-func shortRev(rev string) string {
-	if len(rev) > 12 {
-		return rev[:12]
-	}
-	return rev
-}
-
-func nodeRevisionLabel(rev string) string {
-	if rev == "" {
+func nodeVersionLabel(version string) string {
+	if version == "" {
 		return "unknown"
 	}
-	return shortRev(rev)
+	return version
 }
 
 // preflight resolves and verifies every artifact for every target
 // architecture and checks node connectivity before any service is stopped.
 func (o *UpgradeOptions) preflight(plan *rolloutPlan) (_ map[string]archArtifacts, err error) {
 	ctx := context.Background()
-	if err := o.verifyTagBinding(ctx); err != nil {
-		return nil, err
-	}
 	arches := sets.NewString()
 	for i := range plan.nodes {
 		arches.Insert(plan.nodes[i].arch)
@@ -661,42 +633,6 @@ func (o *UpgradeOptions) preflight(plan *rolloutPlan) (_ map[string]archArtifact
 		}
 	}
 	return fetched, nil
-}
-
-// verifyTagBinding proves the registry tag the upgrade is about to pull is the
-// one the release manifest pinned: either the tag digest still matches the
-// manifest artifact digest, or (after a per-arch re-tag of a synced bundle)
-// the image carries the release source revision label. Pulling by digest alone
-// is impossible for a tag whose child digest is unknown to this manifest.
-func (o *UpgradeOptions) verifyTagBinding(ctx context.Context) error {
-	opts, err := o.registryConfig.CraneOptions(ctx)
-	if err != nil {
-		return err
-	}
-	for _, artifact := range o.requiredArtifacts {
-		ref := o.registry + "/" + artifact.Target
-		desc, err := crane.Get(ref, opts...)
-		if err != nil {
-			return fmt.Errorf("resolve %s: %w", ref, err)
-		}
-		if desc.Digest.String() == artifact.Digest {
-			continue
-		}
-		image, err := desc.Image()
-		if err != nil {
-			return fmt.Errorf("resolve %s: read image: %w", ref, err)
-		}
-		configFile, err := image.ConfigFile()
-		if err != nil {
-			return fmt.Errorf("resolve %s: read image config: %w", ref, err)
-		}
-		if configFile.Config.Labels["org.opencontainers.image.revision"] == o.targetRevision {
-			logger.Warnf("registry tag %s digest %s differs from manifest digest %s; source revision %s matches", ref, desc.Digest, artifact.Digest, o.targetRevision)
-			continue
-		}
-		return fmt.Errorf("registry tag %s digest %s does not match the release manifest digest %s; refusing to upgrade from a repointed tag", ref, desc.Digest, artifact.Digest)
-	}
-	return nil
 }
 
 func (o *UpgradeOptions) fetchPlatformPackage(ctx context.Context, arch string) (_ *archArtifacts, err error) {
@@ -766,22 +702,6 @@ func (o *UpgradeOptions) fetchPackageFiles(ctx context.Context, artifact *releas
 	if entry == nil {
 		return nil, fmt.Errorf("registry %s has no %s/%s package version %s for arch %s; sync the release bundle first", o.registry, artifact.Component.Kind, artifact.Component.Name, artifact.Component.Version, arch)
 	}
-	// The platform package is built from the source tree the manifest pins, so
-	// its sourceRevision must match. The console dist is not built from the
-	// platform source tree — its revision label only records the publish-time
-	// platform revision, and the manifest digest binding is the integrity
-	// guarantee, so a mismatch there is informational.
-	strictRevision := artifact.Component.Name == bootstrapPackageName
-	if entry.SourceRevision == "" {
-		if strictRevision {
-			logger.Warnf("package %s/%s:%s(%s) carries no sourceRevision metadata; the revision expectation %s cannot be verified before rollout, republish the package with KC_SOURCE_REVISION set", entry.Kind, entry.Name, entry.Version, entry.Arch, o.targetRevision)
-		}
-	} else if entry.SourceRevision != o.targetRevision {
-		if strictRevision {
-			return nil, fmt.Errorf("package %s/%s:%s(%s) source revision %s does not match release manifest revision %s", entry.Kind, entry.Name, entry.Version, entry.Arch, entry.SourceRevision, o.targetRevision)
-		}
-		logger.Warnf("package %s/%s:%s(%s) was published at platform revision %s, release manifest pins %s; the console dist is not built from the platform source tree, the manifest digest binding is the integrity guarantee", entry.Kind, entry.Name, entry.Version, entry.Arch, entry.SourceRevision, o.targetRevision)
-	}
 	component := deliveryapis.ResolvedComponent{
 		Slot:      "upgrade-" + artifact.Component.Name,
 		Kind:      entry.Kind,
@@ -846,17 +766,17 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 	upgraded := make([]nodePlan, 0, len(plan.nodes))
 	for i := range plan.nodes {
 		node := plan.nodes[i]
-		// Re-probe right before touching the node: the plan-time revision is
+		// Re-probe right before touching the node: the plan-time version is
 		// stale for long rollouts and for a second upgrade invocation racing
 		// this one; both would otherwise replace an already-upgraded binary
-		// and clobber its backup. The console has no revision to probe
+		// and clobber its backup. The console has no platform version to probe
 		// (caddy version is caddy's, not the console's), so console nodes
 		// always re-install — that re-install is the idempotent path.
-		if current := o.probeNodeRevision(node.host, node.role); current != "" {
-			node.currentRevision = current
+		if current := o.probeNodeVersion(node.host, node.role); current != "" {
+			node.currentVersion = current
 		}
-		if node.currentRevision != "" && node.currentRevision == o.targetRevision {
-			logger.Infof("skip %s %s: already at revision %s", node.role, node.host, shortRev(o.targetRevision))
+		if node.currentVersion != "" && node.currentVersion == o.targetVersion {
+			logger.Infof("skip %s %s: already at version %s", node.role, node.host, o.targetVersion)
 			continue
 		}
 		artifacts := fetched[node.arch]
@@ -879,9 +799,9 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 			}
 		case roleKcctl:
 			err = o.upgradeKcctlNode(node.host, artifacts)
-			if err == nil && o.targetRevision != "" {
-				if got := o.probeNodeRevision(node.host, roleKcctl); got != o.targetRevision {
-					err = fmt.Errorf("kcctl on %s reports revision %q after replace, expected %s", node.host, got, shortRev(o.targetRevision))
+			if err == nil {
+				if got := o.probeNodeVersion(node.host, roleKcctl); got != o.targetVersion {
+					err = fmt.Errorf("kcctl on %s reports version %q after replace, expected %s", node.host, got, o.targetVersion)
 				}
 			}
 		default:
@@ -1127,21 +1047,21 @@ func (o *UpgradeOptions) waitConsoleHealthy(host string) error {
 	}
 }
 
-// verifyPlatform confirms the cluster API answers with the target revision
+// verifyPlatform confirms the cluster API answers with the target version
 // after the rollout. Individual node results were already reported per node.
 func (o *UpgradeOptions) verifyPlatform(_ *rolloutPlan) error {
 	if !o.verifiesPlatform() {
-		logger.Infof("%s upgrade complete; platform API revision not verified (component does not replace kubeclipper-server)", o.component)
+		logger.Infof("%s upgrade complete", o.component)
 		return nil
 	}
 	versionInfo, err := o.client.Version(context.TODO())
 	if err != nil {
 		return fmt.Errorf("verify upgrade via platform API: %w", err)
 	}
-	if o.targetRevision != "" && versionInfo.GitCommit != o.targetRevision {
-		return fmt.Errorf("platform API reports revision %s after upgrade, expected %s", versionInfo.GitCommit, o.targetRevision)
+	if versionInfo.GitVersion != o.targetVersion {
+		return fmt.Errorf("platform API reports version %s after upgrade, expected %s", versionInfo.GitVersion, o.targetVersion)
 	}
-	logger.Infof("platform API reports %s (revision %s)", versionInfo.GitVersion, shortRev(versionInfo.GitCommit))
+	logger.Infof("platform API reports %s", versionInfo.GitVersion)
 	return nil
 }
 

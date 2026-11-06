@@ -1,19 +1,25 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"sigs.k8s.io/yaml"
+
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
 )
 
 func supportedManifest() buildManifest {
 	var manifest buildManifest
-	manifest.Release = "v2.0.9"
+	manifest.Release = "v2.0.11"
 	manifest.Architectures = []string{"amd64", "arm64"}
 	manifest.Registries.Package = officialRegistryPrefix
 	manifest.Registries.Image = officialRegistryPrefix
-	manifest.Bootstrap.KubeClipperVersion = "v2.0.9"
+	manifest.Bootstrap.KubeClipperVersion = "v2.0.11"
 	manifest.Bootstrap.ConsoleVersion = "v1.6.0"
 	manifest.Bootstrap.RegistryVersion = "3.1.1"
 	manifest.Bootstrap.EtcdVersion = "3.5.21"
@@ -38,9 +44,9 @@ func TestBuildPublishMatrixIncludesEveryReleaseComponent(t *testing.T) {
 		t.Fatalf("buildPublishMatrix() produced %d entries, want 16: %+v", len(matrix), matrix)
 	}
 	wanted := map[publishMatrixEntry]bool{
-		{Component: "bootstrap-kubeclipper", Version: "v2.0.9", Architecture: "all"}: false,
-		{Component: "resource-kc-runtime", Version: "v2.0.0", Architecture: "all"}:   false,
-		{Component: "resource-nfs", Version: "v4.1.0", Architecture: "all"}:          false,
+		{Component: "bootstrap-kubeclipper", Version: "v2.0.11", Architecture: "all"}: false,
+		{Component: "resource-kc-runtime", Version: "v2.0.0", Architecture: "all"}:    false,
+		{Component: "resource-nfs", Version: "v4.1.0", Architecture: "all"}:           false,
 	}
 	for _, entry := range matrix {
 		if _, ok := wanted[entry]; ok {
@@ -65,7 +71,7 @@ func TestVerifyPolicyCoverageRejectsMismatchedReleaseAndBootstrapVersions(t *tes
 	manifest := supportedManifest()
 	manifest.Bootstrap.KubeClipperVersion = "v2.0.0"
 	err := verifyPolicyCoverage(&manifest, deliveryapis.DefaultSupportPolicy())
-	if err == nil || !strings.Contains(err.Error(), "release version v2.0.9 does not match bootstrap/kubeclipper version v2.0.0") {
+	if err == nil || !strings.Contains(err.Error(), "release version v2.0.11 does not match bootstrap/kubeclipper version v2.0.0") {
 		t.Fatalf("verifyPolicyCoverage() error = %v", err)
 	}
 }
@@ -153,4 +159,27 @@ func TestVerifyPolicyCoverageRejectsInvalidPublishVersions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVerifyEmbeddedInventoryMatchesAssembledRelease(t *testing.T) {
+	data, err := os.ReadFile("../../packaging/resources.yaml")
+	require.NoError(t, err)
+	var build buildManifest
+	require.NoError(t, yaml.Unmarshal(data, &build))
+	inventory, err := releasemanifest.Load("")
+	require.NoError(t, err)
+	inventory, err = inventory.WithRegistry("mirror.example.com/kubeclipper")
+	require.NoError(t, err)
+	data, err = yaml.Marshal(inventory)
+	require.NoError(t, err)
+	file := filepath.Join(t.TempDir(), "assembled.yaml")
+	require.NoError(t, os.WriteFile(file, data, 0600))
+	require.NoError(t, verifyEmbeddedInventory(&build, file))
+	inventory.Artifacts = inventory.Artifacts[:len(inventory.Artifacts)-1]
+	data, err = yaml.Marshal(inventory)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(file, data, 0600))
+	err = verifyEmbeddedInventory(&build, file)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "differs")
 }

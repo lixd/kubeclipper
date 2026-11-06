@@ -17,7 +17,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/source"
 )
 
-//go:embed embedded
+//go:embed embedded/release-manifest.yaml
 var embeddedRelease embed.FS
 
 // Load reads an explicit manifest or the inventory embedded in release builds.
@@ -26,16 +26,21 @@ func Load(path string) (*Manifest, error) {
 	var err error
 	if path == "" {
 		data, err = embeddedRelease.ReadFile("embedded/release-manifest.yaml")
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("embedded release manifest unavailable. Specify --manifest <file>")
-		}
 	} else {
 		data, err = os.ReadFile(path)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("read release manifest: %w", err)
 	}
-	return Parse(data)
+	manifest, err := Parse(data)
+	if err != nil || path != "" {
+		return manifest, err
+	}
+	registry, err := source.Registry("")
+	if err != nil {
+		return nil, err
+	}
+	return manifest.WithRegistry(registry)
 }
 
 // WithRegistry resolves mirror locations without changing the caller's manifest.

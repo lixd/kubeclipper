@@ -58,7 +58,7 @@ type Manifest struct {
 type Metadata struct {
 	Name           string `json:"name"`
 	Version        string `json:"version"`
-	SourceRevision string `json:"sourceRevision"`
+	SourceRevision string `json:"sourceRevision,omitempty"`
 }
 
 type Registries struct {
@@ -73,7 +73,7 @@ type Artifact struct {
 	Target         string    `json:"target"`
 	Platforms      []string  `json:"platforms,omitempty"`
 	Upstream       string    `json:"upstream,omitempty"`
-	Digest         string    `json:"digest"`
+	Digest         string    `json:"digest,omitempty"`
 	SourceRevision string    `json:"sourceRevision,omitempty"`
 }
 
@@ -150,9 +150,6 @@ func (m *Manifest) Validate() error { //nolint:gocyclo // Validation intentional
 	if !IsStableVersion(m.Metadata.Version) {
 		return fmt.Errorf("release manifest metadata.version must be a stable vX.Y.Z version")
 	}
-	if strings.TrimSpace(m.Metadata.SourceRevision) == "" {
-		return fmt.Errorf("release manifest metadata.sourceRevision is required")
-	}
 	if len(m.Artifacts) == 0 {
 		return fmt.Errorf("release manifest artifacts must not be empty")
 	}
@@ -168,7 +165,7 @@ func (m *Manifest) Validate() error { //nolint:gocyclo // Validation intentional
 	seen := make(map[string]struct{}, len(m.Artifacts))
 	targetSources := make(map[string]string, len(m.Artifacts))
 	targetTypes := make(map[string]string, len(m.Artifacts))
-	bootstrapRevision := ""
+	var bootstrap *Artifact
 	for i := range m.Artifacts {
 		artifact := &m.Artifacts[i]
 		if err := artifact.validate(i, packageRegistry, imageRegistry); err != nil {
@@ -186,16 +183,16 @@ func (m *Manifest) Validate() error { //nolint:gocyclo // Validation intentional
 		targetSources[artifact.Target] = artifact.Source
 		targetTypes[artifact.Target] = artifact.Type
 		if artifact.Type == ArtifactTypePackage && artifact.Component.Kind == "bootstrap" && artifact.Component.Name == "kubeclipper" {
-			if bootstrapRevision != "" {
+			if bootstrap != nil {
 				return fmt.Errorf("release manifest contains multiple bootstrap/kubeclipper artifacts")
 			}
-			bootstrapRevision = artifact.SourceRevision
+			bootstrap = artifact
 		}
 	}
-	if bootstrapRevision == "" {
+	if bootstrap == nil {
 		return fmt.Errorf("release manifest bootstrap/kubeclipper artifact is required")
 	}
-	if bootstrapRevision != m.Metadata.SourceRevision {
+	if m.Metadata.SourceRevision != "" && bootstrap.SourceRevision != m.Metadata.SourceRevision {
 		return fmt.Errorf("release manifest sourceRevision does not match bootstrap/kubeclipper sourceRevision")
 	}
 	return nil
@@ -233,12 +230,14 @@ func (a *Artifact) validate(index int, packageRegistry, imageRegistry string) er
 	if !strings.Contains(path.Base(a.Target), ":") && !strings.Contains(a.Target, "@") {
 		return fmt.Errorf("artifact[%d].target must include a tag or digest", index)
 	}
-	digest, err := v1.NewHash(a.Digest)
-	if err != nil {
-		return fmt.Errorf("artifact[%d].digest is invalid: %w", index, err)
-	}
-	if digest.Algorithm != "sha256" {
-		return fmt.Errorf("artifact[%d].digest must use sha256", index)
+	if a.Digest != "" {
+		digest, err := v1.NewHash(a.Digest)
+		if err != nil {
+			return fmt.Errorf("artifact[%d].digest is invalid: %w", index, err)
+		}
+		if digest.Algorithm != "sha256" {
+			return fmt.Errorf("artifact[%d].digest must use sha256", index)
+		}
 	}
 	platforms := make(map[string]struct{}, len(a.Platforms))
 	for _, platform := range a.Platforms {
@@ -256,9 +255,6 @@ func (a *Artifact) validate(index int, packageRegistry, imageRegistry string) er
 	if a.Type == ArtifactTypePackage {
 		if len(a.Platforms) == 0 {
 			return fmt.Errorf("artifact[%d] package-image platforms are required", index)
-		}
-		if strings.TrimSpace(a.SourceRevision) == "" {
-			return fmt.Errorf("artifact[%d] package-image sourceRevision is required", index)
 		}
 	}
 	return nil

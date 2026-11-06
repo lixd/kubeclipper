@@ -20,14 +20,13 @@ RELEASE_TAG="v2.0.3"
 mkdir -p "$WORKDIR/docs/testing/acceptance"
 
 write_manifest() {
-  local file="$1" version="$2" revision="$3" bootstrap_revision="$4"
+  local file="$1" version="$2"
   cat >"$file" <<EOF
 apiVersion: delivery.kubeclipper.io/v1alpha1
 kind: ReleaseManifest
 metadata:
   name: kubeclipper-resources
   version: $version
-  sourceRevision: $revision
 registries:
   package: ghcr.io/example/kubeclipper
   image: ghcr.io/example/kubeclipper
@@ -35,12 +34,12 @@ artifacts:
 - component:
     kind: bootstrap
     name: kubeclipper
+    version: $version
+  target: package-bootstrap-kubeclipper:$version
   source: ghcr.io/example/kubeclipper/qualification-abc123/kubeclipper:kubeclipper
-  sourceRevision: $bootstrap_revision
 - component:
     kind: k8s
     name: kubernetes
-  sourceRevision: $bootstrap_revision
 EOF
 }
 
@@ -150,10 +149,12 @@ expect_block "record manifest checksum mismatch" \
   --qualification-manifest "$GOOD_MANIFEST" \
   --acceptance-dir "$WORKDIR/badchecksum/docs/testing/acceptance"
 
-# 6. manifest sourceRevision mismatch
+# 6. bootstrap component version differs from the release tag.
 REV_MANIFEST="$WORKDIR/rev-manifest.yaml"
-write_manifest "$REV_MANIFEST" "$RELEASE_TAG" "$OTHER_CANDIDATE" "$CANDIDATE"
-expect_block "manifest sourceRevision mismatch" \
+write_manifest "$REV_MANIFEST" "$RELEASE_TAG"
+sed 's/    version: .*/    version: v0.0.1/' "$REV_MANIFEST" > "$REV_MANIFEST.next"
+mv "$REV_MANIFEST.next" "$REV_MANIFEST"
+expect_block "bootstrap component tag mismatch" \
   gate --release-tag "$RELEASE_TAG" --candidate-sha "$CANDIDATE" \
   --qualification-manifest "$REV_MANIFEST" \
   --acceptance-record "$GOOD_RECORD"
@@ -166,10 +167,12 @@ expect_block "manifest version mismatch" \
   --qualification-manifest "$VERSION_MANIFEST" \
   --acceptance-record "$GOOD_RECORD"
 
-# 8. bootstrap artifact revision mismatch
+# 8. bootstrap target uses a different tag.
 BOOTSTRAP_MANIFEST="$WORKDIR/bootstrap-manifest.yaml"
-write_manifest "$BOOTSTRAP_MANIFEST" "$RELEASE_TAG" "$CANDIDATE" "$OTHER_CANDIDATE"
-expect_block "bootstrap artifact revision mismatch" \
+write_manifest "$BOOTSTRAP_MANIFEST" "$RELEASE_TAG"
+sed 's/package-bootstrap-kubeclipper:.*/package-bootstrap-kubeclipper:v0.0.1/' "$BOOTSTRAP_MANIFEST" > "$BOOTSTRAP_MANIFEST.next"
+mv "$BOOTSTRAP_MANIFEST.next" "$BOOTSTRAP_MANIFEST"
+expect_block "bootstrap target tag mismatch" \
   gate --release-tag "$RELEASE_TAG" --candidate-sha "$CANDIDATE" \
   --qualification-manifest "$BOOTSTRAP_MANIFEST" \
   --acceptance-record "$GOOD_RECORD"

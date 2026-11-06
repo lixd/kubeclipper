@@ -100,11 +100,9 @@ func bundleSourceFixture(t *testing.T) (*Manifest, []crane.Option, func()) {
 		mutate.IndexAddendum{Add: images[ArchAMD64], Descriptor: v1.Descriptor{Platform: &v1.Platform{OS: "linux", Architecture: ArchAMD64}}},
 		mutate.IndexAddendum{Add: images[ArchARM64], Descriptor: v1.Descriptor{Platform: &v1.Platform{OS: "linux", Architecture: ArchARM64}}},
 	), types.DockerManifestList)
-	digest, err := index.Digest()
-	require.NoError(t, err)
 	manifest := &Manifest{
 		APIVersion: APIVersion, Kind: Kind,
-		Metadata:   Metadata{Name: "kubeclipper-resources", Version: "v2.0.11", SourceRevision: "bundle-revision"},
+		Metadata:   Metadata{Name: "kubeclipper-resources", Version: "v2.0.11"},
 		Registries: Registries{Package: OfficialSourcePrefix, Image: OfficialSourcePrefix},
 	}
 	for _, component := range []string{"kubeclipper", "registry"} {
@@ -116,21 +114,34 @@ func bundleSourceFixture(t *testing.T) (*Manifest, []crane.Option, func()) {
 		manifest.Artifacts = append(manifest.Artifacts, Artifact{
 			Type: ArtifactTypePackage, Component: Component{Kind: "bootstrap", Name: component, Version: version},
 			Source: OfficialSourcePrefix + "/" + target, Target: target,
-			Platforms: []string{PlatformAMD64, PlatformARM64}, Digest: digest.String(), SourceRevision: "bundle-revision",
+			Platforms: []string{PlatformAMD64, PlatformARM64},
 		})
 	}
 	for _, arch := range []string{ArchAMD64, ArchARM64} {
-		child, digestErr := images[arch].Digest()
-		require.NoError(t, digestErr)
 		manifest.Artifacts = append(manifest.Artifacts, Artifact{
 			Type: ArtifactTypeRuntime, Component: Component{Kind: "k8s", Name: "k8s", Version: "v1.37.0"},
-			Source: OfficialSourcePrefix + "/pause:3.10", Target: "pause:3.10", Platforms: []string{"linux/" + arch}, Digest: child.String(),
+			Source: OfficialSourcePrefix + "/pause:3.10", Target: "pause:3.10", Platforms: []string{"linux/" + arch},
 		})
 	}
 	for _, group := range groupArtifacts(manifest.Artifacts) {
+		published := index
+		if artifact := group.Artifacts[0]; artifact.Type == ArtifactTypePackage {
+			var labeled v1.ImageIndex = empty.Index
+			for _, arch := range []string{ArchAMD64, ArchARM64} {
+				config, configErr := images[arch].ConfigFile()
+				require.NoError(t, configErr)
+				config.Config.Labels["org.opencontainers.image.title"] = artifact.Component.Kind + "/" + artifact.Component.Name
+				config.Config.Labels["org.opencontainers.image.version"] = artifact.Component.Version
+				image, imageErr := mutate.ConfigFile(images[arch], config)
+				require.NoError(t, imageErr)
+				labeled = mutate.AppendManifests(labeled, mutate.IndexAddendum{Add: image,
+					Descriptor: v1.Descriptor{Platform: &v1.Platform{OS: "linux", Architecture: arch}}})
+			}
+			published = mutate.IndexMediaType(labeled, types.DockerManifestList)
+		}
 		ref, parseErr := name.ParseReference(group.Source)
 		require.NoError(t, parseErr)
-		require.NoError(t, remote.WriteIndex(ref, index, remote.WithAuth(authn.Anonymous), remote.WithTransport(transport), remote.WithNondistributable))
+		require.NoError(t, remote.WriteIndex(ref, published, remote.WithAuth(authn.Anonymous), remote.WithTransport(transport), remote.WithNondistributable))
 	}
 	return manifest, sourceOpts, server.Close
 }

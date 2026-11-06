@@ -8,6 +8,14 @@ trap 'rm -rf "$workdir"' EXIT
 
 mkdir -p "$workdir/bin" "$workdir/resource"
 
+cat > "$workdir/bin/crane" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1" == digest ]] || exit 2
+printf 'sha256:%064d\n' 1
+EOF
+chmod +x "$workdir/bin/crane"
+
 python3 - "$ROOT/packaging/resources.yaml" "$workdir/resource" <<'PY'
 import io
 import os
@@ -58,46 +66,18 @@ for component, component_versions in versions.items():
                     archive.addfile(info, io.BytesIO(chart))
 PY
 
-cat > "$workdir/bin/crane" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-case "$1" in
-digest)
-  if [[ " $* " == *" --platform "* ]]; then
-    printf 'sha256:%064d\n' 2
-  else
-    printf 'sha256:%064d\n' 1
-  fi
-  ;;
-config)
-  revision=dependency-revision
-  if [[ " $* " == *"/package-bootstrap-kubeclipper@"* ]]; then
-    revision=release-revision
-  fi
-  printf '{"config":{"Labels":{"org.opencontainers.image.revision":"%s"}}}\n' "$revision"
-  ;;
-*)
-  exit 2
-  ;;
-esac
-EOF
-chmod +x "$workdir/bin/crane"
-
 "$ROOT/scripts/open-packaging/generate-resource-metadata.sh" \
   --resource-dir "$workdir/resource" \
   --image-registry ghcr.io/kubeclipper/kubeclipper
 
-PATH="$workdir/bin:$PATH" \
-  "$ROOT/scripts/open-packaging/generate-release-manifest.sh" \
+"$ROOT/scripts/open-packaging/generate-release-manifest.sh" \
   --build-manifest "$ROOT/packaging/resources.yaml" \
   --resource-dir "$workdir/resource" \
   --output "$workdir/release.yaml" \
   --package-registry ghcr.io/kubeclipper/kubeclipper \
   --image-registry ghcr.io/kubeclipper/kubeclipper \
   --include-bootstrap \
-  --arch all \
-  --resolve-digests \
-  --source-revision release-revision
+  --arch all
 
 python3 - "$ROOT/packaging/resources.yaml" "$workdir/release.yaml" <<'PY'
 import sys
@@ -111,7 +91,7 @@ with open(release_path, encoding="utf-8") as stream:
     release = yaml.safe_load(stream)
 
 assert release["metadata"]["version"] == build["release"]
-assert release["metadata"]["sourceRevision"] == "release-revision"
+assert "sourceRevision" not in release["metadata"]
 assert release["registries"] == {
     "package": "ghcr.io/kubeclipper/kubeclipper",
     "image": "ghcr.io/kubeclipper/kubeclipper",
@@ -137,8 +117,8 @@ assert packages == expected_packages
 for item in artifacts:
     if item["type"] == "package-image":
         assert item["platforms"] == ["linux/amd64", "linux/arm64"]
-        assert item["sourceRevision"]
-        assert item["digest"].startswith("sha256:")
+    assert "sourceRevision" not in item
+    assert "digest" not in item
 
 assert not any(item["type"] == "helm-chart" for item in artifacts)
 

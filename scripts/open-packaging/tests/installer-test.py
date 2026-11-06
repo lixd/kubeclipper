@@ -45,12 +45,15 @@ esac
         return subprocess.run(['bash', str(self.script), *args], env=self.env,
                               capture_output=True, text=True)
 
-    def serve(self, bad_checksum=False, missing_binary=False, versions=('v9.8.7',)):
+    def serve(self, bad_checksum=False, missing_binary=False, transient_failure=False, versions=('v9.8.7',)):
         requests = []
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(handler):
                 requests.append(handler.path)
+                if transient_failure and len(requests) == 1:
+                    handler.send_error(503)
+                    return
                 if handler.path in {f'/{version}/kcctl-checksums.txt' for version in versions}:
                     digest = '0' * 64 if bad_checksum else DIGEST
                     body = f'{digest}  kcctl-linux-amd64\n'.encode()
@@ -105,6 +108,14 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('SHA256 mismatch', result.stderr)
         self.assertEqual(self.existing.read_bytes(), b'existing-install')
+
+    def test_transient_http_failure_is_retried(self):
+        requests = self.serve(transient_failure=True)
+        result = self.run_installer()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.existing.read_bytes(), PAYLOAD)
+        self.assertEqual(requests[0], requests[1])
+        self.assertEqual(len(requests), 3)
 
     def test_http_failure_preserves_existing_binary(self):
         self.serve(missing_binary=True)

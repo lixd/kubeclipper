@@ -77,7 +77,7 @@ jobs:
             --image-registry "$REGISTRY_PREFIX"
           echo "RESOURCE_DIR=$RUNNER_TEMP/kc-release" >> "$GITHUB_ENV"
 
-      - name: Resolve release digests and provenance
+      - name: Generate release tag inventory
         run: |
           scripts/open-packaging/generate-release-manifest.sh \
             --build-manifest packaging/resources.yaml \
@@ -86,9 +86,8 @@ jobs:
             --package-registry "$REGISTRY_PREFIX" \
             --image-registry "$REGISTRY_PREFIX" \
             --include-bootstrap \
-            --arch all \
-            --resolve-digests \
-            --source-revision "$GITHUB_SHA"
+            --arch all
+          go run ./tools/release-policy-verify --manifest packaging/resources.yaml --release-manifest "$RESOURCE_DIR/release-manifest.yaml"
           scripts/open-packaging/verify-release-manifest.sh \
             --manifest "$RESOURCE_DIR/release-manifest.yaml" \
             --registry "$REGISTRY_PREFIX"
@@ -129,8 +128,8 @@ jobs:
 
       - name: Build kcctl
         run: |
-          cp "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" pkg/delivery/releasemanifest/embedded/release-manifest.yaml
-          go build -o "$RUNNER_TEMP/kcctl" ./cmd/kcctl
+          go build -ldflags "-X github.com/kubeclipper/kubeclipper/pkg/delivery/source.GlobalPackageRegistry=$REGISTRY_PREFIX" \
+            -o "$RUNNER_TEMP/kcctl" ./cmd/kcctl
 
       - name: Verify embedded export inventory
         run: |

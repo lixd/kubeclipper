@@ -12,12 +12,14 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"reflect"
 	"sort"
 	"strings"
 
 	"sigs.k8s.io/yaml"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
+	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
 )
 
 const officialRegistryPrefix = "ghcr.io/kubeclipper/kubeclipper"
@@ -64,6 +66,7 @@ type buildManifest struct {
 func main() {
 	manifestPath := flag.String("manifest", "packaging/resources.yaml", "offline resource build manifest")
 	publishMatrix := flag.Bool("publish-matrix", false, "print the GitHub Actions OCI publish matrix as JSON")
+	releaseManifest := flag.String("release-manifest", "", "compare an assembled release with the embedded tag inventory")
 	flag.Parse()
 	data, err := os.ReadFile(*manifestPath)
 	if err != nil {
@@ -76,6 +79,9 @@ func main() {
 	if err := verifyPolicyCoverage(&manifest, deliveryapis.DefaultSupportPolicy()); err != nil {
 		fatal(err)
 	}
+	if err := verifyEmbeddedInventory(&manifest, *releaseManifest); err != nil {
+		fatal(err)
+	}
 	if *publishMatrix {
 		data, err := json.Marshal(buildPublishMatrix(&manifest))
 		if err != nil {
@@ -85,6 +91,64 @@ func main() {
 		return
 	}
 	fmt.Printf("release artifact/support policy consistency verified: %s\n", *manifestPath)
+}
+
+func verifyEmbeddedInventory(build *buildManifest, assembledPath string) error {
+	inventory, err := releasemanifest.Load("")
+	if err != nil {
+		return err
+	}
+	if inventory.Metadata.Version != build.Release {
+		return fmt.Errorf("embedded inventory version %s does not match release %s", inventory.Metadata.Version, build.Release)
+	}
+	expected := make(map[string]bool)
+	for _, entry := range buildPublishMatrix(build) {
+		expected[entry.Component+":"+entry.Version] = false
+	}
+	for i := range inventory.Artifacts {
+		artifact := &inventory.Artifacts[i]
+		prefix := "resource-"
+		if artifact.Component.Kind == "bootstrap" {
+			prefix = "bootstrap-"
+		}
+		key := prefix + artifact.Component.Name + ":" + artifact.Component.Version
+		if _, ok := expected[key]; !ok {
+			return fmt.Errorf("embedded inventory contains an undeclared component %s", key)
+		}
+		expected[key] = true
+	}
+	for key, present := range expected {
+		if !present {
+			return fmt.Errorf("embedded inventory is missing component %s", key)
+		}
+	}
+	if assembledPath == "" {
+		return nil
+	}
+	assembled, err := releasemanifest.Load(assembledPath)
+	if err != nil {
+		return err
+	}
+	if assembled.Metadata.Version != inventory.Metadata.Version ||
+		!reflect.DeepEqual(inventoryEntries(inventory), inventoryEntries(assembled)) {
+		return fmt.Errorf("assembled release differs from the embedded tag inventory; regenerate embedded/release-manifest.yaml")
+	}
+	return nil
+}
+
+func inventoryEntries(manifest *releasemanifest.Manifest) []releasemanifest.Artifact {
+	entries := append([]releasemanifest.Artifact(nil), manifest.Artifacts...)
+	for i := range entries {
+		entries[i].Source = entries[i].Target
+		entries[i].Digest = ""
+		entries[i].SourceRevision = ""
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		left := entries[i].Target + strings.Join(entries[i].Platforms, ",")
+		right := entries[j].Target + strings.Join(entries[j].Platforms, ",")
+		return left < right
+	})
+	return entries
 }
 
 type publishMatrixEntry struct {
