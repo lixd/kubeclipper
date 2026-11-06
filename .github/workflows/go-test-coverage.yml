@@ -39,16 +39,20 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - uses: imjasonh/setup-crane@v0.4
       - name: Install manifest dependency
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-yaml
+          sudo apt-get install -y python3-yaml skopeo
       - name: Verify policy and packaging contracts
         shell: bash
         run: |
           set -euo pipefail
           go run ./tools/release-policy-verify --manifest packaging/resources.yaml
           go test ./tools/release-policy-verify
+          crane version
+          skopeo --version
+          go test ./pkg/delivery/releasemanifest -count=1 -run '^TestReleaseVerifierPlatforms$' -v
           for test in scripts/open-packaging/tests/*.sh; do
             echo "RUN $test"
             bash "$test"

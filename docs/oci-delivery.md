@@ -185,6 +185,9 @@ It downloads the six public versioned files, compares them with the approved rel
 verifies their checksums, installs kcctl from both GitHub and OSS into temporary directories
 using the versioned script, and checks the native CLI and embedded inventory. It updates the
 root installer after these checks pass. Stable release runs are serialized.
+Stable publishing runs only in `kubeclipper/kubeclipper`. Forks run CI and GHCR
+qualification against their own packages. Production OSS and ACR credentials
+belong to the stable publishing repository.
 It reuses the existing `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET` repository secrets.
 The version directory contains six files with the same names as the GitHub Release assets.
 

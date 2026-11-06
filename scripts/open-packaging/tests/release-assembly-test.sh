@@ -11,8 +11,16 @@ mkdir -p "$workdir/bin" "$workdir/resource"
 cat > "$workdir/bin/crane" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "$1" == digest ]] || exit 2
-printf 'sha256:%064d\n' 1
+case "$1" in
+manifest)
+  printf '{"schemaVersion":2,"manifests":[{"digest":"sha256:%064d","platform":{"os":"linux","architecture":"amd64"}},{"digest":"sha256:%064d","platform":{"os":"linux","architecture":"arm64"}}]}' 1 2
+  ;;
+config)
+  while [[ "$1" != --platform ]]; do shift; done
+  printf '{"os":"linux","architecture":"%s"}' "${2#linux/}"
+  ;;
+*) exit 2 ;;
+esac
 EOF
 chmod +x "$workdir/bin/crane"
 

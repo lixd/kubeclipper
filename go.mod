@@ -6,6 +6,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/Masterminds/semver/v3 v3.1.1
 	github.com/bmatcuk/doublestar/v4 v4.8.1
+	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/charmbracelet/bubbles v1.0.0
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
@@ -86,7 +87,6 @@ require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
-	github.com/cenkalti/backoff/v4 v4.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.1 // indirect
 	github.com/charmbracelet/x/ansi v0.11.6 // indirect

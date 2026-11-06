@@ -22,6 +22,18 @@ with open(sys.argv[1], encoding="utf-8") as stream:
     workflow = yaml.safe_load(stream)
 
 jobs = workflow["jobs"]
+assert jobs["prepare"]["if"] == "github.repository == 'kubeclipper/kubeclipper'"
+# Every stable-release job must depend on the repository-gated preparation.
+def requires_prepare(name):
+    if name == "prepare":
+        return True
+    dependencies = jobs[name].get("needs") or []
+    if isinstance(dependencies, str):
+        dependencies = [dependencies]
+    return bool(dependencies) and all(requires_prepare(item) for item in dependencies)
+
+assert all(requires_prepare(name) for name in jobs)
+assert all("always()" not in str(job.get("if", "")) for job in jobs.values())
 assert workflow["concurrency"] == {"group": "stable-release", "cancel-in-progress": False}
 assert workflow["permissions"]["packages"] == "read"
 assert all(job.get("permissions", {}).get("packages") != "write" for job in jobs.values())
@@ -76,6 +88,9 @@ build = next(step["run"] for step in steps if step.get("name") == "Build kcctl")
 assert "source.GlobalPackageRegistry=$REGISTRY_PREFIX" in build
 assert "cp " not in build
 assert any(step.get("name") == "Verify embedded export inventory" for step in steps)
+for name in ("Import release from ghcr into local registry", "Verify idempotent re-import"):
+    command = next(step["run"] for step in steps if step.get("name") == name)
+    assert "--arch all" in command
 
 release = jobs["github-release"]
 stamp_step = next(step for step in release["steps"]

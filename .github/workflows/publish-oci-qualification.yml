@@ -160,7 +160,7 @@ jobs:
             --source-password "$GITHUB_TOKEN" \
             --target 127.0.0.1:5000 \
             --target-scheme http \
-            --arch amd64 \
+            --arch all \
             | tee "$RUNNER_TEMP/sync.log"
           grep -qE 'import complete: [1-9][0-9]* copied' "$RUNNER_TEMP/sync.log"
 
@@ -172,7 +172,7 @@ jobs:
             --source-password "$GITHUB_TOKEN" \
             --target 127.0.0.1:5000 \
             --target-scheme http \
-            --arch amd64 \
+            --arch all \
             | tee "$RUNNER_TEMP/sync2.log"
           grep -qE 'import complete: 0 copied' "$RUNNER_TEMP/sync2.log"
 

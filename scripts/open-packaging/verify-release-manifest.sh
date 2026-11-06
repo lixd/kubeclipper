@@ -67,101 +67,107 @@ if [[ -z "$tool" ]]; then
 fi
 command -v "$tool" >/dev/null 2>&1 || die "$tool is required"
 
-refs_file="$(mktemp -t kc-release-verify.XXXXXX)"
-raw_manifest="$(mktemp -t kc-release-raw.XXXXXX)"
-trap 'rm -f "$refs_file" "$raw_manifest"' EXIT
-python3 - "$manifest" "$registry" "$arch" > "$refs_file" <<'PY'
+python3 - "$manifest" "$registry" "$arch" "$tool" "$insecure" <<'PY'
+import hashlib
+import json
+import subprocess
 import sys
+
 try:
     import yaml
 except ImportError:
     raise SystemExit("PyYAML is required; install python3-yaml or pyyaml")
 
-manifest, registry, arch = sys.argv[1:]
+manifest, registry, arch, tool, insecure = sys.argv[1:]
 with open(manifest, "r", encoding="utf-8") as stream:
     document = yaml.safe_load(stream) or {}
 if document.get("kind") != "ReleaseManifest":
     raise SystemExit("kind must be ReleaseManifest")
-for index, artifact in enumerate(document.get("artifacts") or []):
-    target = str(artifact.get("target") or "").lstrip("/")
-    if not target:
-        raise SystemExit(f"artifact[{index}] target is required")
-    platforms = [str(value) for value in artifact.get("platforms") or []]
-    if arch and platforms and f"linux/{arch}" not in platforms:
-        continue
-    digest = str(artifact.get("digest") or "-")
-    artifact_type = str(artifact.get("type") or "")
-    platform = "-"
-    if artifact_type == "runtime-image":
-        if len(platforms) != 1:
-            raise SystemExit(f"artifact[{index}] runtime-image must declare exactly one platform")
-        platform = platforms[0]
-    print(f"{artifact_type}\t{registry}/{target}\t{digest}\t{platform}")
-PY
+if tool not in ("crane", "skopeo"):
+    raise SystemExit(f"unsupported tool: {tool}")
 
-checked=0
-failed=0
-while IFS=$'\t' read -r type ref expected_digest platform; do
-  [[ -n "$ref" ]] || continue
-  actual_digest=""
-  case "$tool" in
-  crane)
-    args=(digest)
-    [[ "$insecure" == false ]] || args+=(--insecure)
-    if [[ "$type" == "runtime-image" ]]; then
-      args+=(--platform "$platform")
-    fi
-    if ! actual_digest="$(crane "${args[@]}" "$ref" 2>/dev/null)"; then
-      echo "missing: $type $ref" >&2
-      failed=$((failed + 1))
-      continue
-    fi
-    ;;
-  skopeo)
-    args=(inspect --raw --retry-times 3)
-    [[ "$insecure" == false ]] || args+=(--tls-verify=false)
-    if ! skopeo "${args[@]}" "docker://$ref" > "$raw_manifest" 2>/dev/null; then
-      echo "missing: $type $ref" >&2
-      failed=$((failed + 1))
-      continue
-    fi
-    if ! actual_digest="$(python3 - "$raw_manifest" "$platform" <<'PY'
-import hashlib
-import json
-import sys
 
-manifest_path, platform = sys.argv[1:]
-with open(manifest_path, "rb") as stream:
-    raw = stream.read()
-document = json.loads(raw)
-if platform != "-" and isinstance(document.get("manifests"), list):
-    os_name, architecture = platform.split("/", 1)
-    for descriptor in document["manifests"]:
-        item_platform = descriptor.get("platform") or {}
-        if item_platform.get("os") == os_name and item_platform.get("architecture") == architecture:
-            print(descriptor["digest"])
-            break
+def inspect(reference, mode, platform=None):
+    if tool == "crane":
+        args = ["crane", mode]
+        if insecure == "true":
+            args.append("--insecure")
+        if platform:
+            args.extend(["--platform", platform])
+        args.append(reference)
     else:
-        raise SystemExit(f"platform {platform} not found")
-else:
-    print("sha256:" + hashlib.sha256(raw).hexdigest())
-PY
-)"; then
-      echo "missing platform: $type $ref $platform" >&2
-      failed=$((failed + 1))
-      continue
-    fi
-    ;;
-  *) die "unsupported tool: $tool" ;;
-  esac
-  if [[ "$expected_digest" != "-" && "$expected_digest" != "$actual_digest" ]]; then
-    echo "digest mismatch: $ref expected=$expected_digest actual=$actual_digest" >&2
-    failed=$((failed + 1))
-    continue
-  fi
-  echo "ok: $type $ref@$actual_digest"
-  checked=$((checked + 1))
-done < "$refs_file"
+        args = ["skopeo"]
+        if platform:
+            os_name, architecture = platform.split("/", 1)
+            args.extend(["--override-os", os_name, "--override-arch", architecture])
+        args.extend(["inspect", "--raw" if mode == "manifest" else "--config", "--retry-times", "3"])
+        if insecure == "true":
+            args.append("--tls-verify=false")
+        args.append("docker://" + reference)
+    try:
+        return subprocess.run(args, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout
+    except subprocess.CalledProcessError as error:
+        detail = error.stderr.decode("utf-8", errors="replace").strip() or str(error)
+        raise ValueError(f"inspect {reference}: {detail}") from error
 
-echo "verified $checked artifact(s); failures: $failed"
-[[ "$failed" -eq 0 ]]
+
+def verify(artifact, reference, platforms):
+    raw = inspect(reference, "manifest")
+    image = json.loads(raw)
+    digest = "sha256:" + hashlib.sha256(raw).hexdigest()
+    descriptors = image.get("manifests")
+    indexed = isinstance(descriptors, list)
+    if platforms and not indexed and len(platforms) > 1:
+        raise ValueError("single image does not contain all requested platforms")
+    for platform in platforms:
+        if platform not in ("linux/amd64", "linux/arm64"):
+            raise ValueError(f"unsupported platform {platform}")
+        if indexed:
+            os_name, architecture = platform.split("/", 1)
+            child = next((item for item in descriptors
+                          if (item.get("platform") or {}).get("os") == os_name
+                          and (item.get("platform") or {}).get("architecture") == architecture), None)
+            if child is None:
+                raise ValueError(f"source index does not contain platform {platform}")
+            if artifact["type"] == "runtime-image":
+                digest = child["digest"]
+        config = json.loads(inspect(reference, "config", platform))
+        actual = f'{config.get("os", "")}/{config.get("architecture", "")}'
+        # Data-only package configs use their index descriptors for platform metadata.
+        if artifact["type"] == "package-image" and indexed and actual == "/":
+            continue
+        if actual != platform:
+            raise ValueError(f"source platform mismatch: expected={platform} actual={actual}")
+    expected = artifact.get("digest")
+    if expected and expected != digest:
+        raise ValueError(f"digest mismatch: expected={expected} actual={digest}")
+    return digest
+
+
+checked = 0
+failed = 0
+for index, artifact in enumerate(document.get("artifacts") or []):
+    reference = f'{registry}/{str(artifact.get("target") or "").lstrip("/")}'
+    try:
+        if not artifact.get("target"):
+            raise ValueError(f"artifact[{index}] target is required")
+        artifact_type = artifact.get("type")
+        platforms = artifact.get("platforms") or []
+        if artifact_type == "runtime-image" and len(platforms) != 1:
+            raise ValueError("runtime-image must declare exactly one platform")
+        if artifact_type == "package-image" and not platforms:
+            raise ValueError("package-image platforms are required")
+        if arch and platforms:
+            if f"linux/{arch}" not in platforms:
+                continue
+            platforms = [f"linux/{arch}"]
+        digest = verify(artifact, reference, platforms)
+        print(f"ok: {artifact_type} {reference}@{digest}")
+        checked += 1
+    except (ValueError, KeyError, TypeError, OSError) as error:
+        print(f"invalid: {artifact.get('type')} {reference}: {error}", file=sys.stderr)
+        failed += 1
+print(f"verified {checked} artifact(s); failures: {failed}")
+if failed:
+    raise SystemExit(1)
+PY

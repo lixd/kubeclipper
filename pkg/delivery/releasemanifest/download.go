@@ -18,11 +18,18 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
+
+	"github.com/cenkalti/backoff/v4"
 
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/source"
 )
 
-const maxErrorResponseSize = 64 << 10
+const (
+	maxErrorResponseSize    = 64 << 10
+	manifestDownloadTimeout = 30 * time.Second
+	manifestDownloadRetries = 3
+)
 
 type Downloader struct {
 	Client  *http.Client
@@ -33,9 +40,12 @@ func (d Downloader) Download(ctx context.Context, version string) ([]byte, error
 	if !IsStableVersion(version) {
 		return nil, fmt.Errorf("kcctl version %q is not a stable vX.Y.Z release; use --manifest", version)
 	}
-	client := d.Client
-	if client == nil {
-		client = http.DefaultClient
+	client := *http.DefaultClient
+	if d.Client != nil {
+		client = *d.Client
+	}
+	if client.Timeout <= 0 {
+		client.Timeout = manifestDownloadTimeout
 	}
 	baseURL, err := source.ReleaseBaseURL(d.BaseURL)
 	if err != nil {
@@ -43,11 +53,11 @@ func (d Downloader) Download(ctx context.Context, version string) ([]byte, error
 	}
 	filename := "release-manifest-" + version + ".yaml"
 	manifestURL := baseURL + "/" + version + "/" + filename
-	data, err := download(ctx, client, manifestURL)
+	data, err := download(ctx, &client, manifestURL)
 	if err != nil {
 		return nil, err
 	}
-	checksum, err := download(ctx, client, manifestURL+".sha256")
+	checksum, err := download(ctx, &client, manifestURL+".sha256")
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +77,16 @@ func (d Downloader) Download(ctx context.Context, version string) ([]byte, error
 }
 
 func download(ctx context.Context, client *http.Client, url string) ([]byte, error) {
+	policy := backoff.WithContext(backoff.WithMaxRetries(backoff.NewExponentialBackOff(), manifestDownloadRetries), ctx)
+	return backoff.RetryWithData(func() ([]byte, error) {
+		return downloadAttempt(ctx, client, url)
+	}, policy)
+}
+
+func downloadAttempt(ctx context.Context, client *http.Client, url string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return nil, fmt.Errorf("create release manifest request: %w", err)
+		return nil, backoff.Permanent(fmt.Errorf("create release manifest request: %w", err))
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -77,17 +94,22 @@ func download(ctx context.Context, client *http.Client, url string) ([]byte, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		statusError := fmt.Errorf("download %s: HTTP %s", url, resp.Status)
 		if _, copyErr := io.Copy(io.Discard, io.LimitReader(resp.Body, maxErrorResponseSize)); copyErr != nil {
-			return nil, fmt.Errorf("drain error response from %s: %w", url, copyErr)
+			statusError = fmt.Errorf("%w: drain response: %w", statusError, copyErr)
 		}
-		return nil, fmt.Errorf("download %s: HTTP %s", url, resp.Status)
+		if resp.StatusCode == http.StatusRequestTimeout || resp.StatusCode == http.StatusTooManyRequests ||
+			resp.StatusCode >= http.StatusInternalServerError {
+			return nil, statusError
+		}
+		return nil, backoff.Permanent(statusError)
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, (16<<20)+1))
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", url, err)
 	}
 	if len(data) > 16<<20 {
-		return nil, fmt.Errorf("download %s: response exceeds 16 MiB", url)
+		return nil, backoff.Permanent(fmt.Errorf("download %s: response exceeds 16 MiB", url))
 	}
 	return data, nil
 }
