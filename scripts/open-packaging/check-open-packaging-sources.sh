@@ -13,8 +13,7 @@ patterns=(
   '/data/tarballs'
   'scp .*tarball'
   '192\.168\.'
-  'registry\.cn-'
-  'aliyuncs\.com/.+99cloud'
+  'aliyuncs\.com/.*99cloud'
   'sh-package'
 )
 

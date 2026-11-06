@@ -84,7 +84,7 @@ PY
 }
 
 copy_package() {
-  local source=$1 destination=$2 expected=$3 existing
+  local source=$1 destination=$2 expected=$3 existing attempt
   existing="$(digest_if_present "$destination")"
   if [[ -n "$existing" ]]; then
     [[ "$existing" == "$expected" ]] || die "versioned package tag conflict: $destination already points to $existing, refusing $expected"
@@ -92,7 +92,14 @@ copy_package() {
     return
   fi
   # No platform selection: retain the complete original index and its digest.
-  crane copy "$source" "$destination"
+  for attempt in 1 2 3; do
+    if crane copy "$source" "$destination"; then
+      break
+    fi
+    [[ "$attempt" -lt 3 ]] || die "cannot copy versioned package after 3 attempts: $destination"
+    echo "retrying versioned package copy ($attempt/3): $destination" >&2
+    sleep "$((attempt * 5))"
+  done
   [[ "$(crane digest "$destination")" == "$expected" ]] || die "versioned package digest changed after copy: $destination"
 }
 

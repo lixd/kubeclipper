@@ -23,11 +23,14 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - name: Build
-        run: KUBE_BUILD_PLATFORMS="linux/amd64" make build
-
       - name: Install packaging dependencies
         run: sudo apt-get update && sudo apt-get install -y python3-yaml
+
+      - name: Build
+        run: |
+          version="$(python3 -c 'import yaml; print(yaml.safe_load(open("packaging/resources.yaml"))["bootstrap"]["kubeclipperVersion"])')"
+          echo "KUBE_GIT_VERSION=$version" >> "$GITHUB_ENV"
+          KUBE_BUILD_PLATFORMS="linux/amd64" KUBE_GIT_VERSION="$version" make build
 
       - name: Start local OCI Registry
         run: |
@@ -55,7 +58,7 @@ jobs:
           go build -o "$tools_dir/oci-publish" ./tools/oci-publish
           export KC_OCI_PUBLISH_BIN="$tools_dir/oci-publish"
           scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
-            --registry-prefix 127.0.0.1:5000 --version pr-e2e --arch amd64
+            --registry-prefix 127.0.0.1:5000 --version "$KUBE_GIT_VERSION" --arch amd64
           scripts/open-packaging/publish-bootstrap-etcd.sh \
             --registry-prefix 127.0.0.1:5000 --version 3.5.21 --arch amd64
           scripts/open-packaging/publish-bootstrap-console.sh \
