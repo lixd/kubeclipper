@@ -52,6 +52,12 @@ Conventions that the tooling enforces:
   `KC_SOURCE_REVISION`) and `.version` labels.
 - Publishing is **immutable**: a repository/tag that already exists is never
   silently overwritten; the publish tool refuses and demands a version bump.
+- `package-bootstrap-etcd:<version>` is published once with both Linux
+  architectures under `ghcr.io/<owner>/kubeclipper`. Subsequent KC candidates
+  reuse that complete index, including its original digest and packaging source
+  revision. A first publication builds and verifies both architectures before
+  promoting the shared tag. Changes to the etcd package require a new package
+  version instead of rebuilding the existing tag for every KC commit.
 - A **release manifest** (`release-manifest.json`) lists, for one release, every
   artifact's `repository:tag` plus its resolved digest (multi-arch included).
   `generate-release-manifest.sh --resolve-digests` produces it;

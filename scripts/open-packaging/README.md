@@ -123,7 +123,7 @@ not run an aggregate release build:
 | Workflow | Trigger | Output |
 | --- | --- | --- |
 | `publish-bootstrap-kubeclipper.yml` | Push to `main`, `master`, `release-*`, a `v*` tag, or manual | KubeClipper server/agent package image |
-| `publish-bootstrap-etcd.yml` | Manual | etcd package image |
+| `publish-bootstrap-etcd.yml` | Manual | Versioned etcd package index, always amd64 + arm64 |
 | `publish-bootstrap-console.yml` | Manual | Caddy/console package image |
 | `publish-bootstrap-registry.yml` | Manual | Distribution Registry package image |
 | `publish-resource-k8s.yml` | Manual | Kubernetes package image and runtime images |
@@ -308,6 +308,11 @@ The old `kc-extension` package only wrapped `fanux/lvscare:v1.1.1` and
 Kubernetes images and are still mirrored as normal runtime images.
 
 ## 2. Publish Bootstrap Package Images
+
+Release workflows use `publish-bootstrap-etcd-release.sh <canonical-prefix>
+<target-prefix> <version>` to reuse the complete versioned etcd index and its
+original provenance. `publish-bootstrap-etcd.sh` remains its per-platform build
+helper for the first publication of a new etcd version.
 
 Build and publish the four standard OCI package images independently. Each
 script prepares its own inputs from source or public release assets, then pushes

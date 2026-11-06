@@ -58,6 +58,15 @@ embedded = next(step["with"] for step in cli["steps"]
 assert embedded["name"] == "release-manifest-${{ github.run_id }}"
 assert embedded["path"] == "pkg/delivery/releasemanifest/embedded"
 qualification = yaml.safe_load((Path(sys.argv[1]).parent / "publish-oci-qualification.yml").read_text())
+component_workflow = yaml.safe_load((Path(sys.argv[1]).parent / "_publish-oci-component.yml").read_text())
+component_steps = component_workflow["jobs"]["publish"]["steps"]
+component_publish = next(step for step in component_steps if step.get("name") == "Build and publish component")
+assert component_publish["env"]["CANONICAL_REGISTRY_PREFIX"] == "ghcr.io/${{ github.repository_owner }}/kubeclipper"
+assert "publish-bootstrap-etcd-release.sh" in component_publish["run"]
+assert "bootstrap-etcd" in component_workflow["concurrency"]["group"]
+assert "'canonical'" in component_workflow["concurrency"]["group"]
+etcd_workflow = yaml.safe_load((Path(sys.argv[1]).parent / "publish-bootstrap-etcd.yml").read_text())
+assert etcd_workflow["jobs"]["publish"]["with"]["architecture"] == "all"
 steps = qualification["jobs"]["sync-roundtrip"]["steps"]
 build = next(step["run"] for step in steps if step.get("name") == "Build kcctl")
 assert "pkg/delivery/releasemanifest/embedded/release-manifest.yaml" in build

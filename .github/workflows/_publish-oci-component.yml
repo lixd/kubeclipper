@@ -30,7 +30,7 @@ permissions:
 concurrency:
   # Serialize every writer for one target component/version even when a retry
   # comes from a different ref. OCI Distribution tags have no portable CAS.
-  group: publish-${{ inputs.registry_prefix }}-${{ inputs.component }}-${{ inputs.version }}
+  group: publish-${{ inputs.component == 'bootstrap-etcd' && 'canonical' || inputs.registry_prefix }}-${{ inputs.component }}-${{ inputs.version }}
   cancel-in-progress: false
 
 jobs:
@@ -92,6 +92,10 @@ jobs:
             all) architectures="amd64 arm64" ;;
             *) echo "unsupported architecture: $architecture" >&2; exit 1 ;;
           esac
+          # etcd is shared across KC releases as one complete immutable index.
+          if [[ "$component" == bootstrap-etcd ]]; then
+            architectures="amd64 arm64"
+          fi
           if [[ -z "$version" ]]; then
             if [[ "$component" != "bootstrap-kubeclipper" ]]; then
               echo "version is required for $component" >&2
@@ -204,6 +208,7 @@ jobs:
           VERSION: ${{ steps.settings.outputs.version }}
           ARCHITECTURES: ${{ steps.settings.outputs.architectures }}
           REGISTRY_PREFIX: ${{ steps.settings.outputs.registry_prefix }}
+          CANONICAL_REGISTRY_PREFIX: ghcr.io/${{ github.repository_owner }}/kubeclipper
           KC_DOWNLOAD_RETRIES: "5"
           KC_DOWNLOAD_MAX_TIME: "1800"
           KC_RESOURCE_DIR: ${{ runner.temp }}/kc-resource
@@ -212,13 +217,15 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$KC_RESOURCE_DIR"
+          if [[ "$COMPONENT" == bootstrap-etcd ]]; then
+            scripts/open-packaging/publish-bootstrap-etcd-release.sh \
+              "${CANONICAL_REGISTRY_PREFIX,,}" "$REGISTRY_PREFIX" "$VERSION"
+            exit 0
+          fi
           for arch in $ARCHITECTURES; do
             case "$COMPONENT" in
               bootstrap-kubeclipper)
                 scripts/open-packaging/publish-bootstrap-kubeclipper.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
-                ;;
-              bootstrap-etcd)
-                scripts/open-packaging/publish-bootstrap-etcd.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
                 ;;
               bootstrap-console)
                 scripts/open-packaging/publish-bootstrap-console.sh --registry-prefix "$REGISTRY_PREFIX" --version "$VERSION" --arch "$arch"
@@ -276,9 +283,11 @@ jobs:
             for arch in $ARCHITECTURES; do
               crane digest --platform "linux/$arch" "$ref"
               config="$(crane config --platform "linux/$arch" "$ref")"
-              jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" \
+              jq -e --arg source "$KC_SOURCE_URL" --arg revision "$KC_SOURCE_REVISION" --arg component "$COMPONENT" \
                 '.config.Labels["org.opencontainers.image.source"] == $source and
-                 .config.Labels["org.opencontainers.image.revision"] == $revision' <<< "$config"
+                 (if $component == "bootstrap-etcd" then
+                    (.config.Labels["org.opencontainers.image.revision"] | test("^[0-9a-f]{40}$"))
+                  else .config.Labels["org.opencontainers.image.revision"] == $revision end)' <<< "$config"
             done
           fi
           if [[ -f "$KC_RESOURCE_DIR/images.lock" ]]; then
