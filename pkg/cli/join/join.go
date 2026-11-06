@@ -370,14 +370,14 @@ func (c *JoinOptions) runJoinAgentNode() error {
 	if err != nil {
 		return errors.Wrap(err, "get running server version")
 	}
-	if strings.TrimSpace(serverVersion.GitCommit) == "" {
-		return fmt.Errorf("running server version has no source revision")
+	if strings.TrimSpace(serverVersion.GitVersion) == "" {
+		return fmt.Errorf("running server has no package version")
 	}
 	for ip := range c.parseAgent {
 		metadata := c.parseAgent[ip]
 		metadata.AgentID = uuid.New().String()
 		c.parseAgent[ip] = metadata
-		if err := c.agentNodeFiles(ip, metadata, serverVersion.GitCommit); err != nil {
+		if err := c.agentNodeFiles(ip, metadata, serverVersion.GitVersion); err != nil {
 			return err
 		}
 		if err := c.enableAgent(ip, metadata); err != nil {
@@ -411,11 +411,11 @@ func (c *JoinOptions) preCheckKcAgent(ip string) bool {
 	return true
 }
 
-func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata, sourceRevision string) error {
+func (c *JoinOptions) agentNodeFiles(node string, metadata options.Metadata, version string) error {
 	if err := bootstrap.InstallBootstrapAssetsFromRegistry(context.Background(), bootstrap.BootstrapInstallOptions{
 		Registry:       c.deployConfig.PackageRegistry,
 		Arch:           bootstrap.RuntimeArch(),
-		SourceRevision: sourceRevision,
+		Version:        version,
 		SSH:            c.sshConfig,
 		Hosts:          []string{node},
 		NeedAgent:      false,

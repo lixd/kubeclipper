@@ -127,8 +127,8 @@ jobs:
               manifest = yaml.safe_load(stream)
           artifacts = manifest['artifacts']
           assert manifest['kind'] == 'ReleaseManifest'
-          assert len([item for item in artifacts if item['type'] == 'package-image']) == 5
-          assert len([item for item in artifacts if item['type'] == 'helm-chart']) == 1
+          assert len([item for item in artifacts if item['type'] == 'package-image']) == 6
+          assert not any(item['type'] == 'helm-chart' for item in artifacts)
           runtime_images = [item for item in artifacts if item['type'] == 'runtime-image']
           assert len(runtime_images) == 10
           assert {item['component']['name'] for item in runtime_images} == {
@@ -139,8 +139,8 @@ jobs:
       - name: Native multi-architecture offline bundle and Registry tests
         run: go test ./pkg/delivery/releasemanifest ./pkg/delivery/bootstrap ./pkg/cli/registry/...
 
-      - name: Release manifest provenance test
-        run: scripts/open-packaging/tests/generate-release-manifest-provenance-test.sh
+      - name: Release manifest tag test
+        run: scripts/open-packaging/tests/generate-release-manifest-tag-test.sh
 
       - name: Bootstrap version metadata test
         run: scripts/open-packaging/tests/bootstrap-version-metadata-test.sh

@@ -418,8 +418,7 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 		return nil
 	}
 
-	// 1. install the agent binary from the package registry, pinned to this
-	// server's source revision so the binary matches the running server
+	// 1. install the agent binary for the running server's version tag
 	registryConfig, err := deliveryregistry.Resolve(deployConfig.PackageRegistry)
 	if err != nil {
 		return errors.WithMessage(err, "resolve package registry config")
@@ -427,7 +426,7 @@ func (r *Kubeadm) deployKCAgent(ctx context.Context, node *v1.WorkerNode, region
 	if err := bootstrap.InstallBootstrapAssetsFromRegistry(ctx, bootstrap.BootstrapInstallOptions{
 		Registry:       deployConfig.PackageRegistry,
 		Arch:           bootstrap.RuntimeArch(),
-		SourceRevision: k8sversion.Get().GitCommit,
+		Version:        k8sversion.Get().GitVersion,
 		SSH:            r.ssh(),
 		Hosts:          []string{ip},
 		NeedAgent:      false,

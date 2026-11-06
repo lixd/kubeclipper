@@ -68,7 +68,7 @@ var joinBootstrapAssets = []bootstrapAsset{
 type BootstrapInstallOptions struct {
 	Registry       string
 	Arch           string
-	SourceRevision string
+	Version        string
 	SSH            *sshutils.SSH
 	Hosts          []string
 	NeedAgent      bool
@@ -91,8 +91,8 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if opts.Arch == "" {
 		opts.Arch = RuntimeArch()
 	}
-	if strings.TrimSpace(opts.SourceRevision) == "" {
-		return fmt.Errorf("bootstrap source revision is required")
+	if strings.TrimSpace(opts.Version) == "" {
+		return fmt.Errorf("bootstrap package version is required")
 	}
 	if len(opts.Hosts) == 0 {
 		return fmt.Errorf("bootstrap install hosts are required")
@@ -103,9 +103,10 @@ func InstallBootstrapAssetsFromRegistry(ctx context.Context, opts BootstrapInsta
 	if err != nil {
 		return fmt.Errorf("refresh bootstrap assets from registry %s: %w", opts.Registry, err)
 	}
-	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch, opts.SourceRevision)
+	components, missing := resolveBootstrapAssetComponents(inventory, assets, opts.Arch, opts.Version)
 	if len(missing) > 0 {
-		return fmt.Errorf("package registry %s is missing bootstrap assets for arch %s (KubeClipper source revision %s): %s", opts.Registry, opts.Arch, opts.SourceRevision, strings.Join(missing, ", "))
+		return fmt.Errorf("package registry %s is missing bootstrap assets for arch %s (KubeClipper version %s): %s",
+			opts.Registry, opts.Arch, opts.Version, strings.Join(missing, ", "))
 	}
 	result, err := deliveryfetcher.NewOCIArtifactFetcherWithConfig(false, opts.RegistryConfig).Fetch(ctx, &deliveryapis.ResolvedArtifactPlan{
 		OS:         deliveryapis.DefaultPackageOS,
@@ -168,7 +169,11 @@ type bootstrapInventoryIndexer interface {
 	IndexRepositories(ctx context.Context, registry string, repositories []string) (*deliveryapis.PackageInventory, error)
 }
 
-func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, assets []bootstrapAsset, arch, sourceRevision string) ([]deliveryapis.ResolvedComponent, []string) {
+func resolveBootstrapAssetComponents(
+	inventory *deliveryapis.PackageInventory,
+	assets []bootstrapAsset,
+	arch, version string,
+) (components []deliveryapis.ResolvedComponent, missing []string) {
 	assetsByPackage := make(map[string][]bootstrapAsset)
 	packageNames := make([]string, 0, len(assets))
 	for _, asset := range assets {
@@ -179,11 +184,11 @@ func resolveBootstrapAssetComponents(inventory *deliveryapis.PackageInventory, a
 		assetsByPackage[packageName] = append(assetsByPackage[packageName], asset)
 	}
 
-	components := make([]deliveryapis.ResolvedComponent, 0, len(assetsByPackage))
-	missing := make([]string, 0)
+	components = make([]deliveryapis.ResolvedComponent, 0, len(assetsByPackage))
+	missing = make([]string, 0)
 	for _, packageName := range packageNames {
 		packageAssets := assetsByPackage[packageName]
-		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch, sourceRevision)
+		pkg, ok := selectBootstrapPackage(inventory, packageName, packageAssets, arch, version)
 		if !ok {
 			for _, asset := range packageAssets {
 				missing = append(missing, fmt.Sprintf("%s/%s:%s", bootstrapKind, packageName, asset.Name))
@@ -210,10 +215,10 @@ func selectBootstrapPackage(
 	packageName string,
 	assets []bootstrapAsset,
 	arch string,
-	sourceRevision string,
+	version string,
 ) (deliveryapis.PackageEntry, bool) {
-	sourceRevision = strings.TrimSpace(sourceRevision)
-	if inventory == nil || (packageName == bootstrapPackageKubeClipper && sourceRevision == "") {
+	version = strings.TrimSpace(version)
+	if inventory == nil || (packageName == bootstrapPackageKubeClipper && version == "") {
 		return deliveryapis.PackageEntry{}, false
 	}
 	var candidates []deliveryapis.PackageEntry
@@ -221,7 +226,7 @@ func selectBootstrapPackage(
 		if pkg.Kind != bootstrapKind || pkg.Name != packageName || pkg.Arch != arch {
 			continue
 		}
-		if packageName == bootstrapPackageKubeClipper && strings.TrimSpace(pkg.SourceRevision) != sourceRevision {
+		if packageName == bootstrapPackageKubeClipper && strings.TrimSpace(pkg.Version) != version {
 			continue
 		}
 		if !hasBootstrapAssetContents(pkg.Contents, assets) {

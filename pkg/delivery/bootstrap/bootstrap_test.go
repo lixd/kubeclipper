@@ -113,3 +113,29 @@ func TestBootstrapSelectsOnlyConsumedAssets(t *testing.T) {
 		t.Fatalf("join selected %v", join)
 	}
 }
+
+func TestBootstrapSelectsRequestedVersionTag(t *testing.T) {
+	inventory := deliveryapis.NewPackageInventory("registry.local/kubeclipper")
+	for _, version := range []string{"v2.0.10", "v2.0.11", "v2.0.12"} {
+		inventory.Spec.Packages = append(inventory.Spec.Packages, deliveryapis.PackageEntry{
+			Kind: "bootstrap", Name: "kubeclipper", Version: version, OS: "linux", Arch: "amd64",
+			SourceRevision: "original-build",
+			Contents:       []deliveryapis.ArtifactContent{{Name: "kubeclipper-agent"}},
+		})
+	}
+	for _, revision := range []string{"original-build", ""} {
+		inventory.Spec.Packages[1].SourceRevision = revision
+		selected, ok := selectBootstrapPackage(inventory, bootstrapPackageKubeClipper, joinBootstrapAssets, "amd64", "v2.0.11")
+		if !ok || selected.Version != "v2.0.11" {
+			t.Fatalf("select version v2.0.11 with revision %q = %+v, %t", revision, selected, ok)
+		}
+	}
+	for _, version := range []string{"", "v2.0.13"} {
+		if selected, ok := selectBootstrapPackage(inventory, bootstrapPackageKubeClipper, joinBootstrapAssets, "amd64", version); ok {
+			t.Fatalf("selected %+v for unavailable version %q", selected, version)
+		}
+	}
+	if selected, ok := selectBootstrapPackage(inventory, bootstrapPackageKubeClipper, joinBootstrapAssets, "arm64", "v2.0.11"); ok {
+		t.Fatalf("selected wrong architecture: %+v", selected)
+	}
+}

@@ -110,7 +110,8 @@ Key properties:
   is reachable and lists tags before any remote mutation; on failure it tells
   you to mirror the release with `kcctl registry import`.
 - Deploy uploads bootstrap materials to targets from the registry (no static
-  server), seeds the delivery-policy ConfigMap, and probes the etcd
+  server), selects the KubeClipper package by its version tag, seeds the
+  delivery-policy ConfigMap, and probes the etcd
   **write path** (put+delete roundtrip, retried) before uploading config — the
   cold-start race between `kc-server` boot and etcd readiness is handled here.
 

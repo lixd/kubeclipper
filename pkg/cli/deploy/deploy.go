@@ -771,7 +771,7 @@ func (d *DeployOptions) sendPackage() error {
 	return bootstrap.InstallBootstrapAssetsFromRegistry(context.Background(), bootstrap.BootstrapInstallOptions{
 		Registry:       d.deployConfig.PackageRegistry,
 		Arch:           bootstrap.RuntimeArch(),
-		SourceRevision: k8sversion.Get().GitCommit,
+		Version:        k8sversion.Get().GitVersion,
 		SSH:            d.deployConfig.SSHConfig,
 		Hosts:          d.allNodes,
 		NeedAgent:      true,
