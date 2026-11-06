@@ -53,10 +53,29 @@ func TestRegistryCommandsUseUnifiedDelivery(t *testing.T) {
 		}
 	}
 	root := NewCmdRegistry(options.IOStreams{})
+	commands := make(map[string]bool)
 	for _, child := range root.Commands() {
-		if child.Name() == "push" {
-			t.Fatal("obsolete registry push command remains")
+		commands[child.Name()] = true
+		for _, alias := range child.Aliases {
+			if alias == "sync" || alias == "push" {
+				t.Fatalf("obsolete registry alias %s remains", alias)
+			}
 		}
+	}
+	if !commands["export"] || !commands["import"] || commands["sync"] || commands["push"] {
+		t.Fatalf("unexpected registry commands: %v", commands)
+	}
+	root.SetOut(io.Discard)
+	root.SetErr(io.Discard)
+	for _, name := range []string{"sync", "push"} {
+		root.SetArgs([]string{name})
+		if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "unknown command") {
+			t.Fatalf("removed command %s returned %v", name, err)
+		}
+	}
+	root.SetArgs([]string{})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("registry help returned %v", err)
 	}
 }
 

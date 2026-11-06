@@ -102,7 +102,7 @@ jobs:
           path: ${{ env.RESOURCE_DIR }}/release-manifest.yaml
 
   # Round-trip the published qualification release through `kcctl registry
-  # sync` into a fresh local registry: proves the offline/mirror path users
+  # import` into a fresh local registry: proves the offline/mirror path users
   # rely on (ghcr pull auth, digest verification, idempotent re-sync).
   sync-roundtrip:
     needs: manifest
@@ -153,9 +153,9 @@ jobs:
           echo "local registry did not become ready" >&2
           exit 1
 
-      - name: Sync release from ghcr into local registry
+      - name: Import release from ghcr into local registry
         run: |
-          "$RUNNER_TEMP/kcctl" registry sync \
+          "$RUNNER_TEMP/kcctl" registry import \
             --manifest "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" \
             --source-username "$GITHUB_ACTOR" \
             --source-password "$GITHUB_TOKEN" \
@@ -163,11 +163,11 @@ jobs:
             --target-scheme http \
             --arch amd64 \
             | tee "$RUNNER_TEMP/sync.log"
-          grep -qE 'sync complete: [1-9][0-9]* copied' "$RUNNER_TEMP/sync.log"
+          grep -qE 'import complete: [1-9][0-9]* copied' "$RUNNER_TEMP/sync.log"
 
-      - name: Verify idempotent re-sync
+      - name: Verify idempotent re-import
         run: |
-          "$RUNNER_TEMP/kcctl" registry sync \
+          "$RUNNER_TEMP/kcctl" registry import \
             --manifest "$RUNNER_TEMP/kc-manifest/release-manifest.yaml" \
             --source-username "$GITHUB_ACTOR" \
             --source-password "$GITHUB_TOKEN" \
@@ -175,7 +175,7 @@ jobs:
             --target-scheme http \
             --arch amd64 \
             | tee "$RUNNER_TEMP/sync2.log"
-          grep -qE 'sync complete: 0 copied' "$RUNNER_TEMP/sync2.log"
+          grep -qE 'import complete: 0 copied' "$RUNNER_TEMP/sync2.log"
 
       - name: Show synced catalog
         run: curl -sf http://127.0.0.1:5000/v2/_catalog | head -c 2000

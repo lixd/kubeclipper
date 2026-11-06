@@ -448,7 +448,7 @@ func TestPrecheckPackageRegistryFailureGuidance(t *testing.T) {
 	if err == nil {
 		t.Fatal("precheckPackageRegistry() succeeded against a dead registry")
 	}
-	for _, want := range []string{"127.0.0.1:1", "kcctl registry sync", "--package-registry"} {
+	for _, want := range []string{"127.0.0.1:1", "kcctl registry import", "--package-registry"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("precheck error %q missing guidance fragment %q", err.Error(), want)
 		}

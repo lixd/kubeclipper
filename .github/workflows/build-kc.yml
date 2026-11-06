@@ -33,16 +33,14 @@ jobs:
           cache: true
       - name: Build
         run:
-          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
+          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64" make build-cli
 
       - name: Package kcctl-only artifacts
         run: |
           pushd dist
           cp kcctl kcctl-linux-amd64
           cp linux_arm64/kcctl kcctl-linux-arm64
-          cp darwin_amd64/kcctl kcctl-darwin-amd64
-          cp darwin_arm64/kcctl kcctl-darwin-arm64
-          sha256sum kcctl-* > kcctl-checksums.txt
+          sha256sum kcctl-linux-amd64 kcctl-linux-arm64 > kcctl-checksums.txt
           popd
 
       - name: Upload kcctl workflow artifacts
@@ -52,7 +50,5 @@ jobs:
           path: |
             dist/kcctl-linux-arm64
             dist/kcctl-linux-amd64
-            dist/kcctl-darwin-amd64
-            dist/kcctl-darwin-arm64
             dist/kcctl-checksums.txt
           if-no-files-found: error

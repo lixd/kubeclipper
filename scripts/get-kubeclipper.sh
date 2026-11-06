@@ -16,8 +16,7 @@ fatal() { echo "[ERROR] $*" >&2; exit 1; }
 
 case "$(uname -s)" in
   Linux) OS_TYPE=linux ;;
-  Darwin) OS_TYPE=darwin ;;
-  *) fatal 'Only Linux and macOS are supported' ;;
+  *) fatal 'Only Linux is supported' ;;
 esac
 case "${ARCH:-$(uname -m)}" in
   amd64|x86_64) ARCH=amd64 ;;

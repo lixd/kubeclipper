@@ -36,31 +36,32 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/delivery/releasemanifest"
 )
 
-const syncLongDescription = `
- Copy every artifact of a release manifest (bootstrap and resource package
- images, Helm OCI charts, runtime images) from the registries recorded in the
- manifest into a target registry, verifying digests and refusing to overwrite
- a tag with different content.
+const importLongDescription = `
+ Import release artifacts into a target registry, verifying digests and refusing
+ to overwrite a tag with different content. The default source is the embedded
+ release inventory. Use --manifest to select another online release or --bundle
+ to import an offline archive created by 'kcctl registry export'.
 
  This is the supported way to mirror official KubeClipper releases into an
  internal or air-gapped registry for use with 'kcctl deploy --package-registry'.`
 
-const syncExample = `
+const importExample = `
   # Mirror a release into a private registry
-  kcctl registry sync --manifest release-manifest.yaml --target harbor.internal/kubeclipper
+  kcctl registry import --manifest release-manifest.yaml --target harbor.internal/kubeclipper
 
   # Mirror with credentials on both sides and a single architecture
-  kcctl registry sync --manifest release-manifest.yaml --target harbor.internal/kubeclipper \
+  kcctl registry import --manifest release-manifest.yaml --target harbor.internal/kubeclipper \
     --target-username robot --target-password-file /tmp/harbor.pw \
     --source-username user --source-password token --arch amd64
 
-  # Import the full release after bootstrapping from registry-<version>.tar.gz
-  kcctl registry sync --bundle kc-offline.tar.gz --target registry.internal/kubeclipper
+  # Export a release, then import its offline archive
+  kcctl registry export --output ./offline && \
+    kcctl registry import --bundle ./offline/kubeclipper-offline-vX.Y.Z.tar.gz --target registry.internal/kubeclipper
 
   # Show what would be copied without touching any registry
-  kcctl registry sync --manifest release-manifest.yaml --target harbor.internal/kubeclipper --dry-run`
+  kcctl registry import --manifest release-manifest.yaml --target harbor.internal/kubeclipper --dry-run`
 
-type SyncOptions struct {
+type ImportOptions struct {
 	options.IOStreams
 
 	BundlePath      string
@@ -74,13 +75,13 @@ type SyncOptions struct {
 	SourcePassword  string
 }
 
-func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
-	opts := &SyncOptions{IOStreams: o.IOStreams}
+func NewCmdRegistryImport(o *RegistryOptions) *cobra.Command {
+	opts := &ImportOptions{IOStreams: o.IOStreams}
 	cmd := &cobra.Command{
-		Use:     "sync [--manifest <release-manifest.yaml> | --bundle <release.tar.gz>] --target <registry> [flags]",
-		Short:   "mirror a release manifest into another registry",
-		Long:    syncLongDescription,
-		Example: syncExample,
+		Use:     "import [--manifest <release-manifest.yaml> | --bundle <release.tar.gz>] --target <registry> [flags]",
+		Short:   "import release artifacts from online registries or an offline bundle",
+		Long:    importLongDescription,
+		Example: importExample,
 		Args:    cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			utils.CheckErr(opts.ValidateArgs())
@@ -92,7 +93,7 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 	cmd.Flags().StringVar(&opts.PackageRegistry, "package-registry", "", "source registry prefix overriding KCZONE and manifest locations")
 	cmd.Flags().StringVar(&opts.BundlePath, "bundle", "", "offline OCI release bundle exported by kcctl registry export.")
 	cmd.Flags().StringVar(&opts.Target, "target", "", "target registry prefix, e.g. harbor.internal/kubeclipper. Required.")
-	cmd.Flags().StringVar(&opts.Arch, "arch", "all", "architecture to sync: amd64, arm64 or all")
+	cmd.Flags().StringVar(&opts.Arch, "arch", "all", "architecture to import: amd64, arm64 or all")
 	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "print the copy plan without contacting registries")
 	cmd.Flags().StringVar(&opts.TargetFiles.Scheme, "target-scheme", "https", "target registry transport scheme: https or http")
 	cmd.Flags().StringVar(&opts.TargetFiles.Username, "target-username", "", "target registry username or robot account")
@@ -106,7 +107,7 @@ func NewCmdRegistrySync(o *RegistryOptions) *cobra.Command {
 	return cmd
 }
 
-func (o *SyncOptions) ValidateArgs() error {
+func (o *ImportOptions) ValidateArgs() error {
 	if o.ManifestPath != "" && o.BundlePath != "" {
 		return fmt.Errorf("--manifest and --bundle are mutually exclusive")
 	}
@@ -134,7 +135,7 @@ func (o *SyncOptions) ValidateArgs() error {
 	return nil
 }
 
-func (o *SyncOptions) Run(_ *cobra.Command) error {
+func (o *ImportOptions) Run(_ *cobra.Command) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
 	var manifest *releasemanifest.Manifest
@@ -148,7 +149,7 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 		defer bundle.Close()
 		manifest = bundle.Manifest
 		if manifest == nil {
-			return fmt.Errorf("a release bundle is required for sync; the Registry bootstrap bundle is only for registry deploy")
+			return fmt.Errorf("a release bundle is required for import; the Registry bootstrap bundle is only for registry deploy")
 		}
 	} else {
 		manifest, err = releasemanifest.Load(o.ManifestPath)
@@ -161,7 +162,7 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 		}
 	}
 	if o.DryRun {
-		return printSyncPlan(o.IOStreams.Out, manifest, o.Target, o.Arch)
+		return printImportPlan(o.IOStreams.Out, manifest, o.Target, o.Arch)
 	}
 
 	targetConfig, err := o.resolveTargetConfig()
@@ -184,18 +185,19 @@ func (o *SyncOptions) Run(_ *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(o.IOStreams.Out, "sync complete: %d copied, %d skipped (already present with matching digest)\n", result.Copied, result.Skipped)
+	fmt.Fprintf(o.IOStreams.Out, "import complete: %d copied, %d skipped (already present with matching digest)\n",
+		result.Copied, result.Skipped)
 	return nil
 }
 
-func (o *SyncOptions) resolveTargetConfig() (*deliveryregistry.Config, error) {
+func (o *ImportOptions) resolveTargetConfig() (*deliveryregistry.Config, error) {
 	if o.TargetFiles.Specified() {
 		return o.TargetFiles.Resolve(o.Target)
 	}
 	return deliveryregistry.Resolve(o.Target)
 }
 
-func (o *SyncOptions) sourceCraneOptions(ctx context.Context) ([]crane.Option, error) {
+func (o *ImportOptions) sourceCraneOptions(ctx context.Context) ([]crane.Option, error) {
 	return sourceRegistryOptions(ctx, o.SourceUser, o.SourcePassword)
 }
 
@@ -211,7 +213,7 @@ func sourceRegistryOptions(ctx context.Context, username, password string) ([]cr
 	return opts, nil
 }
 
-func printSyncPlan(out io.Writer, manifest *releasemanifest.Manifest, target, arch string) error {
+func printImportPlan(out io.Writer, manifest *releasemanifest.Manifest, target, arch string) error {
 	for _, artifact := range manifest.Artifacts {
 		if arch != "all" && !artifactSupportsArch(artifact, arch) {
 			continue

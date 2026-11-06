@@ -75,7 +75,7 @@ OCI 化后，Registry 是物料的发布和分发来源，本地缓存负责可�
 | OCI 包获取 | 获取包内清单和不同文件时会分别打开层的解压流 | 远端 image/layer 可能是惰性读取，不能把一次 `crane.Pull` 当成完整下载一次 |
 | 卸载清理 | `CleanupPackage` 删除组件缓存目录 | 原始内容如果跨包共享，不能再随组件目录一起删除 |
 | deploy/join | 已定义所需资产集合，但解析结果仍可能携带整个包的内容集合 | 应只提取本次需要的资产；deploy 排除 kcctl，join 只取 agent |
-| registry sync | 使用 `remote.Write` / `remote.WriteIndex` 复制源内容，写完检查目标摘要 | 与安装包提取不是同一条持久化获取路径，不能声称已共享续传缓存 |
+| registry import | 使用 `remote.Write` / `remote.WriteIndex` 复制源内容，写完检查目标摘要 | 与安装包提取不是同一条持久化获取路径，不能声称已共享续传缓存 |
 
 源码入口：
 
@@ -213,7 +213,7 @@ blob 命中至少检查长度并流式重算摘要，再允许提取；receipt �
 | Agent 安装 containerd/Kubernetes 等 | 执行任务的节点 | 复用包获取实现；本机缓存与 kcctl 所在机器并不共享 |
 | Registry 引导安装 | 执行命令的机器 | 核对现有独立下载路径，避免出现另一套不校验、不恢复的包获取实现 |
 | Helm Chart | 实际执行 Chart 获取的机器 | 先区分包内 Chart 和原生 Helm OCI Chart，保留 Helm 语义，再评估底层传输复用 |
-| registry sync | 执行 sync 的机器及目标 Registry | 复用完整性与恢复原则；保持 manifest/index、架构选择和目标校验语义，不默认永久缓存全部镜像 |
+| registry import | 执行 import 的机器及目标 Registry | 复用完整性与恢复原则；保持 manifest/index、架构选择和目标校验语义，不默认永久缓存全部镜像 |
 | 运行时容器镜像 | 目标节点 containerd 存储 | 交由 containerd 拉取和管理，不再完整复制一份到 KubeClipper 缓存 |
 | 版本索引与元数据读取 | 索引执行方 | 保持轻量，不能为了列出版本下载所有完整层 |
 

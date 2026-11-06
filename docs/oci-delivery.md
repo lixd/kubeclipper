@@ -101,7 +101,7 @@ Key properties:
   preset. The effective value and its source are logged.
 - A loud **precheck** verifies `<registry>/package-bootstrap-kubeclipper`
   is reachable and lists tags before any remote mutation; on failure it tells
-  you to mirror the release with `kcctl registry sync`.
+  you to mirror the release with `kcctl registry import`.
 - Deploy uploads bootstrap materials to targets from the registry (no static
   server), seeds the delivery-policy ConfigMap, and probes the etcd
   **write path** (put+delete roundtrip, retried) before uploading config — the
@@ -173,12 +173,35 @@ Package locations use an explicit `--package-registry`, the existing deployment 
 or the zone preset. Digests and provenance are verified before rollout. Offline upgrades use
 `--manifest` and can explicitly select their local `--package-registry`.
 
-The stable release workflow verifies the kcctl and manifest checksums before uploading to OSS, then
-updates the root installer script after all versioned files have been uploaded. It reuses the
-existing `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET` repository secrets.
-The version directory contains the four kcctl binaries, `kcctl-checksums.txt`,
-`release-manifest-<version>.yaml`, its `.sha256` file, and `get-kubeclipper.sh`.
-The root `get-kubeclipper.sh` is updated after all versioned uploads succeed.
+The stable release workflow verifies the kcctl and manifest checksums before uploading to OSS.
+It downloads the six public versioned files, compares them with the approved release files,
+verifies their checksums, installs kcctl from both GitHub and OSS into temporary directories
+using the versioned script, and checks the native CLI and embedded inventory. It updates the
+root installer after these checks pass. Stable release runs are serialized.
+It reuses the existing `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_ACCESS_KEY` and `OSS_ACCESS_SECRET` repository secrets.
+The version directory contains six files with the same names as the GitHub Release assets.
+
+```text
+kc/<version>/
+├── kcctl-linux-amd64
+├── kcctl-linux-arm64
+├── kcctl-checksums.txt
+├── release-manifest-<version>.yaml
+├── release-manifest-<version>.yaml.sha256
+└── get-kubeclipper.sh
+```
+
+The installer supports Linux amd64 and arm64. A versioned script defaults to its
+release tag, while the root script defaults to the latest promoted stable release.
+`KC_VERSION` overrides either default. Binary and checksum paths are identical
+for GitHub, OSS and custom download sites.
+
+Before creating the GitHub Release, the workflow uses `kcctl registry import --arch all`
+to copy the approved inventory to `registry.cn-hangzhou.aliyuncs.com/kubeclipper-release`.
+The sync preserves digests and multi-platform indexes and rejects conflicting tags.
+The existing manifest verifier then checks the destination references using an empty Docker
+configuration so anonymous reads must succeed. This job requires `ACR_USERNAME` and
+`ACR_PASSWORD` repository Secrets. A sync or verification failure stops release promotion.
 
 OSS publishing is a required release job because the common installation entry is hosted there.
 The existing bucket is `kubeclipper` in `oss-ap-southeast-1`. Its public HTTPS endpoint serves
@@ -199,10 +222,10 @@ operations.
 
 Three supported shapes, from lightest to heaviest:
 
-1. **`kcctl registry sync`** — manifest-driven mirror of a published release
+1. **`kcctl registry import`** — manifest-driven mirror of a published release
    into an internal registry:
    ```bash
-   kcctl registry sync --manifest release-manifest.json \
+   kcctl registry import --manifest release-manifest.json \
      --target registry.corp.example.com/kubeclipper \
      --arch amd64 \
      --source-username <user> --source-password <token>
@@ -214,7 +237,7 @@ Three supported shapes, from lightest to heaviest:
    embedded in the standalone CLI and writes `kubeclipper-offline-<version>.tar.gz`
    and a separate small `registry-<version>.tar.gz`. Bootstrap using
    `kcctl registry deploy --bundle registry-<version>.tar.gz`, then import using
-   `kcctl registry sync --bundle kubeclipper-offline-<version>.tar.gz --target <registry-prefix>`.
+   `kcctl registry import --bundle kubeclipper-offline-<version>.tar.gz --target <registry-prefix>`.
    Original indexes, manifests, compressed layers and digests are preserved;
    missing local content fails without online fallback. Export and import need
    only kcctl. See the [offline flow](../scripts/open-packaging/README.md#offline-release-export-and-import).
@@ -237,7 +260,7 @@ Three supported shapes, from lightest to heaviest:
   `publish-bootstrap-*.yml`, `publish-resource-*.yml`,
   `offline-resource-validate.yml`, and `publish-oci-qualification.yml`
   (end-to-end gates including a **sync-roundtrip job** that runs
-  `kcctl registry sync` from the real published release into a local registry
+  `kcctl registry import` from the real published release into a local registry
   and proves digest/idempotence behavior).
 
 ## 7. Compatibility notes
@@ -257,7 +280,7 @@ Three supported shapes, from lightest to heaviest:
 
 | Symptom | Likely cause | Action |
 |---|---|---|
-| deploy precheck fails with `NAME_UNKNOWN` | release not published/synced for that registry | run `kcctl registry sync` or point `--package-registry` at the mirrored registry |
+| deploy precheck fails with `NAME_UNKNOWN` | release not published/synced for that registry | run `kcctl registry import` or point `--package-registry` at the mirrored registry |
 | resolver "no artifact found for slot X" | tag missing from SupportPolicy/inventory | check ConfigMap `kubeclipper-delivery-policy` and `crane ls <repo>` |
 | agent task fails with digest mismatch | cache corruption or proxy rewriting | clear the node artifact cache; the fetcher never falls back to tag re-resolution by design |
 | re-deploy says "registry precheck: request timed out" | network to registry flapping | verify with `crane ls <registry>/package-bootstrap-kubeclipper` |

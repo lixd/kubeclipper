@@ -169,18 +169,23 @@ You can download the latest version of `kcctl` directly with the following comma
 
 ```bash
 # Fetch the shared installer from OSS; kcctl defaults to GitHub Releases
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash
 # In China, fetch kcctl from OSS and OCI artifacts from Aliyun
 export KCZONE=cn
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash
 # Download a specific published release (replace vX.Y.Z)
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | KC_VERSION=vX.Y.Z bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_VERSION=vX.Y.Z bash
 ```
 
-The installer verifies SHA256. Set `KC_BIN_DIR` to choose the install directory and
+The installer supports Linux amd64 and arm64 and verifies SHA256.
+Set `KC_BIN_DIR` to choose the install directory and
 `KCZONE=cn` to select its domestic download source. `KC_DOWNLOAD_URL` overrides the
 version download base URL, for example `https://downloads.example.com/kc`.
-`KCZONE=cn` also selects the Aliyun OCI registry for deploy, Registry deploy, export, sync and
+GitHub, OSS and custom download sites use the same filenames, including
+`kcctl-linux-amd64` and `kcctl-linux-arm64`, under each release version.
+Each version also provides its installer script with that version as the default.
+`KC_VERSION` overrides the default in either the root or versioned installer.
+`KCZONE=cn` also selects the Aliyun OCI registry for deploy, Registry deploy, export, import and
 upgrade. Explicit `--package-registry <registry>` overrides the registry, and a saved deployment
 registry takes precedence over the environment preset.
 

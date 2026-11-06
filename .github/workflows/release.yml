@@ -7,12 +7,17 @@ on:
     tags:
       - 'v*'
 
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: read
 
 env:
   OSS_DOWNLOAD_URL: ${{ vars.OSS_DOWNLOAD_URL || 'https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc' }}
+  CN_PACKAGE_REGISTRY: registry.cn-hangzhou.aliyuncs.com/kubeclipper-release
 
 jobs:
   prepare:
@@ -29,11 +34,13 @@ jobs:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET || 'kubeclipper' }}
           OSS_ACCESS_KEY: ${{ secrets.OSS_ACCESS_KEY }}
           OSS_ACCESS_SECRET: ${{ secrets.OSS_ACCESS_SECRET }}
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in OSS_ENDPOINT OSS_BUCKET OSS_ACCESS_KEY OSS_ACCESS_SECRET OSS_DOWNLOAD_URL; do
+          for name in OSS_ENDPOINT OSS_BUCKET OSS_ACCESS_KEY OSS_ACCESS_SECRET OSS_DOWNLOAD_URL ACR_USERNAME ACR_PASSWORD; do
             [[ -n "${!name}" ]] || {
-              echo "$name is required for OSS publishing" >&2
+              echo "$name is required for release publishing" >&2
               exit 1
             }
           done
@@ -178,16 +185,14 @@ jobs:
           test -n "$package_registry"
           source_package=github.com/kubeclipper/kubeclipper/pkg/delivery/source
           export GOLDFLAGS="-s -w -buildid= -X $source_package.GlobalPackageRegistry=$package_registry -X $source_package.GlobalReleaseBaseURL=https://github.com/${GITHUB_REPOSITORY}/releases/download -X $source_package.CNReleaseBaseURL=${OSS_DOWNLOAD_URL%/}"
-          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build-cli
+          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64" make build-cli
       - name: Package kcctl artifacts
         run: |
           set -euo pipefail
           pushd dist
           cp kcctl kcctl-linux-amd64
           cp linux_arm64/kcctl kcctl-linux-arm64
-          cp darwin_amd64/kcctl kcctl-darwin-amd64
-          cp darwin_arm64/kcctl kcctl-darwin-arm64
-          sha256sum kcctl-* > kcctl-checksums.txt
+          sha256sum kcctl-linux-amd64 kcctl-linux-arm64 > kcctl-checksums.txt
           popd
       - uses: actions/upload-artifact@v6
         with:
@@ -195,8 +200,6 @@ jobs:
           path: |
             dist/kcctl-linux-amd64
             dist/kcctl-linux-arm64
-            dist/kcctl-darwin-amd64
-            dist/kcctl-darwin-arm64
             dist/kcctl-checksums.txt
           retention-days: 2
 
@@ -245,8 +248,48 @@ jobs:
             ${{ runner.temp }}/kc-release/release-manifest.yaml.sha256
           retention-days: 2
 
-  github-release:
+  cn-registry:
     needs: [build-cli, manifest]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: imjasonh/setup-crane@v0.4
+      - name: Install manifest dependency
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+      - uses: actions/download-artifact@v7
+        with:
+          name: kcctl-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/cn-cli
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-manifest-${{ github.run_id }}
+          path: ${{ runner.temp }}/cn-manifest
+      - name: Import and verify domestic registry
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          (cd "$RUNNER_TEMP/cn-cli" && sha256sum --check kcctl-checksums.txt)
+          umask 077
+          credentials="$(mktemp -d "$RUNNER_TEMP/acr-credentials.XXXXXXXX")"
+          trap 'rm -rf "$credentials"' EXIT
+          printf '%s' "$ACR_PASSWORD" > "$credentials/password"
+          chmod +x "$RUNNER_TEMP/cn-cli/kcctl-linux-amd64"
+          KCZONE=global "$RUNNER_TEMP/cn-cli/kcctl-linux-amd64" registry import \
+            --manifest "$RUNNER_TEMP/cn-manifest/release-manifest.yaml" \
+            --source-username "$GITHUB_ACTOR" --source-password "$GITHUB_TOKEN" \
+            --target "$CN_PACKAGE_REGISTRY" --arch all \
+            --target-username "$ACR_USERNAME" --target-password-file "$credentials/password"
+          DOCKER_CONFIG="$credentials" scripts/open-packaging/verify-release-manifest.sh \
+            --manifest "$RUNNER_TEMP/cn-manifest/release-manifest.yaml" \
+            --registry "$CN_PACKAGE_REGISTRY"
+
+  github-release:
+    needs: [build-cli, manifest, cn-registry]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -309,7 +352,6 @@ jobs:
           gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
             --dir "$RUNNER_TEMP/oss-release" \
             --pattern 'kcctl-linux-amd64' --pattern 'kcctl-linux-arm64' \
-            --pattern 'kcctl-darwin-amd64' --pattern 'kcctl-darwin-arm64' \
             --pattern 'kcctl-checksums.txt' --pattern 'get-kubeclipper.sh' \
             --pattern "release-manifest-${GITHUB_REF_NAME}.yaml" \
             --pattern "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"
@@ -324,15 +366,52 @@ jobs:
           endpoint: ${{ secrets.OSS_ENDPOINT || 'oss-ap-southeast-1.aliyuncs.com' }}
           access-key-id: ${{ secrets.OSS_ACCESS_KEY }}
           access-key-secret: ${{ secrets.OSS_ACCESS_SECRET }}
-      - name: Upload release files and publish installer last
+      - name: Upload versioned release files
         env:
           OSS_BUCKET: ${{ secrets.OSS_BUCKET || 'kubeclipper' }}
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/oss-release"
-          for asset in kcctl-linux-amd64 kcctl-linux-arm64 kcctl-darwin-amd64 kcctl-darwin-arm64 \
-            kcctl-checksums.txt "release-manifest-${GITHUB_REF_NAME}.yaml" \
+          for asset in kcctl-linux-amd64 kcctl-linux-arm64 kcctl-checksums.txt "release-manifest-${GITHUB_REF_NAME}.yaml" \
             "release-manifest-${GITHUB_REF_NAME}.yaml.sha256" get-kubeclipper.sh; do
             ossutil cp -f "$asset" "oss://${OSS_BUCKET}/kc/${GITHUB_REF_NAME}/$asset"
           done
+      - name: Verify public OSS release files
+        run: |
+          set -euo pipefail
+          check_dir="$(mktemp -d "$RUNNER_TEMP/oss-check.XXXXXXXX")"
+          trap 'rm -rf "$check_dir"' EXIT
+          base_url="${OSS_DOWNLOAD_URL%/}/${GITHUB_REF_NAME}"
+          for asset in kcctl-linux-amd64 kcctl-linux-arm64 kcctl-checksums.txt "release-manifest-${GITHUB_REF_NAME}.yaml" \
+            "release-manifest-${GITHUB_REF_NAME}.yaml.sha256" get-kubeclipper.sh; do
+            curl --fail --location --show-error --connect-timeout 15 --max-time 300 --retry 3 \
+              --output "$check_dir/$asset" "$base_url/$asset"
+            cmp "$RUNNER_TEMP/oss-release/$asset" "$check_dir/$asset"
+          done
+          cd "$check_dir"
+          sha256sum --check kcctl-checksums.txt
+          sha256sum --check "release-manifest-${GITHUB_REF_NAME}.yaml.sha256"
+          for zone in global cn; do
+            mkdir "bin-$zone"
+            KC_VERSION= KC_DOWNLOAD_URL= KCZONE="$zone" KC_BIN_DIR="$check_dir/bin-$zone" bash get-kubeclipper.sh
+            cmp "bin-$zone/kcctl" kcctl-linux-amd64
+            "bin-$zone/kcctl" version -o json > "version-$zone.json"
+            python3 - "$GITHUB_REF_NAME" "version-$zone.json" <<'PY'
+          import json
+          import sys
+
+          expected, path = sys.argv[1:]
+          with open(path, encoding="utf-8") as stream:
+              actual = json.load(stream)["gitVersion"]
+          if actual != expected:
+              raise SystemExit(f"kcctl version mismatch: expected={expected} actual={actual}")
+          PY
+            KCZONE="$zone" "bin-$zone/kcctl" registry import --target verification.invalid/kubeclipper --dry-run
+          done
+      - name: Publish root installer
+        env:
+          OSS_BUCKET: ${{ secrets.OSS_BUCKET || 'kubeclipper' }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/oss-release"
           ossutil cp -f get-kubeclipper.sh "oss://${OSS_BUCKET}/get-kubeclipper.sh"

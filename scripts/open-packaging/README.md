@@ -494,7 +494,7 @@ they use the same Registry mirroring commands as other packages.
 For an official release, the preferred connected-site mirror command is:
 
 ```bash
-kcctl registry sync \
+kcctl registry import \
   --manifest release-manifest.yaml \
   --target harbor.example.com/kubeclipper \
   --target-username 'robot$kubeclipper-writer' \
@@ -544,11 +544,19 @@ types and compressed layers are preserved. Complete source indexes may include
 platforms beyond Linux amd64/arm64; these are included to preserve their digests.
 The output directory defaults to `./offline` and is created when needed.
 Export rejects existing archive paths. Credentials use the same
-`--source-username` and `--source-password` flags as online sync.
+`--source-username` and `--source-password` flags as online import.
 
-Online `kcctl registry sync --target <registry-prefix>` also defaults to the embedded inventory.
+Online `kcctl registry import --target <registry-prefix>` also defaults to the embedded inventory.
 `KCZONE=cn` selects the Aliyun source, while `--package-registry <registry-prefix>` explicitly
 selects another source. Local bundle import reads the archive's manifest and content directly.
+
+Export and import can be chained when the target Registry is already available.
+
+```bash
+kcctl registry export --output ./offline && \
+  kcctl registry import --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz \
+    --target registry.example.com/kubeclipper
+```
 
 ```bash
 kcctl registry export \
@@ -563,7 +571,7 @@ kcctl registry deploy --node 10.0.0.10 --pk-file ~/.ssh/id_ed25519 \
   --bundle ./offline/registry-3.1.1.tar.gz
 
 # Seed the Registry from the complete release archive.
-kcctl registry sync --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz \
+kcctl registry import --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz \
   --target 10.0.0.10:5000/kubeclipper-release --target-scheme http
 
 # Install through the normal package Registry flow.
@@ -644,7 +652,7 @@ kcctl deploy \
 
 ```
 
-For `kcctl registry sync`, grant a project-scoped writer robot only repository
+For `kcctl registry import`, grant a project-scoped writer robot only repository
 Pull and Push. Pull is needed for the pre-copy digest/conflict check; Push is
 needed to upload missing manifests and blobs. Use a different project-scoped
 runtime robot with repository Pull only for `kcctl deploy`, `kcctl join`,

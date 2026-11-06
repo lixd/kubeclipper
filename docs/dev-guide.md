@@ -176,7 +176,7 @@ Deploy kcctl
 
 ```bash
 export KCZONE=cn
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash
 ```
 
 Deploy KC with AIO mode

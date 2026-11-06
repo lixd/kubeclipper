@@ -159,17 +159,21 @@ KubeClipper 提供了命令行工具🔧 kcctl 以简化运维工作，您可以
 
 ```bash
 # 脚本统一从 OSS 获取，kcctl 默认从 GitHub Release 下载
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash
 # 国内用户从 OSS 下载 kcctl，OCI 物料使用阿里云仓库
 export KCZONE=cn
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | bash
 # 下载指定版本，请将 vX.Y.Z 替换为已发布版本
-curl -fsSL https://kubeclipper.oss-ap-southeast-1.aliyuncs.com/get-kubeclipper.sh | KC_VERSION=vX.Y.Z bash
+curl -sfLk https://oss.kubeclipper.io/get-kubeclipper.sh | KC_VERSION=vX.Y.Z bash
 ```
 
-安装脚本会校验 SHA256。`KC_BIN_DIR` 可指定安装目录，`KCZONE=cn` 选择脚本的国内下载源，
+安装脚本支持 Linux amd64、arm64，并校验 SHA256。
+`KC_BIN_DIR` 可指定安装目录，`KCZONE=cn` 选择脚本的国内下载源，
 `KC_DOWNLOAD_URL` 可覆盖版本下载前缀，例如 `https://downloads.example.com/kc`。
-`KCZONE=cn` 同时选择阿里云 OCI 仓库。部署、Registry 部署、导出、同步和升级均使用该预设。
+GitHub、OSS 和自定义下载站使用同名文件，各版本目录包含
+`kcctl-linux-amd64`、`kcctl-linux-arm64`、校验文件、发布清单和该版本的安装脚本。
+版本脚本默认安装对应版本，根脚本默认安装最新稳定版，均可通过 `KC_VERSION` 覆盖。
+`KCZONE=cn` 同时选择阿里云 OCI 仓库。部署、Registry 部署、导出、导入和升级均使用该预设。
 显式 `--package-registry <仓库>` 可以覆盖仓库地址；部署配置中的已有仓库优先于环境预设。
 
 OCI 平台升级默认从 GitHub 下载发布清单，`KCZONE=cn` 时从 OSS 下载。

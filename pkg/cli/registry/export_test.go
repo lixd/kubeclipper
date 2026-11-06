@@ -27,7 +27,7 @@ import (
 func TestRegistryExportDirectoryAndCredentials(t *testing.T) {
 	for _, cmd := range []*cobra.Command{
 		NewCmdRegistryExport(NewRegistryOptions(options.IOStreams{})),
-		NewCmdRegistrySync(NewRegistryOptions(options.IOStreams{})),
+		NewCmdRegistryImport(NewRegistryOptions(options.IOStreams{})),
 	} {
 		require.NotNil(t, cmd.Flags().Lookup("source-password"))
 		require.NotNil(t, cmd.Flags().Lookup("package-registry"))

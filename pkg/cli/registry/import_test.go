@@ -28,7 +28,7 @@ import (
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
 )
 
-const syncTestManifest = `apiVersion: delivery.kubeclipper.io/v1alpha1
+const importTestManifest = `apiVersion: delivery.kubeclipper.io/v1alpha1
 kind: ReleaseManifest
 metadata:
   name: kubeclipper-resources
@@ -75,16 +75,16 @@ artifacts:
   platforms: ["linux/amd64"]
 `
 
-func TestSyncValidateArgs(t *testing.T) {
+func TestImportValidateArgs(t *testing.T) {
 	cases := []struct {
 		name string
-		o    SyncOptions
+		o    ImportOptions
 		want string
 	}{
-		{"both sources", SyncOptions{ManifestPath: "x", BundlePath: "y", Target: "harbor.local/kc"}, "mutually exclusive"},
-		{"no target", SyncOptions{ManifestPath: "x"}, "--target is required"},
-		{"bad arch", SyncOptions{ManifestPath: "x", Target: "t", Arch: "riscv"}, "--arch must be"},
-		{"bundle source override", SyncOptions{BundlePath: "x", Target: "t", PackageRegistry: "docker.io/kubeclipper"}, "source registry options"},
+		{"both sources", ImportOptions{ManifestPath: "x", BundlePath: "y", Target: "harbor.local/kc"}, "mutually exclusive"},
+		{"no target", ImportOptions{ManifestPath: "x"}, "--target is required"},
+		{"bad arch", ImportOptions{ManifestPath: "x", Target: "t", Arch: "riscv"}, "--arch must be"},
+		{"bundle source override", ImportOptions{BundlePath: "x", Target: "t", PackageRegistry: "docker.io/kubeclipper"}, "source registry options"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -94,20 +94,20 @@ func TestSyncValidateArgs(t *testing.T) {
 			}
 		})
 	}
-	if err := (&SyncOptions{Target: "harbor.local/kc", Arch: "all"}).ValidateArgs(); err != nil {
+	if err := (&ImportOptions{Target: "harbor.local/kc", Arch: "all"}).ValidateArgs(); err != nil {
 		t.Fatalf("embedded manifest arguments: %v", err)
 	}
 }
 
-func TestSyncDryRunUsesZoneAndExplicitRegistry(t *testing.T) {
+func TestImportDryRunUsesZoneAndExplicitRegistry(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "manifest.yaml")
-	if err := os.WriteFile(path, []byte(syncTestManifest), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(importTestManifest), 0600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("KCZONE", "cn")
 	for _, registry := range []string{"", "harbor.example.com/custom"} {
 		out := &bytes.Buffer{}
-		o := &SyncOptions{IOStreams: options.IOStreams{Out: out}, ManifestPath: path,
+		o := &ImportOptions{IOStreams: options.IOStreams{Out: out}, ManifestPath: path,
 			Target: "target.example.com/kc", Arch: "all", DryRun: true, PackageRegistry: registry}
 		if err := o.Run(nil); err != nil {
 			t.Fatal(err)
@@ -121,14 +121,14 @@ func TestSyncDryRunUsesZoneAndExplicitRegistry(t *testing.T) {
 	}
 }
 
-func TestSyncDryRunPlan(t *testing.T) {
+func TestImportDryRunPlan(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "manifest.yaml")
-	if err := os.WriteFile(path, []byte(syncTestManifest), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(importTestManifest), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	out := &bytes.Buffer{}
-	o := &SyncOptions{
+	o := &ImportOptions{
 		IOStreams:    options.IOStreams{Out: out},
 		ManifestPath: path,
 		Target:       "harbor.local/kubeclipper",
@@ -139,7 +139,7 @@ func TestSyncDryRunPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := o.Run(nil); err != nil {
-		t.Fatalf("dry-run sync: %v", err)
+		t.Fatalf("dry-run import: %v", err)
 	}
 	got := out.String()
 	for _, want := range []string{

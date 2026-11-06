@@ -48,4 +48,4 @@ jobs:
 
       - name: Build
         run:
-          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64 darwin/amd64 darwin/arm64" make build
+          KUBE_BUILD_PLATFORMS="linux/amd64 linux/arm64" make build

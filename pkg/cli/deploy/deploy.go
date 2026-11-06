@@ -1931,6 +1931,8 @@ func (d *DeployOptions) precheckPackageRegistry() error {
 }
 
 func (d *DeployOptions) packageRegistryPrecheckError(cause error) error {
-	return fmt.Errorf("PACKAGE-REGISTRY PRECHECK FAILED: package registry %q (%s) is unreachable or missing the bootstrap catalog: %w; for offline or mirror deployments run 'kcctl registry sync' to mirror the release into a local registry and pass --package-registry <that registry>",
+	return fmt.Errorf("PACKAGE-REGISTRY PRECHECK FAILED: package registry %q (%s) is unreachable or missing the bootstrap catalog: %w; "+
+		"for offline or mirror deployments run 'kcctl registry import' to mirror the release into a local registry "+
+		"and pass --package-registry <that registry>",
 		d.deployConfig.PackageRegistry, d.packageRegistrySource(), cause)
 }
