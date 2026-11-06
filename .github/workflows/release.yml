@@ -395,13 +395,15 @@ jobs:
             mkdir "bin-$zone"
             KC_VERSION= KC_DOWNLOAD_URL= KCZONE="$zone" KC_BIN_DIR="$check_dir/bin-$zone" bash get-kubeclipper.sh
             cmp "bin-$zone/kcctl" kcctl-linux-amd64
-            "bin-$zone/kcctl" version -o json > "version-$zone.json"
-            python3 - "$GITHUB_REF_NAME" "version-$zone.json" <<'PY'
+            "bin-$zone/kcctl" version -o json > "version-$zone.txt"
+            python3 - "$GITHUB_REF_NAME" "version-$zone.txt" <<'PY'
           import json
           import sys
 
           expected, path = sys.argv[1:]
           with open(path, encoding="utf-8") as stream:
+              if stream.readline().strip() != "kcctl version:":
+                  raise SystemExit("invalid kcctl version output")
               actual = json.load(stream)["gitVersion"]
           if actual != expected:
               raise SystemExit(f"kcctl version mismatch: expected={expected} actual={actual}")

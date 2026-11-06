@@ -272,7 +272,7 @@ with tempfile.TemporaryDirectory() as tmp:
 set -eu
 printf '%s\\n' "$*" >> "$CLI_LOG"
 case "$*" in
-  'version -o json') printf '{"gitVersion":"%s"}\\n' "${REPORTED_VERSION:-v9.8.7}" ;;
+  'version -o json') printf 'kcctl version:\\n{"gitVersion":"%s"}\\n' "${REPORTED_VERSION:-v9.8.7}" ;;
   'registry import --target verification.invalid/kubeclipper --dry-run') ;;
   *) exit 1 ;;
 esac

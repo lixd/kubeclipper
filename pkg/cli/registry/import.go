@@ -162,7 +162,8 @@ func (o *ImportOptions) Run(_ *cobra.Command) error {
 		}
 	}
 	if o.DryRun {
-		return printImportPlan(o.IOStreams.Out, manifest, o.Target, o.Arch)
+		printImportPlan(o.Out, manifest, o.Target, o.Arch)
+		return nil
 	}
 
 	targetConfig, err := o.resolveTargetConfig()
@@ -178,14 +179,14 @@ func (o *ImportOptions) Run(_ *cobra.Command) error {
 		Registry:      o.Target,
 		Arch:          o.Arch,
 		Config:        targetConfig,
-		Out:           o.IOStreams.Out,
+		Out:           o.Out,
 		SourceOptions: sourceOptions,
 		Bundle:        bundle,
 	})
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(o.IOStreams.Out, "import complete: %d copied, %d skipped (already present with matching digest)\n",
+	fmt.Fprintf(o.Out, "import complete: %d copied, %d skipped (already present with matching digest)\n",
 		result.Copied, result.Skipped)
 	return nil
 }
@@ -213,14 +214,13 @@ func sourceRegistryOptions(ctx context.Context, username, password string) ([]cr
 	return opts, nil
 }
 
-func printImportPlan(out io.Writer, manifest *releasemanifest.Manifest, target, arch string) error {
+func printImportPlan(out io.Writer, manifest *releasemanifest.Manifest, target, arch string) {
 	for _, artifact := range manifest.Artifacts {
 		if arch != "all" && !artifactSupportsArch(artifact, arch) {
 			continue
 		}
 		fmt.Fprintf(out, "would copy %s -> %s/%s\n", artifact.Source, target, artifact.Target)
 	}
-	return nil
 }
 
 func artifactSupportsArch(artifact releasemanifest.Artifact, arch string) bool {
