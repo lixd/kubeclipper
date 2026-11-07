@@ -175,9 +175,7 @@ func buildPublishMatrix(manifest *buildManifest) []publishMatrixEntry {
 	appendVersions("resource-k8s-extension", manifest.Resources.K8sExtension.Versions)
 	appendVersions("resource-calico", manifest.Resources.CNI.Calico.Versions)
 	appendVersions("resource-kc-runtime", manifest.Resources.KCRuntime.Versions)
-	for _, component := range []string{"nfs", "metallb"} {
-		appendVersions("resource-"+component, manifest.Resources.RuntimeImageSets[component].Versions)
-	}
+	appendVersions("resource-nfs", manifest.Resources.RuntimeImageSets["nfs"].Versions)
 	return entries
 }
 
@@ -285,7 +283,6 @@ func verifyReleaseVersions(manifest *buildManifest) error {
 		"cni/calico":                  manifest.Resources.CNI.Calico.Versions,
 		"kc-runtime/kc-runtime":       manifest.Resources.KCRuntime.Versions,
 		"addon/nfs":                   manifest.Resources.RuntimeImageSets["nfs"].Versions,
-		"addon/metallb":               manifest.Resources.RuntimeImageSets["metallb"].Versions,
 	}
 	for component, versions := range versionSets {
 		if len(versions) == 0 {

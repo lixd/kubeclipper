@@ -84,7 +84,6 @@ jobs:
           scripts/open-packaging/publish-resource-containerd.sh --help >/dev/null
           scripts/open-packaging/publish-resource-calico.sh --help >/dev/null
           scripts/open-packaging/publish-resource-nfs.sh --help >/dev/null
-          scripts/open-packaging/publish-resource-metallb.sh --help >/dev/null
           scripts/open-packaging/bootstrap-builders/build-bootstrap-binaries.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-k8s-package.sh --help >/dev/null
           scripts/open-packaging/resource-builders/build-containerd-package.sh --help >/dev/null
@@ -110,8 +109,6 @@ jobs:
           printf 'docker.io/calico/node:v3.31.5\n' > /tmp/kc-release-manifest/calico/v3.31.5/amd64/images.txt
           scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
             --name nfs --version v4.1.0 --arch amd64 --output /tmp/kc-release-manifest
-          scripts/open-packaging/resource-builders/build-runtime-image-set.sh \
-            --name metallb --version v0.13.7 --arch amd64 --output /tmp/kc-release-manifest
           scripts/open-packaging/generate-resource-metadata.sh \
             --resource-dir /tmp/kc-release-manifest \
             --image-registry ghcr.io/${{ github.repository_owner }}/kubeclipper
@@ -130,9 +127,9 @@ jobs:
           assert len([item for item in artifacts if item['type'] == 'package-image']) == 6
           assert not any(item['type'] == 'helm-chart' for item in artifacts)
           runtime_images = [item for item in artifacts if item['type'] == 'runtime-image']
-          assert len(runtime_images) == 10
+          assert len(runtime_images) == 7
           assert {item['component']['name'] for item in runtime_images} == {
-              'k8s', 'calico', 'nfs', 'metallb'
+              'k8s', 'calico', 'nfs'
           }
           PY
 

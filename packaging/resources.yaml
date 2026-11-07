@@ -10,8 +10,8 @@ registries:
 bootstrap:
   kubeclipperVersion: v2.0.11
   etcdVersion: 3.5.21
-  consoleVersion: v1.6.1-oci.94bac83
-  consoleSourceRevision: 94bac83135fb0fb2a18360b22aaf9de6bb8c9528
+  consoleVersion: v1.6.1-oci.f5bf6c8
+  consoleSourceRevision: f5bf6c8a35fd024e76f88aa6bc94b5f882c48fde
   registryVersion: 3.1.1
   caddyVersion: 2.10.2
   registry:
@@ -40,9 +40,6 @@ resources:
     nfs:
       versions:
         - v4.1.0
-    metallb:
-      versions:
-        - v0.13.7
   cri:
     containerd:
       versions:

@@ -351,9 +351,6 @@ publish_line() {
   runtime-images/nfs)
     cmd=("$ROOT/scripts/open-packaging/publish-resource-nfs.sh" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
     ;;
-  runtime-images/metallb)
-    cmd=("$ROOT/scripts/open-packaging/publish-resource-metallb.sh" --image-registry-prefix "$image_registry" --version "$version" --arch "$arch" "$@")
-    ;;
   addon/*)
     echo "skipping disabled or optional addon publish path: $name/$version/$arch"
     return 0

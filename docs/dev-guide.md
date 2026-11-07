@@ -459,13 +459,6 @@ Modify metadata.json:
 +              "max_version": ""
 +            },
 +            {
-+              "name": "metallb",
-+              "type": "lb",
-+              "recommend_version": "v0.13.7",
-+              "min_version": "",
-+              "max_version": ""
-+            },
-+            {
 +              "name": "mig",
 +              "type": "gpu",
 +              "recommend_version": "v0.8.2",

@@ -33,7 +33,6 @@ func TestRuntimeImageRepositoriesMatchPackaging(t *testing.T) {
 		{"quay.io/tigera/operator:v1.40.8", "tigera-operator"},
 		{"docker.io/caas4/nfsplugin:v4.1.0", "nfs-plugin"},
 		{"docker.io/caas4/csi-attacher:v3.2.1", "nfs-csi-attacher"},
-		{"docker.io/caas4/frr:v7.5.1", "metallb-frr"},
 		{"fanux/lvscare:v1.1.1", "lvscare"},
 		{"kubeclipper/kubectl:latest", "kubectl"},
 		{"nicolaka/netshoot:v0.13", "netshoot"},

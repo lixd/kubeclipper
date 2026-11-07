@@ -31,8 +31,7 @@ func supportedManifest() buildManifest {
 	manifest.Resources.RuntimeImageSets = map[string]struct {
 		Versions []string `json:"versions"`
 	}{
-		"nfs":     {Versions: []string{"v4.0.2", "v4.1.0"}},
-		"metallb": {Versions: []string{"v0.13.7"}},
+		"nfs": {Versions: []string{"v4.0.2", "v4.1.0"}},
 	}
 	return manifest
 }
@@ -40,8 +39,8 @@ func supportedManifest() buildManifest {
 func TestBuildPublishMatrixIncludesEveryReleaseComponent(t *testing.T) {
 	manifest := supportedManifest()
 	matrix := buildPublishMatrix(&manifest)
-	if len(matrix) != 16 {
-		t.Fatalf("buildPublishMatrix() produced %d entries, want 16: %+v", len(matrix), matrix)
+	if len(matrix) != 15 {
+		t.Fatalf("buildPublishMatrix() produced %d entries, want 15: %+v", len(matrix), matrix)
 	}
 	wanted := map[publishMatrixEntry]bool{
 		{Component: "bootstrap-kubeclipper", Version: "v2.0.11", Architecture: "all"}: false,

@@ -70,3 +70,16 @@ func TestEmbeddedManifestUsesTagsWithoutReleaseHashes(t *testing.T) {
 	require.NotContains(t, string(data), `"digest"`)
 	require.NotContains(t, string(data), `"sourceRevision"`)
 }
+
+func TestEmbeddedManifestIncludesNFSWithoutMetalLB(t *testing.T) {
+	manifest, err := Load("")
+	require.NoError(t, err)
+	var nfsImages int
+	for _, artifact := range manifest.Artifacts {
+		require.NotEqual(t, "metallb", artifact.Component.Name)
+		if artifact.Component.Name == "nfs" && artifact.Type == ArtifactTypeRuntime {
+			nfsImages++
+		}
+	}
+	require.Positive(t, nfsImages, "NFS CSI runtime images must remain available")
+}

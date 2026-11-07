@@ -35,11 +35,10 @@ a *slot* (what the artifact is) and a *name/version* pair:
 <registry>/package-calico:<ver>
 <registry>/package-k8s-extension:v1    kubectl etc. (a cluster component)
 <registry>/package-nfs:<ver>                     addon resource packages (csi/app kinds)
-<registry>/package-metallb:<ver>
 <registry>/package-kubectl-terminal:<ver>  standalone extensions
 ```
 
-Runtime images (the `nfs` v4.1.0 / `metallb` v0.13.7 / k8s pause image sets,
+Runtime images (the `nfs` v4.1.0 / k8s pause image sets,
 etc.) are *not* packaged artifacts: they are mirrored to
 `<image-registry>/<upstream repo path>:<tag>` (keeping the upstream path under
 the registry prefix) and pinned per platform in the release manifest as
@@ -300,7 +299,7 @@ Package repositories use one flat name: `package-bootstrap-<name>` for platform
 bootstrap assets and `package-<name>` for component packages, including charts.
 For a namespace-scoped Registry such as
 `registry.cn-hangzhou.aliyuncs.com/kubeclipper-release`, runtime repositories are
-also flat (`calico-node`, `nfs-plugin`, `metallb-controller`, etc.). The publisher
+also flat (`calico-node`, `nfs-plugin`, etc.). The publisher
 and agent templates share the aliases in
 `pkg/delivery/registry/image_repositories.json`. Registries configured without a
 namespace retain upstream runtime image paths; CoreDNS keeps its kubeadm name

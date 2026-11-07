@@ -49,7 +49,7 @@ for name, image_set in resources["runtimeImageSets"].items():
     versions[name] = image_set["versions"]
 
 package_components = {"k8s", "containerd", "k8s-extension"}
-runtime_components = {"k8s", "k8s-extension", "calico", "kc-runtime", "nfs", "metallb"}
+runtime_components = {"k8s", "k8s-extension", "calico", "kc-runtime", "nfs"}
 
 for component, component_versions in versions.items():
     for version in component_versions:

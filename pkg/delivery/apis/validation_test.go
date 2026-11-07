@@ -372,14 +372,14 @@ func TestPackageInventoryValidateRejectsMismatchedPinnedRefDigest(t *testing.T) 
 func TestPackageInventoryValidateAddonProfileAllowsConfigsImagesOrCharts(t *testing.T) {
 	catalog := NewPackageInventory("default")
 	base := PackageEntry{
-		Name:           "metallb",
+		Name:           "example-addon",
 		Kind:           "app",
 		Version:        "v0.14.9",
 		Arch:           "amd64",
 		ContentProfile: ContentProfileAddon,
 		Transport: TransportRef{
 			Type:   TransportOCI,
-			Ref:    "registry.local/package-metallb:v0.14.9",
+			Ref:    "registry.local/package-example-addon:v0.14.9",
 			Digest: testDigest,
 		},
 	}
