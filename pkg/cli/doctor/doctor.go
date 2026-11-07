@@ -67,7 +67,6 @@ type Options struct {
 
 type diagnosticState struct {
 	client       *kc.Client
-	apiConfig    *config.Config
 	platform     *platformstatus.PlatformStatus
 	nodes        []corev1.Node
 	nodesLoaded  bool
@@ -165,7 +164,6 @@ func (o *Options) checkLocalAccess(ctx context.Context, state *diagnosticState) 
 		component.Message = "API configuration is unavailable"
 		return component
 	}
-	state.apiConfig = apiConfig
 	client, err := kc.FromConfigWithoutValidation(*apiConfig)
 	if err != nil {
 		o.useLocalDeployConfig(ctx, state, &component, "API configuration is invalid")

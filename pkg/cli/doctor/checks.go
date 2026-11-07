@@ -18,39 +18,21 @@ package doctor
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net"
-	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
 
-	rpctypes "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
-	clientv3 "go.etcd.io/etcd/client/v3"
-
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
-	"github.com/kubeclipper/kubeclipper/pkg/cli/config"
 	"github.com/kubeclipper/kubeclipper/pkg/platformstatus"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
-const (
-	etcdRequestTimeout      = 10 * time.Second
-	etcdEndpointHealthCheck = "endpoint-health"
-)
-
-type etcdClient interface {
-	Get(context.Context, string, ...clientv3.OpOption) (*clientv3.GetResponse, error)
-	MemberList(context.Context) (*clientv3.MemberListResponse, error)
-	Status(context.Context, string) (*clientv3.StatusResponse, error)
-	Close() error
-}
-
-type etcdClientFactory func([]string, *tls.Config) (etcdClient, error)
+const etcdEndpointHealthCheck = "endpoint-health"
 
 func checkKCServer(_ context.Context, state *diagnosticState) Component {
 	component := Component{Name: "kc-server"}
@@ -116,7 +98,7 @@ func checkServerNode(state *diagnosticState, host string) []Check {
 	return checks
 }
 
-func checkKCEtcd(ctx context.Context, state *diagnosticState) Component {
+func checkKCEtcd(_ context.Context, state *diagnosticState) Component {
 	component := Component{Name: "kc-etcd"}
 	statusComponent := platformComponent(state.platform, "kc-etcd")
 	if statusComponent != nil {
@@ -157,157 +139,107 @@ func checkKCEtcd(ctx context.Context, state *diagnosticState) Component {
 			Message: "etcd endpoint checks skipped because no member service is available",
 		})
 	} else {
-		component.Checks = append(component.Checks, checkEtcdCluster(ctx, state.deployConfig, state.apiConfig))
+		component.Checks = append(component.Checks, checkEtcdCluster(state.deployConfig, state.remote, healthyHost))
 		attachEtcdFailureDetails(state, &component, healthyHost)
 	}
 	component.Message = etcdSummary(servers, component.Checks, statusComponent)
 	return component
 }
 
-func checkEtcdCluster(ctx context.Context, deployConfig *options.DeployConfig, apiConfig *config.Config) Check {
-	tlsConfig, err := etcdTLSConfig(apiConfig)
-	if err != nil {
-		return Check{
-			Name: etcdEndpointHealthCheck, Target: "cluster", Status: platformstatus.Unknown,
-			Message: "etcd client credentials are unavailable", Evidence: []string{sanitize(err.Error())},
-		}
-	}
-	return checkEtcdClusterWithClient(ctx, etcdInitialEndpoints(deployConfig), tlsConfig, newEtcdClient)
-}
-
-// checkEtcdClusterWithClient follows `etcdctl endpoint health --cluster` and
-// `etcdctl endpoint status --cluster`: discover member client URLs first, then
-// probe each endpoint and identify the current leader.
-func checkEtcdClusterWithClient(ctx context.Context, initialEndpoints []string, tlsConfig *tls.Config, newClient etcdClientFactory) Check {
+// Run the installed etcdctl on a server with its dedicated health-check
+// credentials. API login tokens do not provide etcd client certificates.
+func checkEtcdCluster(deployConfig *options.DeployConfig, remote *remoteRunner, host string) Check {
 	check := Check{Name: etcdEndpointHealthCheck, Target: "cluster"}
-	if len(initialEndpoints) == 0 {
+	endpoints := etcdInitialEndpoints(deployConfig)
+	if len(endpoints) == 0 {
 		check.Status = platformstatus.Unknown
 		check.Message = "etcd endpoints are unavailable"
 		return check
 	}
-	if newClient == nil {
+
+	credentials := []string{
+		path.Join(options.DefaultKcServerConfigPath, options.DefaultCaPath, options.Ca+".crt"),
+		path.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, options.EtcdHealthCheck+".crt"),
+		path.Join(options.DefaultKcServerConfigPath, options.DefaultEtcdPKIPath, options.EtcdHealthCheck+".key"),
+	}
+	prerequisites := []string{"test -x /usr/local/bin/etcdctl"}
+	for _, file := range credentials {
+		prerequisites = append(prerequisites, "test -r "+shellQuote(file))
+	}
+	result, err := remote.runCommand(host, strings.Join(prerequisites, " && "))
+	if err != nil || result.ExitCode != 0 {
 		check.Status = platformstatus.Unknown
-		check.Message = "etcd client is unavailable"
+		check.Message = "etcdctl or health-check credentials are unavailable on " + host
+		check.Evidence = compactOutput(result.Stderr, errorString(err))
+		check.Commands = []string{remote.sshCommand(host, strings.Join(prerequisites, " && "))}
 		return check
 	}
 
-	clusterClient, err := newClient(initialEndpoints, tlsConfig)
-	if err != nil {
-		check.Status = platformstatus.Unknown
-		check.Message = "cannot create etcd client"
-		check.Evidence = []string{sanitize(err.Error())}
-		return check
-	}
-	defer clusterClient.Close()
-
-	endpoints, err := discoverEtcdMemberEndpoints(ctx, clusterClient)
-	if err != nil {
+	command := fmt.Sprintf("timeout %d /usr/local/bin/etcdctl --cacert=%s --cert=%s --key=%s --endpoints=%s --dial-timeout=3s --command-timeout=5s --write-out=json endpoint ",
+		remoteCommandTimeout, shellQuote(credentials[0]), shellQuote(credentials[1]),
+		shellQuote(credentials[2]), shellQuote(strings.Join(endpoints, ",")))
+	result, err = remote.runCommand(host, command+"health --cluster")
+	if err != nil || result.ExitCode != 0 {
 		check.Status = platformstatus.Unhealthy
-		check.Message = "etcd cluster member discovery failed"
-		check.Evidence = []string{sanitize(err.Error())}
-		return check
-	}
-	if len(endpoints) == 0 {
-		check.Status = platformstatus.Unhealthy
-		check.Message = "etcd cluster has no advertised client endpoints"
-		return check
-	}
-
-	if evidence := unhealthyEtcdEndpointEvidence(ctx, endpoints, tlsConfig, newClient); len(evidence) != 0 {
-		check.Status = platformstatus.Unhealthy
+		if err != nil && result.ExitCode == 0 {
+			check.Status = platformstatus.Unknown
+		}
 		check.Message = "etcd cluster health check failed"
-		check.Evidence = append(check.Evidence, evidence...)
+		check.Evidence = compactOutput(result.Stdout, result.Stderr, errorString(err))
 		return check
 	}
-	return checkEtcdMemberStatus(ctx, clusterClient, endpoints, &check)
-}
-
-func discoverEtcdMemberEndpoints(ctx context.Context, client etcdClient) ([]string, error) {
-	membersCtx, cancel := context.WithTimeout(ctx, etcdRequestTimeout)
-	defer cancel()
-	members, err := client.MemberList(membersCtx)
-	if err != nil {
-		return nil, err
+	var health []struct {
+		Endpoint string `json:"endpoint"`
+		Health   bool   `json:"health"`
 	}
-	return etcdMemberEndpoints(members), nil
-}
-
-func unhealthyEtcdEndpointEvidence(ctx context.Context, endpoints []string, tlsConfig *tls.Config, newClient etcdClientFactory) []string {
-	healthChecks := runParallel(endpoints, func(endpoint string) []Check {
-		return []Check{checkEtcdEndpointHealth(ctx, endpoint, tlsConfig, newClient)}
-	})
-	var evidence []string
-	for i := range healthChecks {
-		if healthChecks[i].Status == platformstatus.Healthy {
-			continue
-		}
-		evidence = append(evidence, healthChecks[i].Target+": "+healthChecks[i].Message)
-		evidence = append(evidence, healthChecks[i].Evidence...)
+	if err := json.Unmarshal([]byte(result.Stdout), &health); err != nil || len(health) == 0 {
+		check.Status = platformstatus.Unknown
+		check.Message = "etcd endpoint health output is unavailable or invalid"
+		check.Evidence = compactOutput(result.Stdout, result.Stderr, errorString(err))
+		return check
 	}
-	return evidence
-}
-
-func checkEtcdMemberStatus(ctx context.Context, client etcdClient, endpoints []string, check *Check) Check {
-	var leader string
-	statusAvailable := true
-	for _, endpoint := range endpoints {
-		statusCtx, cancel := context.WithTimeout(ctx, etcdRequestTimeout)
-		response, statusErr := client.Status(statusCtx, endpoint)
-		cancel()
-		if statusErr != nil {
-			statusAvailable = false
-			check.Evidence = append(check.Evidence, endpoint+": "+sanitize(statusErr.Error()))
-			continue
-		}
-		if response != nil && response.Header != nil && response.Header.MemberId == response.Leader && response.Leader != 0 {
-			leader = endpoint
+	for _, endpoint := range health {
+		if !endpoint.Health || endpoint.Endpoint == "" {
+			check.Status = platformstatus.Unhealthy
+			check.Message = "etcd cluster health check failed"
+			check.Evidence = compactOutput(result.Stdout)
+			return check
 		}
 	}
-	if !statusAvailable {
-		check.Status = platformstatus.Degraded
-		check.Message = "etcd endpoints are healthy but member status is unavailable"
-		return *check
-	}
 
+	result, err = remote.runCommand(host, command+"status --cluster")
+	check.Status = platformstatus.Degraded
+	check.Message = "etcd endpoints are healthy but member status is unavailable"
+	if err != nil || result.ExitCode != 0 {
+		check.Evidence = compactOutput(result.Stdout, result.Stderr, errorString(err))
+		return check
+	}
+	var statuses []struct {
+		Endpoint string
+		Status   struct {
+			Header struct {
+				MemberID uint64 `json:"member_id"`
+			}
+			Leader uint64
+			Errors []string
+		}
+	}
+	if err := json.Unmarshal([]byte(result.Stdout), &statuses); err != nil || len(statuses) == 0 {
+		check.Evidence = compactOutput(result.Stdout, result.Stderr, errorString(err))
+		return check
+	}
+	for _, member := range statuses {
+		if member.Endpoint == "" || member.Status.Header.MemberID == 0 || len(member.Status.Errors) != 0 {
+			check.Evidence = compactOutput(result.Stdout)
+			return check
+		}
+		if member.Status.Header.MemberID == member.Status.Leader {
+			check.Evidence = append(check.Evidence, "leader="+member.Endpoint)
+		}
+	}
 	check.Status = platformstatus.Healthy
 	check.Message = "etcd cluster endpoints are healthy"
-	if leader != "" {
-		check.Evidence = append(check.Evidence, "leader="+leader)
-	}
-	return *check
-}
-
-func checkEtcdEndpointHealth(ctx context.Context, endpoint string, tlsConfig *tls.Config, newClient etcdClientFactory) Check {
-	check := Check{Name: etcdEndpointHealthCheck, Target: endpoint}
-	client, err := newClient([]string{endpoint}, tlsConfig)
-	if err != nil {
-		check.Status = platformstatus.Unhealthy
-		check.Message = "cannot create etcd endpoint client"
-		check.Evidence = []string{sanitize(err.Error())}
-		return check
-	}
-	defer client.Close()
-
-	healthCtx, cancel := context.WithTimeout(ctx, etcdRequestTimeout)
-	_, err = client.Get(healthCtx, "health")
-	cancel()
-	if err != nil && !errors.Is(err, rpctypes.ErrPermissionDenied) {
-		check.Status = platformstatus.Unhealthy
-		check.Message = "etcd endpoint health check failed"
-		check.Evidence = []string{sanitize(err.Error())}
-		return check
-	}
-	check.Status = platformstatus.Healthy
-	check.Message = "etcd endpoint is healthy"
 	return check
-}
-
-func newEtcdClient(endpoints []string, tlsConfig *tls.Config) (etcdClient, error) {
-	return clientv3.New(clientv3.Config{
-		Endpoints:   endpoints,
-		DialTimeout: etcdRequestTimeout,
-		TLS:         tlsConfig,
-	})
 }
 
 func etcdInitialEndpoints(deployConfig *options.DeployConfig) []string {
@@ -319,93 +251,6 @@ func etcdInitialEndpoints(deployConfig *options.DeployConfig) []string {
 		endpoints = append(endpoints, "https://"+endpoint(host, deployConfig.EtcdConfig.ClientPort))
 	}
 	return endpoints
-}
-
-func etcdMemberEndpoints(members *clientv3.MemberListResponse) []string {
-	seen := make(map[string]struct{})
-	var endpoints []string
-	if members == nil {
-		return endpoints
-	}
-	for _, member := range members.Members {
-		if member == nil {
-			continue
-		}
-		for _, endpoint := range member.ClientURLs {
-			endpoint = strings.TrimSpace(endpoint)
-			if endpoint == "" {
-				continue
-			}
-			if _, found := seen[endpoint]; found {
-				continue
-			}
-			seen[endpoint] = struct{}{}
-			endpoints = append(endpoints, endpoint)
-		}
-	}
-	return sortedStrings(endpoints)
-}
-
-func etcdTLSConfig(apiConfig *config.Config) (*tls.Config, error) {
-	if apiConfig == nil {
-		return nil, errors.New("API configuration is unavailable")
-	}
-	currentContext, found := apiConfig.Contexts[apiConfig.CurrentContext]
-	if !found || currentContext == nil {
-		return nil, fmt.Errorf("current context %q is not configured", apiConfig.CurrentContext)
-	}
-	server, found := apiConfig.Servers[currentContext.Server]
-	if !found || server == nil {
-		return nil, fmt.Errorf("server %q is not configured", currentContext.Server)
-	}
-	authInfo, found := apiConfig.AuthInfos[currentContext.AuthInfo]
-	if !found || authInfo == nil {
-		return nil, fmt.Errorf("user %q is not configured", currentContext.AuthInfo)
-	}
-
-	caData, err := configData(server.CertificateAuthorityData, server.CertificateAuthority, "certificate authority")
-	if err != nil {
-		return nil, err
-	}
-	rootCAs := x509.NewCertPool()
-	if !rootCAs.AppendCertsFromPEM(caData) {
-		return nil, errors.New("parse certificate authority")
-	}
-
-	clientCert, err := clientCertificate(authInfo)
-	if err != nil {
-		return nil, err
-	}
-	return &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
-		RootCAs:      rootCAs,
-		MinVersion:   tls.VersionTLS12,
-	}, nil
-}
-
-func configData(data []byte, path, name string) ([]byte, error) {
-	if len(data) != 0 {
-		return data, nil
-	}
-	if path == "" {
-		return nil, fmt.Errorf("%s is unavailable", name)
-	}
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", name, err)
-	}
-	return contents, nil
-}
-
-func clientCertificate(authInfo *config.AuthInfo) (tls.Certificate, error) {
-	switch {
-	case len(authInfo.ClientCertificateData) != 0 && len(authInfo.ClientKeyData) != 0:
-		return tls.X509KeyPair(authInfo.ClientCertificateData, authInfo.ClientKeyData)
-	case authInfo.ClientCertificate != "" && authInfo.ClientKey != "":
-		return tls.LoadX509KeyPair(authInfo.ClientCertificate, authInfo.ClientKey)
-	default:
-		return tls.Certificate{}, errors.New("client certificate and key are unavailable")
-	}
 }
 
 type agentTarget struct {

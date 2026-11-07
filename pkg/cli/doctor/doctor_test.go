@@ -19,19 +19,13 @@ package doctor
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	"go.etcd.io/etcd/api/v3/etcdserverpb"
-	rpctypes "go.etcd.io/etcd/api/v3/v3rpc/rpctypes"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
@@ -186,173 +180,109 @@ func TestEtcdSummaryUsesNativeEndpointHealth(t *testing.T) {
 	}
 }
 
-func TestCheckEtcdClusterWithClientMatchesEtcdctlClusterChecks(t *testing.T) {
-	const (
-		initialEndpoint = "https://192.0.2.10:2379"
-		memberOne       = "https://192.0.2.11:2379"
-		memberTwo       = "https://192.0.2.12:2379"
-	)
-	clusterClient := &fakeEtcdClient{
-		members: &clientv3.MemberListResponse{Members: []*etcdserverpb.Member{
-			{ClientURLs: []string{memberTwo, memberOne}},
-			{ClientURLs: []string{memberOne}},
-		}},
-		statuses: map[string]*clientv3.StatusResponse{
-			memberOne: {Header: &etcdserverpb.ResponseHeader{MemberId: 1}, Leader: 2},
-			memberTwo: {Header: &etcdserverpb.ResponseHeader{MemberId: 2}, Leader: 2},
-		},
-	}
-	memberOneClient := &fakeEtcdClient{}
-	memberTwoClient := &fakeEtcdClient{}
-	factory := &fakeEtcdClientFactory{clients: map[string]*fakeEtcdClient{
-		etcdClientKey([]string{initialEndpoint}): clusterClient,
-		etcdClientKey([]string{memberOne}):       memberOneClient,
-		etcdClientKey([]string{memberTwo}):       memberTwoClient,
+func TestEtcdClusterUsesServerHealthCheckCredentials(t *testing.T) {
+	deployConfig := options.NewDeployOptions()
+	deployConfig.ServerIPs = []string{"192.0.2.10"}
+	deployConfig.EtcdConfig.ClientPort = 12379
+	var commands []string
+	runner := &remoteRunner{run: func(_ context.Context, _ *sshutils.SSH, host, command string) (sshutils.Result, error) {
+		if host != "192.0.2.10" {
+			t.Fatalf("unexpected SSH target %q", host)
+		}
+		commands = append(commands, command)
+		switch {
+		case strings.HasPrefix(command, "test -x"):
+			return sshutils.Result{}, nil
+		case strings.HasSuffix(command, "health --cluster"):
+			return sshutils.Result{Stdout: `[{"endpoint":"https://192.0.2.10:12379","health":true}]`}, nil
+		case strings.HasSuffix(command, "status --cluster"):
+			return sshutils.Result{Stdout: `[{"Endpoint":"https://192.0.2.10:12379","Status":{"header":{"member_id":2320589015618095299},"leader":2320589015618095299}}]`}, nil
+		default:
+			t.Fatalf("unexpected command %q", command)
+			return sshutils.Result{}, nil
+		}
 	}}
 
-	check := checkEtcdClusterWithClient(context.Background(), []string{initialEndpoint}, &tls.Config{}, factory.new)
+	// A token-only login has no local etcd certificates. All credentials and
+	// etcdctl come from the server already used for SSH service checks.
+	check := checkEtcdCluster(deployConfig, runner, "192.0.2.10")
 	if check.Status != platformstatus.Healthy {
-		t.Fatalf("status = %s, want %s: %#v", check.Status, platformstatus.Healthy, check)
+		t.Fatalf("check = %#v, want Healthy", check)
 	}
-	if !strings.Contains(strings.Join(check.Evidence, "\n"), "leader="+memberTwo) {
-		t.Fatalf("leader evidence = %v, want %s", check.Evidence, memberTwo)
+	if len(commands) != 3 {
+		t.Fatalf("commands = %v, want prerequisites, health and status", commands)
 	}
-	if got, want := strings.Join(clusterClient.statusEndpoints(), ","), memberOne+","+memberTwo; got != want {
-		t.Fatalf("status endpoints = %q, want %q", got, want)
-	}
-	for endpoint, client := range map[string]*fakeEtcdClient{memberOne: memberOneClient, memberTwo: memberTwoClient} {
-		if got := strings.Join(client.getKeys(), ","); got != "health" {
-			t.Errorf("Get keys for %s = %q, want health", endpoint, got)
+	for _, command := range commands {
+		for _, credential := range []string{
+			"/etc/kubeclipper-server/pki/ca.crt",
+			"/etc/kubeclipper-server/pki/etcd/kube-etcd-healthcheck-client.crt",
+			"/etc/kubeclipper-server/pki/etcd/kube-etcd-healthcheck-client.key",
+		} {
+			if !strings.Contains(command, shellQuote(credential)) {
+				t.Errorf("command %q is missing server credential %q", command, credential)
+			}
 		}
 	}
-}
-
-func TestCheckEtcdClusterWithClientAcceptsPermissionDenied(t *testing.T) {
-	const endpoint = "https://192.0.2.10:2379"
-	clusterClient := &fakeEtcdClient{
-		members: &clientv3.MemberListResponse{Members: []*etcdserverpb.Member{{ClientURLs: []string{endpoint}}}},
-		statuses: map[string]*clientv3.StatusResponse{
-			endpoint: {Header: &etcdserverpb.ResponseHeader{MemberId: 1}, Leader: 1},
-		},
+	if !strings.Contains(commands[1], "--endpoints='https://192.0.2.10:12379'") ||
+		!strings.Contains(commands[1], "--command-timeout=5s") {
+		t.Errorf("health command = %q", commands[1])
 	}
-	factory := &fakeEtcdClientFactory{clients: map[string]*fakeEtcdClient{
-		etcdClientKey([]string{endpoint}): clusterClient,
-	}}
-	// The cluster and endpoint client use the same endpoint in this one-member case.
-	clusterClient.getErr = rpctypes.ErrPermissionDenied
-
-	check := checkEtcdClusterWithClient(context.Background(), []string{endpoint}, &tls.Config{}, factory.new)
-	if check.Status != platformstatus.Healthy {
-		t.Fatalf("status = %s, want %s: %#v", check.Status, platformstatus.Healthy, check)
+	if got := strings.Join(check.Evidence, "\n"); got != "leader=https://192.0.2.10:12379" {
+		t.Fatalf("evidence = %q", got)
 	}
 }
 
-func TestCheckEtcdClusterWithClientStopsBeforeStatusOnHealthFailure(t *testing.T) {
-	const endpoint = "https://192.0.2.10:2379"
-	clusterClient := &fakeEtcdClient{
-		members: &clientv3.MemberListResponse{Members: []*etcdserverpb.Member{{ClientURLs: []string{endpoint}}}},
+func TestEtcdClusterReportsRemoteProbeFailures(t *testing.T) {
+	const healthy = `[{"endpoint":"https://192.0.2.10:12379","health":true}]`
+	tests := []struct {
+		name       string
+		stage      string
+		result     sshutils.Result
+		err        error
+		wantStatus platformstatus.Status
+	}{
+		{name: "missing tool or certificate", stage: "prerequisites", result: sshutils.Result{ExitCode: 1}, wantStatus: platformstatus.Unknown},
+		{name: "SSH unavailable", stage: "health", err: errors.New("connection refused"), wantStatus: platformstatus.Unknown},
+		{name: "health command failed", stage: "health", result: sshutils.Result{ExitCode: 1, Stderr: "context deadline exceeded"}, err: errors.New("exit status 1"), wantStatus: platformstatus.Unhealthy},
+		{name: "unhealthy endpoint", stage: "health", result: sshutils.Result{Stdout: `[{"endpoint":"https://192.0.2.10:12379","health":false}]`}, wantStatus: platformstatus.Unhealthy},
+		{name: "invalid health JSON", stage: "health", result: sshutils.Result{Stdout: "invalid"}, wantStatus: platformstatus.Unknown},
+		{name: "empty health", stage: "health", result: sshutils.Result{Stdout: "[]"}, wantStatus: platformstatus.Unknown},
+		{name: "status command failed", stage: "status", result: sshutils.Result{ExitCode: 1, Stderr: "permission denied"}, wantStatus: platformstatus.Degraded},
+		{name: "invalid status JSON", stage: "status", result: sshutils.Result{Stdout: "invalid"}, wantStatus: platformstatus.Degraded},
+		{name: "empty status", stage: "status", result: sshutils.Result{Stdout: "[]"}, wantStatus: platformstatus.Degraded},
+		{name: "member alarm", stage: "status", result: sshutils.Result{Stdout: `[{"Endpoint":"https://192.0.2.10:12379","Status":{"header":{"member_id":1},"leader":1,"errors":["NOSPACE"]}}]`}, wantStatus: platformstatus.Degraded},
 	}
-	endpointClient := &fakeEtcdClient{getErr: errors.New("connection refused")}
-	factory := &fakeEtcdClientFactory{clients: map[string]*fakeEtcdClient{
-		etcdClientKey([]string{endpoint}): endpointClient,
-	}}
-	// A separate initial endpoint keeps status calls observable on the discovery client.
-	const initialEndpoint = "https://192.0.2.9:2379"
-	factory.clients[etcdClientKey([]string{initialEndpoint})] = clusterClient
-
-	check := checkEtcdClusterWithClient(context.Background(), []string{initialEndpoint}, &tls.Config{}, factory.new)
-	if check.Status != platformstatus.Unhealthy {
-		t.Fatalf("status = %s, want %s: %#v", check.Status, platformstatus.Unhealthy, check)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			deployConfig := options.NewDeployOptions()
+			deployConfig.ServerIPs = []string{"192.0.2.10"}
+			var stages []string
+			runner := &remoteRunner{run: func(_ context.Context, _ *sshutils.SSH, _, command string) (sshutils.Result, error) {
+				stage := "prerequisites"
+				if strings.HasSuffix(command, "health --cluster") {
+					stage = "health"
+				}
+				if strings.HasSuffix(command, "status --cluster") {
+					stage = "status"
+				}
+				stages = append(stages, stage)
+				if stage == test.stage {
+					return test.result, test.err
+				}
+				if stage == "health" {
+					return sshutils.Result{Stdout: healthy}, nil
+				}
+				return sshutils.Result{}, nil
+			}}
+			check := checkEtcdCluster(deployConfig, runner, "192.0.2.10")
+			if check.Status != test.wantStatus {
+				t.Fatalf("check = %#v, want %s", check, test.wantStatus)
+			}
+			if stages[len(stages)-1] != test.stage {
+				t.Fatalf("continued after failed %s probe: %v", test.stage, stages)
+			}
+		})
 	}
-	if got := clusterClient.statusEndpoints(); len(got) != 0 {
-		t.Fatalf("status called after failed health check: %v", got)
-	}
-}
-
-func TestCheckEtcdClusterWithClientDegradesWhenStatusFails(t *testing.T) {
-	const endpoint = "https://192.0.2.10:2379"
-	clusterClient := &fakeEtcdClient{
-		members:    &clientv3.MemberListResponse{Members: []*etcdserverpb.Member{{ClientURLs: []string{endpoint}}}},
-		statusErrs: map[string]error{endpoint: errors.New("status unavailable")},
-	}
-	endpointClient := &fakeEtcdClient{}
-	const initialEndpoint = "https://192.0.2.9:2379"
-	factory := &fakeEtcdClientFactory{clients: map[string]*fakeEtcdClient{
-		etcdClientKey([]string{initialEndpoint}): clusterClient,
-		etcdClientKey([]string{endpoint}):        endpointClient,
-	}}
-
-	check := checkEtcdClusterWithClient(context.Background(), []string{initialEndpoint}, &tls.Config{}, factory.new)
-	if check.Status != platformstatus.Degraded {
-		t.Fatalf("status = %s, want %s: %#v", check.Status, platformstatus.Degraded, check)
-	}
-	if !strings.Contains(strings.Join(check.Evidence, "\n"), "status unavailable") {
-		t.Fatalf("status evidence = %v", check.Evidence)
-	}
-}
-
-type fakeEtcdClientFactory struct {
-	mu      sync.Mutex
-	clients map[string]*fakeEtcdClient
-}
-
-func (f *fakeEtcdClientFactory) new(endpoints []string, _ *tls.Config) (etcdClient, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	client, found := f.clients[etcdClientKey(endpoints)]
-	if !found {
-		return nil, fmt.Errorf("unexpected etcd client endpoints %v", endpoints)
-	}
-	return client, nil
-}
-
-func etcdClientKey(endpoints []string) string {
-	return strings.Join(endpoints, ",")
-}
-
-type fakeEtcdClient struct {
-	mu            sync.Mutex
-	members       *clientv3.MemberListResponse
-	memberListErr error
-	getErr        error
-	statuses      map[string]*clientv3.StatusResponse
-	statusErrs    map[string]error
-	gets          []string
-	statusCalls   []string
-}
-
-func (c *fakeEtcdClient) Get(_ context.Context, key string, _ ...clientv3.OpOption) (*clientv3.GetResponse, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.gets = append(c.gets, key)
-	return nil, c.getErr
-}
-
-func (c *fakeEtcdClient) MemberList(context.Context) (*clientv3.MemberListResponse, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.members, c.memberListErr
-}
-
-func (c *fakeEtcdClient) Status(_ context.Context, endpoint string) (*clientv3.StatusResponse, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.statusCalls = append(c.statusCalls, endpoint)
-	return c.statuses[endpoint], c.statusErrs[endpoint]
-}
-
-func (*fakeEtcdClient) Close() error { return nil }
-
-func (c *fakeEtcdClient) getKeys() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]string(nil), c.gets...)
-}
-
-func (c *fakeEtcdClient) statusEndpoints() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return append([]string(nil), c.statusCalls...)
 }
 
 func TestPadRightUsesDisplayCharacters(t *testing.T) {
