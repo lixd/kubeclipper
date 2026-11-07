@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-11-07T06:20:06.016438+00:00",
+  "candidate_commit": "eb286042dcdd669882862a9d5d4ee8aad509bb52",
+  "candidate_sha256": "01148420a6242ac743495959543e2368e1391723aab79d0b385a344d82a6c41c",
+  "token_present": true,
+  "client_certificate_present": false,
+  "ca_present": false,
+  "server_ips": [
+    "172.16.131.146"
+  ],
+  "agents": [
+    "172.16.131.146",
+    "172.16.131.230"
+  ],
+  "before_exit": 1,
+  "before_status": "Unknown",
+  "after_exit": 0,
+  "after_status": "Healthy",
+  "after_summary": "17 passed, 0 warnings, 0 failed, 0 skipped",
+  "nodes": {
+    "lixd-dev-3": {
+      "NetworkUnavailable": "False",
+      "MemoryPressure": "False",
+      "DiskPressure": "False",
+      "PIDPressure": "False",
+      "Ready": "True"
+    },
+    "lixd-dev-4": {
+      "NetworkUnavailable": "False",
+      "MemoryPressure": "False",
+      "DiskPressure": "False",
+      "PIDPressure": "False",
+      "Ready": "True"
+    }
+  },
+  "installed_cli": {
+    "host": "sh-dev-3",
+    "path": "/usr/local/bin/kcctl",
+    "sha256": "01148420a6242ac743495959543e2368e1391723aab79d0b385a344d82a6c41c",
+    "doctor_exit": 0
+  }
+}

@@ -358,6 +358,9 @@ kcctl doctor
 
 1. KC API、Console、etcd 读写、Server 和两个 Agent 正常。doctor 的失败或 Unknown
    保留原始输出并排查。独立 etcd 健康检查、真实 KV 写入/读取/删除也要保存结果。
+   新口令登录后要求 doctor 为 Healthy、退出码为 0。etcd 深度检查通过现有 SSH
+   在 Server 上使用自带 etcdctl 和专用健康证书执行。口令登录复测与失败判据见
+   [doctor 用例](doctor-2026-11-07.md)。
 2. Kubernetes 两节点 Ready，版本、角色、运行时和 Calico 版本符合本轮参数。
    CreateCluster Operation 为 Succeeded，系统 Pod Ready，近期事件中没有持续拉取失败。
 

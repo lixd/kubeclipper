@@ -108,8 +108,12 @@ KC、第二个 Agent join 和真实 Kubernetes 建群完成，默认运行镜像
 口令登录后当前客户端上下文只有令牌，没有 doctor 直接探测 etcd 所需的 CA 和客户端证书。
 `doctor` 显示 `Overall Unknown`，汇总为 16 passed、1 failed，问题为
 `etcd client credentials are unavailable`。Server、Agent 和 etcd 服务本身均正常，
-独立 etcd endpoint health 及真实 KV 写读删已验证。该诊断问题保留待修复。
+独立 etcd endpoint health 及真实 KV 写读删已验证。该轮记录了此诊断缺陷。
 原始输出见[国内 doctor](evidence/delivery-20261106/cn-doctor.txt)。
+
+2026-11-07，候选 `eb286042` 改为在 Server 上使用专用健康检查证书执行 etcdctl。
+保留的双节点环境中新口令登录复验为 Healthy、17 passed / 0 failed、exit 0。
+本报告表格保留 2026-11-06 的当轮结果，修复后的证据见[复验报告](doctor-2026-11-07.md)。
 
 ### 国内环境的瞬时 I/O 和旧 peer 流量
 

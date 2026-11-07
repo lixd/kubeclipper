@@ -1,0 +1,2 @@
+kcctl version: version.Info{Major:"2", Minor:"0", GitVersion:"v2.0.11", GitCommit:"eb286042dcdd669882862a9d5d4ee8aad509bb52", GitTreeState:"clean", BuildDate:"2026-11-07T06:13:36Z", GoVersion:"go1.26.1", Compiler:"gc", Platform:"linux/amd64"}
+01148420a6242ac743495959543e2368e1391723aab79d0b385a344d82a6c41c  kcctl
