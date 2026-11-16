@@ -34,6 +34,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/stretchr/testify/require"
 
 	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
@@ -377,7 +378,7 @@ publish_resource_package "$name" "$kind" "$name" core "$leaf"
 	return filepath.Join(dir, "publish-component-release.sh"), resourceDir
 }
 
-func TestResourceReleaseResumesInitialPublication(t *testing.T) { //nolint:funlen // One fixture covers interrupted publication through promotion.
+func TestResourceReleaseResumesInitialPublication(t *testing.T) { //nolint:funlen // One fixture covers interrupted candidate publication and retry.
 	server := httptest.NewServer(containerregistry.New())
 	defer server.Close()
 	host := strings.TrimPrefix(server.URL, "http://")
@@ -444,12 +445,14 @@ crane publish-fixture "$KC_RELEASE_FIXTURE_SOURCE:$arch" "$registry/package-$nam
 	if digestErr != nil {
 		t.Fatal(digestErr)
 	}
-	for _, prefix := range []string{canonical, target} {
-		actual, readErr := crane.Digest(prefix + "/package-k8s:v1.37.0")
-		if readErr != nil || actual != want.String() {
-			t.Fatalf("complete package = %s, %v; want %s", actual, readErr, want)
-		}
+	actual, readErr := crane.Digest(target + "/package-k8s:v1.37.0")
+	if readErr != nil || actual != want.String() {
+		t.Fatalf("complete candidate package = %s, %v; want %s", actual, readErr, want)
 	}
+	_, canonicalErr := crane.Digest(canonical + "/package-k8s:v1.37.0")
+	var registryErr *transport.Error
+	require.ErrorAs(t, canonicalErr, &registryErr)
+	require.Equal(t, http.StatusNotFound, registryErr.StatusCode, "candidate publication wrote to the canonical repository")
 	publications, readErr := os.ReadFile(filepath.Join(workspace, "publications"))
 	if readErr != nil || string(publications) != "amd64\narm64\n" {
 		t.Fatalf("completed platform was republished: %s, %v", publications, readErr)

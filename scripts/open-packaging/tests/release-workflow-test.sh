@@ -128,6 +128,8 @@ aio_publish = next(step["run"] for step in aio_steps if step.get("name") == "Pub
 assert '--version "$(bootstrap_version consoleVersion)"' in aio_publish
 assert aio_steps.index(aio_build) < next(i for i, step in enumerate(aio_steps) if step.get("name") == "Publish bootstrap package images")
 aio_deploy = next(step["run"] for step in aio_steps if step.get("name") == "Deploy KubeClipper from OCI")
+aio_login = next(step["run"] for step in aio_steps if step.get("name") == "Login and run fast E2E")
+aio_ssh = aio_login.split("make build-e2e", 1)[0]
 aio_clean = next(step for step in aio_steps if step.get("name") == "Clean test environment")
 aio_registry_clean = next(step for step in aio_steps if step.get("name") == "Remove local OCI Registry")
 assert aio_clean["if"] == aio_registry_clean["if"] == "always()"
@@ -144,13 +146,23 @@ if name == "ip":
     print(os.environ["ROUTES"])
     sys.exit(int(os.environ["ROUTE_EXIT"]))
 if name == "sudo":
+    if args == ["tee", "/etc/ssh/sshd_config.d/00-kubeclipper-e2e.conf"]:
+        assert sys.stdin.read() == "PasswordAuthentication yes\\nPermitRootLogin yes\\n"
+        sys.exit(0)
+    if args == ["sshd", "-t"]:
+        sys.exit(int(os.environ["SSHD_TEST_EXIT"]))
+    if args == ["systemctl", "restart", "ssh"]:
+        sys.exit(int(os.environ["SSH_RESTART_EXIT"]))
+    if args == ["sshd", "-T"]:
+        print(os.environ["SSHD_CONFIG"])
+        sys.exit(int(os.environ["SSHD_EFFECTIVE_EXIT"]))
     if args == ["test", "-f", "/root/.kc/deploy-config.yaml"]:
         sys.exit(0 if os.environ["HAS_CONFIG"] == "1" else 1)
     if args[:2] == ["kcctl", "deploy"]:
         sys.exit(int(os.environ["DEPLOY_EXIT"]))
     if args[:2] == ["kcctl", "clean"]:
         sys.exit(int(os.environ["CLEAN_EXIT"]))
-    assert args[0] in ("cp", "rm")
+    assert args[0] in ("cp", "rm", "chpasswd", "mkdir")
 if name == "docker":
     if args[:2] == ["container", "ls"]:
         print(os.environ["REGISTRY_ID"])
@@ -164,6 +176,8 @@ if name == "docker":
         tool.chmod(0o755)
     env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}", COMMAND_LOG=str(log),
                ROUTES="[]", ROUTE_EXIT="0", DEPLOY_EXIT="0", HAS_CONFIG="0", CLEAN_EXIT="0",
+               SSHD_CONFIG="passwordauthentication yes\npermitrootlogin yes\n",
+               SSHD_TEST_EXIT="0", SSH_RESTART_EXIT="0", SSHD_EFFECTIVE_EXIT="0",
                REGISTRY_ID="", REGISTRY_QUERY_EXIT="0", REGISTRY_REMOVE_EXIT="0")
 
     def run_aio_step(command, **settings):
@@ -184,6 +198,23 @@ if name == "docker":
             assert args[args.index("--node-ip-detect") + 1] == pattern
         else:
             assert all(command[0] != "sudo" for command in commands), "route discovery must fail before deployment"
+    for settings in ({}, {"SSHD_TEST_EXIT": "1"}, {"SSH_RESTART_EXIT": "1"},
+                     {"SSHD_EFFECTIVE_EXIT": "1"},
+                     {"SSHD_CONFIG": "passwordauthentication no\npermitrootlogin yes\n"},
+                     {"SSHD_CONFIG": "passwordauthentication yes\npermitrootlogin without-password\n"}):
+        result, commands = run_aio_step(aio_ssh, **settings)
+        assert (result.returncode == 0) == (not settings), result.stderr
+        syntax_check = ["sudo", "sshd", "-t"]
+        restart = ["sudo", "systemctl", "restart", "ssh"]
+        effective = ["sudo", "sshd", "-T"]
+        assert syntax_check in commands
+        assert (restart in commands) == (settings.get("SSHD_TEST_EXIT", "0") == "0")
+        if restart in commands:
+            assert commands.index(syntax_check) < commands.index(restart)
+        expected_effective = not any(settings.get(key) == "1" for key in ("SSHD_TEST_EXIT", "SSH_RESTART_EXIT"))
+        assert commands.count(effective) == int(expected_effective)
+        if expected_effective and settings.get("SSHD_EFFECTIVE_EXIT", "0") == "0":
+            assert settings.get("SSHD_CONFIG", env["SSHD_CONFIG"]).encode().strip() in result.stdout
     for has_config, clean_exit in (("0", "0"), ("1", "0"), ("1", "1")):
         result, commands = run_aio_step(aio_clean["run"], HAS_CONFIG=has_config, CLEAN_EXIT=clean_exit)
         assert (result.returncode == 0) == (has_config == "0" or clean_exit == "0"), result.stderr

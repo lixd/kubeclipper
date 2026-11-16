@@ -140,12 +140,16 @@ jobs:
 
       - name: Login and run fast E2E
         run: |
+          set -euo pipefail
           echo 'root:Thinkbig1' | sudo chpasswd
           sudo mkdir -p /etc/ssh/sshd_config.d
-          printf 'PasswordAuthentication yes\nPermitRootLogin yes\n' | sudo tee /etc/ssh/sshd_config.d/99-kubeclipper-e2e.conf >/dev/null
+          printf 'PasswordAuthentication yes\nPermitRootLogin yes\n' | sudo tee /etc/ssh/sshd_config.d/00-kubeclipper-e2e.conf >/dev/null
+          sudo sshd -t
           sudo systemctl restart ssh
-          sudo sshd -T | grep -q '^passwordauthentication yes$'
-          sudo sshd -T | grep -q '^permitrootlogin yes$'
+          sshd_config="$(sudo sshd -T)"
+          printf '%s\n' "$sshd_config" | grep -E '^(passwordauthentication|permitrootlogin) '
+          grep -qx 'passwordauthentication yes' <<<"$sshd_config"
+          grep -qx 'permitrootlogin yes' <<<"$sshd_config"
           make build-e2e
           kcctl login -H http://localhost:80  -u admin -p Thinkbig1
           ./dist/e2e.test -cluster-install-short-timeout=10m -ginkgo.focus="\[Fast\]"
