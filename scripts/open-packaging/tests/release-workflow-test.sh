@@ -149,8 +149,6 @@ if name == "sudo":
     if args == ["tee", "/etc/ssh/sshd_config.d/00-kubeclipper-e2e.conf"]:
         assert sys.stdin.read() == "PasswordAuthentication yes\\nPermitRootLogin yes\\n"
         sys.exit(0)
-    if args == ["sshd", "-t"]:
-        sys.exit(int(os.environ["SSHD_TEST_EXIT"]))
     if args == ["systemctl", "restart", "ssh"]:
         sys.exit(int(os.environ["SSH_RESTART_EXIT"]))
     if args == ["sshd", "-T"]:
@@ -177,7 +175,7 @@ if name == "docker":
     env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}", COMMAND_LOG=str(log),
                ROUTES="[]", ROUTE_EXIT="0", DEPLOY_EXIT="0", HAS_CONFIG="0", CLEAN_EXIT="0",
                SSHD_CONFIG="passwordauthentication yes\npermitrootlogin yes\n",
-               SSHD_TEST_EXIT="0", SSH_RESTART_EXIT="0", SSHD_EFFECTIVE_EXIT="0",
+               SSH_RESTART_EXIT="0", SSHD_EFFECTIVE_EXIT="0",
                REGISTRY_ID="", REGISTRY_QUERY_EXIT="0", REGISTRY_REMOVE_EXIT="0")
 
     def run_aio_step(command, **settings):
@@ -198,21 +196,19 @@ if name == "docker":
             assert args[args.index("--node-ip-detect") + 1] == pattern
         else:
             assert all(command[0] != "sudo" for command in commands), "route discovery must fail before deployment"
-    for settings in ({}, {"SSHD_TEST_EXIT": "1"}, {"SSH_RESTART_EXIT": "1"},
+    for settings in ({}, {"SSH_RESTART_EXIT": "1"},
                      {"SSHD_EFFECTIVE_EXIT": "1"},
                      {"SSHD_CONFIG": "passwordauthentication no\npermitrootlogin yes\n"},
                      {"SSHD_CONFIG": "passwordauthentication yes\npermitrootlogin without-password\n"}):
         result, commands = run_aio_step(aio_ssh, **settings)
         assert (result.returncode == 0) == (not settings), result.stderr
-        syntax_check = ["sudo", "sshd", "-t"]
         restart = ["sudo", "systemctl", "restart", "ssh"]
         effective = ["sudo", "sshd", "-T"]
-        assert syntax_check in commands
-        assert (restart in commands) == (settings.get("SSHD_TEST_EXIT", "0") == "0")
-        if restart in commands:
-            assert commands.index(syntax_check) < commands.index(restart)
-        expected_effective = not any(settings.get(key) == "1" for key in ("SSHD_TEST_EXIT", "SSH_RESTART_EXIT"))
+        assert restart in commands
+        expected_effective = settings.get("SSH_RESTART_EXIT", "0") == "0"
         assert commands.count(effective) == int(expected_effective)
+        if expected_effective:
+            assert commands.index(restart) < commands.index(effective)
         if expected_effective and settings.get("SSHD_EFFECTIVE_EXIT", "0") == "0":
             assert settings.get("SSHD_CONFIG", env["SSHD_CONFIG"]).encode().strip() in result.stdout
     for has_config, clean_exit in (("0", "0"), ("1", "0"), ("1", "1")):

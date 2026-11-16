@@ -144,7 +144,6 @@ jobs:
           echo 'root:Thinkbig1' | sudo chpasswd
           sudo mkdir -p /etc/ssh/sshd_config.d
           printf 'PasswordAuthentication yes\nPermitRootLogin yes\n' | sudo tee /etc/ssh/sshd_config.d/00-kubeclipper-e2e.conf >/dev/null
-          sudo sshd -t
           sudo systemctl restart ssh
           sshd_config="$(sudo sshd -T)"
           printf '%s\n' "$sshd_config" | grep -E '^(passwordauthentication|permitrootlogin) '
