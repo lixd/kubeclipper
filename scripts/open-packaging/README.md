@@ -500,16 +500,14 @@ skipped; an existing tag with a different digest is not overwritten.
 Use a kcctl binary from the release being exported. No Docker, containerd,
 Skopeo or Python installation is required for this flow.
 
-Release kcctl binaries embed the verified inventory with package and image
-references, platforms and digests. The release workflow builds the standalone
-CLI after those package digests are final. `--manifest <file>` selects an
+Release kcctl binaries embed the tag-based inventory with package and image
+references and platforms. Both standalone and bootstrap kcctl builds consume
+this inventory. Export resolves those tags and records content digests in the
+offline bundle for integrity verification. `--manifest <file>` selects an
 external inventory, available as `release-manifest-<version>.yaml` in the
-corresponding GitHub Release assets. Source builds without an embedded inventory
-use this explicit flag. The kcctl copy inside the bootstrap package also uses
-an external manifest because the inventory includes that package's own digest.
-For the current v2.0.11 test candidate, the
-[tested manifest](../../docs/testing/evidence/offline-bundles-20261105/release-manifest.yaml)
-records the validated ACR source references.
+corresponding GitHub Release assets. The
+[v2.0.11 test manifest](../../docs/testing/evidence/offline-bundles-20261105/release-manifest.yaml)
+records the ACR source references validated on 2026-11-05.
 
 ```bash
 # On a connected machine: export every artifact and its complete image index.
@@ -545,7 +543,7 @@ Export and import can be chained when the target Registry is already available.
 
 ```bash
 kcctl registry export --output ./offline && \
-  kcctl registry import --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz \
+  kcctl registry import --bundle ./offline/kubeclipper-offline-v2.0.12.tar.gz \
     --target registry.example.com/kubeclipper
 ```
 
@@ -562,7 +560,7 @@ kcctl registry deploy --node 10.0.0.10 --pk-file ~/.ssh/id_ed25519 \
   --bundle ./offline/registry-3.1.1.tar.gz
 
 # Seed the Registry from the complete release archive.
-kcctl registry import --bundle ./offline/kubeclipper-offline-v2.0.11.tar.gz \
+kcctl registry import --bundle ./offline/kubeclipper-offline-v2.0.12.tar.gz \
   --target 10.0.0.10:5000/kubeclipper-release --target-scheme http
 
 # Install through the normal package Registry flow.

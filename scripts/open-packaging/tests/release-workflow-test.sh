@@ -99,12 +99,41 @@ assert "vars.OSS_DOWNLOAD_URL" in workflow["env"]["OSS_DOWNLOAD_URL"]
 assert "kubeclipper.oss-ap-southeast-1.aliyuncs.com/kc" in workflow["env"]["OSS_DOWNLOAD_URL"]
 stamp = stamp_step["run"]
 root = Path(sys.argv[1]).resolve().parents[2]
+aio = yaml.safe_load((root / ".github/workflows/test-aio.yml").read_text())
+aio_job = aio["jobs"]["build"]
+aio_steps = aio_job["steps"]
+assert aio_job["env"]["KC_CONSOLE_RELEASE_REPOSITORY"] == component_workflow["jobs"]["publish"]["env"]["KC_CONSOLE_RELEASE_REPOSITORY"]
+aio_checkout = next(step for step in aio_steps if step.get("name") == "Checkout pinned Console source")
+assert aio_checkout["with"]["repository"] == "${{ env.KC_CONSOLE_RELEASE_REPOSITORY }}"
+assert aio_checkout["with"]["ref"] == "${{ steps.console.outputs.revision }}"
+assert aio_checkout["with"]["path"] == "dist/.console-source"
+assert "dist" in (root / ".gitignore").read_text().splitlines(), "Console checkout must stay inside ignored build output"
+aio_node = next(step for step in aio_steps if step.get("name") == "Set up Node for Console")
+assert aio_node["with"]["node-version"] == "18.20.8"
+assert aio_node["with"] == next(step["with"] for step in component_steps if step.get("name") == "Set up Node for Console")
+aio_build = next(step for step in aio_steps if step.get("name") == "Build pinned Console archive")
+component_build = next(step for step in component_steps if step.get("name") == "Build pinned Console archive")
+assert aio_build["run"].replace("cd dist/.console-source", "cd .console-source") == component_build["run"], "AIO must use the same pinned Console build and version stamping"
+assert aio_build["env"]["EXPECTED_REVISION"] == "${{ steps.console.outputs.revision }}"
+assert 'bash -e build.sh true' in aio_build["run"]
+assert 'KC_CONSOLE_ARCHIVE=$RUNNER_TEMP/kc-console.tar.gz' in aio_build["run"]
+aio_pin = next(step["run"] for step in aio_steps if step.get("name") == "Resolve pinned Console revision")
+with tempfile.TemporaryDirectory() as tmp:
+    output = Path(tmp, "output")
+    subprocess.run(["bash", "-eu", "-c", aio_pin], cwd=root,
+                   env=dict(os.environ, GITHUB_OUTPUT=str(output)), check=True)
+    bootstrap = yaml.safe_load((root / "packaging/resources.yaml").read_text())["bootstrap"]
+    assert output.read_text() == f'revision={bootstrap["consoleSourceRevision"]}\n'
+aio_publish = next(step["run"] for step in aio_steps if step.get("name") == "Publish bootstrap package images")
+assert '--version "$(bootstrap_version consoleVersion)"' in aio_publish
+assert aio_steps.index(aio_build) < next(i for i, step in enumerate(aio_steps) if step.get("name") == "Publish bootstrap package images")
 with tempfile.TemporaryDirectory() as tmp:
     checkout = Path(tmp)
     inventory = checkout / "pkg/delivery/releasemanifest/embedded"
     inventory.mkdir(parents=True)
     (inventory / "release-manifest.yaml").write_bytes((root / "pkg/delivery/releasemanifest/embedded/release-manifest.yaml").read_bytes())
     (checkout / "version.sh").write_bytes((root / "hack/lib/version.sh").read_bytes())
+    (checkout / ".gitignore").write_bytes((root / ".gitignore").read_bytes())
     for args in (("init", "-q"), ("add", "."),
                  ("-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid", "commit", "-qm", "fixture"),
                  ("tag", "v9.8.7")):
@@ -115,6 +144,12 @@ with tempfile.TemporaryDirectory() as tmp:
                        'source ./version.sh; kube::version::get_version_vars; printf "%s %s" "$KUBE_GIT_VERSION" "$KUBE_GIT_TREE_STATE"']
     actual = subprocess.check_output(version_command, cwd=checkout, env=env, text=True)
     assert actual == "v9.8.7 clean", actual
+    console_checkout = checkout / aio_checkout["with"]["path"]
+    console_checkout.mkdir(parents=True)
+    subprocess.run(["git", "init", "-q"], cwd=console_checkout, check=True, capture_output=True)
+    (console_checkout / "package.json").write_text("{}")
+    actual = subprocess.check_output(version_command, cwd=checkout, env=env, text=True)
+    assert actual == "v9.8.7 clean", "AIO Console source must not dirty core binary metadata: " + actual
     with (checkout / "version.sh").open("a") as stream:
         stream.write("\n# tracked source change\n")
     actual = subprocess.check_output(version_command, cwd=checkout, env=env, text=True)

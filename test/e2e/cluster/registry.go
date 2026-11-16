@@ -103,11 +103,11 @@ func initRegistries() []*corev1.Registry {
 	}
 }
 
-func afterEachDeleteRegistries(ctx context.Context, f *framework.Framework) {
-	f.AddAfterEach("delete registries", func(f *framework.Framework, failed bool) {
+func afterEachDeleteRegistries(ctx context.Context, f *framework.Framework) func() {
+	return func() {
 		ginkgo.By("delete test registries")
 		for _, reg := range initRegistries() {
 			_ = f.Client.DeleteRegistry(ctx, reg.Name)
 		}
-	})
+	}
 }

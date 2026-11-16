@@ -2,7 +2,7 @@ apiVersion: delivery.kubeclipper.io/v1alpha1
 kind: ReleaseManifest
 metadata:
   name: kubeclipper-resources
-  version: v2.0.11
+  version: v2.0.12
 registries:
   package: ghcr.io/kubeclipper/kubeclipper
   image: ghcr.io/kubeclipper/kubeclipper
@@ -31,9 +31,9 @@ artifacts:
   component:
     kind: bootstrap
     name: kubeclipper
-    version: v2.0.11
-  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-kubeclipper:v2.0.11
-  target: package-bootstrap-kubeclipper:v2.0.11
+    version: v2.0.12
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-kubeclipper:v2.0.12
+  target: package-bootstrap-kubeclipper:v2.0.12
   platforms:
   - linux/amd64
   - linux/arm64

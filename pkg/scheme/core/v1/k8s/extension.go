@@ -151,7 +151,7 @@ func (stepper *Extension) InstallStepsWithContext(ctx context.Context, nodes []v
 			ID:         strutil.GetUUID(),
 			Name:       "installExtension",
 			Timeout:    metav1.Duration{Duration: 10 * time.Minute},
-			ErrIgnore:  true,
+			ErrIgnore:  false,
 			RetryTimes: 1,
 			Nodes:      nodes,
 			Action:     v1.ActionInstall,

@@ -3029,10 +3029,8 @@ func (h *handler) ExecPod(request *restful.Request, response *restful.Response) 
 
 func (h *handler) SSHToNode(request *restful.Request, response *restful.Response) {
 	var (
-		priKey           []byte
-		setting          = &v1.PlatformSetting{}
-		quitChan         = make(chan struct{}, 3)
-		gracefulExitChan = make(chan struct{})
+		priKey  []byte
+		setting = &v1.PlatformSetting{}
 	)
 	nodeName := request.PathParameter(query.ParameterName)
 	msg := request.QueryParameter("msg")
@@ -3052,37 +3050,7 @@ func (h *handler) SSHToNode(request *restful.Request, response *restful.Response
 	}
 	wsConn.SetPongHandler(func(appData string) error {
 		logger.Debug("in pong handler...")
-		err = wsConn.SetReadDeadline(time.Now().Add(60 * time.Second))
-		if err != nil {
-			logger.Errorf("%s", err)
-		}
-		return nil
-	})
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	go func() {
-		defer logger.Debug("websocket send ping return...")
-		for {
-			select {
-			case <-ticker.C:
-				// wsConn.SetWriteDeadline(time.Now().Add(writeWait))
-				if err := wsConn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					return
-				}
-			case <-quitChan:
-				return
-			}
-		}
-	}()
-	wsConn.SetCloseHandler(func(code int, text string) error {
-		logger.Debug("in close handler...")
-		message := websocket.FormatCloseMessage(code, text)
-		err = wsConn.WriteControl(websocket.CloseMessage, message, time.Now().Add(time.Second))
-		if err != nil {
-			logger.Errorf("%s", err)
-		}
-		quitChan <- struct{}{}
-		return nil
+		return wsConn.SetReadDeadline(time.Now().Add(60 * time.Second))
 	})
 
 	node, err := h.clusterOperator.GetNodeEx(request.Request.Context(), nodeName, "0")
@@ -3139,18 +3107,26 @@ func (h *handler) SSHToNode(request *restful.Request, response *restful.Response
 	}
 	defer sshConn.Close()
 
-	sshConn.Start(quitChan)
-	go sshConn.Wait(quitChan, gracefulExitChan)
-	select {
-	case <-quitChan:
-		return
-	case <-gracefulExitChan:
-		time.Sleep(1 * time.Second)
-		message := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
-		if err := wsConn.WriteControl(websocket.CloseMessage, message, time.Now().Add(time.Second)); err != nil {
-			logger.Errorf("close websocket error due to: %s", err.Error())
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if err := wsConn.WriteControl(websocket.PingMessage, nil, time.Now().Add(10*time.Second)); err != nil {
+					sshConn.Close()
+					return
+				}
+			case <-sshConn.Done():
+				return
+			}
 		}
-		return
+	}()
+
+	sshConn.Start()
+	select {
+	case <-sshConn.Done():
+	case <-request.Request.Context().Done():
 	}
 }
 

@@ -13,6 +13,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-24.04
+    env:
+      KC_CONSOLE_RELEASE_REPOSITORY: ${{ vars.KC_CONSOLE_RELEASE_REPOSITORY || format('{0}/console', github.repository_owner) }}
 
     steps:
       - uses: actions/checkout@v7
@@ -31,6 +33,48 @@ jobs:
           version="$(python3 -c 'import yaml; print(yaml.safe_load(open("packaging/resources.yaml"))["bootstrap"]["kubeclipperVersion"])')"
           echo "KUBE_GIT_VERSION=$version" >> "$GITHUB_ENV"
           KUBE_BUILD_PLATFORMS="linux/amd64" KUBE_GIT_VERSION="$version" make build
+
+      - name: Resolve pinned Console revision
+        id: console
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import yaml
+
+          with open('packaging/resources.yaml', encoding='utf-8') as stream:
+              revision = yaml.safe_load(stream)['bootstrap']['consoleSourceRevision']
+          if not re.fullmatch(r'[0-9a-f]{40}', revision):
+              raise SystemExit('consoleSourceRevision must be a full Git commit')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as stream:
+              stream.write(f'revision={revision}\n')
+          PY
+
+      - name: Checkout pinned Console source
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.KC_CONSOLE_RELEASE_REPOSITORY }}
+          ref: ${{ steps.console.outputs.revision }}
+          path: dist/.console-source
+          fetch-depth: 1
+
+      - name: Set up Node for Console
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18.20.8'
+
+      - name: Build pinned Console archive
+        env:
+          EXPECTED_REVISION: ${{ steps.console.outputs.revision }}
+        run: |
+          set -euo pipefail
+          cd dist/.console-source
+          test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+          corepack enable
+          yarn install --frozen-lockfile
+          bash -e build.sh true
+          tar -czf "$RUNNER_TEMP/kc-console.tar.gz" -C dist .
+          echo "KC_CONSOLE_ARCHIVE=$RUNNER_TEMP/kc-console.tar.gz" >> "$GITHUB_ENV"
 
       - name: Start local OCI Registry
         run: |
@@ -59,12 +103,15 @@ jobs:
           export KC_OCI_PUBLISH_BIN="$tools_dir/oci-publish"
           scripts/open-packaging/publish-bootstrap-kubeclipper.sh \
             --registry-prefix 127.0.0.1:5000 --version "$KUBE_GIT_VERSION" --arch amd64
+          bootstrap_version() {
+            python3 -c 'import sys, yaml; print(yaml.safe_load(open("packaging/resources.yaml"))["bootstrap"][sys.argv[1]])' "$1"
+          }
           scripts/open-packaging/publish-bootstrap-etcd.sh \
-            --registry-prefix 127.0.0.1:5000 --version 3.5.21 --arch amd64
+            --registry-prefix 127.0.0.1:5000 --version "$(bootstrap_version etcdVersion)" --arch amd64
           scripts/open-packaging/publish-bootstrap-console.sh \
-            --registry-prefix 127.0.0.1:5000 --version v1.6.0 --arch amd64
+            --registry-prefix 127.0.0.1:5000 --version "$(bootstrap_version consoleVersion)" --arch amd64
           scripts/open-packaging/publish-bootstrap-registry.sh \
-            --registry-prefix 127.0.0.1:5000 --version 3.1.1 --arch amd64
+            --registry-prefix 127.0.0.1:5000 --version "$(bootstrap_version registryVersion)" --arch amd64
 
       - name: Deploy KubeClipper from OCI
         run: |

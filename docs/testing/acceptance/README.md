@@ -46,8 +46,7 @@ run, the gate blocks unless:
 1. a **successful** `publish-oci-qualification.yml` run exists for commit
    `<sha>` (resolved via the Actions API, head_sha + status filters);
 2. that run's release manifest is a `ReleaseManifest` for the same version
-   whose `metadata.sourceRevision` and bootstrap/kubeclipper artifact
-   revisions equal `<sha>`;
+   whose bootstrap/kubeclipper artifact uses the release version tag;
 3. `docs/testing/acceptance/<sha>.yaml` exists, records `result: passed`,
    and its `release_manifest_sha256` equals the sha256 of the downloaded
    qualification manifest;

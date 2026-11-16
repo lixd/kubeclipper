@@ -130,12 +130,14 @@ func AddToContainer(
 
 	webservice.Route(webservice.GET("/template").
 		Doc("Information about platform template").
+		Operation("DescribePlatformTemplate").
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
 		To(h.DescribeTemplate).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), v1.DockerRegistry{}).
 		Returns(http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError), errors.HTTPError{}))
 	webservice.Route(webservice.PUT("/template").
 		Doc("Update template").
+		Operation("UpdatePlatformTemplate").
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreConfigTag}).
 		To(h.UpdateTemplate).
 		Reads(v1.DockerRegistry{}).

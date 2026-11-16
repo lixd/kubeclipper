@@ -15,11 +15,15 @@ import (
 
 func supportedManifest() buildManifest {
 	var manifest buildManifest
-	manifest.Release = "v2.0.11"
+	for _, slot := range deliveryapis.DefaultSupportPolicy().Spec.Policies[0].ComponentSlots {
+		if slot.Slot == "bootstrap-kubeclipper" {
+			manifest.Release = slot.Default.Version
+		}
+	}
 	manifest.Architectures = []string{"amd64", "arm64"}
 	manifest.Registries.Package = officialRegistryPrefix
 	manifest.Registries.Image = officialRegistryPrefix
-	manifest.Bootstrap.KubeClipperVersion = "v2.0.11"
+	manifest.Bootstrap.KubeClipperVersion = manifest.Release
 	manifest.Bootstrap.ConsoleVersion = "v1.6.0"
 	manifest.Bootstrap.RegistryVersion = "3.1.1"
 	manifest.Bootstrap.EtcdVersion = "3.5.21"
@@ -43,9 +47,9 @@ func TestBuildPublishMatrixIncludesEveryReleaseComponent(t *testing.T) {
 		t.Fatalf("buildPublishMatrix() produced %d entries, want 15: %+v", len(matrix), matrix)
 	}
 	wanted := map[publishMatrixEntry]bool{
-		{Component: "bootstrap-kubeclipper", Version: "v2.0.11", Architecture: "all"}: false,
-		{Component: "resource-kc-runtime", Version: "v2.0.0", Architecture: "all"}:    false,
-		{Component: "resource-nfs", Version: "v4.1.0", Architecture: "all"}:           false,
+		{Component: "bootstrap-kubeclipper", Version: manifest.Release, Architecture: "all"}: false,
+		{Component: "resource-kc-runtime", Version: "v2.0.0", Architecture: "all"}:           false,
+		{Component: "resource-nfs", Version: "v4.1.0", Architecture: "all"}:                  false,
 	}
 	for _, entry := range matrix {
 		if _, ok := wanted[entry]; ok {
@@ -70,7 +74,7 @@ func TestVerifyPolicyCoverageRejectsMismatchedReleaseAndBootstrapVersions(t *tes
 	manifest := supportedManifest()
 	manifest.Bootstrap.KubeClipperVersion = "v2.0.0"
 	err := verifyPolicyCoverage(&manifest, deliveryapis.DefaultSupportPolicy())
-	if err == nil || !strings.Contains(err.Error(), "release version v2.0.11 does not match bootstrap/kubeclipper version v2.0.0") {
+	if err == nil || !strings.Contains(err.Error(), "release version "+manifest.Release+" does not match bootstrap/kubeclipper version v2.0.0") {
 		t.Fatalf("verifyPolicyCoverage() error = %v", err)
 	}
 }

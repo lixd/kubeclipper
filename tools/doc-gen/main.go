@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 
 	auditingv1 "github.com/kubeclipper/kubeclipper/pkg/apis/auditing/v1"
 	"github.com/kubeclipper/kubeclipper/pkg/apis/proxy"
@@ -46,7 +47,6 @@ import (
 	"k8s.io/component-base/version"
 
 	configv1 "github.com/kubeclipper/kubeclipper/pkg/apis/config/v1"
-	"github.com/kubeclipper/kubeclipper/pkg/logger"
 )
 
 var output string
@@ -57,17 +57,23 @@ func init() {
 
 func main() {
 	flag.Parse()
-	swaggerSpec := generateSwaggerJSON()
-
-	err := validateSpec(swaggerSpec)
-	if err != nil {
-		logger.Warn("Swagger specification has errors")
+	if _, err := generateSwaggerJSON(); err != nil {
+		log.Fatal(err)
 	}
 }
 
 func validateSpec(apiSpec []byte) error {
-
-	swaggerDoc, err := loads.Analyzed(apiSpec, "2.0")
+	// Recursive response schemas need a real base document for reference expansion.
+	directory, err := os.MkdirTemp("", "kc-swagger-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(directory)
+	specPath := filepath.Join(directory, "swagger.json")
+	if err := os.WriteFile(specPath, apiSpec, 0644); err != nil {
+		return err
+	}
+	swaggerDoc, err := loads.Spec(specPath)
 	if err != nil {
 		return err
 	}
@@ -97,10 +103,10 @@ func validateSpec(apiSpec []byte) error {
 	return nil
 }
 
-func generateSwaggerJSON() []byte {
+func generateSwaggerJSON() ([]byte, error) {
 
 	container := restful.NewContainer()
-	urlruntime.Must(corev1.AddToContainer(container, nil, nil, nil, nil, nil, nil, nil))
+	urlruntime.Must(corev1.AddToContainer(container, nil, nil, nil, nil, nil, nil, nil, nil))
 	container.Add(operationsv1alpha1.SetupWebService(nil))
 	urlruntime.Must(iamv1.AddToContainer(container, nil, nil, nil))
 	urlruntime.Must(configv1.AddToContainer(container, nil, nil, nil, nil))
@@ -126,14 +132,19 @@ func generateSwaggerJSON() []byte {
 		// },
 	})
 
-	data, _ := json.MarshalIndent(swagger, "", "  ")
-	err := os.WriteFile(output, data, 0644)
+	data, err := json.MarshalIndent(swagger, "", "  ")
 	if err != nil {
-		log.Fatal(err)
+		return nil, fmt.Errorf("encode Swagger document: %w", err)
+	}
+	if err := validateSpec(data); err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(output, data, 0644); err != nil {
+		return nil, fmt.Errorf("write Swagger document: %w", err)
 	}
 	log.Printf("successfully written to %s", output)
 
-	return data
+	return data, nil
 }
 
 func enrichSwaggerObject(swo *spec.Swagger) {

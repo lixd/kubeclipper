@@ -20,32 +20,29 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/onsi/ginkgo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	deliveryapis "github.com/kubeclipper/kubeclipper/pkg/delivery/apis"
 	apierror "github.com/kubeclipper/kubeclipper/pkg/errors"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
+	corevalidation "github.com/kubeclipper/kubeclipper/pkg/scheme/core/validation"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/client/kc"
 	"github.com/kubeclipper/kubeclipper/test/framework"
 	"github.com/kubeclipper/kubeclipper/test/framework/cluster"
 )
 
 type Setter func(cluster *corev1.Cluster)
-
-func SetContainerdRuntime() Setter {
-	return func(c *corev1.Cluster) {
-		c.ContainerRuntime = corev1.ContainerRuntime{
-			Type:    corev1.CRIContainerd,
-			Version: "1.6.4",
-		}
-	}
-}
 
 func SetClusterName(name string) Setter {
 	return func(c *corev1.Cluster) {
@@ -105,13 +102,11 @@ func initCluster() *corev1.Cluster {
 			Name:        "e2e-cluster",
 			Annotations: map[string]string{},
 		},
-		Masters:           corev1.WorkerNodeList{},
-		Workers:           corev1.WorkerNodeList{},
-		KubernetesVersion: "v1.23.6",
-		CertSANs:          nil,
+		Masters:  corev1.WorkerNodeList{},
+		Workers:  corev1.WorkerNodeList{},
+		CertSANs: nil,
 		ContainerRuntime: corev1.ContainerRuntime{
-			Type:    corev1.CRIContainerd,
-			Version: "1.6.4",
+			Type: corev1.CRIContainerd,
 		},
 		Networking: corev1.Networking{
 			IPFamily:      corev1.IPFamilyIPv4,
@@ -125,8 +120,7 @@ func initCluster() *corev1.Cluster {
 		KubeProxy: corev1.KubeProxy{},
 		Etcd:      corev1.Etcd{},
 		CNI: corev1.CNI{
-			Type:          "calico",
-			Version:       "v3.22.4",
+			Type: "calico",
 			Calico: &corev1.Calico{
 				IPv4AutoDetection: "first-found",
 				IPv6AutoDetection: "first-found",
@@ -136,6 +130,103 @@ func initCluster() *corev1.Cluster {
 			},
 		},
 	}
+}
+
+type componentVersion struct {
+	Name    string `json:"name"`
+	Version string `json:"version"`
+	Default bool   `json:"default"`
+}
+
+type clusterVersion struct {
+	Version        string                        `json:"version"`
+	VersionControl map[string][]componentVersion `json:"version_control"`
+}
+
+var errNoSupportedUpgradePair = errors.New("no supported Kubernetes upgrade pair with matching containerd and Calico versions is available")
+
+func supportedClusterVersions(meta *kc.ComponentMeta) ([]clusterVersion, error) {
+	data, err := json.Marshal(meta.Rules)
+	if err != nil {
+		return nil, err
+	}
+	var versions []clusterVersion
+	if err := json.Unmarshal(data, &versions); err != nil {
+		return nil, err
+	}
+	available := make([]clusterVersion, 0, len(versions))
+	seen := make(map[string]bool)
+	for _, version := range versions {
+		if seen[version.Version] || version.Version == "" ||
+			defaultComponentVersion(version.VersionControl["cri"], corev1.CRIContainerd) == "" ||
+			defaultComponentVersion(version.VersionControl["cni"], "calico") == "" {
+			continue
+		}
+		if _, err := utilversion.ParseSemantic(version.Version); err != nil {
+			return nil, fmt.Errorf("invalid Kubernetes version %q in component metadata: %w", version.Version, err)
+		}
+		seen[version.Version] = true
+		available = append(available, version)
+	}
+	sort.Slice(available, func(i, j int) bool {
+		comparison, _ := deliveryapis.CompareVersions(available[i].Version, available[j].Version)
+		return comparison > 0
+	})
+	if len(available) == 0 {
+		return nil, fmt.Errorf("no supported Kubernetes version with containerd and Calico packages is available in %q", meta.Registry)
+	}
+	return available, nil
+}
+
+func defaultComponentVersion(versions []componentVersion, name string) string {
+	selected := ""
+	for _, version := range versions {
+		if version.Name != name {
+			continue
+		}
+		if version.Default {
+			return version.Version
+		}
+		if selected == "" {
+			selected = version.Version
+		}
+	}
+	return selected
+}
+
+func setSupportedClusterVersion(c *corev1.Cluster, meta *kc.ComponentMeta) error {
+	versions, err := supportedClusterVersions(meta)
+	if err != nil {
+		return err
+	}
+	for _, version := range versions {
+		if c.KubernetesVersion != "" && c.KubernetesVersion != version.Version {
+			continue
+		}
+		c.KubernetesVersion = version.Version
+		c.ContainerRuntime.Version = defaultComponentVersion(version.VersionControl["cri"], c.ContainerRuntime.Type)
+		c.CNI.Version = defaultComponentVersion(version.VersionControl["cni"], c.CNI.Type)
+		return nil
+	}
+	return fmt.Errorf("Kubernetes version %q is unavailable under the current delivery policy", c.KubernetesVersion)
+}
+
+func supportedUpgradeVersions(meta *kc.ComponentMeta) (string, string, error) {
+	versions, err := supportedClusterVersions(meta)
+	if err != nil {
+		return "", "", err
+	}
+	for i := 1; i < len(versions); i++ {
+		current, target := versions[i], versions[i-1]
+		if corevalidation.ValidateKubernetesUpgradeVersion("e2e-upgrade", current.Version, target.Version) != nil {
+			continue
+		}
+		if defaultComponentVersion(current.VersionControl["cri"], corev1.CRIContainerd) == defaultComponentVersion(target.VersionControl["cri"], corev1.CRIContainerd) &&
+			defaultComponentVersion(current.VersionControl["cni"], "calico") == defaultComponentVersion(target.VersionControl["cni"], "calico") {
+			return current.Version, target.Version, nil
+		}
+	}
+	return "", "", errNoSupportedUpgradePair
 }
 
 func beforeEachCheckNodeEnough(f *framework.Framework, min int) []string {
@@ -155,6 +246,10 @@ func beforeEachCheckNodeEnough(f *framework.Framework, min int) []string {
 
 func beforeEachCreateCluster(f *framework.Framework, c *corev1.Cluster) func() {
 	return func() {
+		meta, err := f.Client.GetComponentMeta(context.TODO(), nil)
+		framework.ExpectNoError(err)
+		framework.ExpectNoError(setSupportedClusterVersion(c, meta))
+
 		clus, err := f.Client.CreateCluster(context.TODO(), c)
 		framework.ExpectNoError(err)
 		framework.ExpectNotEqual(len(clus.Items), 0, "unexpected problem, cluster not be nil at this time")
@@ -169,22 +264,26 @@ func beforeEachCreateCluster(f *framework.Framework, c *corev1.Cluster) func() {
 	}
 }
 
-func afterEachDeleteCluster(f *framework.Framework, clusterName *string) func() {
-	return func() {
-		ginkgo.By("delete cluster")
-		err := retryOperation(func() error {
-			delErr := f.Client.DeleteCluster(context.TODO(), *clusterName)
-			if apierror.IsNotFound(delErr) {
-				// cluster not exist
-				return nil
-			}
-			return delErr
-		}, 2)
-		framework.ExpectNoError(err)
-		ginkgo.By("waiting for cluster to be deleted")
-		err = cluster.WaitForClusterNotFound(f.Client, *clusterName, f.Timeouts.ClusterDelete)
-		framework.ExpectNoError(err)
+func deleteTestCluster(f *framework.Framework, clusterName string) error {
+	if clusterName == "" {
+		return nil
 	}
+	ginkgo.By("delete cluster")
+	err := retryOperation(func() error {
+		delErr := f.Client.DeleteCluster(context.TODO(), clusterName)
+		if apierror.IsNotFound(delErr) {
+			return nil
+		}
+		return delErr
+	}, 2)
+	if err != nil {
+		return fmt.Errorf("delete cluster %q: %w", clusterName, err)
+	}
+	ginkgo.By("waiting for cluster to be deleted")
+	if err := cluster.WaitForClusterNotFound(f.Client, clusterName, f.Timeouts.ClusterDelete); err != nil {
+		return fmt.Errorf("wait for cluster %q to be deleted: %w", clusterName, err)
+	}
+	return nil
 }
 
 type fn func() error

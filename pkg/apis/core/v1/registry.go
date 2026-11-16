@@ -29,8 +29,6 @@ import (
 	"github.com/kubeclipper/kubeclipper/pkg/models/core"
 	"github.com/kubeclipper/kubeclipper/pkg/simple/generic"
 
-	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-
 	"github.com/kubeclipper/kubeclipper/pkg/server/runtime"
 
 	"github.com/kubeclipper/kubeclipper/pkg/models/cluster"
@@ -194,7 +192,7 @@ func SetupWebService(h *handler) *restful.WebService {
 			DataType("string")).
 		Param(webservice.QueryParameter("proxy", "use kubeClipper proxy").
 			Required(false).DataType("boolean").DefaultValue("false")).
-		Returns(http.StatusOK, http.StatusText(http.StatusOK), clientcmdapi.Config{}).
+		Returns(http.StatusOK, http.StatusText(http.StatusOK), "").
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
 
 	webservice.Route(webservice.PUT("/clusters/{name}/nodes").
@@ -289,7 +287,7 @@ func SetupWebService(h *handler) *restful.WebService {
 		To(h.UpgradeClusterExtension).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreClusterTag}).
 		Doc("Re-install the k8s-extension package on a running cluster (standalone entry, 2.6-11)").
-		Param(webservice.PathParameter("cluster", "cluster name")).
+		Param(webservice.PathParameter(query.ParameterName, "cluster name")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Operation{}).
 		Returns(http.StatusBadRequest, http.StatusText(http.StatusBadRequest), errors.HTTPError{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), nil))
@@ -379,6 +377,7 @@ func SetupWebService(h *handler) *restful.WebService {
 		To(h.UpdateNodeStatus).
 		Metadata(restfulspec.KeyOpenAPITags, []string{CoreNodeTag}).
 		Doc("Update node status.").
+		Param(webservice.PathParameter(query.ParameterName, "node name")).
 		Reads(corev1.Node{}).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), corev1.Node{}))
 
@@ -543,11 +542,11 @@ func SetupWebService(h *handler) *restful.WebService {
 		Param(webservice.QueryParameter(ParameterCols, "terminal cols").
 			Required(false).
 			DefaultValue("150").
-			DataType("string")).
+			DataType("integer")).
 		Param(webservice.QueryParameter(ParameterRows, "terminal rows").
 			Required(false).
 			DefaultValue("35").
-			DataType("string")).
+			DataType("integer")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), nil).
 		Returns(http.StatusExpectationFailed, http.StatusText(http.StatusExpectationFailed), errors.HTTPError{}).
 		Returns(http.StatusNotFound, http.StatusText(http.StatusNotFound), errors.HTTPError{}))

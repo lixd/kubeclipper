@@ -59,13 +59,16 @@ func SetupWebService(h *handler) *restful.WebService {
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.OperationList{}))
 	ws.Route(ws.GET("/operations/{name}").To(h.getOperation).
 		Metadata(restfulspec.KeyOpenAPITags, []string{operationTag}).
+		Param(ws.PathParameter("name", "operation name")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.Operation{}))
 	ws.Route(ws.POST("/operations/{name}/cancel").To(h.cancelOperation).
 		Metadata(restfulspec.KeyOpenAPITags, []string{operationTag}).
+		Param(ws.PathParameter("name", "operation name")).
 		Reads(operations.OperationControlRequest{}).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.Operation{}))
 	ws.Route(ws.POST("/operations/{name}/retry").To(h.retryOperation).
 		Metadata(restfulspec.KeyOpenAPITags, []string{operationTag}).
+		Param(ws.PathParameter("name", "operation name")).
 		Reads(operations.OperationControlRequest{}).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.Operation{}))
 
@@ -74,12 +77,15 @@ func SetupWebService(h *handler) *restful.WebService {
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.OperationTaskList{}))
 	ws.Route(ws.GET("/operationtasks/{name}").To(h.getTask).
 		Metadata(restfulspec.KeyOpenAPITags, []string{operationTag}).
+		Param(ws.PathParameter("name", "task name")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.OperationTask{}))
 	ws.Route(ws.GET("/operationtasks/{name}/logs").To(h.getTaskLogs).
 		Metadata(restfulspec.KeyOpenAPITags, []string{operationTag}).
+		Param(ws.PathParameter("name", "task name")).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), map[string]any{}))
 	ws.Route(ws.PUT("/operationtasks/{name}/status").To(h.updateTaskStatus).
 		Metadata(restfulspec.KeyOpenAPITags, []string{operationTag}).
+		Param(ws.PathParameter("name", "task name")).
 		Reads(operations.OperationTask{}).
 		Returns(http.StatusOK, http.StatusText(http.StatusOK), operations.OperationTask{}))
 

@@ -20,6 +20,7 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -30,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	apiv1 "github.com/kubeclipper/kubeclipper/pkg/apis/core/v1"
+	apierror "github.com/kubeclipper/kubeclipper/pkg/errors"
 	"github.com/kubeclipper/kubeclipper/pkg/query"
 	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	corev1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
@@ -40,10 +42,43 @@ import (
 
 var _ = SIGDescribe("[Serial]", func() {
 	f := framework.NewDefaultFramework("cluster")
-	baseCluster := initCluster()
-	clusterName := "e2e-cluster"
+	var baseCluster *corev1.Cluster
+	var clusterName, backupName, backupPoint string
+	var cleanupRegistries func()
 
-	ginkgo.AfterEach(afterEachDeleteCluster(f, &clusterName))
+	ginkgo.BeforeEach(func() {
+		baseCluster = initCluster()
+		clusterName, backupName, backupPoint = "", "", ""
+		cleanupRegistries = nil
+	})
+	ginkgo.AfterEach(func() {
+		if cleanupRegistries != nil {
+			defer cleanupRegistries()
+		}
+		var cleanupErrors []error
+		if backupName != "" {
+			ginkgo.By("delete backup before deleting its cluster")
+			err := f.Client.DeleteBackup(context.TODO(), clusterName, backupName)
+			if apierror.IsNotFound(err) {
+				err = nil
+			} else if err == nil {
+				err = cluster.WaitForBackupNotFound(f.Client, clusterName, backupName, f.Timeouts.CommonTimeout)
+			}
+			if err != nil {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("delete backup %q from cluster %q: %w", backupName, clusterName, err))
+			}
+		}
+		if err := deleteTestCluster(f, clusterName); err != nil {
+			cleanupErrors = append(cleanupErrors, err)
+		}
+		if backupPoint != "" {
+			ginkgo.By("delete backup point")
+			if err := f.Client.DeleteBackupPoint(context.TODO(), backupPoint); err != nil && !apierror.IsNotFound(err) {
+				cleanupErrors = append(cleanupErrors, fmt.Errorf("delete backup point %q: %w", backupPoint, err))
+			}
+		}
+		framework.ExpectNoError(errors.Join(cleanupErrors...), "cleaning up cluster test resources")
+	})
 
 	ginkgo.It("[Slow] [AIO] should create a aio minimal kubernetes cluster", func() {
 		clusterName = "e2e-aio"
@@ -62,8 +97,7 @@ var _ = SIGDescribe("[Serial]", func() {
 	})
 	// other test case for 1 master 1 worker or 1 master 2 worker
 
-	// TODO: spoilt, need fix
-	ginkgo.It("[Slow] [AIO] [Backup] [Recovery] [Spoilt] should create backup and recovery from it", func() {
+	ginkgo.It("[Slow] [AIO] [Backup] [Recovery] should create backup and recovery from it", func() {
 		bp := "e2e-bp"
 		backup := "e2e-backup"
 		clusterName = "e2e-aio-bk"
@@ -73,11 +107,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		ginkgo.By(" create backup point ")
 		_, err := f.Client.CreateBackupPoint(context.TODO(), initBackUpPoint(bp))
 		framework.ExpectNoError(err)
-
-		f.AddAfterEach("delete backup point", func(f *framework.Framework, failed bool) {
-			ginkgo.By(" delete backup-point ")
-			_ = f.Client.DeleteBackupPoint(context.TODO(), bp)
-		})
+		backupPoint = bp
 
 		InitClusterWithSetter(baseCluster, []Setter{SetClusterName(clusterName),
 			SetClusterNodes([]string{nodes[0]}, nil),
@@ -91,6 +121,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		framework.ExpectNoError(err)
 
 		ginkgo.By(" create backup ")
+		backupName = backup
 		_, err = f.Client.CreateBackup(context.TODO(), clusterName, initBackup(&nodeLists.Items[0], backup, bp))
 		framework.ExpectNoError(err)
 
@@ -100,7 +131,7 @@ var _ = SIGDescribe("[Serial]", func() {
 
 		ginkgo.By(" create recovery ")
 		_, err = f.Client.CreateRecovery(context.TODO(), clusterName, initRecovery(backup))
-		framework.ExpectError(err)
+		framework.ExpectNoError(err)
 		ginkgo.By(" check recovery successful")
 		err = cluster.WaitForRecovery(f.Client, clusterName, f.Timeouts.CommonTimeout)
 		framework.ExpectNoError(err)
@@ -111,6 +142,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		ginkgo.By("waiting for backup to be deleted")
 		err = cluster.WaitForBackupNotFound(f.Client, clusterName, backup, f.Timeouts.CommonTimeout)
 		framework.ExpectNoError(err)
+		backupName = ""
 	})
 
 	ginkgo.It("[Fast] [AIO] [Template] should create addon template", func() {
@@ -189,7 +221,7 @@ var _ = SIGDescribe("[Serial]", func() {
 	ginkgo.It("[Fast] [AIO] [Registry] should create registry", func() {
 		ctx := context.TODO()
 
-		afterEachDeleteRegistries(ctx, f)
+		cleanupRegistries = afterEachDeleteRegistries(ctx, f)
 
 		before, err := f.Client.ListRegistries(ctx, kc.Queries{})
 		framework.ExpectNoError(err)
@@ -226,7 +258,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		clu := baseCluster.DeepCopy()
 		nodes := beforeEachCheckNodeEnough(f, 1)
 
-		afterEachDeleteRegistries(ctx, f)
+		cleanupRegistries = afterEachDeleteRegistries(ctx, f)
 
 		registries := initRegistries()
 
@@ -245,8 +277,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		}
 
 		InitClusterWithSetter(clu, []Setter{SetClusterName(clusterName),
-			SetClusterNodes([]string{nodes[0]}, nil),
-			SetContainerdRuntime()})
+			SetClusterNodes([]string{nodes[0]}, nil)})
 		ginkgo.By("create aio cluster with containerd")
 		beforeEachCreateCluster(f, clu)()
 
@@ -336,10 +367,15 @@ var _ = SIGDescribe("[Serial]", func() {
 	})
 
 	ginkgo.It("[Slow] [AIO] [Upgrade] [Online] should upgrade cluster version", func() {
-		clusterName = "e2e-aio-upgrade-online"
 		clu := baseCluster.DeepCopy()
-		version := "v1.23.6"
-		newVersion := "v1.23.9"
+		meta, err := f.Client.GetComponentMeta(context.TODO(), nil)
+		framework.ExpectNoError(err)
+		version, newVersion, err := supportedUpgradeVersions(meta)
+		if errors.Is(err, errNoSupportedUpgradePair) {
+			ginkgo.Skip(err.Error())
+		}
+		framework.ExpectNoError(err)
+		clusterName = "e2e-aio-upgrade-online"
 
 		nodes := beforeEachCheckNodeEnough(f, 1)
 		InitClusterWithSetter(clu, []Setter{SetClusterName(clusterName),
@@ -349,7 +385,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		beforeEachCreateCluster(f, clu)()
 
 		ginkgo.By("upgrade cluster")
-		err := f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
+		err = f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
 		framework.ExpectNoError(err)
 
 		ginkgo.By("wait cluster upgrade")
@@ -357,12 +393,16 @@ var _ = SIGDescribe("[Serial]", func() {
 		framework.ExpectNoError(err)
 	})
 
-	// TODO: make version be parameter
 	ginkgo.It("[Slow] [AIO] [Upgrade] should upgrade cluster version", func() {
-		clusterName = "e2e-aio-upgrade-registry"
 		clu := baseCluster.DeepCopy()
-		version := "v1.23.6"
-		newVersion := "v1.23.9"
+		meta, err := f.Client.GetComponentMeta(context.TODO(), nil)
+		framework.ExpectNoError(err)
+		version, newVersion, err := supportedUpgradeVersions(meta)
+		if errors.Is(err, errNoSupportedUpgradePair) {
+			ginkgo.Skip(err.Error())
+		}
+		framework.ExpectNoError(err)
+		clusterName = "e2e-aio-upgrade-registry"
 
 		nodes := beforeEachCheckNodeEnough(f, 1)
 		InitClusterWithSetter(clu, []Setter{SetClusterName(clusterName),
@@ -372,7 +412,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		beforeEachCreateCluster(f, clu)()
 
 		ginkgo.By("upgrade cluster")
-		err := f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
+		err = f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
 		framework.ExpectNoError(err)
 
 		ginkgo.By("wait cluster upgrade")

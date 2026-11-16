@@ -34,7 +34,9 @@ openapi:
 
 .PHONY:test
 test:
-	go test -race ./pkg/... -coverprofile=coverage.out -covermode=atomic
+	go test -race ./pkg/... ./cmd/... ./tools/... \
+		./test/framework/... ./test/e2e/cluster \
+		-coverprofile=coverage.out -covermode=atomic
 
 .PHONY: format-deps checkfmt fmt goimports vet lint
 format-deps:

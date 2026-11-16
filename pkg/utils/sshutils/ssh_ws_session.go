@@ -73,25 +73,27 @@ func (w *safeBuffer) Write(p []byte) (int, error) {
 	defer w.mu.Unlock()
 	return w.buffer.Write(p)
 }
-func (w *safeBuffer) Bytes() []byte {
+func (w *safeBuffer) Drain() []byte {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return w.buffer.Bytes()
-}
-func (w *safeBuffer) Reset() {
-	w.mu.Lock()
-	defer w.mu.Unlock()
+	data := append([]byte(nil), w.buffer.Bytes()...)
 	w.buffer.Reset()
+	return data
 }
 
 type LogicSSHWsSession struct {
 	stdinPipe   io.WriteCloser
 	comboOutput *safeBuffer
 	logBuff     *safeBuffer
+	client      *ssh.Client
 	session     *ssh.Session
 	wsConn      *websocket.Conn
+	done        chan struct{}
+	shellDone   chan struct{}
+	closeOnce   sync.Once
 }
 
+// NewLoginSSHWSSession owns sshClient and closes it with the terminal.
 func NewLoginSSHWSSession(cols, rows int, sshClient *ssh.Client, wsConn *websocket.Conn) (*LogicSSHWsSession, error) {
 	sshSession, err := sshClient.NewSession()
 	if err != nil {
@@ -99,6 +101,7 @@ func NewLoginSSHWSSession(cols, rows int, sshClient *ssh.Client, wsConn *websock
 	}
 	stdinP, err := sshSession.StdinPipe()
 	if err != nil {
+		_ = sshSession.Close()
 		return nil, err
 	}
 	comboWriter := new(safeBuffer)
@@ -113,46 +116,60 @@ func NewLoginSSHWSSession(cols, rows int, sshClient *ssh.Client, wsConn *websock
 	}
 	// Request pseudo terminal
 	if err := sshSession.RequestPty("xterm", rows, cols, modes); err != nil {
+		_ = sshSession.Close()
 		return nil, err
 	}
 	// Start remote shell
 	if err := sshSession.Shell(); err != nil {
+		_ = sshSession.Close()
 		return nil, err
 	}
 	return &LogicSSHWsSession{
 		stdinPipe:   stdinP,
 		comboOutput: comboWriter,
 		logBuff:     logBuf,
+		client:      sshClient,
 		session:     sshSession,
 		wsConn:      wsConn,
+		done:        make(chan struct{}),
+		shellDone:   make(chan struct{}),
 	}, nil
 }
 
-// Close 关闭
+// Close broadcasts shutdown and interrupts any blocked SSH or WebSocket I/O.
 func (sws *LogicSSHWsSession) Close() {
-	if sws.session != nil {
-		sws.session.Close()
-	}
-	if sws.logBuff != nil {
-		sws.logBuff = nil
-	}
-	if sws.comboOutput != nil {
-		sws.comboOutput = nil
-	}
+	sws.closeOnce.Do(func() {
+		close(sws.done)
+		_ = sws.wsConn.Close()
+		// Closing the transport first interrupts SSH writes, including a
+		// channel close packet blocked behind an earlier write.
+		_ = sws.client.Close()
+		_ = sws.session.Close()
+	})
 }
-func (sws *LogicSSHWsSession) Start(quitChan chan struct{}) {
-	go sws.receiveWsMsg(quitChan)
-	go sws.sendComboOutput(quitChan)
+
+func (sws *LogicSSHWsSession) Done() <-chan struct{} {
+	return sws.done
+}
+
+func (sws *LogicSSHWsSession) Start() {
+	go sws.receiveWsMsg()
+	go sws.sendComboOutput()
+	go func() {
+		if err := sws.session.Wait(); err != nil {
+			logger.Errorf("ssh session wait failed due to error: %s", err.Error())
+		}
+		close(sws.shellDone)
+	}()
 }
 
 // receiveWsMsg  receive websocket msg do some handling then write into ssh.session.stdin
-func (sws *LogicSSHWsSession) receiveWsMsg(exitCh chan struct{}) {
+func (sws *LogicSSHWsSession) receiveWsMsg() {
 	wsConn := sws.wsConn
-	//tells other go routine quit
-	defer setQuit(exitCh)
+	defer sws.Close()
 	for {
 		select {
-		case <-exitCh:
+		case <-sws.done:
 			return
 		default:
 			//read websocket msg
@@ -180,59 +197,54 @@ func (sws *LogicSSHWsSession) receiveWsMsg(exitCh chan struct{}) {
 				if err != nil {
 					logger.Errorf("websock cmd string base64 decoding failed due to error: %s", err.Error())
 				}
-				sws.sendWebsocketInputCommandToSSHSessionStdinPipe(decodeBytes)
+				if _, err := sws.stdinPipe.Write(decodeBytes); err != nil {
+					logger.Errorf("ws cmd bytes write to ssh.stdin pipe failed due to error: %s", err.Error())
+					return
+				}
 			}
 		}
 	}
 }
 
-// sendWebsocketInputCommandToSshSessionStdinPipe
-func (sws *LogicSSHWsSession) sendWebsocketInputCommandToSSHSessionStdinPipe(cmdBytes []byte) {
-	if _, err := sws.stdinPipe.Write(cmdBytes); err != nil {
-		logger.Errorf("ws cmd bytes write to ssh.stdin pipe failed due to error: %s", err.Error())
-	}
-}
-func (sws *LogicSSHWsSession) sendComboOutput(exitCh chan struct{}) {
-	wsConn := sws.wsConn
-	//todo 优化成一个方法
-	//tells other go routine quit
-	defer setQuit(exitCh)
-	//every 120ms write combine output bytes into websocket response
-	tick := time.NewTicker(time.Millisecond * time.Duration(100))
-	//for range time.Tick(120 * time.Millisecond){}
+func (sws *LogicSSHWsSession) sendComboOutput() {
+	defer sws.Close()
+	tick := time.NewTicker(100 * time.Millisecond)
 	defer tick.Stop()
 	for {
 		select {
 		case <-tick.C:
-			if sws.comboOutput == nil {
+			if err := sws.sendOutput(); err != nil {
+				logger.Errorf("ssh sending combo output to webSocket failed due to error: %s", err.Error())
 				return
 			}
-			bs := sws.comboOutput.Bytes()
-			if len(bs) > 0 {
-				logger.Debugf("output data", zap.ByteString("data", bs))
-				err := wsConn.WriteMessage(websocket.TextMessage, bs)
-				if err != nil {
-					logger.Errorf("ssh sending combo output to webSocket failed due to error: %s", err.Error())
-				}
-				_, err = sws.logBuff.Write(bs)
-				if err != nil {
-					logger.Errorf("combo output to logger buffer failed due to error: %s", err.Error())
-				}
-				sws.comboOutput.buffer.Reset()
+		case <-sws.shellDone:
+			// Wait has joined the SSH output copy loops, so this drains all
+			// remaining output before the terminal's close frame.
+			if err := sws.sendOutput(); err != nil {
+				logger.Errorf("ssh sending final output to webSocket failed due to error: %s", err.Error())
+				return
 			}
-		case <-exitCh:
+			message := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")
+			_ = sws.wsConn.WriteControl(websocket.CloseMessage, message, time.Now().Add(writeWait))
+			return
+		case <-sws.done:
 			return
 		}
 	}
 }
-func (sws *LogicSSHWsSession) Wait(quitChan chan struct{}, gracefulExitChan chan struct{}) {
-	if err := sws.session.Wait(); err != nil {
-		logger.Errorf("ssh session wait failed due to error: %s", err.Error())
-		setQuit(quitChan)
+
+func (sws *LogicSSHWsSession) sendOutput() error {
+	data := sws.comboOutput.Drain()
+	if len(data) == 0 {
+		return nil
 	}
-	logger.Debug("ssh session exit by remote peer")
-	close(gracefulExitChan)
-}
-func setQuit(ch chan struct{}) {
-	ch <- struct{}{}
+	logger.Debugf("output data", zap.ByteString("data", data))
+	if err := sws.wsConn.SetWriteDeadline(time.Now().Add(writeWait)); err != nil {
+		return err
+	}
+	if err := sws.wsConn.WriteMessage(websocket.TextMessage, data); err != nil {
+		return err
+	}
+	_, err := sws.logBuff.Write(data)
+	return err
 }
