@@ -115,7 +115,7 @@ if [[ -n "$digest" ]]; then
   export KC_PUBLISHED_PACKAGE_DIGEST="$digest"
 else
   # Build both architectures under a candidate reference first. Only a verified
-  # complete index is promoted to the shared immutable version tag.
+  # complete index is promoted to the requested immutable version tag.
   if [[ "$build_prefix" == "$canonical_prefix" ]]; then
     build_prefix="$canonical_prefix/qualification-${KC_SOURCE_REVISION:?KC_SOURCE_REVISION is required}"
   fi
@@ -156,7 +156,7 @@ if [[ -z "$digest" ]]; then
   digest="$(crane digest "$build_ref")"
   pinned="${build_ref%:*}@$digest"
   verify_package "$pinned"
-  copy_package "$pinned" "$canonical" "$digest"
+  copy_package "$pinned" "$target" "$digest"
+else
+  copy_package "${canonical%:*}@$digest" "$target" "$digest"
 fi
-
-copy_package "${canonical%:*}@$digest" "$target" "$digest"

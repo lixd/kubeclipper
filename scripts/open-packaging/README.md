@@ -299,6 +299,8 @@ Kubernetes images and are still mirrored as normal runtime images.
 Fixed-version package workflows use `publish-component-release.sh <component>
 <canonical-prefix> <target-prefix> <version>` to reuse the original package
 index and provenance. Each shared package contains Linux amd64 and arm64.
+New packages are published exclusively to the requested target prefix,
+including the isolated prefix used for qualification.
 Resource builders continue preparing runtime image lists when a package is
 reused. Package content updates require a new component package version.
 

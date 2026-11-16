@@ -115,12 +115,26 @@ jobs:
 
       - name: Deploy KubeClipper from OCI
         run: |
+          set -euo pipefail
+          interface_pattern="$(python3 - <<'PY'
+          import json
+          import re
+          import subprocess
+
+          routes = json.loads(subprocess.check_output(
+              ['ip', '-j', '-4', 'route', 'get', '1.1.1.1'], text=True,
+          ))
+          if not routes or not routes[0].get('dev'):
+              raise SystemExit('no IPv4 route interface is available for AIO deployment')
+          print('^' + re.escape(routes[0]['dev']) + '$')
+          PY
+          )"
           sudo cp ./dist/kcctl /usr/local/bin/kcctl
           sudo kcctl deploy \
             --package-registry 127.0.0.1:5000 \
             --package-registry-scheme http \
-            --ip-detect interface=eth0 \
-            --node-ip-detect interface=eth0 \
+            --ip-detect "interface=$interface_pattern" \
+            --node-ip-detect "interface=$interface_pattern" \
             --assumeyes
           sudo rm -rf /tmp/kc
 
@@ -139,5 +153,15 @@ jobs:
       - name: Clean test environment
         if: always()
         run: |
-          sudo kcctl clean --all --force --assumeyes
-          docker rm --force kc-e2e-registry || true
+          if sudo test -f /root/.kc/deploy-config.yaml; then
+            sudo kcctl clean --all --force --assumeyes
+          fi
+
+      - name: Remove local OCI Registry
+        if: always()
+        run: |
+          set -euo pipefail
+          registry_id="$(docker container ls --all --filter 'name=^/kc-e2e-registry$' --format '{{.ID}}')"
+          if [[ -n "$registry_id" ]]; then
+            docker rm --force "$registry_id"
+          fi

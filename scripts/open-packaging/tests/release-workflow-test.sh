@@ -127,6 +127,73 @@ with tempfile.TemporaryDirectory() as tmp:
 aio_publish = next(step["run"] for step in aio_steps if step.get("name") == "Publish bootstrap package images")
 assert '--version "$(bootstrap_version consoleVersion)"' in aio_publish
 assert aio_steps.index(aio_build) < next(i for i, step in enumerate(aio_steps) if step.get("name") == "Publish bootstrap package images")
+aio_deploy = next(step["run"] for step in aio_steps if step.get("name") == "Deploy KubeClipper from OCI")
+aio_clean = next(step for step in aio_steps if step.get("name") == "Clean test environment")
+aio_registry_clean = next(step for step in aio_steps if step.get("name") == "Remove local OCI Registry")
+assert aio_clean["if"] == aio_registry_clean["if"] == "always()"
+with tempfile.TemporaryDirectory() as tmp:
+    dest = Path(tmp)
+    log = dest / "commands"
+    recording_tool = '''#!/usr/bin/env python3
+import json, os, pathlib, sys
+name, args = pathlib.Path(sys.argv[0]).name, sys.argv[1:]
+with open(os.environ["COMMAND_LOG"], "a") as stream:
+    stream.write(json.dumps([name, *args]) + "\\n")
+if name == "ip":
+    assert args == ["-j", "-4", "route", "get", "1.1.1.1"]
+    print(os.environ["ROUTES"])
+    sys.exit(int(os.environ["ROUTE_EXIT"]))
+if name == "sudo":
+    if args == ["test", "-f", "/root/.kc/deploy-config.yaml"]:
+        sys.exit(0 if os.environ["HAS_CONFIG"] == "1" else 1)
+    if args[:2] == ["kcctl", "deploy"]:
+        sys.exit(int(os.environ["DEPLOY_EXIT"]))
+    if args[:2] == ["kcctl", "clean"]:
+        sys.exit(int(os.environ["CLEAN_EXIT"]))
+    assert args[0] in ("cp", "rm")
+if name == "docker":
+    if args[:2] == ["container", "ls"]:
+        print(os.environ["REGISTRY_ID"])
+        sys.exit(int(os.environ["REGISTRY_QUERY_EXIT"]))
+    assert args[:2] == ["rm", "--force"]
+    sys.exit(int(os.environ["REGISTRY_REMOVE_EXIT"]))
+'''
+    for name in ("ip", "sudo", "docker"):
+        tool = dest / name
+        tool.write_text(recording_tool)
+        tool.chmod(0o755)
+    env = dict(os.environ, PATH=f"{tmp}:{os.environ['PATH']}", COMMAND_LOG=str(log),
+               ROUTES="[]", ROUTE_EXIT="0", DEPLOY_EXIT="0", HAS_CONFIG="0", CLEAN_EXIT="0",
+               REGISTRY_ID="", REGISTRY_QUERY_EXIT="0", REGISTRY_REMOVE_EXIT="0")
+
+    def run_aio_step(command, **settings):
+        log.write_text("")
+        result = subprocess.run(["bash", "-eu", "-c", command], cwd=dest,
+                                env=dict(env, **settings), capture_output=True)
+        return result, [json.loads(line) for line in log.read_text().splitlines()]
+
+    for device, route_exit, deploy_exit in (("ens5", "0", "0"), ("enp1s0.100", "0", "0"),
+                                            (None, "0", "0"), ("ens5", "1", "0"), ("ens5", "0", "1")):
+        result, commands = run_aio_step(aio_deploy, ROUTES=json.dumps([{"dev": device}] if device else []),
+                                        ROUTE_EXIT=route_exit, DEPLOY_EXIT=deploy_exit)
+        assert (result.returncode == 0) == (bool(device) and route_exit == deploy_exit == "0"), result.stderr
+        if device and route_exit == "0":
+            args = next(command for command in commands if command[:3] == ["sudo", "kcctl", "deploy"])
+            pattern = "interface=^" + device.replace(".", "\\.") + "$"
+            assert args[args.index("--ip-detect") + 1] == pattern
+            assert args[args.index("--node-ip-detect") + 1] == pattern
+        else:
+            assert all(command[0] != "sudo" for command in commands), "route discovery must fail before deployment"
+    for has_config, clean_exit in (("0", "0"), ("1", "0"), ("1", "1")):
+        result, commands = run_aio_step(aio_clean["run"], HAS_CONFIG=has_config, CLEAN_EXIT=clean_exit)
+        assert (result.returncode == 0) == (has_config == "0" or clean_exit == "0"), result.stderr
+        assert any(command[:3] == ["sudo", "kcctl", "clean"] for command in commands) == (has_config == "1")
+    for registry_id, query_exit, remove_exit in (("", "0", "0"), ("fixture-registry", "0", "0"),
+                                                ("fixture-registry", "1", "0"), ("fixture-registry", "0", "1")):
+        result, commands = run_aio_step(aio_registry_clean["run"], REGISTRY_ID=registry_id,
+                                        REGISTRY_QUERY_EXIT=query_exit, REGISTRY_REMOVE_EXIT=remove_exit)
+        assert (result.returncode == 0) == (query_exit == "0" and (not registry_id or remove_exit == "0")), result.stderr
+        assert any(command[:3] == ["docker", "rm", "--force"] for command in commands) == (bool(registry_id) and query_exit == "0")
 with tempfile.TemporaryDirectory() as tmp:
     checkout = Path(tmp)
     inventory = checkout / "pkg/delivery/releasemanifest/embedded"
