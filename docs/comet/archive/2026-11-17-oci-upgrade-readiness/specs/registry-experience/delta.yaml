@@ -1,0 +1,4 @@
+schema: comet.native.delta.v1
+capability: registry-experience
+base_version: 1
+operations: []
