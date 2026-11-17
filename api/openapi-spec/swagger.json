@@ -6086,6 +6086,11 @@
         "version"
       ],
       "properties": {
+        "singleNodeMaintenance": {
+          "description": "Allow single-node downtime and Pod deletion bypassing all affected PDBs, including application workloads. Only valid for one-master, zero-worker clusters.",
+          "type": "boolean",
+          "default": false
+        },
         "version": {
           "type": "string"
         }

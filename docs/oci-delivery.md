@@ -155,6 +155,10 @@ v1.35.8 clusters remain available for installation and management. An upgrade
 from v1.35.8 is rejected before an upgrade operation is created because the
 required containerd and Calico migration is outside this upgrade path.
 
+For the bundled Kubernetes v1.37.0 combination of containerd 2.2.4 and
+Calico v3.31.5, current host validation covers Ubuntu 24.04 on amd64 with
+Calico VXLAN. ARM64 packages receive build and artifact validation.
+
 Multi-node upgrades use ordinary Pod eviction and honor PodDisruptionBudgets.
 Single-node upgrades require a maintenance window and explicit consent. Stop
 application writes and create a recoverable backup before proceeding. The
