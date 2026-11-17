@@ -11,9 +11,9 @@ artifacts:
   component:
     kind: bootstrap
     name: console
-    version: v1.6.1-oci.f5bf6c8
-  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-console:v1.6.1-oci.f5bf6c8
-  target: package-bootstrap-console:v1.6.1-oci.f5bf6c8
+    version: v1.6.1-oci.2169a47
+  source: ghcr.io/kubeclipper/kubeclipper/package-bootstrap-console:v1.6.1-oci.2169a47
+  target: package-bootstrap-console:v1.6.1-oci.2169a47
   platforms:
   - linux/amd64
   - linux/arm64

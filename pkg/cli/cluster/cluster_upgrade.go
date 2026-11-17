@@ -43,7 +43,10 @@ const (
 `
 	clusterUpgradeExample = `
 	# Upgrade cluster using its saved image registry
-	kcctl cluster upgrade --cluster-name clu-1 --version v1.21.3
+	kcctl cluster upgrade --cluster-name clu-1 --version v1.37.0
+
+	# Single-node upgrade with explicit downtime and PDB bypass
+	kcctl cluster upgrade --cluster-name clu-1 --version v1.37.0 --single-node-maintenance
 `
 )
 
@@ -53,8 +56,9 @@ const (
 
 type ClusterUpgradeOpts struct {
 	BaseOptions
-	ClusterName string
-	Version     string
+	ClusterName           string
+	Version               string
+	SingleNodeMaintenance bool
 }
 
 func NewClusterUpgradeOpts(streams options.IOStreams) *ClusterUpgradeOpts {
@@ -83,6 +87,8 @@ func NewCmdClusterUpgrade(streams options.IOStreams) *cobra.Command {
 
 	cmd.Flags().StringVarP(&c.ClusterName, "cluster-name", "c", c.ClusterName, "cluster name")
 	cmd.Flags().StringVarP(&c.Version, "version", "v", c.Version, "target version")
+
+	cmd.Flags().BoolVar(&c.SingleNodeMaintenance, "single-node-maintenance", false, "Allow single-node downtime and drain Pod deletion bypassing all affected PodDisruptionBudgets, including application workloads")
 
 	utils.CheckErr(cmd.MarkFlagRequired("cluster-name"))
 	utils.CheckErr(cmd.MarkFlagRequired("version"))
@@ -119,8 +125,12 @@ func (c *ClusterUpgradeOpts) Validates() error {
 }
 
 func (c *ClusterUpgradeOpts) Run() error {
+	if c.SingleNodeMaintenance {
+		fmt.Fprintln(c.Out, "Single-node maintenance allows downtime and deletes Pods bypassing all affected PDBs, including application workloads.")
+	}
 	clusterUpgrade := &v1.ClusterUpgrade{
-		Version: c.Version,
+		Version:               c.Version,
+		SingleNodeMaintenance: c.SingleNodeMaintenance,
 	}
 
 	return c.Client.UpgradeCluster(context.TODO(), c.ClusterName, clusterUpgrade)

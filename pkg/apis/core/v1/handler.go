@@ -2262,6 +2262,11 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 		return
 	}
 
+	singleNode := len(clu.Masters) == 1 && len(clu.Workers) == 0
+	if singleNode != body.SingleNodeMaintenance {
+		restplus.HandleBadRequest(response, request, fmt.Errorf("single-node upgrades require singleNodeMaintenance=true, which allows downtime and Pod deletion bypassing all affected PDBs; this option is only valid for a single-node cluster"))
+		return
+	}
 	dryRun := query.GetBoolValueWithDefault(request, query.ParamDryRun, false)
 	// TODO: validate cluster struct
 	timeoutSecs := v1.DefaultOperationTimeoutSecs
@@ -2288,6 +2293,7 @@ func (h *handler) UpgradeCluster(request *restful.Request, response *restful.Res
 	extraMeta.KubeVersion = body.Version
 	upgradeComp := &k8s.Upgrade{}
 	upgradeComp.InitStepper(extraMeta, clu)
+	upgradeComp.SingleNodeMaintenance = body.SingleNodeMaintenance
 	if err := upgradeComp.Validate(); err != nil {
 		restplus.HandleBadRequest(response, request, err)
 		return

@@ -710,10 +710,17 @@ func TestCreateClusterCheckRejectsUnknownTemplateRef(t *testing.T) {
 
 func TestUpgradeClusterRejectsSameVersionAndDowngradeThroughAPI(t *testing.T) {
 	tests := []struct {
-		name   string
-		target string
-		want   string
+		name        string
+		target      string
+		want        string
+		current     string
+		masters     int
+		workers     int
+		maintenance bool
 	}{
+		{name: "single node needs consent", masters: 1, target: "v1.37.0", want: "singleNodeMaintenance=true"},
+		{name: "multiple nodes reject maintenance", masters: 1, workers: 1, maintenance: true, target: "v1.37.0", want: "only valid for a single-node cluster"},
+		{name: "old source", current: "v1.35.8", target: "v1.36.4", want: "starting from v1.36.4"},
 		{name: "same version", target: "v1.36.4", want: "already at version"},
 		{name: "downgrade", target: "v1.35.8", want: "cannot downgrade"},
 	}
@@ -724,7 +731,12 @@ func TestUpgradeClusterRejectsSameVersionAndDowngradeThroughAPI(t *testing.T) {
 			operator := mock.NewMockOperator(ctrl)
 			clu := &v1.Cluster{}
 			clu.Name = "cluster"
+			clu.Masters = make(v1.WorkerNodeList, tt.masters)
+			clu.Workers = make(v1.WorkerNodeList, tt.workers)
 			clu.KubernetesVersion = "v1.36.4"
+			if tt.current != "" {
+				clu.KubernetesVersion = tt.current
+			}
 			operator.EXPECT().GetClusterEx(gomock.Any(), "cluster", "0").Return(clu, nil)
 
 			container := restful.NewContainer()
@@ -733,7 +745,7 @@ func TestUpgradeClusterRejectsSameVersionAndDowngradeThroughAPI(t *testing.T) {
 			ws.Route(ws.POST("/clusters/{name}/upgrade").To(newHandler(nil, operator, nil, nil, nil, nil, nil).UpgradeCluster))
 			container.Add(ws)
 
-			body := `{"version":"` + tt.target + `"}`
+			body := fmt.Sprintf(`{"version":%q,"singleNodeMaintenance":%t}`, tt.target, tt.maintenance)
 			request := httptest.NewRequest(http.MethodPost, "/clusters/cluster/upgrade?dryRun=true", strings.NewReader(body))
 			request.Header.Set("Content-Type", "application/json")
 			request.Header.Set("Accept", "application/json")

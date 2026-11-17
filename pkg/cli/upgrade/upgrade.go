@@ -792,6 +792,9 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 			if err == nil {
 				err = o.waitAgentActive(node.host)
 			}
+			if err == nil && o.probeNodeVersion(node.host, roleAgent) != o.targetVersion {
+				err = fmt.Errorf("agent on %s did not report target version %s", node.host, o.targetVersion)
+			}
 		case roleConsole:
 			err = o.upgradeConsoleNode(node.host, artifacts)
 			if err == nil {
@@ -824,7 +827,7 @@ func (o *UpgradeOptions) runRollout(plan *rolloutPlan, fetched map[string]archAr
 // change what the platform API reports, so only they are verified against the
 // target revision afterwards.
 func (o *UpgradeOptions) verifiesPlatform() bool {
-	return o.component != cmdoptions.UpgradeConsole && o.component != cmdoptions.UpgradeKcctl
+	return o.component == cmdoptions.UpgradeServer || o.component == cmdoptions.UpgradeAll
 }
 
 func (o *UpgradeOptions) upgradeNodeBinary(host, role, localPath string) error {

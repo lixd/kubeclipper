@@ -128,3 +128,40 @@ func TestUpgradeStepsPropagateCommandFailures(t *testing.T) {
 		t.Errorf("worker upgrade command does not fail fast: %q", workerCommand)
 	}
 }
+
+func TestSingleNodeUpgradeMaintenance(t *testing.T) {
+	metadata := component.ExtraMetadata{Masters: component.NodeList{{ID: "master-id", Hostname: "master"}}, KubeVersion: "v1.37.0"}
+	cluster := &v1.Cluster{}
+	cluster.KubernetesVersion = "v1.36.4"
+	stepper := &Upgrade{SingleNodeMaintenance: true}
+	stepper.InitStepper(&metadata, cluster)
+	if err := stepper.InitSteps(component.WithExtraMetadata(context.Background(), metadata)); err != nil {
+		t.Fatal(err)
+	}
+	steps := stepper.GetInstallSteps()
+	if steps[0].Name != "UpgradePreflight" {
+		t.Fatal("preflight must precede changing binaries")
+	}
+	found := false
+	for _, step := range steps {
+		if step.Name != "UpgradeControlPlane-master" {
+			continue
+		}
+		found = true
+		command := strings.Join(step.Commands[0].ShellCommand, " ")
+		for _, want := range []string{"--disable-eviction", "was_unschedulable", "trap restore_node EXIT", "status.nodeInfo.kubeletVersion", "serverVersion"} {
+			if !strings.Contains(command, want) {
+				t.Errorf("missing %s", want)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("control plane step missing")
+	}
+	metadata.Workers = component.NodeList{{ID: "worker-id"}}
+	other := &Upgrade{SingleNodeMaintenance: true}
+	other.InitStepper(&metadata, cluster)
+	if err := other.InitSteps(component.WithExtraMetadata(context.Background(), metadata)); err == nil {
+		t.Fatal("maintenance must reject multiple nodes")
+	}
+}

@@ -153,5 +153,6 @@ type StepLog struct {
 }
 
 type ClusterUpgrade struct {
-	Version string `json:"version"`
+	Version               string `json:"version"`
+	SingleNodeMaintenance bool   `json:"singleNodeMaintenance,omitempty"`
 }

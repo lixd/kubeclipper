@@ -465,3 +465,16 @@ func TestFetchConsoleFromSingleArchitectureMirrorUsesTag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, payload, actual)
 }
+
+func TestPlatformVersionVerificationMatchesUpgradeComponent(t *testing.T) {
+	for _, test := range []struct {
+		component string
+		want      bool
+	}{
+		{"server", true}, {"all", true}, {"agent", false}, {"console", false}, {"kcctl", false},
+	} {
+		if got := (&UpgradeOptions{component: test.component}).verifiesPlatform(); got != test.want {
+			t.Errorf("%s platform verification = %v, want %v", test.component, got, test.want)
+		}
+	}
+}

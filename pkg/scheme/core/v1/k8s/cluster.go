@@ -74,9 +74,10 @@ func init() {
 }
 
 type Upgrade struct {
-	Kubeadm      *KubeadmConfig `json:"kubeadm"`
-	Version      string         `json:"version"`
-	installSteps []v1.Step
+	SingleNodeMaintenance bool           `json:"singleNodeMaintenance,omitempty"`
+	Kubeadm               *KubeadmConfig `json:"kubeadm"`
+	Version               string         `json:"version"`
+	installSteps          []v1.Step
 }
 
 type UpgradePackage struct {
@@ -196,6 +197,15 @@ fi
 
 	masters := extraMetadata.Masters
 	workers := extraMetadata.Workers
+	preflightCommand := "kubectl get --raw=/readyz --request-timeout=10s; kubectl get nodes; kubectl get pods,pdb -A"
+	drainOptions := ""
+	if stepper.SingleNodeMaintenance {
+		if len(masters) != 1 || len(workers) != 0 {
+			return fmt.Errorf("single-node maintenance requires exactly one cluster node")
+		}
+		drainOptions = " --disable-eviction"
+		preflightCommand += `; test "$(kubectl get nodes -o name | wc -l)" -eq 1`
+	}
 	packageDownload := &UpgradePackage{
 		Package: &Package{
 			Version: stepper.Version,
@@ -213,6 +223,20 @@ fi
 	}
 
 	stepper.installSteps = []v1.Step{
+		{
+			ID:        strutil.GetUUID(),
+			Name:      "UpgradePreflight",
+			Nodes:     utils.UnwrapNodeList(masters)[:1],
+			Action:    v1.ActionInstall,
+			Timeout:   metav1.Duration{Duration: 2 * time.Minute},
+			ErrIgnore: false,
+			Commands: []v1.Command{
+				{
+					Type:         v1.CommandShell,
+					ShellCommand: []string{"/bin/bash", "-euo", "pipefail", "-c", preflightCommand},
+				},
+			},
+		},
 		{
 			ID:        strutil.GetUUID(),
 			Name:      "DownloadUpgradePackage",
@@ -277,14 +301,27 @@ fi
 					ShellCommand: []string{"/bin/bash", "-c", fmt.Sprintf(`
 set -euo pipefail
 node=%q
-trap 'rc=$?; kubectl uncordon "$node" || true; exit "$rc"' EXIT
+was_unschedulable=$(kubectl get node "$node" -o jsonpath='{.spec.unschedulable}')
+restore_node() {
+  rc=$?
+  echo "Observed control plane and kubelet versions after upgrade attempt"
+  kubectl version -o json || true
+  kubectl get node "$node" -o jsonpath='{.status.nodeInfo.kubeletVersion}' || true
+  if [[ "$was_unschedulable" != "true" ]]; then
+    kubectl uncordon "$node" || { if (( rc == 0 )); then rc=1; fi; }
+  fi
+  exit "$rc"
+}
+trap restore_node EXIT
 kubeadm upgrade apply %s -y --ignore-preflight-errors all --config /tmp/.k8s/kubeadm.yaml
 sleep 10
-kubectl drain "$node" --ignore-daemonsets --delete-emptydir-data --force --timeout=120s
+kubectl drain "$node" --ignore-daemonsets --delete-emptydir-data --force --timeout=120s%s
 systemctl stop kubelet
 systemctl daemon-reload && systemctl restart kubelet
 %s
-`, extraMetadata.GetMasterHostname(masters[0].ID), stepper.Version, waitForControlPlaneReady)},
+[[ "$(kubectl get node "$node" -o jsonpath='{.status.nodeInfo.kubeletVersion}')" == %q ]]
+kubectl version -o json | sed -n '/"serverVersion"/,$p' | grep -F '"gitVersion": "%s"'
+`, extraMetadata.GetMasterHostname(masters[0].ID), stepper.Version, drainOptions, waitForControlPlaneReady, stepper.Version, stepper.Version)},
 				},
 			},
 			RetryTimes: 0,

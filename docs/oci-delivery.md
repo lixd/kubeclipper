@@ -150,6 +150,30 @@ and embeds the digest references into the operation steps. The agent fetcher
 and unpacks to the node's cache; a digest already present in a validated local
 cache short-circuits the fetch (works fully offline).
 
+Kubernetes upgrades require a source version of v1.36.4 or later. Existing
+v1.35.8 clusters remain available for installation and management. An upgrade
+from v1.35.8 is rejected before an upgrade operation is created because the
+required containerd and Calico migration is outside this upgrade path.
+
+Multi-node upgrades use ordinary Pod eviction and honor PodDisruptionBudgets.
+Single-node upgrades require a maintenance window and explicit consent. Stop
+application writes and create a recoverable backup before proceeding. The
+maintenance option allows drain to delete Pods directly, bypassing **all affected
+PDBs, including application PDBs**, and causes application downtime.
+
+```bash
+kcctl cluster upgrade --cluster-name my-cluster --version v1.37.0 --single-node-maintenance
+```
+
+The equivalent upgrade API body is
+`{"version":"v1.37.0","singleNodeMaintenance":true}`. In Console, select the
+single-node maintenance checkbox in the cluster upgrade dialog. The option is
+restricted to one-master, zero-worker clusters and defaults to disabled.
+Upgrade logs include observed API server and kubelet versions after an attempt.
+Check the operation result and actual node versions before resuming application
+writes. Failed upgrades can leave the control plane ahead of the kubelet and
+must be investigated before retrying the operation.
+
 ### 4.3 Addons
 
 Charts are stored as `charts.tgz` inside standard component package images

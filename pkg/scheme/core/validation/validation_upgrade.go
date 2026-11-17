@@ -19,6 +19,10 @@ func ValidateKubernetesUpgradeVersion(clusterName, currentVersion, targetVersion
 		return fmt.Errorf("wrong version format: %w", err)
 	}
 
+	if current.LessThan(utilversion.MustParseSemantic("v1.36.4")) {
+		return fmt.Errorf("cluster %s at %s cannot be upgraded: Kubernetes upgrades are supported starting from v1.36.4; this cluster can continue to be managed at its current version", clusterName, currentVersion)
+	}
+
 	comparison, err := current.Compare(targetVersion)
 	if err != nil {
 		return fmt.Errorf("wrong version format: %w", err)

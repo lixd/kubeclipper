@@ -12,6 +12,8 @@ func TestValidateKubernetesUpgradeVersion(t *testing.T) {
 		target  string
 		wantErr string
 	}{
+		{name: "old source", current: "v1.35.8", target: "v1.36.4", wantErr: "starting from v1.36.4"},
+		{name: "source below minimum patch", current: "v1.36.3", target: "v1.36.4", wantErr: "starting from v1.36.4"},
 		{name: "patch upgrade", current: "v1.36.4", target: "v1.36.5"},
 		{name: "one minor upgrade", current: "v1.36.4", target: "v1.37.0"},
 		{name: "same version", current: "v1.36.4", target: "v1.36.4", wantErr: "already at version"},

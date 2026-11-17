@@ -385,7 +385,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		beforeEachCreateCluster(f, clu)()
 
 		ginkgo.By("upgrade cluster")
-		err = f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
+		err = f.Client.UpgradeCluster(context.TODO(), clusterName, initSingleNodeUpgrade(newVersion))
 		framework.ExpectNoError(err)
 
 		ginkgo.By("wait cluster upgrade")
@@ -412,7 +412,7 @@ var _ = SIGDescribe("[Serial]", func() {
 		beforeEachCreateCluster(f, clu)()
 
 		ginkgo.By("upgrade cluster")
-		err = f.Client.UpgradeCluster(context.TODO(), clusterName, initUpgradeCluster(newVersion))
+		err = f.Client.UpgradeCluster(context.TODO(), clusterName, initSingleNodeUpgrade(newVersion))
 		framework.ExpectNoError(err)
 
 		ginkgo.By("wait cluster upgrade")
@@ -455,8 +455,9 @@ func initPatchNode(operation clusteroperation.NodesPatchOperation, node string) 
 	}
 }
 
-func initUpgradeCluster(version string) *apiv1.ClusterUpgrade {
+func initSingleNodeUpgrade(version string) *apiv1.ClusterUpgrade {
 	return &apiv1.ClusterUpgrade{
-		Version: version,
+		Version:               version,
+		SingleNodeMaintenance: true,
 	}
 }
