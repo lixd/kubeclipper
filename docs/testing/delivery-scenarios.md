@@ -1,7 +1,6 @@
 # 在线与离线交付场景测试步骤
 
-本文件供 Agent 按步骤执行，与[核心功能清单](core-feature-checklist.md)中的
-`1.1-01`、`1.1-03`、`1.1-11`、`1.1-07`、`1.1-08`、`3-18`、`3-29` 对应。
+本文件按[测试用例目录](testcase-inventory-2026-11-19.md)执行 `1.1-01` 的两个在线渠道变体、`1.1-03` 的离线包生成与断网交付、`1.1-07` 的导入和重复导入检查。
 每轮建立独立结果记录，填写实际候选提交、制品来源、主机、命令退出码和证据路径。
 每条场景依次完成 kcctl 准备、Registry 部署、KC 部署、Agent 纳管、创建集群及健康验收。
 
@@ -153,7 +152,7 @@ kcctl create cluster --name delivery-global \
 等待 Cluster 为 Running、CreateCluster Operation 为 Succeeded，然后执行下文的共同健康验收。
 记录 packagePlan 和实际运行镜像的 Registry 前缀，均应指向本轮 GHCR 仓库。
 
-## 1.1-11 国内在线安装
+## 1.1-01 国内在线安装
 
 ### 网络和下载
 
@@ -309,7 +308,7 @@ python3 "$KC_TEST_DIR/scripts/verify-offline-import.py" \
 该步骤完整读取并核对目标端每个 manifest、仓库 blob 链接和所有去重 blob 的大小与
 SHA256，断言每个 tag 包含 linux/amd64 与 linux/arm64。全量读取期间保持公网隔离。
 
-2. 原样重复上述导入命令，覆盖 `1.1-08` 的幂等检查。预期 copied 为 0，全部 tag 跳过，
+2. 原样重复上述导入命令，覆盖 `1.1-07` 离线归档变体的幂等检查。预期 copied 为 0，全部 tag 跳过，
    所有内容一致。在线 `registry import` 的同源重复导入对应 `1.1-07`。
    随后在独立测试命名空间执行下表负例。每项同时核对非零退出码与错误关键字，
    再检查正式测试仓库的内容摘要。
