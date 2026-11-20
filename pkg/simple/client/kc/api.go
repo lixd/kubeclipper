@@ -179,6 +179,20 @@ func (cli *Client) DescribeCluster(ctx context.Context, name string) (*ClustersL
 	return &clusters, err
 }
 
+// ClusterKubeconfig downloads the direct or proxied kubeconfig for a cluster.
+func (cli *Client) ClusterKubeconfig(ctx context.Context, name string, proxy bool) ([]byte, error) {
+	query := url.Values{}
+	if proxy {
+		query.Set("proxy", "true")
+	}
+	response, err := cli.get(ctx, fmt.Sprintf("%s/%s/kubeconfig", clustersPath, name), query, nil)
+	defer ensureReaderClosed(response)
+	if err != nil {
+		return nil, err
+	}
+	return io.ReadAll(response.body)
+}
+
 // OperationListOptions contains the Kubernetes-style list options supported by
 // the Operation V2 endpoint. Continue is opaque and must be passed back to
 // the server unchanged when fetching the next page.

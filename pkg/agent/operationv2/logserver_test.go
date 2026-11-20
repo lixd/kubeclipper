@@ -140,6 +140,42 @@ func TestLogHandlerPreservesUTF8AcrossPages(t *testing.T) {
 	}
 }
 
+func TestLogHandlerKeepsIndependentTaskOffsets(t *testing.T) {
+	logs, err := oplog.NewOperationLog(&oplog.Options{Dir: t.TempDir(), OplogThreshold: oplog.MaximumThreshold})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for uid, content := range map[string]string{"task-a": "甲乙", "task-b": "丙丁"} {
+		if err := logs.CreateStepLogFileAndAppend(uid, "task", []byte(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := &LogHandler{Logs: logs}
+	for _, page := range []struct {
+		uid, content string
+		offset       int
+	}{
+		{"task-a", "甲", 0},
+		{"task-b", "丙", 0},
+		{"task-a", "乙", 3},
+		{"task-b", "丁", 3},
+	} {
+		response := httptest.NewRecorder()
+		path := fmt.Sprintf("/v1/tasks/%s/logs?offset=%d&limit=3", page.uid, page.offset)
+		handler.ServeHTTP(response, verifiedRequest(path, DefaultServerClientIdentity))
+		if response.Code != http.StatusOK {
+			t.Fatalf("read %s offset %d = HTTP %d: %s", page.uid, page.offset, response.Code, response.Body)
+		}
+		var body oplog.LogContentResponse
+		if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Content != page.content || body.DeliverySize != 3 || body.LogSize != 6 {
+			t.Fatalf("read %s offset %d = %#v, want %q and 3 bytes of 6", page.uid, page.offset, body, page.content)
+		}
+	}
+}
+
 func TestLogHandlerWaitsForIncompleteUTF8Write(t *testing.T) {
 	logs, err := oplog.NewOperationLog(&oplog.Options{Dir: t.TempDir(), OplogThreshold: oplog.MaximumThreshold})
 	if err != nil {

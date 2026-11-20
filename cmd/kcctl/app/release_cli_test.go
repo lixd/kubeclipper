@@ -120,6 +120,37 @@ func TestReleaseCLIDetailStaysSingleObject(t *testing.T) {
 	}
 }
 
+func TestReleaseCLIGetForwardsSelectorsAndKeepsListShape(t *testing.T) {
+	for _, name := range []string{"alpha", "unmatched"} {
+		t.Run(name, func(t *testing.T) {
+			field := "metadata.name=" + name
+			label := "test-suite=oci"
+			items, count := "[]", 0
+			if name == "alpha" {
+				items, count = `[{"metadata":{"name":"alpha"}}]`, 1
+			}
+			cmd, out, _ := releaseCommand(t, func(w http.ResponseWriter, r *http.Request) {
+				q := r.URL.Query()
+				if r.Method != http.MethodGet || r.URL.Path != "/api/core.kubeclipper.io/v1/clusters" ||
+					q.Get("fieldSelector") != field || q.Get("labelSelector") != label {
+					t.Errorf("unexpected get request %s %s", r.Method, r.URL)
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				fmt.Fprintf(w, `{"items":%s,"totalCount":%d}`, items, count)
+			}, "get", "cluster", "--field-selector", field, "--selector", label, "-o", "json")
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			result := decodeDocument(t, "json", out.Bytes())
+			list, ok := result["items"].([]any)
+			if !ok || len(list) != count {
+				t.Fatalf("unexpected selector results: %s", out)
+			}
+		})
+	}
+}
+
 func TestReleaseCLIRejectsInvalidArgumentsBeforeConfig(t *testing.T) {
 	for _, args := range [][]string{
 		{"get", "cluster", "alpha", "beta"},

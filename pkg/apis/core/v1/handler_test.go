@@ -19,6 +19,7 @@
 package v1
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -43,6 +44,69 @@ import (
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 	operations "github.com/kubeclipper/kubeclipper/pkg/scheme/operations/v1alpha1"
 )
+
+func TestUpdateBackupChangesOnlyDescription(t *testing.T) {
+	original := &v1.Backup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "snapshot",
+			UID:             "snapshot-uid",
+			ResourceVersion: "42",
+			Annotations: map[string]string{
+				common.AnnotationDescription: "before",
+				"test.example/keep":          "value",
+			},
+		},
+		BackupPointName: "storage",
+		ClusterNodes:    map[string]string{"node": "master"},
+		Status: v1.BackupStatus{
+			ClusterBackupStatus: v1.ClusterBackupAvailable,
+			KubernetesVersion:   "v1.36.4",
+			FileName:            "snapshot.db",
+			BackupFileSize:      1024,
+			BackupFileMD5:       "d41d8cd98f00b204e9800998ecf8427e",
+		},
+	}
+	want := original.DeepCopy()
+	want.Annotations[common.AnnotationDescription] = "after"
+
+	operator := mock.NewMockOperator(gomock.NewController(t))
+	gomock.InOrder(
+		operator.EXPECT().GetBackupEx(gomock.Any(), "cluster", original.Name).Return(original.DeepCopy(), nil),
+		operator.EXPECT().UpdateBackup(gomock.Any(), gomock.Eq(want)).Return(want, nil),
+	)
+	handler := newHandler(nil, operator, nil, nil, nil, nil, nil)
+	container := restful.NewContainer()
+	ws := new(restful.WebService)
+	ws.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+	ws.Route(ws.PUT("/clusters/{cluster}/backups/{backup}").To(handler.UpdateBackup))
+	container.Add(ws)
+
+	requestBody := want.DeepCopy()
+	requestBody.Name = "unrelated"
+	requestBody.BackupPointName = "different-storage"
+	requestBody.ClusterNodes = nil
+	requestBody.Status = v1.BackupStatus{ClusterBackupStatus: v1.ClusterBackupError}
+	requestBody.Annotations["test.example/keep"] = "different"
+	body, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPut, "/clusters/cluster/backups/snapshot", strings.NewReader(string(body)))
+	request.Header.Set("Content-Type", restful.MIME_JSON)
+	request.Header.Set("Accept", restful.MIME_JSON)
+	response := httptest.NewRecorder()
+	container.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("update backup status = %d, body = %s", response.Code, response.Body)
+	}
+	var actual v1.Backup
+	if err := json.Unmarshal(response.Body.Bytes(), &actual); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(&actual, want) {
+		t.Fatalf("updated backup = %+v, want %+v", actual, *want)
+	}
+}
 
 func TestDescribeBackupPoint(t *testing.T) {
 	notFound := apimachineryErrors.NewNotFound(v1.Resource("backuppoints"), "fixture")
@@ -540,6 +604,69 @@ func TestCreateClusterCheckRejectsRepeatedNodeRoles(t *testing.T) {
 			}
 			if err := h.createClusterCheck(context.Background(), c); err == nil || !strings.Contains(err.Error(), "duplicate node") {
 				t.Fatalf("expected duplicate node rejection, got %v", err)
+			}
+		})
+	}
+}
+
+func TestClusterCreateRejectsInvalidRequestsBeforeWriting(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+		change     func(*v1.Cluster)
+	}{
+		{"no control plane", "cluster must have one master node", func(c *v1.Cluster) {
+			c.Workers, c.Masters = c.Masters, nil
+		}},
+		{"repeated node", "duplicate node", func(c *v1.Cluster) {
+			c.Workers = c.Masters
+		}},
+		{"occupied node", "some nodes in used or disabled", func(c *v1.Cluster) {
+			c.Masters = v1.WorkerNodeList{{ID: "node-b"}}
+		}},
+		{"different regions", ErrNodesRegionDifferent.Error(), func(c *v1.Cluster) {
+			c.Workers = v1.WorkerNodeList{{ID: "node-b"}}
+		}},
+		{"invalid Pod subnet", "invalid cluster networking", func(c *v1.Cluster) {
+			c.Networking.Pods.CIDRBlocks = []string{"10.0.0.0/33"}
+		}},
+		{"overlapping networks", "overlaps", func(c *v1.Cluster) {
+			c.Networking.Pods.CIDRBlocks = []string{"10.96.1.0/24"}
+		}},
+		{"node network collision", "conflicts with node node-a", func(c *v1.Cluster) {
+			c.Networking.Pods.CIDRBlocks = []string{"192.168.4.0/24"}
+		}},
+		{"retired Docker CRI", "Docker CRI is not supported", func(c *v1.Cluster) {
+			c.ContainerRuntime.Type = "docker"
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			free := checkNodeFixture("node-a", "192.168.4.11")
+			free.Labels = map[string]string{common.LabelTopologyRegion: "east"}
+			busy := checkNodeFixture("node-b", "192.168.5.11")
+			busy.Labels = map[string]string{common.LabelTopologyRegion: "west", common.LabelNodeRole: "worker"}
+			h, operator := newCheckHandler(t, []v1.Node{free})
+			registry := &v1.Registry{RegistrySpec: v1.RegistrySpec{Host: "registry.example.invalid", Scheme: "https"}}
+			operator.EXPECT().GetRegistry(gomock.Any(), "kc-package-registry").Return(registry, nil).AnyTimes()
+			operator.EXPECT().GetNodeEx(gomock.Any(), free.Name, "0").Return(&free, nil).AnyTimes()
+			operator.EXPECT().GetNodeEx(gomock.Any(), busy.Name, "0").Return(&busy, nil).AnyTimes()
+			// The checked handler has no storage expectations for creating the cluster or its Operation.
+			cluster := checkClusterFixture([]string{"172.25.0.0/16"}, []string{"10.96.0.0/12"}, free.Name)
+			cluster.KubernetesVersion = "v1.36.4"
+			tc.change(cluster)
+			body, err := json.Marshal(cluster)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ws := new(restful.WebService).Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
+			ws.Route(ws.POST("/clusters").To(h.CreateClusters))
+			container := restful.NewContainer()
+			container.Add(ws)
+			req := httptest.NewRequest(http.MethodPost, "/clusters", bytes.NewReader(body))
+			req.Header.Set("Content-Type", restful.MIME_JSON)
+			res := httptest.NewRecorder()
+			container.ServeHTTP(res, req)
+			if res.Code != http.StatusBadRequest || !strings.Contains(res.Body.String(), tc.want) {
+				t.Fatalf("create returned %d with %s, want HTTP 400 containing %q", res.Code, res.Body, tc.want)
 			}
 		})
 	}

@@ -18,7 +18,10 @@
 
 package apis
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestResolveArtifactsDefaultComponents(t *testing.T) {
 	plan, err := ResolveArtifacts(resolverCatalog(), resolverPolicy(), ResolveRequest{
@@ -104,6 +107,39 @@ func TestResolveArtifactsErrors(t *testing.T) {
 			assertResolverError(t, err, tt.code)
 		})
 	}
+}
+
+func TestResolveArtifactsRefusesMissingSlotOrPackage(t *testing.T) {
+	request := ResolveRequest{
+		KubernetesVersion: "v1.36.0",
+		Arch:              "amd64",
+		Components: map[string]ComponentChoice{
+			"cri": {Name: "containerd", Version: "2.1.0"},
+		},
+	}
+	t.Run("required slot omitted from policy", func(t *testing.T) {
+		policy := resolverPolicy()
+		rule := &policy.Spec.Policies[0]
+		rule.ComponentSlots = slices.DeleteFunc(rule.ComponentSlots, func(slot ComponentSlotRule) bool {
+			return slot.Slot == "cri"
+		})
+		plan, err := ResolveArtifacts(resolverCatalog(), policy, request)
+		assertResolverError(t, err, ErrUnsupportedComponentSlot)
+		if plan != nil {
+			t.Fatal("resolver returned a plan without the selected CRI slot")
+		}
+	})
+	t.Run("required package missing from registry inventory", func(t *testing.T) {
+		inventory := resolverCatalog()
+		inventory.Spec.Packages = slices.DeleteFunc(inventory.Spec.Packages, func(pkg PackageEntry) bool {
+			return pkg.Kind == "cni" && pkg.Name == "calico"
+		})
+		plan, err := ResolveArtifacts(inventory, resolverPolicy(), request)
+		assertResolverError(t, err, ErrArtifactNotPublished)
+		if plan != nil {
+			t.Fatal("resolver returned a plan without the required CNI package")
+		}
+	})
 }
 
 func TestResolveArtifactsMatchesPackageIdentity(t *testing.T) {

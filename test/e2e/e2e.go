@@ -19,6 +19,7 @@
 package e2e
 
 import (
+	"os"
 	"testing"
 
 	"github.com/kubeclipper/kubeclipper/test/framework"
@@ -26,6 +27,7 @@ import (
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
+	"github.com/onsi/ginkgo/reporters"
 	"github.com/onsi/gomega"
 )
 
@@ -47,5 +49,11 @@ var _ = ginkgo.SynchronizedAfterSuite(func() {
 func RunE2ETests(t *testing.T) {
 	gomega.RegisterFailHandler(ginkgowrapper.Fail)
 	framework.Logf("Starting e2e run on Ginkgo %d node", config.GinkgoConfig.ParallelNode)
+	if report := os.Getenv("KC_E2E_JUNIT"); report != "" {
+		ginkgo.RunSpecsWithDefaultAndCustomReporters(t, "KubeClipper e2e suite", []ginkgo.Reporter{
+			reporters.NewJUnitReporter(report),
+		})
+		return
+	}
 	ginkgo.RunSpecs(t, "KubeClipper e2e suite")
 }

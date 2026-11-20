@@ -21,13 +21,17 @@ package k8s
 import (
 	"bytes"
 	"encoding/json"
+	"io"
+	"slices"
 	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/kubeclipper/kubeclipper/pkg/component"
 	"github.com/kubeclipper/kubeclipper/pkg/constatns"
+	"github.com/kubeclipper/kubeclipper/pkg/scheme/common"
 	v1 "github.com/kubeclipper/kubeclipper/pkg/scheme/core/v1"
 )
 
@@ -485,6 +489,42 @@ func TestKubeadmConfig_renderJoin(t *testing.T) {
 			}
 			t.Log(w.String())
 		})
+	}
+}
+
+func TestKubeadmConfigRendersOnlySelectedPreflightException(t *testing.T) {
+	cluster := &v1.Cluster{KubernetesVersion: "v1.37.0"}
+	cluster.Annotations = map[string]string{common.AnnotationOnlyIgnorePreflightErrors: "NumCPU"}
+	cluster.ContainerRuntime.Type = v1.CRIContainerd
+	stepper := (&KubeadmConfig{}).InitStepper(cluster, &component.ExtraMetadata{
+		ClusterName: "preflight-test",
+		Masters:     component.NodeList{{NodeIPv4: "192.0.2.10"}},
+	})
+	stepper.ClusterConfigAPIVersion = "v1beta4"
+	var rendered bytes.Buffer
+	if err := stepper.renderTo(&rendered); err != nil {
+		t.Fatal(err)
+	}
+	decoder := yaml.NewYAMLOrJSONDecoder(&rendered, 4096)
+	for {
+		var document struct {
+			Kind             string `json:"kind"`
+			NodeRegistration struct {
+				IgnorePreflightErrors []string `json:"ignorePreflightErrors"`
+			} `json:"nodeRegistration"`
+		}
+		if err := decoder.Decode(&document); err != nil {
+			if err == io.EOF {
+				t.Fatal("rendered kubeadm config is missing InitConfiguration")
+			}
+			t.Fatal(err)
+		}
+		if document.Kind == "InitConfiguration" {
+			if got := document.NodeRegistration.IgnorePreflightErrors; !slices.Equal(got, []string{"NumCPU"}) {
+				t.Fatalf("rendered ignorePreflightErrors = %v, want only NumCPU", got)
+			}
+			return
+		}
 	}
 }
 

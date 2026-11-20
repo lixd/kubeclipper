@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -14,6 +15,21 @@ import (
 type defaultRegistryConfig struct {
 	core.ConfigMapReader
 	value string
+}
+
+func TestExplicitClusterRegistryDoesNotFallBackOnMissingReference(t *testing.T) {
+	operator := mockcluster.NewMockOperator(gomock.NewController(t))
+	notFound := errors.New("unknown registry")
+	operator.EXPECT().GetRegistry(gomock.Any(), "missing").Return(nil, notFound)
+	cluster := &v1.Cluster{ImageRegistry: "missing"}
+	if err := CompleteClusterImageRegistry(context.Background(), cluster, defaultRegistryConfig{
+		value: "defaultImageRegistry: official",
+	}, operator); !errors.Is(err, notFound) {
+		t.Fatalf("expected missing reference error, got %v", err)
+	}
+	if cluster.ImageRegistry != "missing" || cluster.ResolvedImageRegistry != "" {
+		t.Fatalf("failed resolution changed the selected Registry")
+	}
 }
 
 func (c defaultRegistryConfig) GetConfigMap(context.Context, string) (*v1.ConfigMap, error) {

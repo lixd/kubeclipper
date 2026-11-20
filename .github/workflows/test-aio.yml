@@ -9,12 +9,25 @@ on:
       - 'master'
       - 'release*'
   workflow_dispatch:
+    inputs:
+      dependency_manifest_url:
+        description: HTTPS URL of the published component and image inventory
+        type: string
+      dependency_manifest_sha256:
+        description: SHA-256 of the dependency inventory
+        type: string
+      extended_ginkgo:
+        description: Run the OCI cases supported by the isolated AIO fixture
+        type: boolean
+        default: false
 
 jobs:
   build:
     runs-on: ubuntu-24.04
     env:
       KC_CONSOLE_RELEASE_REPOSITORY: ${{ vars.KC_CONSOLE_RELEASE_REPOSITORY || format('{0}/console', github.repository_owner) }}
+      KC_E2E_DEPENDENCY_URL: ${{ inputs.dependency_manifest_url || vars.KC_E2E_DEPENDENCY_MANIFEST_URL }}
+      KC_E2E_DEPENDENCY_SHA256: ${{ inputs.dependency_manifest_sha256 || vars.KC_E2E_DEPENDENCY_MANIFEST_SHA256 }}
 
     steps:
       - uses: actions/checkout@v7
@@ -26,13 +39,16 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Install packaging dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-yaml
+        run: sudo apt-get update && sudo apt-get install -y python3-yaml skopeo zsh
 
       - name: Build
         run: |
           version="$(python3 -c 'import yaml; print(yaml.safe_load(open("packaging/resources.yaml"))["bootstrap"]["kubeclipperVersion"])')"
           echo "KUBE_GIT_VERSION=$version" >> "$GITHUB_ENV"
           KUBE_BUILD_PLATFORMS="linux/amd64" KUBE_GIT_VERSION="$version" make build
+
+      - name: Check candidate CLI contracts
+        run: bash test/e2e/oci/cli-contracts.sh ./dist/kcctl "$GITHUB_SHA" "$KUBE_GIT_VERSION" linux/amd64
 
       - name: Resolve pinned Console revision
         id: console
@@ -78,12 +94,26 @@ jobs:
 
       - name: Start local OCI Registry
         run: |
-          docker run --detach --name kc-e2e-registry --publish 5000:5000 registry:2
+          set -euo pipefail
+          # Keep the Registry available when the AIO install replaces containerd.
+          registry_container="$(docker create registry:2)"
+          trap 'docker rm "$registry_container" >/dev/null' EXIT
+          docker cp "$registry_container:/bin/registry" "$RUNNER_TEMP/kc-e2e-registry"
+          cat > "$RUNNER_TEMP/kc-registry.yaml" <<EOF
+          version: 0.1
+          storage:
+            filesystem:
+              rootdirectory: $RUNNER_TEMP/kc-registry-data
+          http:
+            addr: 127.0.0.1:5000
+          EOF
+          nohup "$RUNNER_TEMP/kc-e2e-registry" serve "$RUNNER_TEMP/kc-registry.yaml" < /dev/null > "$RUNNER_TEMP/kc-registry.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/kc-registry.pid"
           for _ in $(seq 1 30); do
             curl --fail --silent http://127.0.0.1:5000/v2/ && exit 0
             sleep 1
           done
-          docker logs kc-e2e-registry
+          cat "$RUNNER_TEMP/kc-registry.log"
           exit 1
 
       - name: Configure local Package Registry client
@@ -112,6 +142,24 @@ jobs:
             --registry-prefix 127.0.0.1:5000 --version "$(bootstrap_version consoleVersion)" --arch amd64
           scripts/open-packaging/publish-bootstrap-registry.sh \
             --registry-prefix 127.0.0.1:5000 --version "$(bootstrap_version registryVersion)" --arch amd64
+
+      - name: Import AIO runtime dependencies
+        if: env.KC_E2E_DEPENDENCY_URL != '' || env.KC_E2E_DEPENDENCY_SHA256 != ''
+        run: |
+          set -euo pipefail
+          [[ "$KC_E2E_DEPENDENCY_URL" == https://* && "$KC_E2E_DEPENDENCY_SHA256" =~ ^[a-f0-9]{64}$ ]]
+          mkdir -p dist/oci-evidence
+          curl --fail --silent --show-error --location --proto '=https' --max-time 120 \
+            --output "$RUNNER_TEMP/dependencies.yml" "$KC_E2E_DEPENDENCY_URL"
+          printf '%s  %s\n' "$KC_E2E_DEPENDENCY_SHA256" "$RUNNER_TEMP/dependencies.yml" | sha256sum --check
+          python3 test/e2e/oci/dependencies.py "$RUNNER_TEMP/dependencies.yml" 127.0.0.1:5000 "$RUNNER_TEMP/aio.tsv"
+          while IFS=$'\t' read -r source target; do
+            printf '%s -> %s\n' "$source" "$target"
+            skopeo --override-os linux --override-arch amd64 copy --preserve-digests \
+              --dest-tls-verify=false "docker://$source" "docker://$target"
+          done < "$RUNNER_TEMP/aio.tsv" | tee dist/oci-evidence/import.log
+          bash test/e2e/oci/registry-contracts.sh ./dist/kcctl 127.0.0.1:5000 v1.36.4 \
+            | tee dist/oci-evidence/registry-contracts.log
 
       - name: Deploy KubeClipper from OCI
         run: |
@@ -153,6 +201,82 @@ jobs:
           kcctl login -H http://localhost:80  -u admin -p Thinkbig1
           ./dist/e2e.test -cluster-install-short-timeout=10m -ginkgo.focus="\[Fast\]"
 
+      - name: Run the OCI access contracts
+        if: env.KC_E2E_DEPENDENCY_URL != ''
+        env:
+          KC_E2E_BACKEND_REVISION: ${{ github.sha }}
+          KC_E2E_JUNIT: ${{ github.workspace }}/dist/oci-evidence/access.xml
+        run: |
+          set -euo pipefail
+          ./dist/e2e.test -ginkgo.noColor -ginkgo.focus="\[OCI-Access\]" \
+            | tee dist/oci-evidence/access.log
+          grep -Eq '1 Passed.*0 Failed' dist/oci-evidence/access.log
+
+      - name: Run the OCI AIO lifecycle
+        id: lifecycle
+        if: env.KC_E2E_DEPENDENCY_URL != ''
+        env:
+          KC_E2E_BACKEND_REVISION: ${{ github.sha }}
+          KC_E2E_KUBERNETES_VERSION: v1.36.4
+          KC_E2E_UPGRADE_VERSION: v1.37.0
+          KC_E2E_PROBE_IMAGE: docker.io/library/busybox:1.36.1
+          KC_E2E_IMAGE_REGISTRY: kc-package-registry
+          KC_E2E_FS_BACKUP: '1'
+          KC_E2E_JUNIT: ${{ github.workspace }}/dist/oci-evidence/ginkgo.xml
+          CONSOLE_REVISION: ${{ steps.console.outputs.revision }}
+        run: |
+          set -euo pipefail
+          KC_E2E_MASTERS="$(kcctl get node -o json | jq -er '
+            (if .items then .items else [.] end) |
+            if length == 1 then .[0].metadata.name else error("expected one AIO Agent") end
+          ')"
+          export KC_E2E_MASTERS
+          printf 'backend=%s\nconsole=%s\ndependencyManifestSha256=%s\narchitecture=%s\n' \
+            "$KC_E2E_BACKEND_REVISION" "$CONSOLE_REVISION" "$KC_E2E_DEPENDENCY_SHA256" "$(uname -m)" \
+            > dist/oci-evidence/candidate.txt
+          echo "CYPRESS_ociNodeID=$KC_E2E_MASTERS" >> "$GITHUB_ENV"
+          sudo --preserve-env=KC_E2E_BACKEND_REVISION,KC_E2E_MASTERS,KC_E2E_KUBERNETES_VERSION,KC_E2E_UPGRADE_VERSION,KC_E2E_PROBE_IMAGE,KC_E2E_IMAGE_REGISTRY,KC_E2E_FS_BACKUP,KC_E2E_JUNIT \
+            env HOME="$HOME" ./dist/e2e.test -ginkgo.noColor -ginkgo.focus="\[OCI-Lifecycle\]" \
+            | tee dist/oci-evidence/ginkgo.log
+          grep -Eq '1 Passed.*0 Failed' dist/oci-evidence/ginkgo.log
+
+      - name: Run extended OCI AIO Ginkgo cases
+        if: ${{ steps.lifecycle.outcome == 'success' && inputs.extended_ginkgo }}
+        env:
+          KC_E2E_BACKEND_REVISION: ${{ github.sha }}
+          KC_E2E_MASTERS: ${{ env.CYPRESS_ociNodeID }}
+          KC_E2E_KUBERNETES_VERSION: v1.36.4
+          KC_E2E_PROBE_IMAGE: docker.io/library/busybox:1.36.1
+          KC_E2E_IMAGE_REGISTRY: kc-package-registry
+          KC_E2E_CONTROL_PLANE_CA_FILE: /etc/kubernetes/pki/ca.crt
+          KC_E2E_SERVER_ENDPOINT: https://127.0.0.1:8080
+          KC_E2E_SERVER_CA_FILE: /etc/kc-console/pki/ca.crt
+        run: bash test/e2e/oci/run-aio-ginkgo.sh ./dist/e2e.test dist/oci-evidence
+
+      - name: Run the pinned Console against the same platform
+        if: ${{ !cancelled() && env.CYPRESS_ociNodeID != '' && (steps.lifecycle.outcome == 'success' || steps.lifecycle.outcome == 'failure') }}
+        working-directory: dist/.console-source
+        env:
+          CYPRESS_BASE_URL: http://localhost:80
+          CYPRESS_username: admin
+          CYPRESS_password: Thinkbig1
+          CYPRESS_ociBackendRevision: ${{ github.sha }}
+          CYPRESS_ociConsoleRevision: ${{ steps.console.outputs.revision }}
+          CYPRESS_ociKubernetesVersion: v1.36.4
+          CYPRESS_ociUpgradeVersion: v1.37.0
+          CYPRESS_ociImageRegistry: kc-package-registry
+        run: npm run test:e2e:oci
+
+      - name: Upload OCI lifecycle evidence
+        if: always() && env.KC_E2E_DEPENDENCY_URL != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: oci-aio-evidence
+          path: |
+            dist/oci-evidence/
+            dist/.console-source/cypress/results/
+            dist/.console-source/cypress/screenshots/
+
       - name: Clean test environment
         if: always()
         run: |
@@ -164,7 +288,9 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          registry_id="$(docker container ls --all --filter 'name=^/kc-e2e-registry$' --format '{{.ID}}')"
-          if [[ -n "$registry_id" ]]; then
-            docker rm --force "$registry_id"
+          if [[ -s "$RUNNER_TEMP/kc-registry.pid" ]]; then
+            registry_pid="$(cat "$RUNNER_TEMP/kc-registry.pid")"
+            if ps -p "$registry_pid" -o args= | grep -Fq "$RUNNER_TEMP/kc-e2e-registry"; then
+              kill "$registry_pid"
+            fi
           fi

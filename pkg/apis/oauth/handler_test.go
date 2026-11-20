@@ -11,6 +11,7 @@
 package oauth
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -120,6 +121,30 @@ func TestRateLimiterBlocksAtThreshold(t *testing.T) {
 	}
 	if err := h.rateLimiterChecker("u1"); err != nil {
 		t.Fatalf("checker after a successful login = %v, want nil", err)
+	}
+}
+
+func TestRateLimiterIsolationAndExpiry(t *testing.T) {
+	c, err := cache.NewMemory()
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newLimiterHandler(t, 1, time.Minute, c)
+	const user = "blocked-account"
+	if err := h.rateLimiterCounter(user); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.rateLimiterChecker(user); err != auth.ErrRateLimitExceeded {
+		t.Fatalf("limited account = %v, want ErrRateLimitExceeded", err)
+	}
+	if err := h.rateLimiterChecker("other-account"); err != nil {
+		t.Fatalf("unrelated account was affected: %v", err)
+	}
+	if err := c.Expire(fmt.Sprintf(rateLimitPrefix, user), -time.Second); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.rateLimiterChecker(user); err != nil {
+		t.Fatalf("account after the window = %v, want allowed", err)
 	}
 }
 

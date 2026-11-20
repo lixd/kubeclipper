@@ -65,6 +65,28 @@ func TestListOperationTasksFiltersByOperationUID(t *testing.T) {
 	}
 }
 
+func TestClusterKubeconfigUsesDirectAndProxyEndpoints(t *testing.T) {
+	for _, proxy := range []bool{false, true} {
+		var request *http.Request
+		client := testClient(t, func(w http.ResponseWriter, r *http.Request) {
+			request = r
+			w.Header().Set("Content-Type", "text/plain")
+			_, _ = w.Write([]byte("kind: Config\n"))
+		})
+		data, err := client.ClusterKubeconfig(context.Background(), "demo", proxy)
+		if err != nil || string(data) != "kind: Config\n" {
+			t.Fatalf("kubeconfig = %q, err = %v", data, err)
+		}
+		if request.Method != http.MethodGet || request.URL.Path != clustersPath+"/demo/kubeconfig" {
+			t.Fatalf("request = %s %s", request.Method, request.URL)
+		}
+		value := request.URL.Query().Get("proxy")
+		if proxy && value != "true" || !proxy && value != "" {
+			t.Fatalf("proxy option = %q for proxy=%t", value, proxy)
+		}
+	}
+}
+
 func TestListOperationsUsesV2ListOptions(t *testing.T) {
 	var request *http.Request
 	client := testClient(t, func(w http.ResponseWriter, r *http.Request) {

@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -83,7 +83,7 @@ func TestSameSecondOperationsUseEtcdRevisionOrder(t *testing.T) {
 func TestReconcileStepBarrierAndOutput(t *testing.T) {
 	store := newFakeStore()
 	op := testOperation("install", "op-1", testNow,
-		oneStep("token", 0, "node-1"),
+		oneStep("token", 0, "node-1", "node-3"),
 		operations.OperationStep{
 			ID:       "join",
 			Executor: "noop",
@@ -98,17 +98,32 @@ func TestReconcileStepBarrierAndOutput(t *testing.T) {
 	r := &OperationReconciler{Store: store, Now: func() time.Time { return testNow }}
 
 	reconcileOK(t, r, op.Name) // Lock and Running.
-	reconcileOK(t, r, op.Name) // First-step Task.
-	first := store.onlyTask(t)
-	if first.Spec.StepID != "token" {
-		t.Fatalf("created step %q before token", first.Spec.StepID)
+	reconcileOK(t, r, op.Name) // First-step Tasks.
+	firstTasks := store.taskSlice()
+	if len(firstTasks) != 2 {
+		t.Fatalf("first-step tasks = %d, want 2", len(firstTasks))
 	}
-	store.setTaskTerminal(first.Name, operations.TaskSucceeded, map[string]string{"joinToken": "abcdef.0123456789"})
+	taskByNode := make(map[string]string, len(firstTasks))
+	for _, task := range firstTasks {
+		if task.Spec.StepID != "token" {
+			t.Fatalf("created step %q before token", task.Spec.StepID)
+		}
+		taskByNode[task.Spec.NodeRef.Name] = task.Name
+	}
+	if taskByNode["node-1"] == "" || taskByNode["node-3"] == "" {
+		t.Fatalf("first-step task targets = %v, want node-1 and node-3", taskByNode)
+	}
+	store.setTaskTerminal(taskByNode["node-1"], operations.TaskSucceeded, map[string]string{"joinToken": "abcdef.0123456789"})
+	reconcileOK(t, r, op.Name)
+	if got := len(store.tasks); got != 2 {
+		t.Fatalf("created the dependent task before node-3 completed: %d tasks", got)
+	}
+	store.setTaskTerminal(taskByNode["node-3"], operations.TaskSucceeded, nil)
 	reconcileOK(t, r, op.Name)
 
 	tasks := store.taskSlice()
-	if len(tasks) != 2 {
-		t.Fatalf("tasks=%d, want 2", len(tasks))
+	if len(tasks) != 3 {
+		t.Fatalf("tasks=%d, want 3", len(tasks))
 	}
 	var join *operations.OperationTask
 	for index := range tasks {
@@ -749,9 +764,6 @@ func TestCancellationBoundsRunningTaskWait(t *testing.T) {
 func errNotFound(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "not found")
 }
-
-
-
 
 func TestPendingOperationEvictsStaleTerminalLockHolder(t *testing.T) {
 	store := newFakeStore()

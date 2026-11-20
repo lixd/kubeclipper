@@ -27,6 +27,7 @@ import (
 
 	_ "github.com/kubeclipper/kubeclipper/test/e2e/cluster"
 	_ "github.com/kubeclipper/kubeclipper/test/e2e/node"
+	_ "github.com/kubeclipper/kubeclipper/test/e2e/oci"
 	_ "github.com/kubeclipper/kubeclipper/test/e2e/region"
 	"github.com/kubeclipper/kubeclipper/test/framework"
 )

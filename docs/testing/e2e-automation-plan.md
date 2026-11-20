@@ -18,7 +18,7 @@
 | 环节 | 当前用法与应核验的结果 |
 | --- | --- |
 | 平台安装与交付 | `kcctl deploy --package-registry <prefix>`，本地 HTTP fixture 显式传 `--package-registry-scheme http`。部署创建默认 `kc-package-registry`。安装包来自部署指定的 Package Registry，Kubernetes 和 Calico 等运行镜像由集群 `--image-registry <Registry名称>` 选择，缺省使用平台默认值。先核对地址、服务、进程版本和 Agent 注册，再创建集群。候选在线同步用 `registry import --manifest ... --target ...`。离线用 `registry export --manifest ... --output ...` 生成两个包，通过 `registry deploy --node ... --bundle <Registry小包>` 自举仓库，再 `registry import --bundle <完整大包> --target ...`。冷节点阻断公网后实测部署、join 和建群。关联 `1.2-02`、`1.2-05`、`1.1-03`、`1.1-07`、`6-07`。[交付说明](../oci-delivery.md) · [Registry CLI](../../pkg/cli/registry/registry.go) · [导出](../../pkg/cli/registry/export.go) · [导入](../../pkg/cli/registry/import.go) |
-| 实际建群与制品 | 先查 `GET /api/config.kubeclipper.io/v1/componentmeta?arch=amd64`，确认本轮固定的版本和默认镜像源可用。AIO 用 `kcctl create cluster --name <name> --master <id> --untaint-master --k8s-version v1.37.0`，API 用 `POST /clusters`。多节点明确传入 `--master`、`--worker`。核对 Cluster 的节点、版本、`status.packagePlan` 各槽位的 `repository@sha256:…`，以及对应 Task 或 Agent 拉取记录。运行镜像另查 Pod 和容器运行时的 RepoDigest，与同架构预期镜像摘要对照。关联 `3-05`、`2.6-01`、`2.6-03`、`2.1-07`。[建群 CLI](../../pkg/cli/create/create_cluster.go) · [版本查询](../../pkg/apis/config/v1/handler.go) · [Cluster 字段](../../pkg/scheme/core/v1/cluster_types.go) |
+| 实际建群与制品 | 先查 `GET /api/config.kubeclipper.io/v1/componentmeta?arch=amd64`，确认本轮固定的版本和默认镜像源可用。AIO 用 `kcctl create cluster --name <name> --master <id> --untaint-master --k8s-version v1.37.0`，API 用 `POST /clusters`。多节点明确传入 `--master`、`--worker`。核对 Cluster 的节点、版本、`status.packagePlan` 各槽位的仓库引用与独立的 `transport.digest` 字段，以及对应 Task 或 Agent 拉取记录。运行镜像另查 Pod 和容器运行时的 RepoDigest，与同架构预期镜像摘要对照。关联 `3-05`、`2.6-01`、`2.6-03`、`2.1-07`。[建群 CLI](../../pkg/cli/create/create_cluster.go) · [版本查询](../../pkg/apis/config/v1/handler.go) · [Cluster 字段](../../pkg/scheme/core/v1/cluster_types.go) |
 | 异步操作 | 建群返回 Cluster，普通删除和 Kubernetes 升级返回 HTTP 状态。提交前记同类操作基线，提交后用本轮 Cluster UID 查询 `/api/operations.kubeclipper.io/v1alpha1/operations` 的 `fieldSelector=spec.targetRef.uid=<UID>`，再匹配本次 `spec.action` 和新增 UID。`ListOperationTasks` 已支持按 Operation UID 查询。对成功场景等待 `Succeeded` 并核对实际步骤与目标节点的 Task。重试保留历史失败，核对本轮尝试和最终状态。普通删除可以先以同一 selector 订阅 Operation watch，及时记录终结器清理前的证据。[集群 handler](../../pkg/apis/core/v1/handler.go) · [Operation 查询字段](../../pkg/server/registry/operationv2/strategy.go) · [Operation API](../../pkg/apis/operations/v1alpha1/handler.go) · [KC client](../../pkg/simple/client/kc/api.go) · [集群终结器](../../pkg/controller/clustercontroller/controller.go) |
 | Kubernetes 访问 | `GET /clusters/{name}/kubeconfig` 返回直连配置，`?proxy=true` 返回代理配置。测试从该公开接口取得文件，使用原配置实连本轮群，核对 `/readyz`、节点、系统 Pod、Service、DNS 和实际读写。按直连、代理、权限不足分别记录 `4-12` 的结果。`2.1-31` 还需按建群拓扑登记。[集群路由](../../pkg/apis/core/v1/registry.go) · [kubeconfig handler](../../pkg/apis/core/v1/handler.go#L986) |
 | 备份、恢复与删除 | `POST /clusters/{name}/backups` 从响应取实际备份名，以 `X-Operation-Name` 或返回对象的 `kubeclipper.io/operation-name` 标签关联任务。`GET /backups/{name}` 核对 `backupStatus.status=available`、实际文件大小和 MD5。`POST /clusters/{name}/recovery` 请求体的 `useBackupName` 指向这份快照，使用响应标签关联 `RecoveryCluster` Operation。写入 A、备份、实读 B、恢复后实读 A。用 `kcctl delete cluster <name>` 或 `DELETE /clusters/{name}` 验证备份保护，再删备份和集群，确认主机复位并用同一节点重建。关联 `2.5-01`、`2.5-03`、`2.4-04`、`2.4-01`。[恢复类型](../../pkg/scheme/core/v1/recovery_types.go) · [集群 handler](../../pkg/apis/core/v1/handler.go) · [删除 CLI](../../pkg/cli/delete/delete.go) |
@@ -29,7 +29,7 @@
 
 - **PR AIO。** 现有临时仓库只有四个 bootstrap 包。继续构建本次 `kcctl`、Server、Agent 和锁定 revision 的 Console，额外复制 amd64 K8s、containerd、Calico、`k8s-extension` 包、运行镜像和探针镜像。用 `packaging/resources.yaml` 对照依赖版本。与已验证的清单一起固定实际平台摘要，只有 tag 的条目在建立依赖基线时核验摘要。每轮把固定内容复制到预期 tag 并核对结果。打包输入变更时重建受影响制品或使用新候选 qualification，遇到缺件明确报错。旧清单的 bootstrap tag 可能与本地候选冲突，完整清单校验要求 `bootstrap/kubeclipper`。PR 准备脚本逐件复制依赖，保留本次构建的 bootstrap。[AIO 工作流](../../.github/workflows/test-aio.yml) · [制品定义](../../packaging/resources.yaml) · [清单校验](../../pkg/delivery/releasemanifest/manifest.go) · [同步实现](../../pkg/delivery/releasemanifest/sync.go)
 - **候选验收。** 使用同一候选 qualification 的完整清单和候选 bootstrap 包中的 `kcctl`，通过产品的 import/export、deploy 和 upgrade 入口接入。以候选 Git SHA、清单文件 SHA256 和实际 Registry digest 关联 qualification 结果和实机报告。冷启动查 Registry 拉取和 Agent 的执行结果，后续扩容与重试验证原计划的固定 digest。[qualification 工作流](../../.github/workflows/publish-oci-qualification.yml) · [交付说明](../oci-delivery.md) · [发布 gate](../../scripts/open-packaging/release-gate.sh)
-- **单机 Registry。** 当前 AIO 临时 Registry 由 Docker 启动。建删真实集群会重启、停止及清理宿主机 containerd。首条真 E2E 将 Registry 作为独立服务启动，例如用已有 Registry 小包启动原生服务，避免依赖受测节点的 containerd。预检和删群后都检查 Registry 可访问，确保删除后可用相同制品重建。[容器运行时安装与清理](../../pkg/scheme/core/v1/cri/containerd.go) · [Registry 部署命令](../../pkg/cli/registry/registry.go)
+- **单机 Registry。** AIO 工作流从 Registry 镜像提取二进制并独立运行。建群和删群会重启、停止及清理受测节点的 containerd，独立运行使后续用例仍可获取同一批 OCI 制品。[AIO 工作流](../../.github/workflows/test-aio.yml) · [容器运行时安装与清理](../../pkg/scheme/core/v1/cri/containerd.go)
 
 ## 每类用例用什么实现
 
@@ -48,8 +48,9 @@
 
 - **Console 仓库。** 单测覆盖表单校验、组件行为和状态渲染。Cypress 覆盖登录、向导、维护确认、Operation 进度和错误、kubeconfig 下载、终端及 OIDC 页面流程。首条用当前 `imageRegistry` 表单登录并提交建群，核对实际请求和任务状态展示。已有 `online-offline-install.cy.js` 使用旧 `offline` 选择器，需要更新。
 - **KubeClipper 仓库。** Go/Ginkgo 验实际 API 鉴权、任务与节点、版本和数据正确性。UI 发起的实际操作可以用同一个 Cluster/Operation UID 给两套断言取证。用例目录和通过判据共用，浏览器子项引用 Console 的 spec 名。
+- **kcctl 命令契约。** 通过 `app.NewKubeClipperCommand` 创建一个独立的 Cobra root command，调用 `SetArgs` 和 `ExecuteContext` 检查参数校验、子命令路由、请求和输出。调用 `utils.CheckErr` 的命令会在错误分支直接退出进程，此类错误使用子进程测。真实部署、实际退出码、SIGINT 和制品身份由 Ginkgo 执行候选二进制验收，再按需查实物和 API 状态。[现有 Cobra 命令测试](../../cmd/kcctl/app/release_cli_test.go) · [CheckErr 实现](../../pkg/cli/utils/error.go)
 - **候选验收。** 从 `bootstrap.consoleSourceRevision` 检出对应 Console 的用例，对已部署的候选页面运行 Cypress。现有 AIO 和 OCI 打包已按该字段构建 Console，打包脚本校验归档内的 `version.json`。联跑时另从实际入口读取版本信息并比对，记录后端 SHA、Console SHA、候选 manifest 摘要、用例编号及结果。Console PR 用自己的提交和固定测试后端验证页面。[打包配置](../../packaging/resources.yaml) · [AIO 中的 Console 构建](../../.github/workflows/test-aio.yml) · [OCI 打包校验](../../scripts/open-packaging/bootstrap-packages/common.sh)
-- **Cypress 入口。** 用 Console 测试配置指定本轮部署地址和测试账号，直接执行 `yarn cypress run --headless`。现有 `test:e2e:run` 的 `|| true` 会屏蔽失败。当前 `specPattern` 按文件列出，新增 spec 时一并登记。记录实际执行、失败和跳过的 spec，保留 JSON 报告与失败截图。
+- **Cypress 入口。** 用 Console 测试配置指定本轮部署地址、前后端 revision 和测试账号，执行 `npm run test:e2e:oci`。该入口运行 `cypress/e2e/oci/` 下的用例并传播失败退出码。运行产物包括 JSON 报告及失败截图。
 
 ## 首批场景与通过条件
 
@@ -89,3 +90,78 @@
 3. **按 P0 扩展。** 将适用的 P0 ID 和实际环境变体登记到跑批清单。自动化覆盖率按已实现且在 CI 启用全部必需变体的适用 P0 编号计算。候选通过率用当轮实测结果，便于同时追踪接入进度和发布质量。先补尚未有证据的发布、操作控制、权限场景，再加 P1/P2。正式候选生成后走既有 qualification 和发布验收，版本、架构与拓扑承诺依照本轮范围。
 
 本轮核对了当前 OCI CLI、API、已有 CI 和历史实机记录。此文是首批用例与 CI 的实施设计，接入结果以首次运行的候选报告为准。
+
+## 已接入的执行入口
+
+`[OCI-Lifecycle]` 在指定的独占 Agent 上使用真实 `kcctl`、KubeClipper API 和 Kubernetes API。每次生成独立集群名。对 AIO、1M1W 和多节点冷建复用同一条 Ginkgo spec，通过节点清单选择拓扑。运行日志记录具体的 Cluster、Operation 和 Task UID、选定的 OCI digest，以及命中的用例步骤。正式验收逐项对照执行规格中的完整判据。
+
+| 用例 | 当前可执行的检查 |
+| --- | --- |
+| `2.1-02`、`2.1-24`、`2.1-31` | 指定控制面和 Worker，查询 API Ready、节点角色与版本，在实际节点上调度 Pod，读取标记、访问 Service DNS。多节点还从实际 Pod 双向访问 Pod IP。 |
+| `2.1-04` | 对照本次选择的 K8s、containerd 和 Calico 版本，读取 API Server、各节点 kubelet 和运行时版本，检查 Calico DaemonSet 使用的镜像版本及全节点就绪。 |
+| `3-05`、`2.6-01` | CLI 发起建群，核对 API 持久化的节点、版本和镜像仓库引用，读取每个 OCI 槽位的 digest。 |
+| `4-12`、`5-01` | 直连和代理 kubeconfig 读取实际业务标记，按 Cluster UID 核对本轮受理和终态。 |
+| `4-12`、`4-08b` 授权边界 | `[OCI-ClusterAccess]` 用同一份真实数据验证直连与代理的交叉读写，并对照有效集群的只读身份、未授权下载和升级提交，以及不存在的集群。未就绪返回 503 的变体另验。 |
+| `2.3-01` 单节点 | 检查未确认维护的升级被拒且没有新 Operation，显式确认后核对 API、kubelet、PDB 对应 Pod 的替换和业务恢复。 |
+| `2.3-08` AIO、`3-11` 查询与日志 | `[OCI-UpgradeAdmission]` 在实际 v1.36.4 集群上验证同版本、降级、跨 minor、畸形版本和缺维护确认均为 400，核对没有升级 Operation、计划及 Pod 保持。同时对照本次建群的 API/Task 与候选 CLI list、describe、logs。低版本管理、多节点误用维护开关及失败操作的诊断和 retry 仍按各自环境补测。 |
+| `2.5-01`、`2.5-03`、`2.4-04` FS | 读取真实快照字节和摘要，对照恢复前的 A/B 读写，检查恢复后实际值与业务，并验证有备份时禁止删除集群。 |
+| `2.5-04` FS 删除重试 | `[OCI-BackupDeleteRetry]` 在专用目录制造真实文件删除失败，核对 `deleteFailed` 保留原记录和失败 Task。恢复快照路径后重试，等待新 Operation 成功，确认备份记录和实际文件都消失。S3 变体另验。 |
+| `2.5-10` FS 写入故障 | `[OCI-BackupDeleteRetry]` 临时移走专用 FS 路径，检查实际备份 Task 失败，且没有可用快照或伪造的文件元数据。恢复路径后在同一集群继续执行真实备份。坏快照恢复和 S3 凭据变体另验。 |
+| `2.5-05`、`2.5-06`、`2.5-07`、`2.5-08` FS 定时备份 | `[OCI-CronBackup]` 在 AIO 上核对单次与周期计划生成的实际快照、暂停跨过触发窗口、恢复后新建快照、轮转删除文件及保留手动备份。 |
+| `2.1-11`、`2.2-05`、`3-14`、`4-12b` | `[OCI-ClusterSettings]` 覆盖 AIO 节点禁用与重新准入、自定义 Pod 与 Service 网段和 DNS 域、CLI 修改和清空外部端点字段，以及选择不同容器的实际 WebSocket 执行。外部地址的 TLS 连通和多节点变体另验。 |
+| `3-08` 普通删除 | CLI 发起，Watch 捕获本轮 DeleteCluster 终态，验证集群记录删除及 Agent 归还。 |
+| `2.4-05` 目标集群清理 | 普通删除后按 Cluster UID 查询残留 Operation，并按删除前各 Operation 以及 DeleteCluster 的 UID 查询残留 Task。双集群隔离变体仍需实测。 |
+| `2.2-01`、`2.2-02`、`2.2-08` | `[OCI-Worker]` 向运行中的集群加入空闲 Worker，验证 AddNodes 的目标 Task、实际调度、网络和原 plan 保持。通过普通移除验证 RemoveNodes、Pod 驱逐、节点释放和剩余业务。配好 1M1W 和一台空闲 Agent 时可跑 1M1W → 1M2W → 1M1W。PDB 阻塞、失联移除、Registry tag 变化和实际拉取摘要还需专项。 |
+| `2.3-04` | `[OCI-Certificates]` 触发真实控制面证书更新，从直连 TLS 端点比对叶证书序列号与有效期，并使用原 CA 验证 TLS、读回业务。此入口覆盖 AIO，HA 各端点仍需实测。 |
+| `5-13` | `[OCI-BackupReplay]` 向真实 API 并发重放同 key 请求，核对同一 Backup UID、Operation、快照实物。同 key 的不同请求须返回 409。此入口覆盖单集群 FS，跨集群 key 作用域和 S3 仍需实测。 |
+| `3-25`、`4-08b` | `[OCI-Access]` 使用两个临时账号验证候选 CLI 登录及错误口令后的上下文。通过实际 API 对照管理员、平台查看者、无角色和匿名身份。确认查看者无法删除测试用户，拒绝后用户的 UID 和资源版本保持一致，管理员可正常删除同一用户。 |
+| `4-08d` | `[OCI-Tokens]` 验证一次真实签发、刷新、退出后的 access/refresh token 撤销，以及退出后管理员仍可访问。过期和多设备变体需另跑。 |
+| `4-08` | `[OCI-Accounts]` 由候选 CLI 创建、删除临时角色和账号，检查授权后的实际 API 访问、改密、禁用、启用以及成功和失败的登录记录。 |
+| `2.5-11`、`4-18`、`5-05` 契约 | 在 `make test` 中验证快照描述更新保留元数据，登录失败计数按账号隔离且到期后可继续登录，多目标步骤等齐任务才推进并传递输出。 |
+| `2.1-26`、`2.1-28`、`2.2-13`、`6-12` 契约 | `TestClusterCreateRejectsInvalidRequestsBeforeWriting` 将错误的节点、Region、CIDR 与已退役的 CRI 输入发给建群 HTTP handler，验证 400 和对应原因，并确保未进入写路径。 |
+| `2.1-17`、`5-12` 契约 | 验证 kubeadm 的节点注册配置只包含指定预检豁免项，使用两个真实 Task 文件验证 UTF-8 分页与独立字节游标。 |
+| `3-24`、`3-27`、`3-28`、`7-02` | 在 Fast 之前检查候选 CLI 的策略校验、部署模板、构建身份和 Bash/Zsh 补全输出。 |
+| `3-10` JSON 命名 watch | `[OCI-NamedWatch]` 用两个平台 ConfigMap 验证候选 CLI 只输出目标的真实变更，向进程发送 SIGINT 后须正常退出。YAML 及错误帧仍需专项。 |
+| `3-07`、`4-14` Registry 审计 | `[OCI-RegistryAudit]` 使用候选 CLI 和 API 创建、读取、更新、删除 Registry，拒绝无效 scheme，并在审计列表和详情核对更新事件的主体、动作、目标、时间及事件 ID。 |
+| `4-10` DNS 管理及同步 | `[OCI-DNSRecords]` 核对域名和 A、AAAA 记录 CRUD。错误类型和地址返回 400 且保持原记录。`[OCI-DNSSync]` 用两个域核对实际 CoreDNS 配置和 Pod 查询，删除其一后验证另一域仍可解析。OCI Console 当前未注册 DNS 管理菜单或页面路由，此项按 API 和集群内行为验收。 |
+| `3-26`、`4-13`、`4-17` 健康分支 | `[OCI-PlatformDiagnostics]` 直连候选 kc-server 检查 healthz 和可解析的 Prometheus 样本，核对 Agent Ready、组件状态、候选 CLI 的 JSON 状态和配置 API 响应。doctor 和故障状态另验。 |
+| `3-20`、`3-21` | 导入 AIO 依赖后，对本轮 Registry 运行候选 CLI 的 `resource list/inspect`，核对筛选、实际 OCI manifest digest 和不存在版本的返回。 |
+| `2.6-08`、`2.6-09`、`3-23` 策略与可选版本 | `[OCI-DeliveryPolicy]` 对照初始 API 策略、CLI 模板与 Registry 派生的组件版本。验证 diff 和 validate 保持原状态，应用收窄策略后检查版本列表并恢复原策略。已有集群 plan 保持与真实建群准入另验。 |
+| `4-07` 浏览器主流程 | Console 仓 `npm run test:e2e:oci` 覆盖候选版本核对、真实登录、AIO 向导、Operation 日志、显式维护升级和正常删除。 |
+
+当前入口的覆盖范围以此表为准。完整的多节点扩缩容及滚动升级、HA 多数派、独立包源验证、S3 和 NFS、故障注入、权限与专项 Browser 流程仍按上方用例台账和执行规格追踪。
+
+### 在已部署的候选上运行
+
+先用本轮 `kcctl` 登录独立测试平台。将对应的已注册 Agent ID、候选提交、版本、Registry 资源名和 BusyBox 探针镜像传给 Ginkgo。AIO 设置一个 Master。1M1W 在 `KC_E2E_WORKERS` 中提供另外一个 Agent ID，多个 ID 用空格分隔。删除会卸载这些专用 Agent 上的 Kubernetes。FS 检查设置 `KC_E2E_FS_BACKUP=1`，并在这台 AIO Agent 上以能读快照的用户运行。升级检查设置 `KC_E2E_UPGRADE_VERSION`，使用支持单节点维护的 AIO。
+
+多网卡环境可用 `KC_E2E_CALICO_IPV4_DETECTION=interface=^网卡名$` 指定各节点互通的网卡，探针仍会检查跨节点 Pod IP 和 Service DNS。
+
+权限、Token、账号和命名 watch 套件只需测试平台、候选 CLI 和管理员登录上下文。`KC_E2E_BACKEND_REVISION="$backend_revision" ./dist/e2e.test -ginkgo.focus='\[OCI-(Access|Tokens|Accounts|NamedWatch)\]'` 使用随机命名的账号或 ConfigMap 执行检查和清理。
+
+三个新增集群入口复用下方通用集群参数，通过各自的 Ginkgo focus 运行。Worker 场景额外设置 `KC_E2E_SPARE_WORKER` 为未分配的 Agent ID。证书和备份重放场景使用 AIO。证书场景设置 `KC_E2E_CONTROL_PLANE_CA_FILE` 为专用控制面节点的公开 CA 文件，默认 kubeadm 路径为 `/etc/kubernetes/pki/ca.crt`。备份重放在分配的 AIO Agent 上运行，测试用户须能读取实际快照。
+
+升级准入场景使用 AIO v1.36.4 和 `-ginkgo.focus='\[OCI-UpgradeAdmission\]'`。它提交应被拒绝的请求，无需提供升级包。
+
+集群访问可在 AIO 运行 `-ginkgo.focus='\[OCI-ClusterAccess\]'`。备份删除重试用 `-ginkgo.focus='\[OCI-BackupDeleteRetry\]'`，和备份重放一样在专用 AIO Agent 上运行，测试用户须能移动和读取该测试创建的快照文件。
+
+定时备份用 `-ginkgo.focus='\[OCI-CronBackup\]'`，测试用户须能读取专用 AIO Agent 上的快照。平台诊断设置 `KC_E2E_SERVER_ENDPOINT` 和 `KC_E2E_SERVER_CA_FILE`，将 healthz 和 metrics 请求发往 kc-server 的 TLS 端口。Console 入口只用于代理已配置的 API 路径。
+
+交付策略检查用 `-ginkgo.focus='\[OCI-DeliveryPolicy\]'`，要求独立部署、初始策略和同时提供 v1.36.4、v1.37.0 的候选包仓库。它会保存、收窄并恢复平台策略，执行期间须独占该平台。
+
+```sh
+make build-e2e
+KC_E2E_BACKEND_REVISION="${backend_revision:?}" \
+KC_E2E_MASTERS="${agent_id:?}" \
+KC_E2E_KUBERNETES_VERSION=v1.36.4 \
+KC_E2E_UPGRADE_VERSION=v1.37.0 \
+KC_E2E_IMAGE_REGISTRY=kc-package-registry \
+KC_E2E_PROBE_IMAGE=docker.io/library/busybox:1.36.1 \
+KC_E2E_FS_BACKUP=1 \
+KC_E2E_JUNIT="$PWD/dist/oci-lifecycle.xml" \
+./dist/e2e.test -ginkgo.focus='\[OCI-Lifecycle\]'
+```
+
+`e2e-aio-test` 可通过工作流输入或仓库变量 `KC_E2E_DEPENDENCY_MANIFEST_URL`、`KC_E2E_DEPENDENCY_MANIFEST_SHA256` 导入已发布的 AMD64 组件和运行镜像，并构建本次后端和固定 revision 的 Console。两项输入均为空时运行既有 Fast smoke。启用完整 AIO 时，固定的 Console revision 需要包含 `test:e2e:oci`。工作流保留选用的依赖清单摘要、两边 Git SHA、Ginkgo JUnit 及 Cypress 报告。
+
+手动触发工作流时设置 `extended_ginkgo=true`，可在 AIO 主流程之后串行执行扩展用例。也可在已登录的专用 AIO 环境运行 `bash test/e2e/oci/run-aio-ginkgo.sh ./dist/e2e.test dist/oci-evidence`。每条 spec 保留独立日志、JUnit 和退出码。
