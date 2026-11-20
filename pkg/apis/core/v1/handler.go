@@ -61,6 +61,7 @@ import (
 	"k8s.io/client-go/util/retry"
 
 	"github.com/kubeclipper/kubeclipper/cmd/kcctl/app/options"
+	clusterproxy "github.com/kubeclipper/kubeclipper/pkg/apis/proxy"
 	"github.com/kubeclipper/kubeclipper/pkg/authentication/auth"
 	"github.com/kubeclipper/kubeclipper/pkg/client/clientrest"
 	"github.com/kubeclipper/kubeclipper/pkg/clustermanage"
@@ -1070,7 +1071,7 @@ func (h *handler) getProxyKubeConfig(ctx context.Context, clusterName string) ([
 	// FIXME floatIP or domain?
 	host := fmt.Sprintf("%s:%d", h.genericConfig.BindAddress, port)
 
-	serverURL := fmt.Sprintf("%s://%s/cluster/%s", scheme, host, clusterName)
+	serverURL := fmt.Sprintf("%s://%s%s%s", scheme, host, clusterproxy.ProxyHandlerPrefix, clusterName)
 	user, ok := apirequest.UserFrom(ctx)
 	if !ok {
 		return nil, fmt.Errorf("not get user info")
